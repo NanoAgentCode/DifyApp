@@ -8,15 +8,15 @@
         </div>
       </template>
 
-      <div class="chat-messages" ref="messagesRef">
+      <div class="chat-messages" ref="messagesRef" @scroll="handleScroll">
         <div
           v-for="(message, index) in messages"
-          :key="`${updateKey}-${index}-${message.content?.length || 0}`"
+          :key="`msg-${index}-${message.role}`"
           :class="['message', message.role]"
         >
           <div class="message-content">
-            <div class="message-text" v-html="formatMessage(message.content)"></div>
             <div class="message-time">{{ formatTime(message.time) }}</div>
+            <div class="message-text" v-html="formatMessage(message.content)"></div>
           </div>
         </div>
         <div v-if="loading && (!messages.length || messages[messages.length - 1]?.role !== 'assistant' || !messages[messages.length - 1]?.content)" class="message assistant">
@@ -63,6 +63,8 @@ const loading = ref(false)
 const messagesRef = ref(null)
 const conversationId = ref(null)
 const updateKey = ref(0) // 用于强制更新
+const isUserScrolling = ref(false) // 标记用户是否在手动滚动
+const autoScrollEnabled = ref(true) // 是否启用自动滚动
 
 const fetchAppInfo = async () => {
   try {
@@ -90,6 +92,7 @@ const handleSend = async () => {
   loading.value = true
 
   await nextTick()
+  autoScrollEnabled.value = true
   scrollToBottom()
 
   try {
@@ -136,6 +139,8 @@ const handleStreamChat = async (requestData) => {
   const messageIndex = messages.value.length
   let assistantContent = ''
   let updateTimer = null
+  let lastUpdateTime = 0
+  const UPDATE_INTERVAL = 100 // 每100ms更新一次DOM，减少更新频率
   
   // 创建初始消息
   messages.value = [...messages.value, {
@@ -143,32 +148,57 @@ const handleStreamChat = async (requestData) => {
     content: '',
     time: new Date()
   }]
-  updateKey.value++ // 触发key更新
   
-  // 更新消息的辅助函数，带防抖
+  // 确保初始滚动到底部
+  await nextTick()
+  scrollToBottomSmooth()
+  
+  // 更新消息的辅助函数，带防抖和节流
   const updateMessage = (content) => {
     assistantContent = content
+    const now = Date.now()
+    
+    // 立即更新数据，但限制DOM更新频率
     const newMessages = [...messages.value]
     newMessages[messageIndex] = {
       ...newMessages[messageIndex],
       content: assistantContent
     }
     messages.value = newMessages
-    updateKey.value++ // 强制更新key
     
     // 清除之前的定时器
     if (updateTimer) {
       clearTimeout(updateTimer)
     }
     
-    // 使用防抖，每50ms更新一次DOM
-    updateTimer = setTimeout(() => {
-      requestAnimationFrame(() => {
-        nextTick(() => {
-          scrollToBottom()
+    // 使用节流，每100ms最多更新一次DOM和滚动
+    if (now - lastUpdateTime >= UPDATE_INTERVAL) {
+      lastUpdateTime = now
+      updateTimer = setTimeout(() => {
+        requestAnimationFrame(() => {
+          nextTick(() => {
+            if (autoScrollEnabled.value) {
+              scrollToBottomSmooth()
+            }
+          })
         })
-      })
-    }, 50)
+      }, 0)
+    } else {
+      // 如果距离上次更新时间太短，延迟执行
+      updateTimer = setTimeout(() => {
+        const elapsed = Date.now() - lastUpdateTime
+        if (elapsed >= UPDATE_INTERVAL) {
+          lastUpdateTime = Date.now()
+          requestAnimationFrame(() => {
+            nextTick(() => {
+              if (autoScrollEnabled.value) {
+                scrollToBottomSmooth()
+              }
+            })
+          })
+        }
+      }, UPDATE_INTERVAL - (now - lastUpdateTime))
+    }
   }
 
   try {
@@ -428,8 +458,9 @@ const handleStreamChat = async (requestData) => {
       content: assistantContent
     }
     messages.value = newMessages
-    updateKey.value++
     await nextTick()
+    // 流式输出完成后，重新启用自动滚动并滚动到底部
+    autoScrollEnabled.value = true
     scrollToBottom()
   }
 }
@@ -476,12 +507,53 @@ const formatTime = (date) => {
   return new Date(date).toLocaleTimeString('zh-CN')
 }
 
+// 检查用户是否接近底部（距离底部50px以内）
+const isNearBottom = () => {
+  if (!messagesRef.value) return true
+  const { scrollTop, scrollHeight, clientHeight } = messagesRef.value
+  return scrollHeight - scrollTop - clientHeight < 50
+}
+
+// 处理滚动事件
+const handleScroll = () => {
+  if (!messagesRef.value) return
+  // 如果用户滚动到接近底部，重新启用自动滚动
+  if (isNearBottom()) {
+    autoScrollEnabled.value = true
+    isUserScrolling.value = false
+  } else {
+    // 用户手动滚动，暂时禁用自动滚动
+    autoScrollEnabled.value = false
+    isUserScrolling.value = true
+  }
+}
+
+// 平滑滚动到底部（用于流式输出，避免跳动）
+const scrollToBottomSmooth = () => {
+  if (!messagesRef.value || !autoScrollEnabled.value) return
+  
+  requestAnimationFrame(() => {
+    if (messagesRef.value) {
+      const container = messagesRef.value
+      const targetScrollTop = container.scrollHeight - container.clientHeight
+      
+      // 直接设置 scrollTop，不使用平滑滚动，避免跳动
+      // 只在用户接近底部时才自动滚动
+      if (isNearBottom()) {
+        container.scrollTop = targetScrollTop
+      }
+    }
+  })
+}
+
+// 立即滚动到底部（用于初始化和完成时）
 const scrollToBottom = () => {
   nextTick(() => {
     if (messagesRef.value) {
-      // 使用 requestAnimationFrame 确保 DOM 更新完成后再滚动
       requestAnimationFrame(() => {
-        messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+        if (messagesRef.value) {
+          messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+        }
       })
     }
   })
@@ -537,6 +609,10 @@ onMounted(() => {
   background: #f5f7fa;
   min-height: 0; /* 确保 flex 子元素可以缩小 */
   height: 0; /* 配合 flex: 1 使用 */
+  scroll-behavior: auto; /* 禁用平滑滚动，避免跳动 */
+  /* 优化滚动性能 */
+  will-change: scroll-position;
+  transform: translateZ(0); /* 启用硬件加速 */
 }
 
 .message {
@@ -571,7 +647,6 @@ onMounted(() => {
 
 .message-text {
   word-wrap: break-word;
-  margin-bottom: 4px;
   line-height: 1.6;
 }
 
@@ -714,7 +789,7 @@ onMounted(() => {
 .message-time {
   font-size: 12px;
   opacity: 0.7;
-  margin-top: 4px;
+  margin-bottom: 4px;
 }
 
 .chat-input {

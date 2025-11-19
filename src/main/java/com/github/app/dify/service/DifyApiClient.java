@@ -17,7 +17,6 @@ import reactor.core.publisher.Mono;
 import reactor.netty.http.client.HttpClient;
 import io.netty.channel.ChannelOption;
 import reactor.util.function.Tuples;
-import reactor.util.function.Tuple2;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -96,6 +95,16 @@ public class DifyApiClient {
             throw new RuntimeException("API Key不能为空");
         }
         
+        // 内部方法：执行实际的请求
+        return executeChatRequest(apiKey, baseUrl, query, conversationId, userId, inputs, true);
+    }
+    
+    /**
+     * 执行非流式聊天请求（支持自动重试）
+     */
+    private Mono<DifyResponse> executeChatRequest(String apiKey, String baseUrl, String query, 
+                                                   String conversationId, String userId, 
+                                                   Map<String, Object> inputs, boolean allowRetry) {
         WebClient webClient = createWebClient(baseUrl);
         
         Map<String, Object> requestBody = new java.util.HashMap<>();
@@ -112,8 +121,8 @@ public class DifyApiClient {
         requestBody.put("stream", false);
         
         String actualUrl = (baseUrl != null && !baseUrl.trim().isEmpty()) ? baseUrl.trim() : difyConfig.getDefaultBaseUrl();
-        logger.info("调用Dify Chat API, URL: {}, API Key: {}, 请求体: {}", 
-                actualUrl, apiKey.substring(0, Math.min(10, apiKey.length())) + "...", requestBody);
+        logger.info("调用Dify Chat API, URL: {}, API Key: {}, conversationId: {}, 请求体: {}", 
+                actualUrl, apiKey.substring(0, Math.min(10, apiKey.length())) + "...", conversationId, requestBody);
         
         // Dify API路径
         String apiPath = "/v1/chat-messages";
@@ -142,6 +151,29 @@ public class DifyApiClient {
                     } else {
                         logger.error("调用Dify Chat API失败", error);
                     }
+                })
+                .onErrorResume(error -> {
+                    // 处理 conversationId 不存在的情况
+                    if (error instanceof org.springframework.web.reactive.function.client.WebClientResponseException.NotFound) {
+                        org.springframework.web.reactive.function.client.WebClientResponseException.NotFound notFoundEx = 
+                            (org.springframework.web.reactive.function.client.WebClientResponseException.NotFound) error;
+                        try {
+                            String responseBody = notFoundEx.getResponseBodyAsString();
+                            // 检查是否是 conversation 不存在的错误
+                            if (responseBody != null && responseBody.contains("Conversation Not Exists")) {
+                                logger.warn("Conversation ID 不存在: {}, 将清除 conversationId 并重试", conversationId);
+                                // 如果允许重试且 conversationId 不为空，则清除 conversationId 并重试
+                                if (allowRetry && conversationId != null && !conversationId.trim().isEmpty()) {
+                                    logger.info("自动重试：清除无效的 conversationId 并重新发送请求");
+                                    return executeChatRequest(apiKey, baseUrl, query, null, userId, inputs, false);
+                                }
+                            }
+                        } catch (Exception e) {
+                            logger.warn("无法读取错误响应体", e);
+                        }
+                    }
+                    // 其他错误直接返回
+                    return Mono.error(error);
                 });
     }
     
@@ -154,6 +186,16 @@ public class DifyApiClient {
             throw new RuntimeException("API Key不能为空");
         }
         
+        // 内部方法：执行实际的流式请求
+        return executeChatStreamRequest(apiKey, baseUrl, query, conversationId, userId, inputs, true);
+    }
+    
+    /**
+     * 执行流式聊天请求（支持自动重试）
+     */
+    private Flux<DifyResponse> executeChatStreamRequest(String apiKey, String baseUrl, String query, 
+                                                         String conversationId, String userId, 
+                                                         Map<String, Object> inputs, boolean allowRetry) {
         WebClient webClient = createStreamWebClient(baseUrl);
         
         Map<String, Object> requestBody = new java.util.HashMap<>();
@@ -170,8 +212,8 @@ public class DifyApiClient {
         requestBody.put("stream", true);
         
         String actualUrl = (baseUrl != null && !baseUrl.trim().isEmpty()) ? baseUrl.trim() : difyConfig.getDefaultBaseUrl();
-        logger.info("调用Dify Chat Stream API, URL: {}, API Key: {}, 请求体: {}", 
-                actualUrl, apiKey.substring(0, Math.min(10, apiKey.length())) + "...", requestBody);
+        logger.info("调用Dify Chat Stream API, URL: {}, API Key: {}, conversationId: {}, 请求体: {}", 
+                actualUrl, apiKey.substring(0, Math.min(10, apiKey.length())) + "...", conversationId, requestBody);
         
         // Dify API路径
         String apiPath = "/v1/chat-messages";
@@ -296,6 +338,29 @@ public class DifyApiClient {
                     } else {
                         logger.error("调用Dify Chat Stream API失败, URL: " + actualUrl, error);
                     }
+                })
+                .onErrorResume(error -> {
+                    // 处理 conversationId 不存在的情况
+                    if (error instanceof org.springframework.web.reactive.function.client.WebClientResponseException.NotFound) {
+                        org.springframework.web.reactive.function.client.WebClientResponseException.NotFound notFoundEx = 
+                            (org.springframework.web.reactive.function.client.WebClientResponseException.NotFound) error;
+                        try {
+                            String responseBody = notFoundEx.getResponseBodyAsString();
+                            // 检查是否是 conversation 不存在的错误
+                            if (responseBody != null && responseBody.contains("Conversation Not Exists")) {
+                                logger.warn("Conversation ID 不存在: {}, 将清除 conversationId 并重试", conversationId);
+                                // 如果允许重试且 conversationId 不为空，则清除 conversationId 并重试
+                                if (allowRetry && conversationId != null && !conversationId.trim().isEmpty()) {
+                                    logger.info("自动重试：清除无效的 conversationId 并重新发送请求");
+                                    return executeChatStreamRequest(apiKey, baseUrl, query, null, userId, inputs, false);
+                                }
+                            }
+                        } catch (Exception e) {
+                            logger.warn("无法读取错误响应体", e);
+                        }
+                    }
+                    // 其他错误直接返回
+                    return Flux.error(error);
                 });
     }
     
@@ -346,16 +411,70 @@ public class DifyApiClient {
                             (org.springframework.web.reactive.function.client.WebClientResponseException) error;
                         try {
                             String responseBody = ex.getResponseBodyAsString();
-                            logger.error("调用Dify Workflow API失败: {} {}, URL: {}, 响应: {}", 
-                                ex.getStatusCode(), ex.getStatusText(), actualUrl, responseBody);
+                            logger.error("调用Dify Workflow API失败: {} {}, URL: {}, 请求体: {}, 响应: {}", 
+                                ex.getStatusCode(), ex.getStatusText(), actualUrl, requestBody, responseBody);
                         } catch (Exception e) {
-                            logger.error("调用Dify Workflow API失败: {} {}, URL: {}", 
-                                ex.getStatusCode(), ex.getStatusText(), actualUrl);
+                            logger.error("调用Dify Workflow API失败: {} {}, URL: {}, 请求体: {}", 
+                                ex.getStatusCode(), ex.getStatusText(), actualUrl, requestBody);
                         }
                     } else {
                         logger.error("调用Dify Workflow API失败", error);
                     }
+                })
+                .onErrorMap(error -> {
+                    // 处理参数缺失错误，提供更友好的错误信息
+                    if (error instanceof org.springframework.web.reactive.function.client.WebClientResponseException.BadRequest) {
+                        org.springframework.web.reactive.function.client.WebClientResponseException.BadRequest badRequestEx = 
+                            (org.springframework.web.reactive.function.client.WebClientResponseException.BadRequest) error;
+                        try {
+                            String responseBody = badRequestEx.getResponseBodyAsString();
+                            if (responseBody != null && responseBody.contains("is required in input form")) {
+                                // 提取缺失的参数名
+                                String missingParam = extractMissingParam(responseBody);
+                                String errorMessage = String.format("Workflow 缺少必需的输入参数: %s。请检查应用配置中的 inputs 字段，确保包含所有必需的参数。", missingParam);
+                                logger.warn("Workflow 参数缺失: {}, 当前输入参数: {}", missingParam, requestBody.get("inputs"));
+                                return new RuntimeException(errorMessage, badRequestEx);
+                            }
+                        } catch (Exception e) {
+                            logger.warn("无法解析错误响应体", e);
+                        }
+                    }
+                    return error;
                 });
+    }
+    
+    /**
+     * 从错误响应中提取缺失的参数名
+     */
+    @SuppressWarnings("unchecked")
+    private String extractMissingParam(String responseBody) {
+        try {
+            // 尝试解析 JSON 响应
+            Map<String, Object> errorJson = objectMapper.readValue(responseBody, 
+                    objectMapper.getTypeFactory().constructMapType(Map.class, String.class, Object.class));
+            String message = (String) errorJson.get("message");
+            if (message != null && message.contains("is required in input form")) {
+                // 提取参数名，例如 "word is required in input form" -> "word"
+                String[] parts = message.split(" is required");
+                if (parts.length > 0) {
+                    return parts[0].trim();
+                }
+            }
+        } catch (Exception e) {
+            // 如果解析失败，尝试正则匹配
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"([^\"]+)\" is required in input form");
+            java.util.regex.Matcher matcher = pattern.matcher(responseBody);
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
+            // 尝试另一种格式
+            pattern = java.util.regex.Pattern.compile("([a-zA-Z_][a-zA-Z0-9_]*) is required in input form");
+            matcher = pattern.matcher(responseBody);
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
+        }
+        return "未知参数";
     }
     
     /**
@@ -378,7 +497,8 @@ public class DifyApiClient {
         requestBody.put("stream", true);
         
         String actualUrl = (baseUrl != null && !baseUrl.trim().isEmpty()) ? baseUrl.trim() : difyConfig.getDefaultBaseUrl();
-        logger.info("调用Dify Workflow Stream API, URL: {}, API Key: {}", actualUrl, apiKey.substring(0, Math.min(10, apiKey.length())) + "...");
+        logger.info("调用Dify Workflow Stream API, URL: {}, API Key: {}, 请求体: {}", 
+                actualUrl, apiKey.substring(0, Math.min(10, apiKey.length())) + "...", requestBody);
         
         return webClient.post()
                 .uri("/v1/workflows/run")
@@ -445,15 +565,35 @@ public class DifyApiClient {
                             (org.springframework.web.reactive.function.client.WebClientResponseException) error;
                         try {
                             String responseBody = ex.getResponseBodyAsString();
-                            logger.error("调用Dify Workflow Stream API失败: {} {}, URL: {}, 响应: {}", 
-                                ex.getStatusCode(), ex.getStatusText(), actualUrl, responseBody);
+                            logger.error("调用Dify Workflow Stream API失败: {} {}, URL: {}, 请求体: {}, 响应: {}", 
+                                ex.getStatusCode(), ex.getStatusText(), actualUrl, requestBody, responseBody);
                         } catch (Exception e) {
-                            logger.error("调用Dify Workflow Stream API失败: {} {}, URL: {}", 
-                                ex.getStatusCode(), ex.getStatusText(), actualUrl);
+                            logger.error("调用Dify Workflow Stream API失败: {} {}, URL: {}, 请求体: {}", 
+                                ex.getStatusCode(), ex.getStatusText(), actualUrl, requestBody);
                         }
                     } else {
                         logger.error("调用Dify Workflow Stream API失败", error);
                     }
+                })
+                .onErrorMap(error -> {
+                    // 处理参数缺失错误，提供更友好的错误信息
+                    if (error instanceof org.springframework.web.reactive.function.client.WebClientResponseException.BadRequest) {
+                        org.springframework.web.reactive.function.client.WebClientResponseException.BadRequest badRequestEx = 
+                            (org.springframework.web.reactive.function.client.WebClientResponseException.BadRequest) error;
+                        try {
+                            String responseBody = badRequestEx.getResponseBodyAsString();
+                            if (responseBody != null && responseBody.contains("is required in input form")) {
+                                // 提取缺失的参数名
+                                String missingParam = extractMissingParam(responseBody);
+                                String errorMessage = String.format("Workflow 缺少必需的输入参数: %s。请检查应用配置中的 inputs 字段，确保包含所有必需的参数。", missingParam);
+                                logger.warn("Workflow 参数缺失: {}, 当前输入参数: {}", missingParam, requestBody.get("inputs"));
+                                return new RuntimeException(errorMessage, badRequestEx);
+                            }
+                        } catch (Exception e) {
+                            logger.warn("无法解析错误响应体", e);
+                        }
+                    }
+                    return error;
                 });
     }
 }
