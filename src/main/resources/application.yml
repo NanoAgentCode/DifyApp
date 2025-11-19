@@ -19,10 +19,14 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+    open-in-view: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
 
 # Dify配置
 dify:

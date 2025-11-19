@@ -58,9 +58,8 @@ public class AiApp implements Serializable {
     /**
     * 应用配置
     */
-    @Size(max= -1,message="编码长度不能超过-1")
     @ApiModelProperty("应用配置")
-    @Length(max= -1,message="编码长度不能超过-1")
+    @Column(name = "inputs", columnDefinition = "text")
     private String inputs;
     /**
     * 应用图标
