@@ -24,7 +24,6 @@ public class AiApp implements Serializable {
     */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @NotNull(message="[应用编号]不能为空")
     @ApiModelProperty("应用编号")
     private Long id;
     /**
@@ -52,7 +51,6 @@ public class AiApp implements Serializable {
     /**
     * 应用状态
     */
-    @NotNull(message="[应用状态]不能为空")
     @ApiModelProperty("应用状态")
     private Integer status;
     /**
@@ -83,7 +81,6 @@ public class AiApp implements Serializable {
     /**
     * 创建时间
     */
-    @NotNull(message="[创建时间]不能为空")
     @ApiModelProperty("创建时间")
     private Date createTime;
     /**
@@ -96,13 +93,11 @@ public class AiApp implements Serializable {
     /**
     * 更新时间
     */
-    @NotNull(message="[更新时间]不能为空")
     @ApiModelProperty("更新时间")
     private Date updateTime;
     /**
     * 是否删除
     */
-    @NotNull(message="[是否删除]不能为空")
     @ApiModelProperty("是否删除")
     private Integer deleted;
     /**

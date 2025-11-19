@@ -48,6 +48,12 @@ public class AiAppService {
         
         AiApp aiApp = new AiApp();
         BeanUtils.copyProperties(req, aiApp);
+        
+        // 确保API Key被正确设置（显式设置，避免BeanUtils复制问题）
+        if (req.getAppId() != null) {
+            aiApp.setAppId(req.getAppId());
+        }
+        
         aiApp.setStatus(1); // 默认启用
         aiApp.setDeleted(0); // 默认未删除
         aiApp.setCreateTime(new Date());
@@ -63,7 +69,14 @@ public class AiAppService {
             aiApp.setStreamEnabled(false);
         }
         
+        // 记录保存前的数据
+        logger.info("创建应用 - 名称: {}, API Key: {}, API Base URL: {}", 
+                aiApp.getName(), aiApp.getAppId(), aiApp.getApiBaseUrl());
+        
         aiApp = aiAppRepository.save(aiApp);
+        
+        // 记录保存后的数据
+        logger.info("应用创建成功 - ID: {}, API Key: {}", aiApp.getId(), aiApp.getAppId());
         
         return convertToResp(aiApp);
     }
@@ -200,6 +213,9 @@ public class AiAppService {
             throw new RuntimeException("应用类型不是Chat Flow");
         }
         
+        // 验证并修复API Base URL
+        String apiBaseUrl = validateAndFixApiBaseUrl(app.getApiBaseUrl());
+        
         // 检查是否支持流式响应
         boolean stream = request.getStream() != null && request.getStream();
         if (stream && (app.getStreamEnabled() == null || !app.getStreamEnabled())) {
@@ -210,7 +226,7 @@ public class AiAppService {
             // 流式响应
             Flux<DifyResponse> flux = difyApiClient.chatStream(
                     app.getAppId(),
-                    app.getApiBaseUrl(),
+                    apiBaseUrl,
                     request.getQuery(),
                     request.getConversationId(),
                     request.getUserId(),
@@ -222,7 +238,7 @@ public class AiAppService {
             // 非流式响应
             return difyApiClient.chat(
                     app.getAppId(),
-                    app.getApiBaseUrl(),
+                    apiBaseUrl,
                     request.getQuery(),
                     request.getConversationId(),
                     request.getUserId(),
@@ -251,9 +267,12 @@ public class AiAppService {
             throw new RuntimeException("应用不支持流式响应");
         }
         
+        // 验证并修复API Base URL
+        String apiBaseUrl = validateAndFixApiBaseUrl(app.getApiBaseUrl());
+        
         return difyApiClient.chatStream(
                 app.getAppId(),
-                app.getApiBaseUrl(),
+                apiBaseUrl,
                 request.getQuery(),
                 request.getConversationId(),
                 request.getUserId(),
@@ -276,6 +295,9 @@ public class AiAppService {
             throw new RuntimeException("应用类型不是Workflow");
         }
         
+        // 验证并修复API Base URL
+        String apiBaseUrl = validateAndFixApiBaseUrl(app.getApiBaseUrl());
+        
         // 检查是否支持流式响应
         boolean stream = request.getStream() != null && request.getStream();
         if (stream && (app.getStreamEnabled() == null || !app.getStreamEnabled())) {
@@ -286,7 +308,7 @@ public class AiAppService {
             // 流式响应
             Flux<DifyResponse> flux = difyApiClient.workflowStream(
                     app.getAppId(),
-                    app.getApiBaseUrl(),
+                    apiBaseUrl,
                     request.getUserId(),
                     request.getInputs()
             );
@@ -296,7 +318,7 @@ public class AiAppService {
             // 非流式响应
             return difyApiClient.workflow(
                     app.getAppId(),
-                    app.getApiBaseUrl(),
+                    apiBaseUrl,
                     request.getUserId(),
                     request.getInputs()
             );
@@ -323,12 +345,41 @@ public class AiAppService {
             throw new RuntimeException("应用不支持流式响应");
         }
         
+        // 验证并修复API Base URL
+        String apiBaseUrl = validateAndFixApiBaseUrl(app.getApiBaseUrl());
+        
         return difyApiClient.workflowStream(
                 app.getAppId(),
-                app.getApiBaseUrl(),
+                apiBaseUrl,
                 request.getUserId(),
                 request.getInputs()
         );
+    }
+    
+    /**
+     * 验证并修复API Base URL
+     * 支持Dify前端代理的情况（如80端口）
+     */
+    private String validateAndFixApiBaseUrl(String apiBaseUrl) {
+        if (apiBaseUrl == null || apiBaseUrl.trim().isEmpty()) {
+            return null; // 使用默认配置
+        }
+        
+        String url = apiBaseUrl.trim();
+        
+        // 检查URL格式
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            logger.warn("API Base URL格式不正确: {}, 将使用默认配置", url);
+            return null;
+        }
+        
+        // 移除尾随斜杠
+        if (url.endsWith("/")) {
+            url = url.substring(0, url.length() - 1);
+        }
+        
+        logger.info("使用API Base URL: {}", url);
+        return url;
     }
     
     /**

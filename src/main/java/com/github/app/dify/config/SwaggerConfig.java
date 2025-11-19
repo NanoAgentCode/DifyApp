@@ -14,9 +14,11 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 /**
  * Swagger配置
+ * 暂时禁用以避免 Spring Boot 2.6+ 兼容性问题
+ * 如需启用，请解决 Springfox 与 Spring Boot 2.6+ 的兼容性问题
  */
-@Configuration
-@EnableSwagger2
+// @Configuration
+// @EnableSwagger2
 public class SwaggerConfig implements WebMvcConfigurer {
     
     @Bean

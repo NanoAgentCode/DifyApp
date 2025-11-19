@@ -114,17 +114,53 @@ const fetchAppDetail = async () => {
 const handleSubmit = async () => {
   try {
     await formRef.value.validate()
+    
+    // 清理空字符串字段，转换为null或删除
+    const submitData = { ...form }
+    
+    // 将空字符串转换为null或删除
+    if (!submitData.description || submitData.description.trim() === '') {
+      submitData.description = null
+    }
+    if (!submitData.apiBaseUrl || submitData.apiBaseUrl.trim() === '') {
+      submitData.apiBaseUrl = null
+    }
+    if (!submitData.icon || submitData.icon.trim() === '') {
+      submitData.icon = null
+    }
+    if (!submitData.themeColor || submitData.themeColor.trim() === '') {
+      submitData.themeColor = null
+    }
+    
     if (isEdit.value) {
-      await updateApp(route.params.id, form)
+      await updateApp(route.params.id, submitData)
       ElMessage.success('更新成功')
     } else {
-      await createApp(form)
+      await createApp(submitData)
       ElMessage.success('创建成功')
     }
     router.push('/admin/apps')
   } catch (error) {
     if (error !== false) {
-      ElMessage.error(isEdit.value ? '更新失败' : '创建失败')
+      // 显示更详细的错误信息
+      let errorMsg = isEdit.value ? '更新失败' : '创建失败'
+      
+      if (error?.response?.data) {
+        const errorData = error.response.data
+        if (errorData.errors) {
+          // 验证错误，显示字段错误
+          const errorFields = Object.keys(errorData.errors)
+          const firstError = errorFields[0]
+          errorMsg = `${firstError}: ${errorData.errors[firstError]}`
+        } else if (errorData.error) {
+          errorMsg = errorData.error
+        }
+      } else if (error?.message) {
+        errorMsg = error.message
+      }
+      
+      ElMessage.error(errorMsg)
+      console.error('提交失败:', error)
     }
   }
 }

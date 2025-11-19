@@ -32,7 +32,7 @@ spring:
 dify:
   api:
     # 默认Dify API Base URL
-    default-base-url: http://localhost:5001
+    default-base-url: http://localhost:80
     # 默认超时时间（毫秒）
     timeout: 30000
     # 连接超时时间（毫秒）

@@ -56,7 +56,6 @@ public class AiAppUser implements Serializable {
     /**
     * 状态：0-禁用，1-启用
     */
-    @NotNull(message="[状态：0-禁用，1-启用]不能为空")
     @ApiModelProperty("状态：0-禁用，1-启用")
     private Integer status;
     /**
@@ -76,7 +75,6 @@ public class AiAppUser implements Serializable {
     /**
     * 创建时间
     */
-    @NotNull(message="[创建时间]不能为空")
     @ApiModelProperty("创建时间")
     private Date createTime;
     /**
@@ -89,13 +87,11 @@ public class AiAppUser implements Serializable {
     /**
     * 更新时间
     */
-    @NotNull(message="[更新时间]不能为空")
     @ApiModelProperty("更新时间")
     private Date updateTime;
     /**
     * 是否删除
     */
-    @NotNull(message="[是否删除]不能为空")
     @ApiModelProperty("是否删除")
     private Integer deleted;
     /**

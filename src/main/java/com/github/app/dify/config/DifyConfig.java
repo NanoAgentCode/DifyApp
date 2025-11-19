@@ -17,7 +17,7 @@ public class DifyConfig {
         return new ObjectMapper();
     }
     
-    private String defaultBaseUrl = "http://localhost:5001";
+    private String defaultBaseUrl = "http://localhost:80";
     private int timeout = 30000;
     private int connectTimeout = 10000;
     

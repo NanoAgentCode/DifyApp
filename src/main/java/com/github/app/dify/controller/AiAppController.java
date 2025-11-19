@@ -10,6 +10,8 @@ import com.github.app.dify.service.AiAppService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
@@ -28,6 +30,8 @@ import java.util.List;
 @RequestMapping("/api/ai-apps")
 public class AiAppController {
     
+    private static final Logger logger = LoggerFactory.getLogger(AiAppController.class);
+    
     @Autowired
     private AiAppService aiAppService;
     
@@ -37,12 +41,11 @@ public class AiAppController {
     @ApiOperation("创建AI应用")
     @PostMapping
     public ResponseEntity<AiAppResp> createAiApp(@Validated @RequestBody CreateAiAppReq req) {
-        try {
-            AiAppResp resp = aiAppService.createAiApp(req);
-            return ResponseEntity.ok(resp);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
-        }
+        // 记录接收到的请求数据
+        logger.info("接收到创建应用请求 - 名称: {}, API Key: {}, 类型: {}", 
+                req.getName(), req.getAppId(), req.getType());
+        AiAppResp resp = aiAppService.createAiApp(req);
+        return ResponseEntity.ok(resp);
     }
     
     /**
@@ -124,14 +127,44 @@ public class AiAppController {
     @PostMapping(value = "/{id}/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<DifyResponse>> chatStream(@PathVariable Long id, 
                                                           @Validated @RequestBody DifyChatRequest request) {
+        logger.info("收到流式Chat请求 - 应用ID: {}, 查询: {}, 用户ID: {}", 
+                id, request.getQuery(), request.getUserId());
         return aiAppService.chatStream(id, request)
-                .map(response -> ServerSentEvent.<DifyResponse>builder()
-                        .data(response)
-                        .build())
+                .doOnSubscribe(subscription -> {
+                    logger.info("Controller层：开始订阅流式响应");
+                })
+                .doOnNext(response -> {
+                    logger.info("Controller层：准备发送SSE响应: event={}, finished={}", 
+                            response.getEvent(), response.getFinished());
+                })
+                .map(response -> {
+                    ServerSentEvent.Builder<DifyResponse> builder = ServerSentEvent.<DifyResponse>builder()
+                            .data(response);
+                    // 如果响应中有event字段，也设置到SSE的event中
+                    String event = response.getEvent();
+                    if (event != null && !event.isEmpty()) {
+                        builder.event(event);
+                    }
+                    ServerSentEvent<DifyResponse> sse = builder.build();
+                    logger.info("Controller层：已构建SSE事件，准备发送给客户端: event={}", event);
+                    return sse;
+                })
+                .doOnComplete(() -> {
+                    logger.info("Controller层：流式响应完成");
+                })
+                .doOnCancel(() -> {
+                    logger.warn("Controller层：流式响应被取消");
+                })
+                .doOnError(error -> {
+                    logger.error("Controller层：流式Chat处理出错", error);
+                })
                 .onErrorResume(error -> {
+                    logger.error("Controller层：流式Chat错误恢复: {}", error.getMessage(), error);
                     DifyResponse errorResponse = new DifyResponse();
                     errorResponse.setEvent("error");
+                    errorResponse.setAnswer("发生错误: " + error.getMessage());
                     return Flux.just(ServerSentEvent.<DifyResponse>builder()
+                            .event("error")
                             .data(errorResponse)
                             .build());
                 });
@@ -157,13 +190,25 @@ public class AiAppController {
     public Flux<ServerSentEvent<DifyResponse>> workflowStream(@PathVariable Long id, 
                                                               @Validated @RequestBody DifyWorkflowRequest request) {
         return aiAppService.workflowStream(id, request)
-                .map(response -> ServerSentEvent.<DifyResponse>builder()
-                        .data(response)
-                        .build())
+                .map(response -> {
+                    ServerSentEvent.Builder<DifyResponse> builder = ServerSentEvent.<DifyResponse>builder()
+                            .data(response);
+                    // 如果响应中有event字段，也设置到SSE的event中
+                    String event = response.getEvent();
+                    if (event != null && !event.isEmpty()) {
+                        @SuppressWarnings("null")
+                        String nonNullEvent = event;
+                        builder.event(nonNullEvent);
+                    }
+                    return builder.build();
+                })
                 .onErrorResume(error -> {
+                    logger.error("Controller层：流式Workflow错误恢复: {}", error.getMessage(), error);
                     DifyResponse errorResponse = new DifyResponse();
                     errorResponse.setEvent("error");
+                    errorResponse.setAnswer("发生错误: " + error.getMessage());
                     return Flux.just(ServerSentEvent.<DifyResponse>builder()
+                            .event("error")
                             .data(errorResponse)
                             .build());
                 });
