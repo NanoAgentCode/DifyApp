@@ -23,3 +23,13 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+
+# Dify配置
+dify:
+  api:
+    # 默认Dify API Base URL
+    default-base-url: http://localhost:5001
+    # 默认超时时间（毫秒）
+    timeout: 30000
+    # 连接超时时间（毫秒）
+    connect-timeout: 10000
