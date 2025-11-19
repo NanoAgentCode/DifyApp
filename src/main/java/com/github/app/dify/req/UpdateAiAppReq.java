@@ -19,6 +19,9 @@ public class UpdateAiAppReq {
     @ApiModelProperty("应用描述")
     private String description;
     
+    @ApiModelProperty("应用类型：1-chatFlow，2-workflow")
+    private Integer type;
+    
     @ApiModelProperty("应用状态")
     private Integer status;
     
@@ -58,6 +61,14 @@ public class UpdateAiAppReq {
     
     public void setDescription(String description) {
         this.description = description;
+    }
+    
+    public Integer getType() {
+        return type;
+    }
+    
+    public void setType(Integer type) {
+        this.type = type;
     }
     
     public Integer getStatus() {

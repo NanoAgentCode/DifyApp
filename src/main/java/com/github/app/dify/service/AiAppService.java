@@ -100,6 +100,9 @@ public class AiAppService {
         if (req.getDescription() != null) {
             aiApp.setDescription(req.getDescription());
         }
+        if (req.getType() != null) {
+            aiApp.setType(req.getType());
+        }
         if (req.getStatus() != null) {
             aiApp.setStatus(req.getStatus());
         }
@@ -298,10 +301,22 @@ public class AiAppService {
         // 验证并修复API Base URL
         String apiBaseUrl = validateAndFixApiBaseUrl(app.getApiBaseUrl());
         
-        // 检查是否支持流式响应
-        boolean stream = request.getStream() != null && request.getStream();
+        // 确定响应模式
+        String responseMode = request.getResponseMode();
+        boolean stream = false;
+        
+        if (responseMode != null && !responseMode.trim().isEmpty()) {
+            // 如果请求中指定了 response_mode，使用请求中的值
+            stream = "streaming".equalsIgnoreCase(responseMode.trim());
+        } else {
+            // 否则根据 stream 字段和应用配置决定
+            stream = request.getStream() != null && request.getStream();
+        }
+        
+        // 如果应用不支持流式，强制使用非流式
         if (stream && (app.getStreamEnabled() == null || !app.getStreamEnabled())) {
-            stream = false; // 如果应用不支持流式，强制使用非流式
+            stream = false;
+            logger.warn("应用不支持流式响应，已切换到阻塞模式");
         }
         
         if (stream) {
@@ -310,7 +325,9 @@ public class AiAppService {
                     app.getAppId(),
                     apiBaseUrl,
                     request.getUserId(),
-                    request.getInputs()
+                    request.getInputs(),
+                    request.getFiles(),
+                    request.getTraceId()
             );
             // 转换为Mono，返回最后一个响应
             return flux.last();
@@ -320,7 +337,9 @@ public class AiAppService {
                     app.getAppId(),
                     apiBaseUrl,
                     request.getUserId(),
-                    request.getInputs()
+                    request.getInputs(),
+                    request.getFiles(),
+                    request.getTraceId()
             );
         }
     }
@@ -348,11 +367,19 @@ public class AiAppService {
         // 验证并修复API Base URL
         String apiBaseUrl = validateAndFixApiBaseUrl(app.getApiBaseUrl());
         
+        // 确定响应模式
+        String responseMode = request.getResponseMode();
+        if (responseMode == null || responseMode.trim().isEmpty()) {
+            responseMode = "streaming"; // 默认使用流式
+        }
+        
         return difyApiClient.workflowStream(
                 app.getAppId(),
                 apiBaseUrl,
                 request.getUserId(),
-                request.getInputs()
+                request.getInputs(),
+                request.getFiles(),
+                request.getTraceId()
         );
     }
     

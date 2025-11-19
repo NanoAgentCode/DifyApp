@@ -176,7 +176,13 @@ public class AiAppController {
     @ApiOperation("调用Workflow（非流式）")
     @PostMapping("/{id}/workflow")
     public Mono<ResponseEntity<DifyResponse>> workflow(@PathVariable Long id, 
-                                                       @Validated @RequestBody DifyWorkflowRequest request) {
+                                                       @Validated @RequestBody DifyWorkflowRequest request,
+                                                       @RequestHeader(value = "X-Trace-Id", required = false) String traceIdHeader) {
+        // 优先使用 Header 中的 trace_id
+        if (traceIdHeader != null && !traceIdHeader.trim().isEmpty() && 
+            (request.getTraceId() == null || request.getTraceId().trim().isEmpty())) {
+            request.setTraceId(traceIdHeader.trim());
+        }
         return aiAppService.workflow(id, request)
                 .map(ResponseEntity::ok)
                 .onErrorReturn(ResponseEntity.badRequest().build());
@@ -188,7 +194,13 @@ public class AiAppController {
     @ApiOperation("调用Workflow（流式）")
     @PostMapping(value = "/{id}/workflow/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<DifyResponse>> workflowStream(@PathVariable Long id, 
-                                                              @Validated @RequestBody DifyWorkflowRequest request) {
+                                                              @Validated @RequestBody DifyWorkflowRequest request,
+                                                              @RequestHeader(value = "X-Trace-Id", required = false) String traceIdHeader) {
+        // 优先使用 Header 中的 trace_id
+        if (traceIdHeader != null && !traceIdHeader.trim().isEmpty() && 
+            (request.getTraceId() == null || request.getTraceId().trim().isEmpty())) {
+            request.setTraceId(traceIdHeader.trim());
+        }
         return aiAppService.workflowStream(id, request)
                 .map(response -> {
                     ServerSentEvent.Builder<DifyResponse> builder = ServerSentEvent.<DifyResponse>builder()

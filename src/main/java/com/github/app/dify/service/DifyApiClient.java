@@ -367,7 +367,8 @@ public class DifyApiClient {
     /**
      * 调用Workflow API（非流式）
      */
-    public Mono<DifyResponse> workflow(String apiKey, String baseUrl, String userId, Map<String, Object> inputs) {
+    public Mono<DifyResponse> workflow(String apiKey, String baseUrl, String userId, Map<String, Object> inputs, 
+                                       List<Map<String, Object>> files, String traceId) {
         if (apiKey == null || apiKey.trim().isEmpty()) {
             throw new RuntimeException("API Key不能为空");
         }
@@ -375,13 +376,26 @@ public class DifyApiClient {
         WebClient webClient = createWebClient(baseUrl);
         
         Map<String, Object> requestBody = new java.util.HashMap<>();
+        // user 是必需参数
         if (userId != null && !userId.trim().isEmpty()) {
             requestBody.put("user", userId);
+        } else {
+            throw new RuntimeException("用户ID不能为空");
         }
         // inputs 是必需参数，即使为空也要包含
         requestBody.put("inputs", inputs != null ? inputs : new java.util.HashMap<>());
+        // response_mode 是必需参数
         requestBody.put("response_mode", "blocking"); // Dify非流式响应模式
-        requestBody.put("stream", false);
+        
+        // files 是可选参数
+        if (files != null && !files.isEmpty()) {
+            requestBody.put("files", files);
+        }
+        
+        // trace_id 是可选参数
+        if (traceId != null && !traceId.trim().isEmpty()) {
+            requestBody.put("trace_id", traceId.trim());
+        }
         
         String actualUrl = (baseUrl != null && !baseUrl.trim().isEmpty()) ? baseUrl.trim() : difyConfig.getDefaultBaseUrl();
         logger.info("调用Dify Workflow API, URL: {}, API Key: {}, 请求体: {}", 
@@ -390,10 +404,16 @@ public class DifyApiClient {
         // Dify API路径
         String apiPath = "/v1/workflows/run";
         
-        return webClient.post()
+        WebClient.RequestBodySpec requestSpec = webClient.post()
                 .uri(apiPath)
-                .header("Authorization", "Bearer " + apiKey.trim())
-                .bodyValue(requestBody)
+                .header("Authorization", "Bearer " + apiKey.trim());
+        
+        // trace_id 也可以通过 Header 传递（优先级最高）
+        if (traceId != null && !traceId.trim().isEmpty()) {
+            requestSpec = requestSpec.header("X-Trace-Id", traceId.trim());
+        }
+        
+        return requestSpec.bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(String.class)
                 .timeout(Duration.ofMillis(difyConfig.getTimeout()))
@@ -480,7 +500,8 @@ public class DifyApiClient {
     /**
      * 调用Workflow API（流式）
      */
-    public Flux<DifyResponse> workflowStream(String apiKey, String baseUrl, String userId, Map<String, Object> inputs) {
+    public Flux<DifyResponse> workflowStream(String apiKey, String baseUrl, String userId, Map<String, Object> inputs,
+                                             List<Map<String, Object>> files, String traceId) {
         if (apiKey == null || apiKey.trim().isEmpty()) {
             throw new RuntimeException("API Key不能为空");
         }
@@ -488,23 +509,42 @@ public class DifyApiClient {
         WebClient webClient = createStreamWebClient(baseUrl);
         
         Map<String, Object> requestBody = new java.util.HashMap<>();
+        // user 是必需参数
         if (userId != null && !userId.trim().isEmpty()) {
             requestBody.put("user", userId);
+        } else {
+            throw new RuntimeException("用户ID不能为空");
         }
         // inputs 是必需参数，即使为空也要包含
         requestBody.put("inputs", inputs != null ? inputs : new java.util.HashMap<>());
+        // response_mode 是必需参数
         requestBody.put("response_mode", "streaming"); // Dify流式响应模式
-        requestBody.put("stream", true);
+        
+        // files 是可选参数
+        if (files != null && !files.isEmpty()) {
+            requestBody.put("files", files);
+        }
+        
+        // trace_id 是可选参数
+        if (traceId != null && !traceId.trim().isEmpty()) {
+            requestBody.put("trace_id", traceId.trim());
+        }
         
         String actualUrl = (baseUrl != null && !baseUrl.trim().isEmpty()) ? baseUrl.trim() : difyConfig.getDefaultBaseUrl();
         logger.info("调用Dify Workflow Stream API, URL: {}, API Key: {}, 请求体: {}", 
                 actualUrl, apiKey.substring(0, Math.min(10, apiKey.length())) + "...", requestBody);
         
-        return webClient.post()
+        WebClient.RequestBodySpec requestSpec = webClient.post()
                 .uri("/v1/workflows/run")
                 .header("Authorization", "Bearer " + apiKey.trim())
-                .accept(MediaType.TEXT_EVENT_STREAM)
-                .bodyValue(requestBody)
+                .accept(MediaType.TEXT_EVENT_STREAM);
+        
+        // trace_id 也可以通过 Header 传递（优先级最高）
+        if (traceId != null && !traceId.trim().isEmpty()) {
+            requestSpec = requestSpec.header("X-Trace-Id", traceId.trim());
+        }
+        
+        return requestSpec.bodyValue(requestBody)
                 .retrieve()
                 .bodyToFlux(DataBuffer.class)
                 .timeout(Duration.ofMillis(difyConfig.getTimeout()))
