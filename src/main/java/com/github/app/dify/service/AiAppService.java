@@ -307,6 +307,11 @@ public class AiAppService {
             throw new RuntimeException("应用类型不是Workflow");
         }
         
+        // 记录应用信息，用于调试
+        logger.info("调用Workflow - 应用ID: {}, 应用名称: {}, 应用类型: {}, API Key: {}", 
+                appId, app.getName(), app.getType(), 
+                app.getAppId() != null ? app.getAppId().substring(0, Math.min(10, app.getAppId().length())) + "..." : "null");
+        
         // 验证并修复API Base URL
         String apiBaseUrl = validateAndFixApiBaseUrl(app.getApiBaseUrl());
         

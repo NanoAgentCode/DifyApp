@@ -469,11 +469,19 @@ public class DifyApiClient {
                             (org.springframework.web.reactive.function.client.WebClientResponseException) error;
                         try {
                             String responseBody = ex.getResponseBodyAsString();
-                            logger.error("调用Dify Workflow API失败: {} {}, URL: {}, 请求体: {}, 响应: {}", 
-                                ex.getStatusCode(), ex.getStatusText(), actualUrl, requestBody, responseBody);
+                            logger.error("调用Dify Workflow API失败: {} {}, URL: {}, API Key: {}, 请求体: {}, 响应: {}", 
+                                ex.getStatusCode(), ex.getStatusText(), actualUrl, 
+                                apiKey.substring(0, Math.min(10, apiKey.length())) + "...", 
+                                requestBody, responseBody);
+                            
+                            // 检查是否是应用类型不匹配的错误
+                            if (responseBody != null && responseBody.contains("not_workflow_app")) {
+                                logger.error("Dify API返回应用类型不匹配错误。请检查API Key对应的Dify应用是否为Workflow类型。");
+                            }
                         } catch (Exception e) {
-                            logger.error("调用Dify Workflow API失败: {} {}, URL: {}, 请求体: {}", 
-                                ex.getStatusCode(), ex.getStatusText(), actualUrl, requestBody);
+                            logger.error("调用Dify Workflow API失败: {} {}, URL: {}, API Key: {}, 请求体: {}", 
+                                ex.getStatusCode(), ex.getStatusText(), actualUrl, 
+                                apiKey.substring(0, Math.min(10, apiKey.length())) + "...", requestBody);
                         }
                     } else {
                         logger.error("调用Dify Workflow API失败", error);

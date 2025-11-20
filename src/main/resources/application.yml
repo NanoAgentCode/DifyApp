@@ -30,6 +30,14 @@ spring:
     # 异步请求超时时间（毫秒），设置为10分钟以支持长时间运行的Workflow任务
     async:
       request-timeout: 600000
+  servlet:
+    multipart:
+      # 单个文件最大大小（10MB，与前端限制一致）
+      max-file-size: 10MB
+      # 整个请求最大大小（20MB，允许同时上传多个文件）
+      max-request-size: 20MB
+      # 文件写入磁盘的阈值（超过此大小会写入临时文件）
+      file-size-threshold: 2MB
 
 # Dify配置
 dify:
