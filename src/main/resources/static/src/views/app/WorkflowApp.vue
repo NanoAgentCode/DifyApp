@@ -157,6 +157,7 @@
                 :limit="10"
                 multiple
                 drag
+                list-type="text"
               >
                 <el-icon class="el-icon--upload"><upload-filled /></el-icon>
                 <div class="el-upload__text">
@@ -165,6 +166,42 @@
                 <template #tip>
                   <div class="el-upload__tip">
                     支持上传多个文件，单个文件不超过10MB。选择文件后将立即上传到Dify。
+                  </div>
+                </template>
+                <template #file="{ file }">
+                  <div class="upload-file-item">
+                    <div class="file-info">
+                      <el-icon class="file-icon">
+                        <Document v-if="!isImageFile(file)" />
+                        <Picture v-else />
+                      </el-icon>
+                      <span class="file-name">{{ file.name }}</span>
+                      <span class="file-size">{{ formatFileSize(file.size) }}</span>
+                      <el-tag 
+                        :type="getFileStatusType(file.status)" 
+                        size="small"
+                        class="file-status"
+                      >
+                        {{ getFileStatusText(file.status) }}
+                      </el-tag>
+                    </div>
+                    <!-- 上传进度条 -->
+                    <el-progress 
+                      v-if="file.status === 'uploading'"
+                      :percentage="file.percentage || 0"
+                      :status="file.percentage === 100 ? 'success' : undefined"
+                      :stroke-width="6"
+                      class="upload-progress"
+                    />
+                    <!-- 上传成功/失败信息 -->
+                    <div v-if="file.status === 'success'" class="file-success">
+                      <el-icon class="success-icon"><Check /></el-icon>
+                      <span>上传成功</span>
+                    </div>
+                    <div v-if="file.status === 'fail'" class="file-error">
+                      <el-icon class="error-icon"><Close /></el-icon>
+                      <span>上传失败</span>
+                    </div>
                   </div>
                 </template>
               </el-upload>
@@ -219,8 +256,13 @@
                 <div v-if="hasPreviewableFiles(result)" class="file-preview-section">
                   <div v-for="(file, index) in extractFiles(result)" :key="index" class="file-preview-item">
                     <div class="file-info">
-                      <span class="file-name">{{ file.filename || `文件 ${index + 1}` }}</span>
-                      <span class="file-type">{{ file.type || file.mime_type || '未知' }}</span>
+                      <span class="file-name">
+                        {{ file.filename || file.saved_filename || `文件 ${index + 1}` }}
+                        <span class="file-type">{{ getFileTypeLabel(file) }}</span>
+                      </span>
+                      <span class="file-size-display" v-if="file.file_size">
+                        {{ formatFileSize(file.file_size) }}
+                      </span>
                       <el-button 
                         class="open-file-btn"
                         size="small" 
@@ -241,7 +283,80 @@
                     </div>
                     <!-- PDF预览 -->
                     <div v-else-if="isPdf(file)" class="pdf-preview">
-                      <iframe :src="file.fullUrl" frameborder="0" class="preview-iframe"></iframe>
+                      <div class="pdf-preview-header">
+                        <el-button 
+                          type="primary" 
+                          size="small"
+                          @click="downloadFile(file)"
+                          :icon="Download"
+                        >
+                          下载PDF
+                        </el-button>
+                        <span class="file-size-info" v-if="file.file_size">
+                          文件大小: {{ formatFileSize(file.file_size) }}
+                        </span>
+                      </div>
+                      <div class="pdf-preview-content">
+                        <!-- 调试信息 -->
+                        <div v-if="!file.fullUrl" class="pdf-debug">
+                          <el-alert
+                            title="PDF URL未找到"
+                            type="error"
+                            :closable="false"
+                            show-icon
+                          >
+                            <template #default>
+                              <p>文件URL: {{ file.url || '未设置' }}</p>
+                              <p>完整URL: {{ file.fullUrl || '未设置' }}</p>
+                              <p>下载URL: {{ file.download_url || '未设置' }}</p>
+                            </template>
+                          </el-alert>
+                        </div>
+                        <!-- PDF预览区域 -->
+                        <div v-if="file.fullUrl" class="pdf-viewer-wrapper">
+                          <!-- 加载中 -->
+                          <div v-if="pdfLoading" class="pdf-loading">
+                            <el-icon class="is-loading" :size="32"><Loading /></el-icon>
+                            <p>正在加载PDF...</p>
+                          </div>
+                          <!-- PDF预览embed -->
+                          <embed 
+                            v-if="pdfBlobUrl && !pdfLoadError"
+                            :src="pdfBlobUrl + '#toolbar=0&navpanes=0&scrollbar=0'" 
+                            type="application/pdf"
+                            class="preview-embed"
+                          />
+                          <!-- 加载失败提示 -->
+                          <div v-if="pdfLoadError && !pdfLoading" class="pdf-fallback">
+                            <el-alert
+                              title="PDF预览失败"
+                              type="warning"
+                              :closable="false"
+                              show-icon
+                            >
+                              <template #default>
+                                <p>无法在浏览器中预览PDF文件，可能是由于服务器设置或跨域限制。</p>
+                                <div class="pdf-fallback-actions">
+                                  <el-button 
+                                    type="primary" 
+                                    @click="openFile(file.fullUrl)"
+                                    :icon="FullScreen"
+                                  >
+                                    在新窗口打开
+                                  </el-button>
+                                  <el-button 
+                                    type="success" 
+                                    @click="downloadFile(file)"
+                                    :icon="Download"
+                                  >
+                                    下载PDF文件
+                                  </el-button>
+                                </div>
+                              </template>
+                            </el-alert>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                     <!-- 其他文件类型显示链接 -->
                     <div v-else class="file-link">
@@ -266,10 +381,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { UploadFilled, FullScreen } from '@element-plus/icons-vue'
+import { UploadFilled, FullScreen, Document, Picture, Check, Close, Download, Loading } from '@element-plus/icons-vue'
 import { getAppDetail, workflowApp, workflowAppStream, uploadFile } from '@/api/aiApp'
 import request from '@/utils/request'
 import { getThemeById, getThemeCSSVariables } from '@/utils/themes'
@@ -288,6 +403,10 @@ const fullJsonPlaceholder = '{"variable_name": [{"transfer_method": "local_file"
 const fileUrlPrefix = ref('http://localhost:80') // 文件URL前缀
 const fileList = ref([]) // 文件列表
 const uploadRef = ref(null) // 上传组件引用
+const showPdfEmbed = ref(false) // 是否显示PDF embed标签
+const pdfLoadError = ref(false) // PDF加载错误
+const pdfLoading = ref(false) // PDF加载中
+const pdfBlobUrl = ref('') // PDF Blob URL
 
 // 输入字段配置
 const inputFields = ref([])
@@ -851,6 +970,50 @@ const getFileType = (file) => {
   }
 }
 
+// 格式化文件大小
+const formatFileSize = (bytes) => {
+  if (!bytes || bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+}
+
+// 判断是否为图片文件
+const isImageFile = (file) => {
+  if (!file || !file.raw) return false
+  const type = file.raw.type || ''
+  return type.startsWith('image/')
+}
+
+// 获取文件状态类型（用于 Tag 颜色）
+const getFileStatusType = (status) => {
+  switch (status) {
+    case 'success':
+      return 'success'
+    case 'fail':
+      return 'danger'
+    case 'uploading':
+      return 'warning'
+    default:
+      return 'info'
+  }
+}
+
+// 获取文件状态文本
+const getFileStatusText = (status) => {
+  switch (status) {
+    case 'success':
+      return '已上传'
+    case 'fail':
+      return '上传失败'
+    case 'uploading':
+      return '上传中'
+    default:
+      return '待上传'
+  }
+}
+
 const handleClear = () => {
   result.value = null
   fileList.value = []
@@ -884,28 +1047,137 @@ const extractFiles = (result) => {
   const files = []
   if (!result || typeof result !== 'object') return files
   
-  // 检查 data.outputs.body（HTML URL）
+  // 检查 data.outputs.body（新格式：数组）
   if (result.data && result.data.outputs && result.data.outputs.body) {
-    let bodyUrl = result.data.outputs.body
-    // 如果 body 是字符串且包含引号，去掉引号
-    if (typeof bodyUrl === 'string') {
-      bodyUrl = bodyUrl.replace(/^["']|["']$/g, '').trim()
-    }
+    const bodyContent = result.data.outputs.body
     
-    if (bodyUrl) {
-      const fullUrl = bodyUrl.startsWith('http') ? bodyUrl : `${fileUrlPrefix.value}${bodyUrl}`
-      files.push({
-        url: bodyUrl,
-        fullUrl: fullUrl,
-        filename: 'output.html',
-        type: 'text/html',
-        mime_type: 'text/html',
-        extension: '.html'
+    // 如果是数组，遍历每个文件对象
+    if (Array.isArray(bodyContent)) {
+      bodyContent.forEach((fileItem) => {
+        if (fileItem && fileItem.url) {
+          // 提取URL并拼接前缀
+          const url = fileItem.url
+          const fullUrl = url.startsWith('http') ? url : `${fileUrlPrefix.value}${url}`
+          
+          // 构建文件信息对象
+          const fileInfo = {
+            url: url,
+            fullUrl: fullUrl,
+            filename: fileItem.filename || fileItem.saved_filename || 'download',
+            saved_filename: fileItem.saved_filename,
+            type: fileItem.mime_type || fileItem.type || 'application/octet-stream',
+            mime_type: fileItem.mime_type || fileItem.type || 'application/octet-stream',
+            extension: fileItem.extension || '',
+            file_size: fileItem.size || fileItem.file_size,
+            download_url: url,
+            // 保留其他字段
+            dify_model_identity: fileItem.dify_model_identity,
+            related_id: fileItem.related_id,
+            transfer_method: fileItem.transfer_method
+          }
+          
+          console.log('提取到文件信息:', fileInfo)
+          files.push(fileInfo)
+        }
       })
+    } else if (typeof bodyContent === 'string') {
+      // 兼容旧格式：body 可能是字符串
+      let bodyStr = bodyContent.replace(/^["']|["']$/g, '').trim()
+      
+      if (bodyStr) {
+        // 尝试解析为JSON（可能是JSON字符串）
+        try {
+          const parsedBody = JSON.parse(bodyStr)
+          
+          // 检查是否是文件信息对象（包含 download_url）
+          if (parsedBody && parsedBody.download_url) {
+            const downloadUrl = parsedBody.download_url
+            const fullUrl = downloadUrl.startsWith('http') ? downloadUrl : `${fileUrlPrefix.value}${downloadUrl}`
+            
+            // 判断文件类型
+            const urlLower = downloadUrl.toLowerCase()
+            const isPdfFile = urlLower.includes('.pdf') || downloadUrl.endsWith('.pdf')
+            const isHtmlFile = urlLower.includes('.html') || urlLower.includes('.htm')
+            const isImageFile = /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(downloadUrl)
+            
+            let fileType = 'application/octet-stream'
+            let extension = ''
+            
+            if (isPdfFile) {
+              fileType = 'application/pdf'
+              extension = '.pdf'
+            } else if (isHtmlFile) {
+              fileType = 'text/html'
+              extension = '.html'
+            } else if (isImageFile) {
+              const match = downloadUrl.match(/\.([^.]+)$/i)
+              extension = match ? `.${match[1]}` : ''
+              fileType = `image/${extension.replace('.', '')}`
+            }
+            
+            const fileInfo = {
+              url: downloadUrl,
+              fullUrl: fullUrl,
+              filename: parsedBody.original_filename || parsedBody.saved_filename || 'download',
+              saved_filename: parsedBody.saved_filename,
+              type: fileType,
+              mime_type: fileType,
+              extension: extension,
+              file_size: parsedBody.file_size,
+              message: parsedBody.message,
+              download_url: downloadUrl
+            }
+            
+            console.log('添加文件到列表:', fileInfo)
+            files.push(fileInfo)
+          } else {
+            // 如果不是文件信息对象，可能是直接的URL字符串
+            const fullUrl = bodyStr.startsWith('http') ? bodyStr : `${fileUrlPrefix.value}${bodyStr}`
+            
+            // 判断URL类型
+            const urlLower = bodyStr.toLowerCase()
+            const isPdfFile = urlLower.includes('.pdf')
+            const isHtmlFile = urlLower.includes('.html') || urlLower.includes('.htm')
+            
+            let fileType = 'text/html'
+            let extension = '.html'
+            let filename = 'output.html'
+            
+            if (isPdfFile) {
+              fileType = 'application/pdf'
+              extension = '.pdf'
+              filename = 'output.pdf'
+            }
+            
+            files.push({
+              url: bodyStr,
+              fullUrl: fullUrl,
+              filename: filename,
+              type: fileType,
+              mime_type: fileType,
+              extension: extension
+            })
+          }
+        } catch (e) {
+          // 如果不是JSON，当作普通URL处理
+          const fullUrl = bodyStr.startsWith('http') ? bodyStr : `${fileUrlPrefix.value}${bodyStr}`
+          const urlLower = bodyStr.toLowerCase()
+          const isPdfFile = urlLower.includes('.pdf')
+          
+          files.push({
+            url: bodyStr,
+            fullUrl: fullUrl,
+            filename: isPdfFile ? 'output.pdf' : 'output.html',
+            type: isPdfFile ? 'application/pdf' : 'text/html',
+            mime_type: isPdfFile ? 'application/pdf' : 'text/html',
+            extension: isPdfFile ? '.pdf' : '.html'
+          })
+        }
+      }
     }
   }
   
-  // 检查 data.outputs.files
+  // 检查 data.outputs.files（兼容旧格式）
   if (result.data && result.data.outputs && result.data.outputs.files) {
     result.data.outputs.files.forEach(file => {
       if (file.url) {
@@ -952,6 +1224,122 @@ const openFile = (url) => {
   window.open(url, '_blank')
 }
 
+// 下载文件
+const downloadFile = (file) => {
+  const url = file.fullUrl || file.download_url || file.url
+  if (!url) {
+    ElMessage.error('文件URL不存在')
+    return
+  }
+  
+  try {
+    // 创建临时链接并触发下载
+    const link = document.createElement('a')
+    link.href = url
+    link.download = file.filename || file.saved_filename || 'download'
+    link.target = '_blank'
+    
+    // 添加到DOM并触发点击
+    document.body.appendChild(link)
+    link.click()
+    
+    // 清理
+    document.body.removeChild(link)
+    
+    ElMessage.success('文件下载已开始')
+  } catch (error) {
+    console.error('下载文件失败:', error)
+    // 如果下载失败，尝试在新窗口打开
+    window.open(url, '_blank')
+    ElMessage.info('已在新窗口打开文件，请手动保存')
+  }
+}
+
+// 获取文件类型标签
+const getFileTypeLabel = (file) => {
+  if (file.type || file.mime_type) {
+    const type = (file.type || file.mime_type).toLowerCase()
+    if (type.includes('pdf')) return 'PDF'
+    if (type.includes('html')) return 'HTML'
+    if (type.startsWith('image/')) return '图片'
+    return type.split('/')[1]?.toUpperCase() || '文件'
+  }
+  if (file.extension) {
+    const ext = file.extension.replace('.', '').toUpperCase()
+    return ext || '文件'
+  }
+  return '未知'
+}
+
+// 加载PDF并创建Blob URL（避免直接下载）
+const loadPdfForPreview = async (file) => {
+  if (!file.fullUrl) {
+    pdfLoadError.value = true
+    return
+  }
+  
+  pdfLoading.value = true
+  pdfLoadError.value = false
+  
+  // 清理之前的Blob URL
+  if (pdfBlobUrl.value) {
+    URL.revokeObjectURL(pdfBlobUrl.value)
+    pdfBlobUrl.value = ''
+  }
+  
+  try {
+    // 使用fetch获取PDF内容
+    const response = await fetch(file.fullUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/pdf'
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP错误: ${response.status}`)
+    }
+    
+    // 获取PDF的Blob数据
+    const blob = await response.blob()
+    
+    // 检查是否是PDF类型
+    if (blob.type && !blob.type.includes('pdf')) {
+      console.warn('返回的内容不是PDF类型:', blob.type)
+    }
+    
+    // 创建Blob URL用于预览
+    pdfBlobUrl.value = URL.createObjectURL(blob)
+    pdfLoading.value = false
+    pdfLoadError.value = false
+    
+    console.log('PDF加载成功，Blob URL已创建')
+  } catch (error) {
+    console.error('PDF加载失败:', error)
+    pdfLoading.value = false
+    pdfLoadError.value = true
+    
+    // 如果fetch失败，尝试直接使用URL（可能会触发下载，但至少可以尝试）
+    ElMessage.warning('PDF预览加载失败，将尝试直接打开')
+  }
+}
+
+// PDF加载成功处理
+const handlePdfLoad = (event) => {
+  console.log('PDF iframe加载完成')
+  pdfLoadError.value = false
+}
+
+// 重置PDF状态
+const resetPdfError = () => {
+  pdfLoadError.value = false
+  pdfLoading.value = false
+  if (pdfBlobUrl.value) {
+    URL.revokeObjectURL(pdfBlobUrl.value)
+    pdfBlobUrl.value = ''
+  }
+}
+
 // 处理图片加载错误
 const handleImageError = (event) => {
   event.target.style.display = 'none'
@@ -972,6 +1360,27 @@ const fetchConfig = async () => {
     console.warn('获取配置失败，使用默认值:', error)
   }
 }
+
+// 监听result变化，自动加载PDF预览
+watch(() => result.value, (newResult) => {
+  if (newResult && hasPreviewableFiles(newResult)) {
+    const files = extractFiles(newResult)
+    const pdfFile = files.find(f => isPdf(f))
+    if (pdfFile) {
+      // 延迟加载，确保DOM已更新
+      nextTick(() => {
+        resetPdfError()
+        loadPdfForPreview(pdfFile)
+      })
+    } else {
+      // 如果没有PDF文件，重置状态
+      resetPdfError()
+    }
+  } else {
+    // 如果没有结果或没有文件，重置状态
+    resetPdfError()
+  }
+}, { deep: true })
 
 onMounted(() => {
   fetchAppInfo()
@@ -1110,6 +1519,7 @@ onMounted(() => {
   border: 1px solid #e4e7ed;
   border-radius: 4px;
   background-color: #fafafa;
+  overflow: visible;
 }
 
 .file-info {
@@ -1130,6 +1540,9 @@ onMounted(() => {
 .file-name {
   font-weight: 500;
   color: #303133;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .file-type {
@@ -1138,6 +1551,13 @@ onMounted(() => {
   color: #409eff;
   border-radius: 3px;
   font-size: 12px;
+  font-weight: normal;
+}
+
+.file-size-display {
+  font-size: 12px;
+  color: #909399;
+  margin-left: 8px;
 }
 
 .image-preview {
@@ -1158,24 +1578,241 @@ onMounted(() => {
   text-align: center;
 }
 
-.html-preview,
-.pdf-preview {
+.html-preview {
   width: 100%;
   height: 600px;
   border: 1px solid #e4e7ed;
   border-radius: 4px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.pdf-preview {
+  width: 100%;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
+
+.pdf-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #f5f7fa;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.file-size-info {
+  font-size: 12px;
+  color: #909399;
+}
+
+.pdf-preview-content {
+  flex: 1;
+  position: relative;
+  width: 100%;
+  overflow: visible;
+}
+
+.pdf-viewer-wrapper {
+  width: 100%;
+  overflow: visible;
+}
+
+.pdf-viewer-wrapper object {
+  overflow: visible !important;
+}
+
+.pdf-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 500px;
+  color: #909399;
+}
+
+.pdf-loading p {
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.preview-object {
+  width: 100%;
+  min-height: 800px;
+  border: none;
+  display: block;
 }
 
 .preview-iframe {
   width: 100%;
-  height: 100%;
+  min-height: 2000px;
   border: none;
+  display: block;
+  overflow: hidden;
+}
+
+/* 隐藏iframe内部滚动条 */
+.pdf-viewer-wrapper iframe {
+  overflow: hidden !important;
+}
+
+/* 确保PDF查看器不显示滚动条 */
+.pdf-viewer-wrapper iframe::-webkit-scrollbar {
+  display: none;
+}
+
+.preview-embed {
+  width: 100%;
+  min-height: 5000px;
+  display: block;
+  border: none;
+  overflow: hidden;
+}
+
+/* 隐藏embed内部滚动条 */
+.pdf-viewer-wrapper embed {
+  width: 100%;
+  min-height: 5000px;
+  overflow: hidden !important;
+}
+
+/* 隐藏所有可能的滚动条 */
+.pdf-viewer-wrapper embed::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.pdf-viewer-wrapper embed {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.pdf-error {
+  padding: 20px;
+  background-color: #fff;
+}
+
+.pdf-error-content {
+  margin-top: 10px;
+}
+
+.pdf-error-content p {
+  margin-bottom: 12px;
+  color: #606266;
+}
+
+.pdf-url {
+  font-size: 12px;
+  color: #909399;
+  word-break: break-all;
+}
+
+.pdf-debug {
+  padding: 10px;
+  background-color: #fef0f0;
+  border: 1px solid #fde2e2;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.pdf-fallback {
+  padding: 20px;
+  text-align: center;
+}
+
+.pdf-fallback-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
 }
 
 .file-link {
   padding: 12px;
   text-align: center;
+}
+
+/* 文件上传进度条样式 */
+.upload-file-item {
+  padding: 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  background-color: #fff;
+  transition: all 0.3s;
+}
+
+.upload-file-item:hover {
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.file-icon {
+  font-size: 20px;
+  color: #409eff;
+  flex-shrink: 0;
+}
+
+.file-name {
+  flex: 1;
+  font-size: 14px;
+  color: #303133;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  font-size: 12px;
+  color: #909399;
+  flex-shrink: 0;
+}
+
+.file-status {
+  flex-shrink: 0;
+}
+
+.upload-progress {
+  margin-top: 8px;
+}
+
+.file-success {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: #67c23a;
+  font-size: 12px;
+}
+
+.success-icon {
+  font-size: 16px;
+}
+
+.file-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: #f56c6c;
+  font-size: 12px;
+}
+
+.error-icon {
+  font-size: 16px;
 }
 </style>
 
