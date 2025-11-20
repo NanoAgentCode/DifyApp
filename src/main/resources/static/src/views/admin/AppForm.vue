@@ -43,6 +43,10 @@
           <el-switch v-model="form.streamEnabled" />
         </el-form-item>
 
+        <el-form-item label="是否需要上传文件">
+          <el-switch v-model="form.fileUploadEnabled" />
+        </el-form-item>
+
         <el-form-item label="应用图标" prop="icon">
           <el-input v-model="form.icon" placeholder="请输入图标URL" />
         </el-form-item>
@@ -86,6 +90,7 @@ const form = reactive({
   appId: '',
   apiBaseUrl: '',
   streamEnabled: false,
+  fileUploadEnabled: false,
   icon: '',
   themeColor: '',
   sort: 0,
@@ -133,7 +138,9 @@ const handleSubmit = async () => {
     }
     
     if (isEdit.value) {
-      await updateApp(route.params.id, submitData)
+      // 更新时排除 appId 和 tenantId 字段（API Key 和租户ID不应该被更新）
+      const { appId, tenantId, ...updateData } = submitData
+      await updateApp(route.params.id, updateData)
       ElMessage.success('更新成功')
     } else {
       await createApp(submitData)

@@ -38,6 +38,9 @@ public class CreateAiAppReq {
     @ApiModelProperty("是否支持流式响应")
     private Boolean streamEnabled;
     
+    @ApiModelProperty("是否需要上传文件")
+    private Boolean fileUploadEnabled;
+    
     @Size(max = 255, message = "应用图标长度不能超过255")
     @ApiModelProperty("应用图标")
     private String icon;
@@ -103,6 +106,14 @@ public class CreateAiAppReq {
     
     public void setStreamEnabled(Boolean streamEnabled) {
         this.streamEnabled = streamEnabled;
+    }
+    
+    public Boolean getFileUploadEnabled() {
+        return fileUploadEnabled;
+    }
+    
+    public void setFileUploadEnabled(Boolean fileUploadEnabled) {
+        this.fileUploadEnabled = fileUploadEnabled;
     }
     
     public String getIcon() {

@@ -19,6 +19,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -69,6 +70,11 @@ public class AiAppService {
             aiApp.setStreamEnabled(false);
         }
         
+        // 如果没有设置文件上传，默认为false
+        if (aiApp.getFileUploadEnabled() == null) {
+            aiApp.setFileUploadEnabled(false);
+        }
+        
         // 记录保存前的数据
         logger.info("创建应用 - 名称: {}, API Key: {}, API Base URL: {}", 
                 aiApp.getName(), aiApp.getAppId(), aiApp.getApiBaseUrl());
@@ -111,6 +117,9 @@ public class AiAppService {
         }
         if (req.getStreamEnabled() != null) {
             aiApp.setStreamEnabled(req.getStreamEnabled());
+        }
+        if (req.getFileUploadEnabled() != null) {
+            aiApp.setFileUploadEnabled(req.getFileUploadEnabled());
         }
         if (req.getIcon() != null) {
             aiApp.setIcon(req.getIcon());
@@ -407,6 +416,30 @@ public class AiAppService {
         
         logger.info("使用API Base URL: {}", url);
         return url;
+    }
+    
+    /**
+     * 上传文件到Dify
+     */
+    public Mono<Map<String, Object>> uploadFile(Long appId, 
+                                                 org.springframework.web.multipart.MultipartFile file, 
+                                                 String userId) {
+        // 获取应用信息
+        Optional<AiApp> optional = aiAppRepository.findById(appId);
+        if (!optional.isPresent()) {
+            return Mono.error(new RuntimeException("应用不存在: " + appId));
+        }
+        
+        AiApp aiApp = optional.get();
+        String apiKey = aiApp.getAppId();
+        String baseUrl = aiApp.getApiBaseUrl();
+        
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            return Mono.error(new RuntimeException("应用的API Key未配置"));
+        }
+        
+        // 调用Dify API客户端上传文件
+        return difyApiClient.uploadFile(apiKey, baseUrl, file, userId);
     }
     
     /**

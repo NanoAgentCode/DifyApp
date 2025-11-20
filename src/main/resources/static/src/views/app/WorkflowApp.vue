@@ -41,6 +41,29 @@
                 </div>
               </div>
             </el-form-item>
+            <!-- 文件上传区域 -->
+            <el-form-item v-if="appInfo?.fileUploadEnabled" label="文件上传">
+              <el-upload
+                ref="uploadRef"
+                v-model:file-list="fileList"
+                :auto-upload="false"
+                :on-change="handleFileChange"
+                :on-remove="handleFileRemove"
+                :limit="10"
+                multiple
+                drag
+              >
+                <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+                <div class="el-upload__text">
+                  将文件拖到此处，或<em>点击上传</em>
+                </div>
+                <template #tip>
+                  <div class="el-upload__tip">
+                    支持上传多个文件，单个文件不超过10MB。选择文件后将立即上传到Dify。
+                  </div>
+                </template>
+              </el-upload>
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="handleRun" :loading="loading">
                 运行工作流
@@ -127,7 +150,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getAppDetail, workflowApp, workflowAppStream } from '@/api/aiApp'
+import { UploadFilled } from '@element-plus/icons-vue'
+import { getAppDetail, workflowApp, workflowAppStream, uploadFile } from '@/api/aiApp'
 import request from '@/utils/request'
 
 const route = useRoute()
@@ -141,6 +165,8 @@ const showInputsJson = ref(false) // 是否显示完整 JSON 编辑器
 const fullInputsJson = ref('') // 完整 JSON 字符串
 const fullJsonPlaceholder = '{"variable_name": [{"transfer_method": "local_file", "upload_file_id": "file_id", "type": "document"}]}'
 const fileUrlPrefix = ref('http://localhost:80') // 文件URL前缀
+const fileList = ref([]) // 文件列表
+const uploadRef = ref(null) // 上传组件引用
 
 // 获取复杂输入的占位符
 const getComplexInputPlaceholder = (key) => {
@@ -292,10 +318,34 @@ const handleRun = async () => {
       }
     })
 
+    // 生成用户ID（用于工作流请求）
+    const userId = 'user_' + Date.now()
+    
+    // 获取已上传的文件列表（文件在选择时已上传）
+    let uploadedFiles = []
+    if (appInfo.value?.fileUploadEnabled && fileList.value.length > 0) {
+      uploadedFiles = getUploadedFiles()
+      
+      // 检查是否有未上传成功的文件
+      const failedFiles = fileList.value.filter(f => f.status === 'fail' || (f.status !== 'success' && f.raw))
+      if (failedFiles.length > 0) {
+        ElMessage.warning('部分文件上传失败，请重新上传或移除失败的文件')
+        throw new Error('存在上传失败的文件')
+      }
+      
+      // 检查是否有正在上传的文件
+      const uploadingFiles = fileList.value.filter(f => f.status === 'uploading')
+      if (uploadingFiles.length > 0) {
+        ElMessage.warning('文件正在上传中，请稍候...')
+        throw new Error('文件正在上传中')
+      }
+    }
+
     const requestData = {
-      userId: 'user_' + Date.now(),
+      userId: userId,
       inputs: filteredInputs,
-      stream: appInfo.value?.streamEnabled || false
+      stream: appInfo.value?.streamEnabled || false,
+      files: uploadedFiles.length > 0 ? uploadedFiles : undefined
     }
 
     console.log('发送请求数据:', JSON.stringify(requestData, null, 2))
@@ -383,8 +433,121 @@ const handleStreamWorkflow = async (requestData) => {
   }
 }
 
+// 处理文件变化（选择文件后立即上传）
+const handleFileChange = async (file, files) => {
+  // 检查文件大小（10MB限制）
+  if (file.raw && file.raw.size > 10 * 1024 * 1024) {
+    ElMessage.error(`文件 ${file.name} 超过10MB限制`)
+    const index = fileList.value.findIndex(f => f.uid === file.uid)
+    if (index > -1) {
+      fileList.value.splice(index, 1)
+    }
+    return
+  }
+  
+  fileList.value = files
+  
+  // 如果文件已上传成功，跳过
+  if (file.status === 'success' && file.uploadFileId) {
+    return
+  }
+  
+  // 立即上传新选择的文件（包括重新上传失败的文件）
+  if (file.raw && appInfo.value?.fileUploadEnabled) {
+    await uploadSingleFile(file)
+  }
+}
+
+// 处理文件移除
+const handleFileRemove = (file, files) => {
+  fileList.value = files
+}
+
+// 上传单个文件到Dify（选择文件后立即上传，通过后端转发）
+const uploadSingleFile = async (fileItem) => {
+  if (!fileItem.raw) {
+    return
+  }
+  
+  // 设置上传状态
+  fileItem.status = 'uploading'
+  fileItem.percentage = 0
+  
+  try {
+    const formData = new FormData()
+    
+    // 直接使用文件对象，FormData 会自动处理文件编码
+    formData.append('file', fileItem.raw)
+    
+    // 生成用户ID（用于文件上传）
+    const userId = 'user_' + Date.now()
+    formData.append('user', userId)
+    
+    // 通过后端接口上传文件
+    const result = await uploadFile(route.params.id, formData, (percentage) => {
+      fileItem.percentage = percentage
+    })
+    
+    if (result && result.id) {
+      // 保存上传后的文件信息
+      fileItem.status = 'success'
+      fileItem.percentage = 100
+      fileItem.uploadFileId = result.id
+      fileItem.uploadFileType = getFileType(fileItem.raw)
+      fileItem.uploadResult = result
+      ElMessage.success(`文件 ${fileItem.name} 上传成功`)
+      return result
+    } else {
+      throw new Error('上传响应中缺少文件ID')
+    }
+  } catch (error) {
+    fileItem.status = 'fail'
+    fileItem.percentage = 0
+    ElMessage.error(`文件 ${fileItem.name} 上传失败: ${error.message || '未知错误'}`)
+    console.error('文件上传失败:', error)
+    throw error
+  }
+}
+
+// 获取已上传的文件列表（用于工作流请求）
+const getUploadedFiles = () => {
+  const uploadedFiles = []
+  
+  if (!fileList.value || fileList.value.length === 0) {
+    return uploadedFiles
+  }
+  
+  for (const fileItem of fileList.value) {
+    // 只包含上传成功的文件
+    if (fileItem.status === 'success' && fileItem.uploadFileId) {
+      uploadedFiles.push({
+        transfer_method: 'local_file',
+        upload_file_id: fileItem.uploadFileId,
+        type: fileItem.uploadFileType || getFileType(fileItem.raw)
+      })
+    }
+  }
+  
+  return uploadedFiles
+}
+
+// 获取文件类型
+const getFileType = (file) => {
+  const type = file.type || ''
+  if (type.startsWith('image/')) {
+    return 'image'
+  } else if (type.includes('pdf')) {
+    return 'document'
+  } else if (type.includes('text') || type.includes('html')) {
+    return 'document'
+  } else {
+    return 'document' // 默认为文档类型
+  }
+}
+
 const handleClear = () => {
   result.value = null
+  fileList.value = []
   Object.keys(inputs).forEach(key => {
     if (isSimpleValue(inputs[key])) {
       inputs[key] = ''

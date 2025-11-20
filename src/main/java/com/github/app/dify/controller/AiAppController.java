@@ -242,5 +242,22 @@ public class AiAppController {
         config.put("fileUrlPrefix", difyConfig.getFileUrlPrefix());
         return ResponseEntity.ok(config);
     }
+    
+    /**
+     * 上传文件到Dify
+     */
+    @ApiOperation("上传文件到Dify")
+    @PostMapping(value = "/{id}/files/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Mono<ResponseEntity<Map<String, Object>>> uploadFile(
+            @PathVariable Long id,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(value = "user", required = false) String userId) {
+        return aiAppService.uploadFile(id, file, userId)
+                .map(ResponseEntity::ok)
+                .onErrorResume(error -> {
+                    logger.error("文件上传失败", error);
+                    return Mono.just(ResponseEntity.badRequest().build());
+                });
+    }
 }
 

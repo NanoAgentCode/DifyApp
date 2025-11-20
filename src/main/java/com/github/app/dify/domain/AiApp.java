@@ -130,6 +130,14 @@ public class AiApp implements Serializable {
     @ApiModelProperty("是否支持流式响应")
     @Column(name = "stream_enabled")
     private Boolean streamEnabled;
+    
+    /**
+    * 是否需要上传文件
+    */
+    @ApiModelProperty("是否需要上传文件")
+    @Column(name = "file_upload_enabled")
+    private Boolean fileUploadEnabled;
+    
     /**
     * 主题色
     */
@@ -263,6 +271,13 @@ public class AiApp implements Serializable {
     public void setStreamEnabled(Boolean streamEnabled){
     this.streamEnabled = streamEnabled;
     }
+    
+    /**
+    * 是否需要上传文件
+    */
+    public void setFileUploadEnabled(Boolean fileUploadEnabled){
+    this.fileUploadEnabled = fileUploadEnabled;
+    }
 
 
     /**
@@ -389,6 +404,13 @@ public class AiApp implements Serializable {
     */
     public Boolean getStreamEnabled(){
     return this.streamEnabled;
+    }
+    
+    /**
+    * 是否需要上传文件
+    */
+    public Boolean getFileUploadEnabled(){
+    return this.fileUploadEnabled;
     }
 
 }

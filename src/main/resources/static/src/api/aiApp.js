@@ -99,3 +99,42 @@ export function workflowAppStream(id, data) {
   })
 }
 
+/**
+ * 上传文件到Dify
+ */
+export function uploadFile(id, formData, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    
+    xhr.open('POST', `/api/ai-apps/${id}/files/upload`, true)
+    
+    // 监听上传进度
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          onProgress(Math.round((e.loaded / e.total) * 100))
+        }
+      }
+    }
+    
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const result = JSON.parse(xhr.responseText)
+          resolve(result)
+        } catch (e) {
+          reject(new Error('解析响应失败: ' + e.message))
+        }
+      } else {
+        reject(new Error(`上传失败: ${xhr.status} ${xhr.statusText}`))
+      }
+    }
+    
+    xhr.onerror = () => {
+      reject(new Error('网络错误'))
+    }
+    
+    xhr.send(formData)
+  })
+}
+

@@ -12,6 +12,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.BodyInserters;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.netty.http.client.HttpClient;
@@ -703,6 +704,77 @@ public class DifyApiClient {
                         }
                     }
                     return Flux.error(error);
+                });
+    }
+    
+    /**
+     * 上传文件到Dify
+     */
+    public Mono<Map<String, Object>> uploadFile(String apiKey, String baseUrl, 
+                                                 org.springframework.web.multipart.MultipartFile file, 
+                                                 String userId) {
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            return Mono.error(new RuntimeException("API Key不能为空"));
+        }
+        
+        if (file == null || file.isEmpty()) {
+            return Mono.error(new RuntimeException("文件不能为空"));
+        }
+        
+        WebClient webClient = createWebClient(baseUrl);
+        
+        // 创建 MultipartBodyBuilder 来构建 multipart/form-data 请求
+        org.springframework.util.LinkedMultiValueMap<String, Object> parts = 
+            new org.springframework.util.LinkedMultiValueMap<>();
+        
+        // 添加文件
+        try {
+            org.springframework.core.io.ByteArrayResource fileResource = 
+                new org.springframework.core.io.ByteArrayResource(file.getBytes()) {
+                    @Override
+                    public String getFilename() {
+                        return file.getOriginalFilename();
+                    }
+                };
+            parts.add("file", fileResource);
+        } catch (Exception e) {
+            return Mono.error(new RuntimeException("读取文件失败: " + e.getMessage(), e));
+        }
+        
+        // 添加 user 参数（可选）
+        if (userId != null && !userId.trim().isEmpty()) {
+            parts.add("user", userId);
+        }
+        
+        String actualUrl = (baseUrl != null && !baseUrl.trim().isEmpty()) 
+            ? baseUrl.trim() 
+            : difyConfig.getDefaultBaseUrl();
+        logger.info("调用Dify文件上传API, URL: {}, API Key: {}, 文件名: {}, 文件大小: {} 字节", 
+                actualUrl, apiKey.substring(0, Math.min(10, apiKey.length())) + "...", 
+                file.getOriginalFilename(), file.getSize());
+        
+        return webClient.post()
+                .uri("/v1/files/upload")
+                .header("Authorization", "Bearer " + apiKey.trim())
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(parts))
+                .retrieve()
+                .bodyToMono(String.class)
+                .timeout(Duration.ofMinutes(5)) // 文件上传超时时间5分钟
+                .map(response -> {
+                    try {
+                        // 解析响应为 Map
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> result = objectMapper.readValue(response, Map.class);
+                        logger.info("文件上传成功，文件ID: {}", result.get("id"));
+                        return result;
+                    } catch (Exception e) {
+                        logger.error("解析文件上传响应失败", e);
+                        throw new RuntimeException("解析文件上传响应失败: " + e.getMessage(), e);
+                    }
+                })
+                .doOnError(error -> {
+                    logger.error("文件上传失败", error);
                 });
     }
 }

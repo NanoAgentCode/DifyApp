@@ -1,5 +1,6 @@
 package com.github.app.dify.req;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 
@@ -9,6 +10,7 @@ import javax.validation.constraints.Size;
  * 更新AI应用请求
  */
 @ApiModel("更新AI应用请求")
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class UpdateAiAppReq {
     
     @Size(max = 100, message = "应用名称长度不能超过100")
@@ -31,6 +33,9 @@ public class UpdateAiAppReq {
     
     @ApiModelProperty("是否支持流式响应")
     private Boolean streamEnabled;
+    
+    @ApiModelProperty("是否需要上传文件")
+    private Boolean fileUploadEnabled;
     
     @Size(max = 255, message = "应用图标长度不能超过255")
     @ApiModelProperty("应用图标")
@@ -93,6 +98,14 @@ public class UpdateAiAppReq {
     
     public void setStreamEnabled(Boolean streamEnabled) {
         this.streamEnabled = streamEnabled;
+    }
+    
+    public Boolean getFileUploadEnabled() {
+        return fileUploadEnabled;
+    }
+    
+    public void setFileUploadEnabled(Boolean fileUploadEnabled) {
+        this.fileUploadEnabled = fileUploadEnabled;
     }
     
     public String getIcon() {

@@ -59,6 +59,9 @@ public class AiAppResp {
     @ApiModelProperty("是否支持流式响应")
     private Boolean streamEnabled;
     
+    @ApiModelProperty("是否需要上传文件")
+    private Boolean fileUploadEnabled;
+    
     @ApiModelProperty("主题色")
     private String themeColor;
     
@@ -189,6 +192,14 @@ public class AiAppResp {
     
     public void setStreamEnabled(Boolean streamEnabled) {
         this.streamEnabled = streamEnabled;
+    }
+    
+    public Boolean getFileUploadEnabled() {
+        return fileUploadEnabled;
+    }
+    
+    public void setFileUploadEnabled(Boolean fileUploadEnabled) {
+        this.fileUploadEnabled = fileUploadEnabled;
     }
     
     public String getThemeColor() {
