@@ -16,6 +16,7 @@
               v-for="(value, key) in inputs"
               :key="key"
               :label="key"
+              v-if="appInfo?.inputEnabled === true"
             >
               <!-- 简单字符串输入 -->
               <el-input
@@ -108,31 +109,23 @@
                     <div class="file-info">
                       <span class="file-name">{{ file.filename || `文件 ${index + 1}` }}</span>
                       <span class="file-type">{{ file.type || file.mime_type || '未知' }}</span>
-                      <el-button size="small" @click="openFile(file.fullUrl)" type="primary" link>
-                        在新窗口打开
-                      </el-button>
-                      <el-button size="small" @click="downloadFile(file.fullUrl, file.filename, file)" type="success" link>
-                        下载
-                      </el-button>
+                      <el-button 
+                        class="open-file-btn"
+                        size="small" 
+                        @click="openFile(file.fullUrl)" 
+                        type="primary" 
+                        :icon="FullScreen"
+                        circle
+                        :title="'在新窗口打开'"
+                      />
                     </div>
                     <!-- 图片预览 -->
                     <div v-if="isImage(file)" class="image-preview">
                       <img :src="file.fullUrl" :alt="file.filename" @error="handleImageError" />
-                      <div class="image-actions">
-                        <el-button size="small" @click="downloadFile(file.fullUrl, file.filename || 'image.png')" type="success">
-                          下载图片
-                        </el-button>
-                      </div>
                     </div>
                     <!-- HTML预览 -->
                     <div v-else-if="isHtml(file)" class="html-preview">
-                      <iframe 
-                        :ref="el => setIframeRef(index, el)" 
-                        :src="file.fullUrl" 
-                        frameborder="0" 
-                        class="preview-iframe"
-                        @load="onIframeLoad(index)"
-                      ></iframe>
+                      <iframe :src="file.fullUrl" frameborder="0" class="preview-iframe"></iframe>
                     </div>
                     <!-- PDF预览 -->
                     <div v-else-if="isPdf(file)" class="pdf-preview">
@@ -164,10 +157,9 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { UploadFilled } from '@element-plus/icons-vue'
+import { UploadFilled, FullScreen } from '@element-plus/icons-vue'
 import { getAppDetail, workflowApp, workflowAppStream, uploadFile } from '@/api/aiApp'
 import request from '@/utils/request'
-import html2canvas from 'html2canvas'
 
 const route = useRoute()
 const router = useRouter()
@@ -182,7 +174,6 @@ const fullJsonPlaceholder = '{"variable_name": [{"transfer_method": "local_file"
 const fileUrlPrefix = ref('http://localhost:80') // 文件URL前缀
 const fileList = ref([]) // 文件列表
 const uploadRef = ref(null) // 上传组件引用
-const iframeRefs = ref({}) // iframe引用映射，key为文件索引
 
 // 获取复杂输入的占位符
 const getComplexInputPlaceholder = (key) => {
@@ -214,6 +205,8 @@ const fetchAppInfo = async () => {
   try {
     const res = await getAppDetail(route.params.id)
     appInfo.value = res
+    console.log('应用信息:', res)
+    console.log('inputEnabled 值:', res.inputEnabled)
     
     // 清空之前的输入
     Object.keys(inputs).forEach(key => {
@@ -662,274 +655,6 @@ const openFile = (url) => {
   window.open(url, '_blank')
 }
 
-// 设置 iframe ref
-const setIframeRef = (index, el) => {
-  if (el) {
-    iframeRefs.value[index] = el
-  }
-}
-
-// iframe 加载完成处理
-const onIframeLoad = (index) => {
-  console.log(`Iframe ${index} 加载完成`)
-}
-
-// 将 HTML 转换为图片
-const htmlToImage = async (fileIndex) => {
-  try {
-    const iframe = iframeRefs.value[fileIndex]
-    if (!iframe) {
-      throw new Error('无法找到对应的 iframe，请确保页面已完全加载')
-    }
-    
-    // 等待 iframe 内容完全加载
-    await new Promise((resolve, reject) => {
-      const checkLoad = () => {
-        try {
-          const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
-          if (iframeDoc && iframeDoc.readyState === 'complete') {
-            resolve()
-          } else {
-            setTimeout(checkLoad, 100)
-          }
-        } catch (e) {
-          // 跨域情况下无法访问 contentDocument
-          // 等待一段时间后尝试
-          setTimeout(() => {
-            try {
-              iframe.onload = resolve
-              // 如果已经加载完成，立即 resolve
-              if (iframe.contentWindow) {
-                resolve()
-              }
-            } catch (err) {
-              reject(new Error('无法访问 iframe 内容（可能是跨域问题）'))
-            }
-          }, 500)
-        }
-      }
-      
-      // 如果已经加载完成
-      try {
-        if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
-          resolve()
-        } else {
-          iframe.onload = resolve
-          // 设置超时
-          setTimeout(() => {
-            checkLoad()
-          }, 1000)
-        }
-      } catch (e) {
-        // 跨域情况，等待一段时间
-        setTimeout(() => resolve(), 2000)
-      }
-    })
-    
-    // 获取 iframe 中的文档内容
-    let iframeDoc
-    try {
-      iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
-    } catch (e) {
-      throw new Error('无法访问 iframe 内容（跨域限制）。请尝试在新窗口打开文件后手动保存。')
-    }
-    
-    if (!iframeDoc) {
-      throw new Error('无法访问 iframe 内容')
-    }
-    
-    // 获取 iframe 中的 body 元素
-    const bodyElement = iframeDoc.body || iframeDoc.documentElement
-    if (!bodyElement) {
-      throw new Error('无法找到 iframe 中的 body 元素')
-    }
-    
-    ElMessage.info('正在生成图片，请稍候...')
-    
-    // 使用 html2canvas 将 HTML 转换为 canvas
-    const canvas = await html2canvas(bodyElement, {
-      useCORS: true,
-      allowTaint: false, // 不允许跨域图片污染 canvas
-      scale: 2, // 提高图片清晰度
-      logging: false,
-      width: Math.max(bodyElement.scrollWidth, bodyElement.clientWidth, 800),
-      height: Math.max(bodyElement.scrollHeight, bodyElement.clientHeight, 600),
-      windowWidth: Math.max(bodyElement.scrollWidth, bodyElement.clientWidth, 800),
-      windowHeight: Math.max(bodyElement.scrollHeight, bodyElement.clientHeight, 600)
-    })
-    
-    // 将 canvas 转换为 blob
-    return new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (blob) {
-          resolve(blob)
-        } else {
-          reject(new Error('图片生成失败'))
-        }
-      }, 'image/png', 1.0)
-    })
-  } catch (error) {
-    console.error('HTML转图片失败:', error)
-    throw error
-  }
-}
-
-// 下载文件
-const downloadFile = async (url, filename, file = null) => {
-  if (!url) {
-    ElMessage.error('文件URL为空')
-    return
-  }
-  
-  // 如果是 HTML 文件，转换为图片下载
-  if (file && isHtml(file)) {
-    try {
-      // 找到文件在列表中的索引
-      const files = extractFiles(result.value)
-      const fileIndex = files.findIndex(f => {
-        return f.fullUrl === url || 
-               f.url === url || 
-               (file.fullUrl && f.fullUrl === file.fullUrl) ||
-               (file.url && f.url === file.url)
-      })
-      
-      if (fileIndex === -1) {
-        console.warn('无法找到文件索引，使用文件对象中的信息')
-        // 如果找不到索引，尝试使用文件对象本身
-        // 这种情况下，我们需要通过其他方式获取 iframe
-        throw new Error('无法定位到对应的预览区域')
-      }
-      
-      // 转换为图片
-      const blob = await htmlToImage(fileIndex)
-      
-      // 下载图片
-      const imageFilename = (filename || 'output.html').replace(/\.html?$/i, '.png')
-      const downloadUrl = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = downloadUrl
-      link.download = imageFilename
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      setTimeout(() => {
-        window.URL.revokeObjectURL(downloadUrl)
-      }, 100)
-      
-      ElMessage.success('图片下载成功')
-      return
-    } catch (error) {
-      console.error('HTML转图片下载失败:', error)
-      ElMessage.warning('HTML转图片失败，尝试下载原始文件: ' + (error.message || '未知错误'))
-      // 继续执行普通下载流程
-    }
-  }
-  
-  try {
-    // 确保 URL 是完整的（如果是相对路径，添加前缀）
-    let fullUrl = url
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      // 相对路径，添加文件URL前缀
-      fullUrl = url.startsWith('/') ? `${fileUrlPrefix.value}${url}` : `${fileUrlPrefix.value}/${url}`
-    }
-    
-    console.log('开始下载文件:', { url, fullUrl, filename })
-    
-    // 优先使用后端代理下载（解决跨域问题）
-    try {
-      const proxyUrl = `/api/ai-apps/proxy/download?url=${encodeURIComponent(fullUrl)}`
-      console.log('使用代理下载:', proxyUrl)
-      
-      const response = await fetch(proxyUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': '*/*'
-        }
-      })
-      
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '')
-        throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`)
-      }
-      
-      const blob = await response.blob()
-      if (!blob || blob.size === 0) {
-        throw new Error('下载的文件为空')
-      }
-      
-      const downloadUrl = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = downloadUrl
-      link.download = filename || 'download'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      // 延迟释放URL，确保下载开始
-      setTimeout(() => {
-        window.URL.revokeObjectURL(downloadUrl)
-      }, 100)
-      
-      ElMessage.success('下载成功')
-      return
-    } catch (proxyError) {
-      console.warn('代理下载失败:', proxyError)
-      
-      // 备用方法1：尝试直接下载（仅限同域）
-      const isSameDomain = fullUrl.startsWith(window.location.origin) || fullUrl.startsWith('/')
-      if (isSameDomain) {
-        try {
-          console.log('尝试直接下载:', fullUrl)
-          const response = await fetch(fullUrl, {
-            method: 'GET',
-            headers: {
-              'Accept': '*/*'
-            }
-          })
-          
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`)
-          }
-          
-          const blob = await response.blob()
-          const downloadUrl = window.URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.href = downloadUrl
-          link.download = filename || 'download'
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-          setTimeout(() => {
-            window.URL.revokeObjectURL(downloadUrl)
-          }, 100)
-          
-          ElMessage.success('下载成功')
-          return
-        } catch (directError) {
-          console.warn('直接下载也失败:', directError)
-        }
-      }
-      
-      // 备用方法2：直接打开链接（让用户手动保存）
-      console.log('使用备用方法：在新窗口打开')
-      const link = document.createElement('a')
-      link.href = fullUrl
-      link.download = filename || 'download'
-      link.target = '_blank'
-      link.rel = 'noopener noreferrer'
-      document.body.appendChild(link)
-      link.click()
-      setTimeout(() => {
-        document.body.removeChild(link)
-      }, 100)
-      ElMessage.info('已在新窗口打开，请手动保存文件')
-    }
-  } catch (error) {
-    const errorMessage = error.message || '未知错误'
-    ElMessage.error(`下载失败: ${errorMessage}`)
-    console.error('下载文件失败:', { url, filename, error })
-  }
-}
-
 // 处理图片加载错误
 const handleImageError = (event) => {
   event.target.style.display = 'none'
@@ -986,19 +711,35 @@ onMounted(() => {
 .workflow-content {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 24px;
   height: calc(90vh - 120px);
+}
+
+@media (max-width: 1200px) {
+  .workflow-content {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
 }
 
 .input-section,
 .output-section {
   display: flex;
   flex-direction: column;
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
 .input-section h4,
 .output-section h4 {
-  margin: 0 0 16px 0;
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #409eff;
 }
 
 .result-content {
@@ -1062,6 +803,12 @@ onMounted(() => {
   margin-bottom: 12px;
   padding-bottom: 12px;
   border-bottom: 1px solid #e4e7ed;
+  position: relative;
+}
+
+.open-file-btn {
+  position: absolute;
+  right: 10%;
 }
 
 .file-name {

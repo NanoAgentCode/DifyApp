@@ -37,6 +37,9 @@ public class UpdateAiAppReq {
     @ApiModelProperty("是否需要上传文件")
     private Boolean fileUploadEnabled;
     
+    @ApiModelProperty("是否显示文本输入框")
+    private Boolean inputEnabled;
+    
     @Size(max = 255, message = "应用图标长度不能超过255")
     @ApiModelProperty("应用图标")
     private String icon;
@@ -106,6 +109,14 @@ public class UpdateAiAppReq {
     
     public void setFileUploadEnabled(Boolean fileUploadEnabled) {
         this.fileUploadEnabled = fileUploadEnabled;
+    }
+    
+    public Boolean getInputEnabled() {
+        return inputEnabled;
+    }
+    
+    public void setInputEnabled(Boolean inputEnabled) {
+        this.inputEnabled = inputEnabled;
     }
     
     public String getIcon() {

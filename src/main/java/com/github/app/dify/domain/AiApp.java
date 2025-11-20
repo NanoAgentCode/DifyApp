@@ -139,6 +139,13 @@ public class AiApp implements Serializable {
     private Boolean fileUploadEnabled;
     
     /**
+    * 是否显示文本输入框
+    */
+    @ApiModelProperty("是否显示文本输入框")
+    @Column(name = "input_enabled")
+    private Boolean inputEnabled;
+    
+    /**
     * 主题色
     */
     @Size(max= 64,message="编码长度不能超过64")
@@ -411,6 +418,20 @@ public class AiApp implements Serializable {
     */
     public Boolean getFileUploadEnabled(){
     return this.fileUploadEnabled;
+    }
+    
+    /**
+    * 是否显示文本输入框
+    */
+    public Boolean getInputEnabled(){
+    return this.inputEnabled;
+    }
+    
+    /**
+    * 是否显示文本输入框
+    */
+    public void setInputEnabled(Boolean inputEnabled){
+    this.inputEnabled = inputEnabled;
     }
 
 }

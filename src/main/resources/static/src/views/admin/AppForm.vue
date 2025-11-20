@@ -9,63 +9,114 @@
         ref="formRef"
         :model="form"
         :rules="rules"
-        label-width="120px"
+        label-width="140px"
       >
-        <el-form-item label="应用名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入应用名称" />
-        </el-form-item>
+        <!-- 基本信息 -->
+        <el-card shadow="never" class="form-section">
+          <template #header>
+            <span class="section-title">基本信息</span>
+          </template>
+          <el-form-item label="应用名称" prop="name">
+            <el-input v-model="form.name" placeholder="请输入应用名称" />
+          </el-form-item>
 
-        <el-form-item label="应用描述" prop="description">
-          <el-input
-            v-model="form.description"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入应用描述"
-          />
-        </el-form-item>
+          <el-form-item label="应用描述" prop="description">
+            <el-input
+              v-model="form.description"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入应用描述"
+            />
+          </el-form-item>
 
-        <el-form-item label="应用类型" prop="type">
-          <el-radio-group v-model="form.type">
-            <el-radio :label="1">Chat Flow</el-radio>
-            <el-radio :label="2">Workflow</el-radio>
-          </el-radio-group>
-        </el-form-item>
+          <el-form-item label="应用类型" prop="type">
+            <el-radio-group v-model="form.type">
+              <el-radio :label="1">Chat Flow</el-radio>
+              <el-radio :label="2">Workflow</el-radio>
+            </el-radio-group>
+          </el-form-item>
+        </el-card>
 
-        <el-form-item label="Dify API Key" prop="appId">
-          <el-input v-model="form.appId" placeholder="请输入Dify API Key" />
-        </el-form-item>
+        <!-- API配置 -->
+        <el-card shadow="never" class="form-section">
+          <template #header>
+            <span class="section-title">API配置</span>
+          </template>
+          <el-form-item label="Dify API Key" prop="appId">
+            <el-input v-model="form.appId" placeholder="请输入Dify API Key" />
+          </el-form-item>
 
-        <el-form-item label="API Base URL" prop="apiBaseUrl">
-          <el-input v-model="form.apiBaseUrl" placeholder="留空则使用默认URL" />
-        </el-form-item>
+          <el-form-item label="API Base URL" prop="apiBaseUrl">
+            <el-input v-model="form.apiBaseUrl" placeholder="留空则使用默认URL" />
+          </el-form-item>
+        </el-card>
 
-        <el-form-item label="是否支持流式响应">
-          <el-switch v-model="form.streamEnabled" />
-        </el-form-item>
+        <!-- 功能设置 -->
+        <el-card shadow="never" class="form-section">
+          <template #header>
+            <span class="section-title">功能设置</span>
+          </template>
+          <el-form-item label="是否支持流式响应">
+            <el-switch 
+              v-model="form.streamEnabled" 
+              active-text="开启"
+              inactive-text="关闭"
+            />
+            <div class="form-item-tip">开启后支持实时流式响应</div>
+          </el-form-item>
 
-        <el-form-item label="是否需要上传文件">
-          <el-switch v-model="form.fileUploadEnabled" />
-        </el-form-item>
+          <el-form-item label="是否需要上传文件">
+            <el-switch 
+              v-model="form.fileUploadEnabled" 
+              active-text="开启"
+              inactive-text="关闭"
+            />
+            <div class="form-item-tip">开启后用户可以在工作流中上传文件</div>
+          </el-form-item>
 
-        <el-form-item label="应用图标" prop="icon">
-          <el-input v-model="form.icon" placeholder="请输入图标URL" />
-        </el-form-item>
+          <el-form-item label="是否显示文本输入框">
+            <el-switch 
+              v-model="form.inputEnabled" 
+              active-text="开启"
+              inactive-text="关闭"
+            />
+            <div class="form-item-tip">开启后显示文本输入框，关闭后隐藏输入框</div>
+          </el-form-item>
+        </el-card>
 
-        <el-form-item label="主题色" prop="themeColor">
-          <el-color-picker v-model="form.themeColor" />
-        </el-form-item>
+        <!-- 显示设置 -->
+        <el-card shadow="never" class="form-section">
+          <template #header>
+            <span class="section-title">显示设置</span>
+          </template>
+          <el-form-item label="应用图标" prop="icon">
+            <el-input v-model="form.icon" placeholder="请输入图标URL" />
+          </el-form-item>
 
-        <el-form-item label="排序" prop="sort">
-          <el-input-number v-model="form.sort" :min="0" />
-        </el-form-item>
+          <el-form-item label="主题色" prop="themeColor">
+            <el-color-picker v-model="form.themeColor" />
+          </el-form-item>
 
-        <el-form-item label="租户编号" prop="tenantId">
-          <el-input-number v-model="form.tenantId" :min="1" />
-        </el-form-item>
+          <el-form-item label="排序" prop="sort">
+            <el-input-number v-model="form.sort" :min="0" />
+            <div class="form-item-tip">数字越小越靠前</div>
+          </el-form-item>
+        </el-card>
 
-        <el-form-item>
-          <el-button type="primary" @click="handleSubmit">保存</el-button>
-          <el-button @click="handleCancel">取消</el-button>
+        <!-- 系统设置 -->
+        <el-card shadow="never" class="form-section">
+          <template #header>
+            <span class="section-title">系统设置</span>
+          </template>
+          <el-form-item label="租户编号" prop="tenantId">
+            <el-input-number v-model="form.tenantId" :min="1" />
+          </el-form-item>
+        </el-card>
+
+        <!-- 操作按钮 -->
+        <el-form-item class="form-actions">
+          <el-button type="primary" @click="handleSubmit" size="large">保存</el-button>
+          <el-button @click="handleCancel" size="large">取消</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -91,6 +142,7 @@ const form = reactive({
   apiBaseUrl: '',
   streamEnabled: false,
   fileUploadEnabled: false,
+  inputEnabled: true,
   icon: '',
   themeColor: '',
   sort: 0,
@@ -184,7 +236,55 @@ onMounted(() => {
 <style scoped>
 .app-form {
   width: 100%;
-  max-width: 800px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.form-section {
+  margin-bottom: 20px;
+  border: 1px solid #e4e7ed;
+}
+
+.form-section :deep(.el-card__header) {
+  background-color: #f5f7fa;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.form-section :deep(.el-card__body) {
+  padding: 20px;
+}
+
+.form-section :deep(.el-form-item) {
+  margin-bottom: 22px;
+}
+
+.form-item-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.form-actions {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #e4e7ed;
+  text-align: center;
+}
+
+.form-actions :deep(.el-form-item__content) {
+  justify-content: center;
+}
+
+.form-actions .el-button {
+  margin: 0 10px;
 }
 </style>
 
