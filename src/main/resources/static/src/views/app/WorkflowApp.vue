@@ -185,14 +185,6 @@
                         {{ getFileStatusText(file.status) }}
                       </el-tag>
                     </div>
-                    <!-- 上传进度条 -->
-                    <el-progress 
-                      v-if="file.status === 'uploading'"
-                      :percentage="file.percentage || 0"
-                      :status="file.percentage === 100 ? 'success' : undefined"
-                      :stroke-width="6"
-                      class="upload-progress"
-                    />
                     <!-- 上传成功/失败信息 -->
                     <div v-if="file.status === 'success'" class="file-success">
                       <el-icon class="success-icon"><Check /></el-icon>
@@ -279,7 +271,22 @@
                     </div>
                     <!-- HTML预览 -->
                     <div v-else-if="isHtml(file)" class="html-preview">
-                      <iframe :src="file.fullUrl" frameborder="0" class="preview-iframe"></iframe>
+                      <div class="html-preview-wrapper">
+                        <iframe 
+                          :src="file.fullUrl" 
+                          frameborder="0" 
+                          scrolling="no"
+                          class="preview-iframe html-iframe"
+                          :style="{ height: (htmlIframeHeights[index] || 600) + 'px' }"
+                          @load="handleHtmlIframeLoad($event, index)"
+                        ></iframe>
+                        <div 
+                          class="resize-handle"
+                          @mousedown="startResize($event, index)"
+                        >
+                          <div class="resize-handle-line"></div>
+                        </div>
+                      </div>
                     </div>
                     <!-- PDF预览 -->
                     <div v-else-if="isPdf(file)" class="pdf-preview">
@@ -407,6 +414,11 @@ const showPdfEmbed = ref(false) // 是否显示PDF embed标签
 const pdfLoadError = ref(false) // PDF加载错误
 const pdfLoading = ref(false) // PDF加载中
 const pdfBlobUrl = ref('') // PDF Blob URL
+const htmlIframeHeights = ref({}) // HTML iframe高度映射，key为文件索引
+const isResizing = ref(false) // 是否正在调整大小
+const resizeStartY = ref(0) // 拖拽开始时的Y坐标
+const resizeStartHeight = ref(0) // 拖拽开始时的高度
+const currentResizeIndex = ref(-1) // 当前正在调整的文件索引
 
 // 输入字段配置
 const inputFields = ref([])
@@ -896,7 +908,6 @@ const uploadSingleFile = async (fileItem) => {
   
   // 设置上传状态
   fileItem.status = 'uploading'
-  fileItem.percentage = 0
   
   try {
     const formData = new FormData()
@@ -909,14 +920,11 @@ const uploadSingleFile = async (fileItem) => {
     formData.append('user', userId)
     
     // 通过后端接口上传文件
-    const result = await uploadFile(route.params.id, formData, (percentage) => {
-      fileItem.percentage = percentage
-    })
+    const result = await uploadFile(route.params.id, formData)
     
     if (result && result.id) {
       // 保存上传后的文件信息
       fileItem.status = 'success'
-      fileItem.percentage = 100
       fileItem.uploadFileId = result.id
       fileItem.uploadFileType = getFileType(fileItem.raw)
       fileItem.uploadResult = result
@@ -927,7 +935,6 @@ const uploadSingleFile = async (fileItem) => {
     }
   } catch (error) {
     fileItem.status = 'fail'
-    fileItem.percentage = 0
     ElMessage.error(`文件 ${fileItem.name} 上传失败: ${error.message || '未知错误'}`)
     console.error('文件上传失败:', error)
     throw error
@@ -1346,6 +1353,141 @@ const handleImageError = (event) => {
   ElMessage.warning('图片加载失败')
 }
 
+// 处理HTML iframe加载
+const handleHtmlIframeLoad = (event, index) => {
+  const iframe = event.target
+  try {
+    // 尝试获取iframe内容高度（可能受跨域限制）
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
+    if (iframeDoc) {
+      // 尝试注入CSS来隐藏滚动条
+      try {
+        const style = iframeDoc.createElement('style')
+        style.textContent = `
+          * {
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+          }
+          *::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            background: transparent !important;
+          }
+          html {
+            overflow: auto !important;
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+            width: 100% !important;
+            height: 100% !important;
+          }
+          html::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            background: transparent !important;
+          }
+          body {
+            overflow: auto !important;
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
+          }
+          body::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            background: transparent !important;
+          }
+        `
+        iframeDoc.head.appendChild(style)
+      } catch (e) {
+        // 如果无法注入样式，忽略
+        console.log('无法注入样式到iframe:', e)
+      }
+      
+      // 等待内容完全加载
+      setTimeout(() => {
+        const height = Math.max(
+          iframeDoc.body?.scrollHeight || 0,
+          iframeDoc.body?.offsetHeight || 0,
+          iframeDoc.documentElement?.clientHeight || 0,
+          iframeDoc.documentElement?.scrollHeight || 0,
+          iframeDoc.documentElement?.offsetHeight || 0
+        )
+        if (height > 0 && height < 10000) {
+          // 设置实际内容高度，但不超过10000px
+          if (!htmlIframeHeights.value[index]) {
+            htmlIframeHeights.value[index] = height
+          }
+        } else if (height === 0) {
+          // 如果无法获取高度，设置一个合理的默认值
+          if (!htmlIframeHeights.value[index]) {
+            htmlIframeHeights.value[index] = 600
+          }
+        }
+      }, 100)
+    }
+  } catch (e) {
+    // 跨域限制，无法访问iframe内容
+    // 设置默认高度
+    if (!htmlIframeHeights.value[index]) {
+      htmlIframeHeights.value[index] = 600
+    }
+  }
+}
+
+// 开始调整大小
+const startResize = (event, index) => {
+  event.preventDefault()
+  event.stopPropagation()
+  isResizing.value = true
+  currentResizeIndex.value = index
+  resizeStartY.value = event.clientY
+  resizeStartHeight.value = htmlIframeHeights.value[index] || 600
+  
+  document.addEventListener('mousemove', handleResize)
+  document.addEventListener('mouseup', stopResize)
+}
+
+// 处理拖拽调整
+const handleResize = (event) => {
+  if (!isResizing.value || currentResizeIndex.value === -1) return
+  
+  const deltaY = event.clientY - resizeStartY.value
+  let newHeight = resizeStartHeight.value + deltaY
+  
+  // 计算最大高度限制
+  const resizeHandle = event.target.closest('.resize-handle')
+  if (resizeHandle) {
+    const htmlPreviewElement = resizeHandle.closest('.html-preview')
+    if (htmlPreviewElement) {
+      const resultContent = htmlPreviewElement.closest('.result-content')
+      if (resultContent) {
+        const htmlPreviewRect = htmlPreviewElement.getBoundingClientRect()
+        const resultContentRect = resultContent.getBoundingClientRect()
+        const maxHeight = resultContentRect.bottom - htmlPreviewRect.top - 20 // 减去一些边距
+        newHeight = Math.min(newHeight, maxHeight)
+      }
+    }
+  }
+  
+  // 限制最小高度为200px
+  newHeight = Math.max(200, newHeight)
+  htmlIframeHeights.value[currentResizeIndex.value] = newHeight
+}
+
+// 停止调整大小
+const stopResize = () => {
+  isResizing.value = false
+  currentResizeIndex.value = -1
+  document.removeEventListener('mousemove', handleResize)
+  document.removeEventListener('mouseup', stopResize)
+}
+
 // 获取配置
 const fetchConfig = async () => {
   try {
@@ -1580,12 +1722,48 @@ onMounted(() => {
 
 .html-preview {
   width: 100%;
-  height: 600px;
   border: 1px solid #e4e7ed;
   border-radius: 4px;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
+}
+
+.html-preview-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.resize-handle {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  cursor: ns-resize;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  transition: background 0.2s;
+}
+
+.resize-handle:hover {
+  background: rgba(64, 158, 255, 0.1);
+}
+
+.resize-handle-line {
+  width: 60px;
+  height: 4px;
+  background: #409eff;
+  border-radius: 2px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.resize-handle:hover .resize-handle-line {
+  opacity: 1;
 }
 
 .pdf-preview {
@@ -1653,7 +1831,51 @@ onMounted(() => {
   min-height: 2000px;
   border: none;
   display: block;
-  overflow: hidden;
+}
+
+/* HTML预览的iframe样式 */
+.html-preview .preview-iframe,
+.html-preview .html-iframe {
+  width: 100%;
+  min-height: 100px;
+  border: none;
+  display: block;
+  overflow: auto;
+  /* 隐藏滚动条但保留滚动功能 */
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE and Edge */
+  box-sizing: border-box;
+}
+
+/* 隐藏HTML预览iframe内部滚动条（Webkit浏览器） */
+.html-preview .preview-iframe::-webkit-scrollbar,
+.html-preview .html-iframe::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+/* 确保iframe内容可以滚动 */
+.html-preview-wrapper {
+  position: relative;
+  width: 100%;
+  overflow: hidden; /* 隐藏包装器的滚动条 */
+}
+
+/* 如果iframe内部内容需要滚动，通过CSS注入来隐藏滚动条 */
+.html-preview-wrapper iframe {
+  overflow: auto !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  box-sizing: border-box !important;
+}
+
+.html-preview-wrapper iframe::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }
 
 /* 隐藏iframe内部滚动条 */
@@ -1783,10 +2005,6 @@ onMounted(() => {
 
 .file-status {
   flex-shrink: 0;
-}
-
-.upload-progress {
-  margin-top: 8px;
 }
 
 .file-success {
