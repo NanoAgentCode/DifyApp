@@ -3,7 +3,10 @@
     <el-card v-loading="loading">
       <template #header>
         <div class="card-header">
-          <span>应用详情</span>
+          <div class="header-left">
+            <AppIcon v-if="appDetail?.icon" :icon="appDetail.icon" :size="32" class="app-icon" />
+            <span>应用详情</span>
+          </div>
           <div>
             <el-button @click="handleEdit">编辑</el-button>
             <el-button type="primary" @click="handleUse">使用</el-button>
@@ -12,6 +15,9 @@
       </template>
 
       <el-descriptions :column="2" border v-if="appDetail">
+        <el-descriptions-item label="应用图标" v-if="appDetail.icon">
+          <AppIcon :icon="appDetail.icon" :size="48" />
+        </el-descriptions-item>
         <el-descriptions-item label="应用ID">{{ appDetail.id }}</el-descriptions-item>
         <el-descriptions-item label="应用名称">{{ appDetail.name }}</el-descriptions-item>
         <el-descriptions-item label="应用描述" :span="2">{{ appDetail.description || '-' }}</el-descriptions-item>
@@ -45,6 +51,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getAppDetail } from '@/api/aiApp'
+import AppIcon from '@/components/AppIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -94,6 +101,16 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-left .app-icon {
+  flex-shrink: 0;
 }
 </style>
 
