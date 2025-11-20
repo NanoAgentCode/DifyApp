@@ -3,8 +3,8 @@ package com.github.app.dify.service;
 import com.github.app.dify.domain.AiApp;
 import com.github.app.dify.repository.AiAppRepository;
 import com.github.app.dify.req.CreateAiAppReq;
-import com.github.app.dify.req.DifyChatRequest;
-import com.github.app.dify.req.DifyWorkflowRequest;
+import com.github.app.dify.req.ChatFlowRequest;
+import com.github.app.dify.req.WorkFlowRequest;
 import com.github.app.dify.req.UpdateAiAppReq;
 import com.github.app.dify.resp.AiAppResp;
 import com.github.app.dify.resp.DifyResponse;
@@ -240,7 +240,7 @@ public class AiAppService {
     /**
      * 调用Chat Flow
      */
-    public Mono<DifyResponse> chat(Long appId, DifyChatRequest request) {
+    public Mono<DifyResponse> chat(Long appId, ChatFlowRequest request) {
         AiApp app = aiAppRepository.findById(appId)
                 .orElseThrow(() -> new RuntimeException("应用不存在: " + appId));
         
@@ -289,7 +289,7 @@ public class AiAppService {
     /**
      * 调用Chat Flow（流式）
      */
-    public Flux<DifyResponse> chatStream(Long appId, DifyChatRequest request) {
+    public Flux<DifyResponse> chatStream(Long appId, ChatFlowRequest request) {
         AiApp app = aiAppRepository.findById(appId)
                 .orElseThrow(() -> new RuntimeException("应用不存在: " + appId));
         
@@ -322,7 +322,7 @@ public class AiAppService {
     /**
      * 调用Workflow
      */
-    public Mono<DifyResponse> workflow(Long appId, DifyWorkflowRequest request) {
+    public Mono<DifyResponse> workflow(Long appId, WorkFlowRequest request) {
         AiApp app = aiAppRepository.findById(appId)
                 .orElseThrow(() -> new RuntimeException("应用不存在: " + appId));
         
@@ -394,7 +394,7 @@ public class AiAppService {
     /**
      * 调用Workflow（流式）
      */
-    public Flux<DifyResponse> workflowStream(Long appId, DifyWorkflowRequest request) {
+    public Flux<DifyResponse> workflowStream(Long appId, WorkFlowRequest request) {
         AiApp app = aiAppRepository.findById(appId)
                 .orElseThrow(() -> new RuntimeException("应用不存在: " + appId));
         

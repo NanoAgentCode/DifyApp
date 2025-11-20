@@ -2,8 +2,8 @@ package com.github.app.dify.controller;
 
 import com.github.app.dify.config.DifyConfig;
 import com.github.app.dify.req.CreateAiAppReq;
-import com.github.app.dify.req.DifyChatRequest;
-import com.github.app.dify.req.DifyWorkflowRequest;
+import com.github.app.dify.req.ChatFlowRequest;
+import com.github.app.dify.req.WorkFlowRequest;
 import com.github.app.dify.req.UpdateAiAppReq;
 import com.github.app.dify.resp.AiAppResp;
 import com.github.app.dify.resp.DifyResponse;
@@ -120,7 +120,7 @@ public class AiAppController {
     @ApiOperation("调用Chat Flow（非流式）")
     @PostMapping("/{id}/chat")
     public Mono<ResponseEntity<DifyResponse>> chat(@PathVariable Long id, 
-                                                    @Validated @RequestBody DifyChatRequest request) {
+                                                    @Validated @RequestBody ChatFlowRequest request) {
         return aiAppService.chat(id, request)
                 .map(ResponseEntity::ok)
                 .onErrorReturn(ResponseEntity.badRequest().build());
@@ -132,7 +132,7 @@ public class AiAppController {
     @ApiOperation("调用Chat Flow（流式）")
     @PostMapping(value = "/{id}/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<DifyResponse>> chatStream(@PathVariable Long id, 
-                                                          @Validated @RequestBody DifyChatRequest request) {
+                                                          @Validated @RequestBody ChatFlowRequest request) {
         logger.info("收到流式Chat请求 - 应用ID: {}, 查询: {}, 用户ID: {}", 
                 id, request.getQuery(), request.getUserId());
         return aiAppService.chatStream(id, request)
@@ -182,7 +182,7 @@ public class AiAppController {
     @ApiOperation("调用Workflow（非流式）")
     @PostMapping("/{id}/workflow")
     public Mono<ResponseEntity<DifyResponse>> workflow(@PathVariable Long id, 
-                                                       @Validated @RequestBody DifyWorkflowRequest request,
+                                                       @Validated @RequestBody WorkFlowRequest request,
                                                        @RequestHeader(value = "X-Trace-Id", required = false) String traceIdHeader) {
         // 优先使用 Header 中的 trace_id
         if (traceIdHeader != null && !traceIdHeader.trim().isEmpty() && 
@@ -200,7 +200,7 @@ public class AiAppController {
     @ApiOperation("调用Workflow（流式）")
     @PostMapping(value = "/{id}/workflow/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<DifyResponse>> workflowStream(@PathVariable Long id, 
-                                                              @Validated @RequestBody DifyWorkflowRequest request,
+                                                              @Validated @RequestBody WorkFlowRequest request,
                                                               @RequestHeader(value = "X-Trace-Id", required = false) String traceIdHeader) {
         // 优先使用 Header 中的 trace_id
         if (traceIdHeader != null && !traceIdHeader.trim().isEmpty() && 
