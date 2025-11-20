@@ -307,13 +307,19 @@ public class AiAppService {
             throw new RuntimeException("应用类型不是Workflow");
         }
         
-        // 记录应用信息，用于调试
-        logger.info("调用Workflow - 应用ID: {}, 应用名称: {}, 应用类型: {}, API Key: {}", 
-                appId, app.getName(), app.getType(), 
-                app.getAppId() != null ? app.getAppId().substring(0, Math.min(10, app.getAppId().length())) + "..." : "null");
-        
         // 验证并修复API Base URL
         String apiBaseUrl = validateAndFixApiBaseUrl(app.getApiBaseUrl());
+        
+        // 记录应用信息，用于调试
+        logger.info("调用Workflow - 应用ID: {}, 应用名称: {}, 应用类型: {}, API Key: {}, API Base URL: {}", 
+                appId, app.getName(), app.getType(), 
+                app.getAppId() != null ? app.getAppId().substring(0, Math.min(10, app.getAppId().length())) + "..." : "null",
+                apiBaseUrl);
+        
+        // 如果收到 not_workflow_app 错误，提供更详细的诊断信息
+        logger.info("诊断信息 - 数据库中的应用类型: {}, API Key前10位: {}, 请确认Dify控制台中该API Key对应的应用是否为Workflow类型", 
+                app.getType(), 
+                app.getAppId() != null ? app.getAppId().substring(0, Math.min(10, app.getAppId().length())) : "null");
         
         // 确定响应模式
         String responseMode = request.getResponseMode();
@@ -445,6 +451,84 @@ public class AiAppService {
         
         // 调用Dify API客户端上传文件
         return difyApiClient.uploadFile(apiKey, baseUrl, file, userId);
+    }
+    
+    /**
+     * 代理下载文件（解决跨域问题）
+     */
+    public Mono<org.springframework.core.io.Resource> proxyDownloadFile(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            return Mono.error(new IllegalArgumentException("URL不能为空"));
+        }
+        
+        logger.info("开始代理下载文件: {}", url);
+        
+        // 使用 WebClient 进行异步下载
+        org.springframework.web.reactive.function.client.WebClient webClient = 
+            org.springframework.web.reactive.function.client.WebClient.builder()
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024)) // 10MB
+                .build();
+        
+        return webClient.get()
+            .uri(url)
+            .retrieve()
+            .bodyToFlux(org.springframework.core.io.buffer.DataBuffer.class)
+            .timeout(java.time.Duration.ofSeconds(30))
+            .collectList()
+            .map(dataBuffers -> {
+                try {
+                    // 合并所有数据缓冲区
+                    int totalSize = dataBuffers.stream()
+                        .mapToInt(org.springframework.core.io.buffer.DataBuffer::readableByteCount)
+                        .sum();
+                    
+                    byte[] bytes = new byte[totalSize];
+                    int offset = 0;
+                    for (org.springframework.core.io.buffer.DataBuffer dataBuffer : dataBuffers) {
+                        int readableBytes = dataBuffer.readableByteCount();
+                        dataBuffer.read(bytes, offset, readableBytes);
+                        offset += readableBytes;
+                        org.springframework.core.io.buffer.DataBufferUtils.release(dataBuffer);
+                    }
+                    
+                    java.io.ByteArrayInputStream inputStream = new java.io.ByteArrayInputStream(bytes);
+                    
+                    // 将 InputStream 转换为 Resource
+                    org.springframework.core.io.Resource resource = new org.springframework.core.io.InputStreamResource(inputStream) {
+                        @Override
+                        public String getFilename() {
+                            // 从URL中提取文件名
+                            try {
+                                java.net.URL fileUrl = new java.net.URL(url);
+                                String path = fileUrl.getPath();
+                                String filename = path.substring(path.lastIndexOf('/') + 1);
+                                return filename.isEmpty() ? "download" : filename;
+                            } catch (Exception e) {
+                                return "download";
+                            }
+                        }
+                    };
+                    return resource;
+                } catch (Exception e) {
+                    // 释放所有数据缓冲区
+                    dataBuffers.forEach(org.springframework.core.io.buffer.DataBufferUtils::release);
+                    logger.error("处理下载数据失败: {}", url, e);
+                    throw new RuntimeException("处理下载数据失败: " + e.getMessage(), e);
+                }
+            })
+            .doOnSuccess(resource -> logger.info("文件下载成功: {}", url))
+            .doOnError(error -> logger.error("代理下载文件失败: {}", url, error))
+            .onErrorMap(error -> {
+                if (error instanceof java.util.concurrent.TimeoutException) {
+                    return new RuntimeException("下载超时，请检查网络连接或文件URL", error);
+                } else if (error instanceof java.net.UnknownHostException) {
+                    return new RuntimeException("无法解析主机名，请检查URL是否正确", error);
+                } else if (error instanceof java.net.ConnectException) {
+                    return new RuntimeException("连接失败，请检查网络连接", error);
+                } else {
+                    return new RuntimeException("下载文件失败: " + error.getMessage(), error);
+                }
+            });
     }
     
     /**

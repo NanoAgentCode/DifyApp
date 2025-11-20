@@ -25,6 +25,9 @@ public class DifyChatRequest {
     @ApiModelProperty("输入参数")
     private Map<String, Object> inputs;
     
+    @ApiModelProperty("文件数组，用于文件上传场景")
+    private java.util.List<Map<String, Object>> files;
+    
     @ApiModelProperty("是否流式响应")
     private Boolean stream;
     
@@ -59,6 +62,14 @@ public class DifyChatRequest {
     
     public void setInputs(Map<String, Object> inputs) {
         this.inputs = inputs;
+    }
+    
+    public java.util.List<Map<String, Object>> getFiles() {
+        return files;
+    }
+    
+    public void setFiles(java.util.List<Map<String, Object>> files) {
+        this.files = files;
     }
     
     public Boolean getStream() {

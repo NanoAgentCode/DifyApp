@@ -415,15 +415,27 @@ public class DifyApiClient {
         } else {
             throw new RuntimeException("用户ID不能为空");
         }
+        
+        // 构建 inputs，将文件信息添加到 inputs 中
+        Map<String, Object> finalInputs = inputs != null ? new java.util.HashMap<>(inputs) : new java.util.HashMap<>();
+        
+        // 如果有文件，将文件信息添加到 inputs 中，key 为 "file"
+        if (files != null && !files.isEmpty()) {
+            // 如果只有一个文件，直接添加到 inputs.file
+            // 如果有多个文件，可能需要作为数组
+            if (files.size() == 1) {
+                finalInputs.put("file", files.get(0));
+            } else {
+                // 多个文件，作为数组
+                finalInputs.put("file", files);
+            }
+            logger.info("将文件信息添加到 inputs.file，文件数量: {}", files.size());
+        }
+        
         // inputs 是必需参数，即使为空也要包含
-        requestBody.put("inputs", inputs != null ? inputs : new java.util.HashMap<>());
+        requestBody.put("inputs", finalInputs);
         // response_mode 是必需参数
         requestBody.put("response_mode", "blocking"); // Dify非流式响应模式
-        
-        // files 是可选参数
-        if (files != null && !files.isEmpty()) {
-            requestBody.put("files", files);
-        }
         
         // trace_id 是可选参数
         if (traceId != null && !traceId.trim().isEmpty()) {
@@ -476,7 +488,17 @@ public class DifyApiClient {
                             
                             // 检查是否是应用类型不匹配的错误
                             if (responseBody != null && responseBody.contains("not_workflow_app")) {
-                                logger.error("Dify API返回应用类型不匹配错误。请检查API Key对应的Dify应用是否为Workflow类型。");
+                                logger.error("⚠️ Dify API返回应用类型不匹配错误！");
+                                logger.error("⚠️ 诊断信息：");
+                                logger.error("⚠️   - API Key: {}...", apiKey.substring(0, Math.min(20, apiKey.length())));
+                                logger.error("⚠️   - API Base URL: {}", actualUrl);
+                                logger.error("⚠️   - 错误响应: {}", responseBody);
+                                logger.error("⚠️ 解决方案：");
+                                logger.error("⚠️   1. 登录Dify控制台，找到该API Key对应的应用");
+                                logger.error("⚠️   2. 确认应用类型是否为 'Workflow'（工作流）");
+                                logger.error("⚠️   3. 如果应用类型不是Workflow，请：");
+                                logger.error("⚠️      a) 在Dify中创建新的Workflow应用，获取新的API Key");
+                                logger.error("⚠️      b) 或者在本系统中更新应用的API Key为Workflow应用的API Key");
                             }
                         } catch (Exception e) {
                             logger.error("调用Dify Workflow API失败: {} {}, URL: {}, API Key: {}, 请求体: {}", 
@@ -488,18 +510,36 @@ public class DifyApiClient {
                     }
                 })
                 .onErrorMap(error -> {
-                    // 处理参数缺失错误，提供更友好的错误信息
+                    // 处理参数缺失错误和应用类型不匹配错误，提供更友好的错误信息
                     if (error instanceof org.springframework.web.reactive.function.client.WebClientResponseException.BadRequest) {
                         org.springframework.web.reactive.function.client.WebClientResponseException.BadRequest badRequestEx = 
                             (org.springframework.web.reactive.function.client.WebClientResponseException.BadRequest) error;
                         try {
                             String responseBody = badRequestEx.getResponseBodyAsString();
-                            if (responseBody != null && responseBody.contains("is required in input form")) {
-                                // 提取缺失的参数名
-                                String missingParam = extractMissingParam(responseBody);
-                                String errorMessage = String.format("Workflow 缺少必需的输入参数: %s。请检查应用配置中的 inputs 字段，确保包含所有必需的参数。", missingParam);
-                                logger.warn("Workflow 参数缺失: {}, 当前输入参数: {}", missingParam, requestBody.get("inputs"));
-                                return new RuntimeException(errorMessage, badRequestEx);
+                            if (responseBody != null) {
+                                // 检查是否是应用类型不匹配错误
+                                if (responseBody.contains("not_workflow_app")) {
+                                    String errorMessage = String.format(
+                                        "Dify API返回错误：应用类型不匹配。\n" +
+                                        "数据库中的应用类型已设置为Workflow，但API Key对应的Dify应用不是Workflow类型。\n" +
+                                        "请检查：\n" +
+                                        "1. 登录Dify控制台，找到API Key '%s...' 对应的应用\n" +
+                                        "2. 确认该应用的类型是否为 'Workflow'（工作流）\n" +
+                                        "3. 如果应用类型不是Workflow，请：\n" +
+                                        "   a) 在Dify中创建新的Workflow应用，获取新的API Key\n" +
+                                        "   b) 或者在本系统中更新应用的API Key为Workflow应用的API Key",
+                                        apiKey.substring(0, Math.min(20, apiKey.length()))
+                                    );
+                                    return new RuntimeException(errorMessage, badRequestEx);
+                                }
+                                // 检查是否是参数缺失错误
+                                if (responseBody.contains("is required in input form")) {
+                                    // 提取缺失的参数名
+                                    String missingParam = extractMissingParam(responseBody);
+                                    String errorMessage = String.format("Workflow 缺少必需的输入参数: %s。请检查应用配置中的 inputs 字段，确保包含所有必需的参数。", missingParam);
+                                    logger.warn("Workflow 参数缺失: {}, 当前输入参数: {}", missingParam, requestBody.get("inputs"));
+                                    return new RuntimeException(errorMessage, badRequestEx);
+                                }
                             }
                         } catch (Exception e) {
                             logger.warn("无法解析错误响应体", e);
@@ -561,15 +601,27 @@ public class DifyApiClient {
         } else {
             throw new RuntimeException("用户ID不能为空");
         }
+        
+        // 构建 inputs，将文件信息添加到 inputs 中
+        Map<String, Object> finalInputs = inputs != null ? new java.util.HashMap<>(inputs) : new java.util.HashMap<>();
+        
+        // 如果有文件，将文件信息添加到 inputs 中，key 为 "file"
+        if (files != null && !files.isEmpty()) {
+            // 如果只有一个文件，直接添加到 inputs.file
+            // 如果有多个文件，可能需要作为数组
+            if (files.size() == 1) {
+                finalInputs.put("file", files.get(0));
+            } else {
+                // 多个文件，作为数组
+                finalInputs.put("file", files);
+            }
+            logger.info("将文件信息添加到 inputs.file（流式），文件数量: {}", files.size());
+        }
+        
         // inputs 是必需参数，即使为空也要包含
-        requestBody.put("inputs", inputs != null ? inputs : new java.util.HashMap<>());
+        requestBody.put("inputs", finalInputs);
         // response_mode 是必需参数
         requestBody.put("response_mode", "streaming"); // Dify流式响应模式
-        
-        // files 是可选参数
-        if (files != null && !files.isEmpty()) {
-            requestBody.put("files", files);
-        }
         
         // trace_id 是可选参数
         if (traceId != null && !traceId.trim().isEmpty()) {

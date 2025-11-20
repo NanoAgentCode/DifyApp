@@ -111,10 +111,18 @@
                       <el-button size="small" @click="openFile(file.fullUrl)" type="primary" link>
                         在新窗口打开
                       </el-button>
+                      <el-button size="small" @click="downloadFile(file.fullUrl, file.filename)" type="success" link>
+                        下载
+                      </el-button>
                     </div>
                     <!-- 图片预览 -->
                     <div v-if="isImage(file)" class="image-preview">
                       <img :src="file.fullUrl" :alt="file.filename" @error="handleImageError" />
+                      <div class="image-actions">
+                        <el-button size="small" @click="downloadFile(file.fullUrl, file.filename || 'image.png')" type="success">
+                          下载图片
+                        </el-button>
+                      </div>
                     </div>
                     <!-- HTML预览 -->
                     <div v-else-if="isHtml(file)" class="html-preview">
@@ -578,6 +586,27 @@ const extractFiles = (result) => {
   const files = []
   if (!result || typeof result !== 'object') return files
   
+  // 检查 data.outputs.body（HTML URL）
+  if (result.data && result.data.outputs && result.data.outputs.body) {
+    let bodyUrl = result.data.outputs.body
+    // 如果 body 是字符串且包含引号，去掉引号
+    if (typeof bodyUrl === 'string') {
+      bodyUrl = bodyUrl.replace(/^["']|["']$/g, '').trim()
+    }
+    
+    if (bodyUrl) {
+      const fullUrl = bodyUrl.startsWith('http') ? bodyUrl : `${fileUrlPrefix.value}${bodyUrl}`
+      files.push({
+        url: bodyUrl,
+        fullUrl: fullUrl,
+        filename: 'output.html',
+        type: 'text/html',
+        mime_type: 'text/html',
+        extension: '.html'
+      })
+    }
+  }
+  
   // 检查 data.outputs.files
   if (result.data && result.data.outputs && result.data.outputs.files) {
     result.data.outputs.files.forEach(file => {
@@ -623,6 +652,118 @@ const isPdf = (file) => {
 // 打开文件
 const openFile = (url) => {
   window.open(url, '_blank')
+}
+
+// 下载文件
+const downloadFile = async (url, filename) => {
+  if (!url) {
+    ElMessage.error('文件URL为空')
+    return
+  }
+  
+  try {
+    // 确保 URL 是完整的（如果是相对路径，添加前缀）
+    let fullUrl = url
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      // 相对路径，添加文件URL前缀
+      fullUrl = url.startsWith('/') ? `${fileUrlPrefix.value}${url}` : `${fileUrlPrefix.value}/${url}`
+    }
+    
+    console.log('开始下载文件:', { url, fullUrl, filename })
+    
+    // 优先使用后端代理下载（解决跨域问题）
+    try {
+      const proxyUrl = `/api/ai-apps/proxy/download?url=${encodeURIComponent(fullUrl)}`
+      console.log('使用代理下载:', proxyUrl)
+      
+      const response = await fetch(proxyUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': '*/*'
+        }
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '')
+        throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`)
+      }
+      
+      const blob = await response.blob()
+      if (!blob || blob.size === 0) {
+        throw new Error('下载的文件为空')
+      }
+      
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = filename || 'download'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      // 延迟释放URL，确保下载开始
+      setTimeout(() => {
+        window.URL.revokeObjectURL(downloadUrl)
+      }, 100)
+      
+      ElMessage.success('下载成功')
+      return
+    } catch (proxyError) {
+      console.warn('代理下载失败:', proxyError)
+      
+      // 备用方法1：尝试直接下载（仅限同域）
+      const isSameDomain = fullUrl.startsWith(window.location.origin) || fullUrl.startsWith('/')
+      if (isSameDomain) {
+        try {
+          console.log('尝试直接下载:', fullUrl)
+          const response = await fetch(fullUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': '*/*'
+            }
+          })
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`)
+          }
+          
+          const blob = await response.blob()
+          const downloadUrl = window.URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = downloadUrl
+          link.download = filename || 'download'
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          setTimeout(() => {
+            window.URL.revokeObjectURL(downloadUrl)
+          }, 100)
+          
+          ElMessage.success('下载成功')
+          return
+        } catch (directError) {
+          console.warn('直接下载也失败:', directError)
+        }
+      }
+      
+      // 备用方法2：直接打开链接（让用户手动保存）
+      console.log('使用备用方法：在新窗口打开')
+      const link = document.createElement('a')
+      link.href = fullUrl
+      link.download = filename || 'download'
+      link.target = '_blank'
+      link.rel = 'noopener noreferrer'
+      document.body.appendChild(link)
+      link.click()
+      setTimeout(() => {
+        document.body.removeChild(link)
+      }, 100)
+      ElMessage.info('已在新窗口打开，请手动保存文件')
+    }
+  } catch (error) {
+    const errorMessage = error.message || '未知错误'
+    ElMessage.error(`下载失败: ${errorMessage}`)
+    console.error('下载文件失败:', { url, filename, error })
+  }
 }
 
 // 处理图片加载错误
@@ -781,6 +922,13 @@ onMounted(() => {
   max-height: 500px;
   border-radius: 4px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  display: block;
+  margin: 0 auto;
+}
+
+.image-actions {
+  margin-top: 12px;
+  text-align: center;
 }
 
 .html-preview,

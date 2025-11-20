@@ -13,6 +13,7 @@ import io.swagger.annotations.ApiOperation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
@@ -258,6 +259,60 @@ public class AiAppController {
                     logger.error("文件上传失败", error);
                     return Mono.just(ResponseEntity.badRequest().build());
                 });
+    }
+    
+    /**
+     * 代理下载文件（解决跨域问题）
+     */
+    @ApiOperation("代理下载文件")
+    @GetMapping("/proxy/download")
+    public Mono<ResponseEntity<org.springframework.core.io.Resource>> proxyDownload(
+            @RequestParam("url") String url) {
+        return aiAppService.proxyDownloadFile(url)
+                .map(resource -> {
+                    try {
+                        String filename = extractFilenameFromUrl(url);
+                        return ResponseEntity.ok()
+                                .header(HttpHeaders.CONTENT_DISPOSITION, 
+                                        "attachment; filename=\"" + filename + "\"")
+                                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                                .body(resource);
+                    } catch (Exception e) {
+                        logger.error("设置下载响应头失败", e);
+                        return ResponseEntity.ok()
+                                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                                .body(resource);
+                    }
+                })
+                .onErrorResume(error -> {
+                    logger.error("代理下载文件失败", error);
+                    return Mono.just(ResponseEntity.badRequest().build());
+                });
+    }
+    
+    /**
+     * 从URL中提取文件名
+     */
+    private String extractFilenameFromUrl(String url) {
+        try {
+            // 尝试从URL路径中提取文件名
+            String path = new java.net.URL(url).getPath();
+            String filename = path.substring(path.lastIndexOf('/') + 1);
+            if (filename.isEmpty() || !filename.contains(".")) {
+                // 如果没有文件名或扩展名，使用默认名称
+                if (url.contains(".html")) {
+                    return "output.html";
+                } else if (url.contains(".png") || url.contains(".jpg") || url.contains(".jpeg")) {
+                    return "image." + (url.contains(".png") ? "png" : "jpg");
+                } else {
+                    return "download";
+                }
+            }
+            return filename;
+        } catch (Exception e) {
+            logger.warn("无法从URL提取文件名", e);
+            return "download";
+        }
     }
 }
 
