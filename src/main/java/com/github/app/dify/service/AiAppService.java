@@ -80,9 +80,19 @@ public class AiAppService {
             aiApp.setInputEnabled(true);
         }
         
+        // 确保 inputs 字段被正确设置（即使为 null 也要显式设置）
+        if (req.getInputs() != null) {
+            aiApp.setInputs(req.getInputs());
+            logger.info("设置 inputs 字段，长度: {}", req.getInputs().length());
+        } else {
+            aiApp.setInputs(null);
+            logger.info("inputs 字段为 null，使用默认值");
+        }
+        
         // 记录保存前的数据
-        logger.info("创建应用 - 名称: {}, API Key: {}, API Base URL: {}", 
-                aiApp.getName(), aiApp.getAppId(), aiApp.getApiBaseUrl());
+        logger.info("创建应用 - 名称: {}, API Key: {}, API Base URL: {}, Inputs: {}", 
+                aiApp.getName(), aiApp.getAppId(), aiApp.getApiBaseUrl(),
+                aiApp.getInputs() != null ? "已设置(" + aiApp.getInputs().length() + "字符)" : "null");
         
         aiApp = aiAppRepository.save(aiApp);
         
@@ -140,10 +150,19 @@ public class AiAppService {
         }
         if (req.getInputs() != null) {
             aiApp.setInputs(req.getInputs());
+            logger.info("更新 inputs 字段，长度: {}", req.getInputs().length());
+        } else {
+            // 如果请求中 inputs 为 null，保持原值不变（不更新）
+            logger.info("inputs 字段为 null，保持原值不变");
         }
         
         aiApp.setUpdateTime(new Date());
         aiApp = aiAppRepository.save(aiApp);
+        
+        // 记录保存后的数据
+        logger.info("应用更新成功 - ID: {}, Inputs: {}", 
+                aiApp.getId(), 
+                aiApp.getInputs() != null ? "已设置(" + aiApp.getInputs().length() + "字符)" : "null");
         
         return convertToResp(aiApp);
     }

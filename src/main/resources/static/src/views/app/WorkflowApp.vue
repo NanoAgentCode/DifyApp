@@ -3,7 +3,10 @@
     <el-card class="workflow-container">
       <template #header>
         <div class="workflow-header">
-          <h3>{{ appInfo?.name || '工作流应用' }}</h3>
+          <div class="workflow-header-left">
+            <AppIcon :icon="appInfo?.icon" :size="32" class="app-icon" />
+            <h3>{{ appInfo?.name || '工作流应用' }}</h3>
+          </div>
           <el-button @click="handleBack">返回</el-button>
         </div>
       </template>
@@ -270,6 +273,7 @@ import { UploadFilled, FullScreen } from '@element-plus/icons-vue'
 import { getAppDetail, workflowApp, workflowAppStream, uploadFile } from '@/api/aiApp'
 import request from '@/utils/request'
 import { getThemeById, getThemeCSSVariables } from '@/utils/themes'
+import AppIcon from '@/components/AppIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -995,6 +999,16 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.workflow-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.workflow-header-left .app-icon {
+  flex-shrink: 0;
 }
 
 .workflow-header h3 {

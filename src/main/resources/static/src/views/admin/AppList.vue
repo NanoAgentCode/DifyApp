@@ -13,6 +13,11 @@
 
       <el-table :data="appList" v-loading="loading" stripe>
         <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column label="图标" width="80" align="center">
+          <template #default="{ row }">
+            <AppIcon :icon="row.icon" :size="32" />
+          </template>
+        </el-table-column>
         <el-table-column prop="name" label="应用名称" />
         <el-table-column prop="description" label="描述" show-overflow-tooltip />
         <el-table-column prop="type" label="类型" width="120">
@@ -55,6 +60,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { getAppList, deleteApp } from '@/api/aiApp'
+import AppIcon from '@/components/AppIcon.vue'
 
 const router = useRouter()
 const appList = ref([])

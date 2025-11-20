@@ -3,7 +3,10 @@
     <el-card class="chat-container">
       <template #header>
         <div class="chat-header">
-          <h3>{{ appInfo?.name || '聊天应用' }}</h3>
+          <div class="chat-header-left">
+            <AppIcon :icon="appInfo?.icon" :size="32" class="app-icon" />
+            <h3>{{ appInfo?.name || '聊天应用' }}</h3>
+          </div>
           <el-button @click="handleBack">返回</el-button>
         </div>
       </template>
@@ -53,6 +56,7 @@ import { getAppDetail, chatApp, chatAppStream } from '@/api/aiApp'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
+import AppIcon from '@/components/AppIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -595,6 +599,16 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chat-header-left .app-icon {
+  flex-shrink: 0;
 }
 
 .chat-header h3 {

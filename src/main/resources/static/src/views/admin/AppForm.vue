@@ -284,7 +284,39 @@
             <span class="section-title">显示设置</span>
           </template>
           <el-form-item label="应用图标" prop="icon">
-            <el-input v-model="form.icon" placeholder="请输入图标URL" />
+            <el-radio-group v-model="selectedIcon" @change="handleIconChange" class="icon-radio-group">
+              <el-radio 
+                v-for="icon in builtInIcons" 
+                :key="icon.id" 
+                :label="icon.id"
+                class="icon-radio-item"
+              >
+                <div class="icon-radio-content">
+                  <el-icon :size="24" class="icon-radio-icon">
+                    <component :is="iconComponents[icon.icon]" />
+                  </el-icon>
+                  <span class="icon-radio-label">{{ icon.name }}</span>
+                </div>
+              </el-radio>
+              <el-radio label="custom" class="icon-radio-item">
+                <div class="icon-radio-content">
+                  <el-icon :size="24" class="icon-radio-icon"><Picture /></el-icon>
+                  <span class="icon-radio-label">自定义图标URL</span>
+                </div>
+              </el-radio>
+            </el-radio-group>
+            <div v-if="selectedIcon === 'custom'" class="custom-icon-input">
+              <el-input 
+                v-model="customIconUrl" 
+                placeholder="请输入图标URL（如：https://example.com/icon.png）"
+                @input="handleCustomIconChange"
+                clearable
+                style="margin-top: 12px;"
+              />
+              <div class="custom-icon-preview" v-if="customIconUrl">
+                <img :src="customIconUrl" alt="自定义图标" @error="handleIconError" />
+              </div>
+            </div>
           </el-form-item>
 
           <el-form-item label="主题" prop="themeColor">
@@ -377,15 +409,25 @@
 import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Check, Plus, Delete, DocumentCopy, Download } from '@element-plus/icons-vue'
+import { Check, Plus, Delete, DocumentCopy, Download, Picture } from '@element-plus/icons-vue'
+import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { createApp, updateApp, getAppDetail } from '@/api/aiApp'
 import { industrialThemes, getThemeById, findThemeByColor } from '@/utils/themes'
+import { builtInIcons, getIconById } from '@/utils/icons'
+
+// 创建图标组件映射
+const iconComponents = {}
+Object.keys(ElementPlusIconsVue).forEach(key => {
+  iconComponents[key] = ElementPlusIconsVue[key]
+})
 
 const route = useRoute()
 const router = useRouter()
 const formRef = ref(null)
 const isEdit = ref(false)
 const selectedTheme = ref('')
+const selectedIcon = ref('')
+const customIconUrl = ref('')
 
 const form = reactive({
   name: '',
@@ -699,6 +741,41 @@ const handleCustomColorChange = (color) => {
   }
 }
 
+// 图标变化处理
+const handleIconChange = (value) => {
+  if (value === 'custom') {
+    // 选择自定义图标
+    if (customIconUrl.value && customIconUrl.value.trim()) {
+      form.icon = customIconUrl.value.trim()
+    } else {
+      form.icon = ''
+    }
+  } else {
+    // 选择内置图标
+    const icon = getIconById(value)
+    if (icon) {
+      form.icon = `icon:${value}`
+      customIconUrl.value = ''
+    }
+  }
+}
+
+// 自定义图标URL变化处理
+const handleCustomIconChange = (url) => {
+  if (selectedIcon.value === 'custom') {
+    if (url && url.trim()) {
+      form.icon = url.trim()
+    } else {
+      form.icon = ''
+    }
+  }
+}
+
+// 图标加载错误处理
+const handleIconError = () => {
+  ElMessage.warning('自定义图标URL无法加载，请检查URL是否正确')
+}
+
 // 监听form.themeColor变化，同步selectedTheme
 watch(() => form.themeColor, (newColor) => {
   if (newColor && newColor.includes(':')) {
@@ -746,6 +823,23 @@ const fetchAppDetail = async () => {
           const matchedTheme = findThemeByColor(res.themeColor)
           selectedTheme.value = matchedTheme ? matchedTheme.id : ''
         }
+      }
+      
+      // 初始化图标选择
+      if (res.icon) {
+        if (res.icon.startsWith('icon:')) {
+          // 内置图标格式：icon:iconId
+          const iconId = res.icon.substring(5)
+          selectedIcon.value = iconId
+          customIconUrl.value = ''
+        } else {
+          // 自定义图标URL
+          selectedIcon.value = 'custom'
+          customIconUrl.value = res.icon
+        }
+      } else {
+        selectedIcon.value = ''
+        customIconUrl.value = ''
       }
     } catch (error) {
       ElMessage.error('获取应用详情失败')
@@ -1109,6 +1203,76 @@ onMounted(() => {
 .empty-tip {
   padding: 40px 0;
   text-align: center;
+}
+
+/* 图标选择器样式 - 多列单选框形式 */
+.icon-radio-group {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.icon-radio-item {
+  width: 100%;
+  margin: 0;
+  height: auto;
+  padding: 0;
+}
+
+.icon-radio-item :deep(.el-radio__input) {
+  margin-right: 12px;
+}
+
+.icon-radio-item :deep(.el-radio__label) {
+  padding: 0;
+  width: 100%;
+}
+
+.icon-radio-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.icon-radio-icon {
+  color: #409eff;
+  flex-shrink: 0;
+}
+
+.icon-radio-label {
+  font-size: 14px;
+  color: #303133;
+}
+
+.icon-radio-item.is-checked .icon-radio-label {
+  color: #409eff;
+  font-weight: 500;
+}
+
+.custom-icon-input {
+  margin-top: 12px;
+  padding-left: 32px;
+}
+
+.custom-icon-preview {
+  width: 64px;
+  height: 64px;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #f5f7fa;
+  margin-top: 8px;
+}
+
+.custom-icon-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 </style>
 
