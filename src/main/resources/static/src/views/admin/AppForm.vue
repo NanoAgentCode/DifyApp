@@ -84,6 +84,200 @@
           </el-form-item>
         </el-card>
 
+        <!-- 输入字段配置 -->
+        <el-card shadow="never" class="form-section" v-if="form.type === 2">
+          <template #header>
+            <span class="section-title">输入字段配置</span>
+          </template>
+          <div class="input-fields-config">
+            <div class="config-header">
+              <el-button type="primary" @click="addInputField" size="small">
+                <el-icon><Plus /></el-icon>
+                添加字段
+              </el-button>
+              <el-button @click="importFromJson" size="small" type="info">
+                <el-icon><DocumentCopy /></el-icon>
+                从JSON导入
+              </el-button>
+              <el-button @click="exportToJson" size="small" type="success">
+                <el-icon><Download /></el-icon>
+                导出JSON
+              </el-button>
+            </div>
+            
+            <el-form :model="inputFieldsConfig" label-width="140px">
+              <div 
+                v-for="(field, index) in inputFieldsList" 
+                :key="field.key || index"
+                class="input-field-item"
+              >
+                <el-card shadow="hover" class="field-card">
+                  <template #header>
+                    <div class="field-header">
+                      <span class="field-title">{{ field.label || field.key || `字段 ${index + 1}` }}</span>
+                      <el-button 
+                        type="danger" 
+                        size="small" 
+                        text 
+                        @click="removeInputField(index)"
+                      >
+                        <el-icon><Delete /></el-icon>
+                        删除
+                      </el-button>
+                    </div>
+                  </template>
+                  
+                  <el-form-item label="字段键名" :required="true">
+                    <el-input 
+                      v-model="field.key" 
+                      placeholder="例如: word, variable_name"
+                      @blur="validateFieldKey(field, index)"
+                    />
+                    <div class="form-item-tip">用于API请求的字段名，必须唯一</div>
+                  </el-form-item>
+                  
+                  <el-form-item label="显示标签">
+                    <el-input 
+                      v-model="field.label" 
+                      placeholder="例如: 关键词"
+                    />
+                    <div class="form-item-tip">表单中显示的标签文本</div>
+                  </el-form-item>
+                  
+                  <el-form-item label="字段类型">
+                    <el-select v-model="field.type" placeholder="选择字段类型">
+                      <el-option label="文本输入" value="text" />
+                      <el-option label="多行文本" value="textarea" />
+                      <el-option label="数字" value="number" />
+                      <el-option label="下拉选择" value="select" />
+                      <el-option label="JSON编辑器" value="json" />
+                      <el-option label="日期选择" value="date" />
+                      <el-option label="开关" value="switch" />
+                    </el-select>
+                  </el-form-item>
+                  
+                  <el-form-item label="占位符">
+                    <el-input 
+                      v-model="field.placeholder" 
+                      placeholder="请输入占位符文本"
+                    />
+                  </el-form-item>
+                  
+                  <el-form-item label="默认值">
+                    <el-input 
+                      v-model="field.defaultValue" 
+                      placeholder="字段的默认值"
+                    />
+                    <div class="form-item-tip">对于JSON类型，请输入有效的JSON字符串</div>
+                  </el-form-item>
+                  
+                  <el-form-item label="帮助文本">
+                    <el-input 
+                      v-model="field.helpText" 
+                      type="textarea"
+                      :rows="2"
+                      placeholder="显示在输入框下方的提示文本"
+                    />
+                  </el-form-item>
+                  
+                  <el-form-item label="是否必填">
+                    <el-switch v-model="field.required" />
+                  </el-form-item>
+                  
+                  <el-form-item label="行数" v-if="field.type === 'textarea'">
+                    <el-input-number 
+                      v-model="field.rows" 
+                      :min="1" 
+                      :max="20" 
+                      :step="1"
+                    />
+                    <div class="form-item-tip">多行文本输入框的行数</div>
+                  </el-form-item>
+                  
+                  <el-form-item label="选项列表" v-if="field.type === 'select'">
+                    <div class="select-options">
+                      <div 
+                        v-for="(option, optIndex) in field.options || []" 
+                        :key="optIndex"
+                        class="option-item"
+                      >
+                        <el-input 
+                          v-model="option.label" 
+                          placeholder="显示文本"
+                          style="width: 45%"
+                        />
+                        <el-input 
+                          v-model="option.value" 
+                          placeholder="值"
+                          style="width: 45%"
+                        />
+                        <el-button 
+                          type="danger" 
+                          size="small" 
+                          text 
+                          @click="removeOption(field, optIndex)"
+                        >
+                          <el-icon><Delete /></el-icon>
+                        </el-button>
+                      </div>
+                      <el-button 
+                        type="primary" 
+                        size="small" 
+                        text 
+                        @click="addOption(field)"
+                      >
+                        <el-icon><Plus /></el-icon>
+                        添加选项
+                      </el-button>
+                    </div>
+                  </el-form-item>
+                  
+                  <el-form-item label="样式配置">
+                    <div class="style-config">
+                      <el-input 
+                        v-model="field.style.width" 
+                        placeholder="宽度，如: 100%"
+                        style="width: 48%"
+                      />
+                      <el-input 
+                        v-model="field.style.labelWidth" 
+                        placeholder="标签宽度，如: 140px"
+                        style="width: 48%"
+                      />
+                    </div>
+                  </el-form-item>
+                  
+                  <el-form-item label="验证规则">
+                    <div class="validation-config">
+                      <el-input-number 
+                        v-model="field.validation.minLength" 
+                        placeholder="最小长度"
+                        :min="0"
+                        style="width: 30%"
+                      />
+                      <el-input-number 
+                        v-model="field.validation.maxLength" 
+                        placeholder="最大长度"
+                        :min="0"
+                        style="width: 30%"
+                      />
+                      <el-input 
+                        v-model="field.validation.pattern" 
+                        placeholder="正则表达式"
+                        style="width: 35%"
+                      />
+                    </div>
+                  </el-form-item>
+                </el-card>
+              </div>
+              
+              <div v-if="inputFieldsList.length === 0" class="empty-tip">
+                <el-empty description="暂无输入字段，点击上方按钮添加" :image-size="100" />
+              </div>
+            </el-form>
+          </div>
+        </el-card>
+
         <!-- 显示设置 -->
         <el-card shadow="never" class="form-section">
           <template #header>
@@ -95,29 +289,60 @@
 
           <el-form-item label="主题" prop="themeColor">
             <div class="theme-selector">
-              <el-radio-group v-model="selectedTheme" @change="handleThemeChange">
+              <el-radio-group v-model="selectedTheme" @change="handleThemeChange" class="theme-grid">
                 <el-radio 
                   v-for="theme in industrialThemes" 
                   :key="theme.id" 
                   :label="theme.id"
-                  class="theme-radio"
+                  class="theme-card"
                 >
-                  <div class="theme-preview">
-                    <div 
-                      class="theme-color-box" 
-                      :style="{ backgroundColor: theme.colors.primary }"
-                    ></div>
-                    <div class="theme-info">
+                  <div class="theme-preview-card">
+                    <div class="theme-header">
                       <div class="theme-name">{{ theme.name }}</div>
+                      <div class="theme-check-icon" v-if="selectedTheme === theme.id">
+                        <el-icon><Check /></el-icon>
+                      </div>
+                    </div>
+                    <div class="theme-colors-preview">
+                      <div 
+                        class="color-dot primary" 
+                        :style="{ backgroundColor: theme.colors.primary }"
+                        :title="`主色: ${theme.colors.primary}`"
+                      ></div>
+                      <div 
+                        class="color-dot secondary" 
+                        :style="{ backgroundColor: theme.colors.secondary }"
+                        :title="`次色: ${theme.colors.secondary}`"
+                      ></div>
+                      <div 
+                        class="color-dot accent" 
+                        :style="{ backgroundColor: theme.colors.accent }"
+                        :title="`强调色: ${theme.colors.accent}`"
+                      ></div>
+                    </div>
+                    <div class="theme-info">
                       <div class="theme-desc">{{ theme.description }}</div>
                     </div>
                   </div>
                 </el-radio>
               </el-radio-group>
               <div class="custom-color-section">
-                <el-divider>或自定义颜色</el-divider>
-                <el-color-picker v-model="form.themeColor" @change="handleCustomColorChange" />
-                <span class="custom-color-tip">选择自定义颜色将覆盖预设主题</span>
+                <el-divider>
+                  <span class="divider-text">或自定义颜色</span>
+                </el-divider>
+                <div class="custom-color-wrapper">
+                  <el-color-picker 
+                    v-model="form.themeColor" 
+                    @change="handleCustomColorChange"
+                    size="large"
+                  />
+                  <div class="custom-color-info">
+                    <div class="custom-color-tip">选择自定义颜色将覆盖预设主题</div>
+                    <div v-if="form.themeColor && !selectedTheme" class="custom-color-display">
+                      当前颜色: <span class="color-value">{{ form.themeColor }}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </el-form-item>
@@ -149,9 +374,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Check, Plus, Delete, DocumentCopy, Download } from '@element-plus/icons-vue'
 import { createApp, updateApp, getAppDetail } from '@/api/aiApp'
 import { industrialThemes, getThemeById, findThemeByColor } from '@/utils/themes'
 
@@ -173,8 +399,287 @@ const form = reactive({
   icon: '',
   themeColor: '',
   sort: 0,
-  tenantId: 1
+  tenantId: 1,
+  inputs: ''
 })
+
+// 输入字段配置
+const inputFieldsConfig = reactive({})
+const inputFieldsList = computed(() => {
+  return Object.keys(inputFieldsConfig).map(key => ({
+    key,
+    ...inputFieldsConfig[key]
+  }))
+})
+
+// 创建默认字段配置
+const createDefaultField = () => ({
+  key: '',
+  label: '',
+  type: 'text',
+  placeholder: '',
+  defaultValue: '',
+  helpText: '',
+  required: false,
+  rows: 2,
+  options: [],
+  style: {
+    width: '100%',
+    labelWidth: '140px'
+  },
+  validation: {
+    minLength: null,
+    maxLength: null,
+    pattern: ''
+  }
+})
+
+// 添加输入字段
+const addInputField = () => {
+  const field = createDefaultField()
+  const key = `field_${Date.now()}`
+  field.key = key
+  inputFieldsConfig[key] = field
+}
+
+// 删除输入字段
+const removeInputField = (index) => {
+  const field = inputFieldsList.value[index]
+  if (field && field.key) {
+    delete inputFieldsConfig[field.key]
+  }
+}
+
+// 验证字段键名
+const validateFieldKey = (field, index) => {
+  if (!field.key || field.key.trim() === '') {
+    ElMessage.warning('字段键名不能为空')
+    return
+  }
+  
+  // 检查是否有重复的键名
+  const duplicates = inputFieldsList.value.filter((f, i) => 
+    i !== index && f.key === field.key
+  )
+  if (duplicates.length > 0) {
+    ElMessage.warning('字段键名已存在，请使用不同的键名')
+    field.key = `field_${Date.now()}`
+  }
+}
+
+// 添加选项（用于select类型）
+const addOption = (field) => {
+  if (!field.options) {
+    field.options = []
+  }
+  field.options.push({ label: '', value: '' })
+}
+
+// 删除选项
+const removeOption = (field, index) => {
+  if (field.options && field.options.length > index) {
+    field.options.splice(index, 1)
+  }
+}
+
+// 从JSON导入配置
+const importFromJson = async () => {
+  try {
+    const { value } = await ElMessageBox.prompt(
+      '请输入JSON配置（格式：{"field1": {"label": "字段1", "type": "text", ...}, ...}）',
+      '从JSON导入',
+      {
+        confirmButtonText: '导入',
+        cancelButtonText: '取消',
+        inputType: 'textarea',
+        inputPlaceholder: '请输入JSON配置...',
+        inputValue: form.inputs || ''
+      }
+    )
+    
+    if (value && value.trim()) {
+      try {
+        const parsed = JSON.parse(value.trim())
+        
+        // 如果是旧格式（简单的键值对），转换为新格式
+        if (isOldFormat(parsed)) {
+          const converted = convertOldFormat(parsed)
+          Object.assign(inputFieldsConfig, converted)
+        } else {
+          // 新格式，直接使用
+          Object.assign(inputFieldsConfig, parsed)
+        }
+        
+        ElMessage.success('导入成功')
+      } catch (e) {
+        ElMessage.error('JSON格式错误: ' + e.message)
+      }
+    }
+  } catch (e) {
+    // 用户取消
+  }
+}
+
+// 导出为JSON
+const exportToJson = () => {
+  const config = {}
+  Object.keys(inputFieldsConfig).forEach(key => {
+    const field = inputFieldsConfig[key]
+    config[key] = {
+      label: field.label || '',
+      type: field.type || 'text',
+      placeholder: field.placeholder || '',
+      defaultValue: field.defaultValue || '',
+      helpText: field.helpText || '',
+      required: field.required || false,
+      rows: field.rows || 2,
+      options: field.options || [],
+      style: field.style || {},
+      validation: field.validation || {}
+    }
+  })
+  
+  const jsonStr = JSON.stringify(config, null, 2)
+  
+  // 复制到剪贴板
+  navigator.clipboard.writeText(jsonStr).then(() => {
+    ElMessage.success('JSON配置已复制到剪贴板')
+  }).catch(() => {
+    // 如果复制失败，显示在对话框中
+    ElMessageBox.alert(jsonStr, 'JSON配置', {
+      confirmButtonText: '确定',
+      type: 'info'
+    })
+  })
+}
+
+// 检查是否为旧格式
+const isOldFormat = (obj) => {
+  if (!obj || typeof obj !== 'object') return false
+  
+  // 旧格式：简单的键值对，值通常是字符串、数字、布尔值或数组/对象
+  const values = Object.values(obj)
+  return values.every(v => 
+    typeof v === 'string' || 
+    typeof v === 'number' || 
+    typeof v === 'boolean' || 
+    v === null ||
+    Array.isArray(v) ||
+    (typeof v === 'object' && v !== null && !v.hasOwnProperty('type'))
+  )
+}
+
+// 转换旧格式为新格式
+const convertOldFormat = (oldConfig) => {
+  const newConfig = {}
+  Object.keys(oldConfig).forEach(key => {
+    const value = oldConfig[key]
+    newConfig[key] = {
+      label: key,
+      type: Array.isArray(value) || (typeof value === 'object' && value !== null) ? 'json' : 'text',
+      placeholder: `请输入${key}`,
+      defaultValue: typeof value === 'string' ? value : JSON.stringify(value),
+      helpText: '',
+      required: false,
+      rows: Array.isArray(value) || (typeof value === 'object' && value !== null) ? 6 : 2,
+      options: [],
+      style: {
+        width: '100%',
+        labelWidth: '140px'
+      },
+      validation: {}
+    }
+  })
+  return newConfig
+}
+
+// 将输入字段配置转换为inputs JSON字符串
+const convertFieldsToInputs = () => {
+  const inputs = {}
+  Object.keys(inputFieldsConfig).forEach(key => {
+    const field = inputFieldsConfig[key]
+    if (field.key) {
+      // 根据类型设置默认值
+      let defaultValue = field.defaultValue || ''
+      
+      if (field.type === 'json' && defaultValue) {
+        try {
+          inputs[field.key] = JSON.parse(defaultValue)
+        } catch (e) {
+          inputs[field.key] = defaultValue
+        }
+      } else if (field.type === 'number') {
+        inputs[field.key] = defaultValue ? Number(defaultValue) : null
+      } else if (field.type === 'switch') {
+        inputs[field.key] = defaultValue === 'true' || defaultValue === true
+      } else {
+        inputs[field.key] = defaultValue
+      }
+    }
+  })
+  
+  // 同时保存字段配置
+  const fieldsConfig = {}
+  Object.keys(inputFieldsConfig).forEach(key => {
+    const field = inputFieldsConfig[key]
+    if (field.key) {
+      fieldsConfig[field.key] = {
+        label: field.label || '',
+        type: field.type || 'text',
+        placeholder: field.placeholder || '',
+        defaultValue: field.defaultValue || '',
+        helpText: field.helpText || '',
+        required: field.required || false,
+        rows: field.rows || 2,
+        options: field.options || [],
+        style: field.style || {},
+        validation: field.validation || {}
+      }
+    }
+  })
+  
+  // 返回包含字段配置和默认值的完整配置
+  return JSON.stringify({
+    fields: fieldsConfig,
+    defaults: inputs
+  }, null, 2)
+}
+
+// 从inputs JSON字符串加载输入字段配置
+const loadFieldsFromInputs = (inputsStr) => {
+  if (!inputsStr || inputsStr.trim() === '') {
+    return
+  }
+  
+  try {
+    const parsed = JSON.parse(inputsStr)
+    
+    // 检查是否是新格式（包含fields和defaults）
+    if (parsed.fields && parsed.defaults) {
+      // 新格式
+      Object.keys(parsed.fields).forEach(key => {
+        inputFieldsConfig[key] = {
+          key,
+          ...parsed.fields[key]
+        }
+      })
+    } else if (isOldFormat(parsed)) {
+      // 旧格式，转换为新格式
+      const converted = convertOldFormat(parsed)
+      Object.assign(inputFieldsConfig, converted)
+    } else {
+      // 可能是字段配置格式
+      Object.keys(parsed).forEach(key => {
+        inputFieldsConfig[key] = {
+          key,
+          ...parsed[key]
+        }
+      })
+    }
+  } catch (e) {
+    console.error('解析inputs配置失败:', e)
+  }
+}
 
 // 主题变化处理
 const handleThemeChange = (themeId) => {
@@ -226,6 +731,12 @@ const fetchAppDetail = async () => {
     try {
       const res = await getAppDetail(route.params.id)
       Object.assign(form, res)
+      
+      // 加载输入字段配置
+      if (res.inputs) {
+        loadFieldsFromInputs(res.inputs)
+      }
+      
       // 初始化主题选择
       if (res.themeColor) {
         if (res.themeColor.includes(':')) {
@@ -246,6 +757,14 @@ const handleSubmit = async () => {
   try {
     await formRef.value.validate()
     
+    // 将输入字段配置转换为inputs JSON字符串
+    if (form.type === 2 && inputFieldsList.value.length > 0) {
+      form.inputs = convertFieldsToInputs()
+    } else if (form.type === 2 && inputFieldsList.value.length === 0) {
+      // 如果没有配置字段，设置为空字符串
+      form.inputs = ''
+    }
+    
     // 清理空字符串字段，转换为null或删除
     const submitData = { ...form }
     
@@ -261,6 +780,9 @@ const handleSubmit = async () => {
     }
     if (!submitData.themeColor || submitData.themeColor.trim() === '') {
       submitData.themeColor = null
+    }
+    if (!submitData.inputs || submitData.inputs.trim() === '') {
+      submitData.inputs = null
     }
     
     if (isEdit.value) {
@@ -359,6 +881,234 @@ onMounted(() => {
 
 .form-actions .el-button {
   margin: 0 10px;
+}
+
+.theme-selector {
+  width: 100%;
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+.theme-card {
+  display: block;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 2px solid #e4e7ed;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.theme-card:hover {
+  border-color: #409eff;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.theme-card.is-checked {
+  border-color: #409eff;
+  background: linear-gradient(135deg, #ecf5ff 0%, #ffffff 100%);
+  box-shadow: 0 4px 16px rgba(64, 158, 255, 0.2);
+}
+
+.theme-preview-card {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.theme-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.theme-check-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #409eff;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 12px;
+}
+
+.theme-colors-preview {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+
+.color-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.color-dot:hover {
+  transform: scale(1.1);
+}
+
+.color-dot.primary {
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+.theme-info {
+  flex: 1;
+}
+
+.theme-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+  line-height: 1.4;
+}
+
+.theme-desc {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.5;
+}
+
+.custom-color-section {
+  margin-top: 24px;
+  padding-top: 24px;
+}
+
+.divider-text {
+  color: #909399;
+  font-size: 13px;
+  padding: 0 16px;
+  background: #fff;
+}
+
+.custom-color-wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px dashed #d9d9d9;
+}
+
+.custom-color-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.custom-color-tip {
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.5;
+}
+
+.custom-color-display {
+  font-size: 12px;
+  color: #909399;
+}
+
+.color-value {
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  color: #303133;
+  padding: 2px 6px;
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #e4e7ed;
+}
+
+.theme-card :deep(.el-radio__input) {
+  display: none;
+}
+
+.theme-card :deep(.el-radio__label) {
+  padding: 0;
+  width: 100%;
+}
+
+.theme-card.is-checked .theme-name {
+  color: #409eff;
+}
+
+.theme-card.is-checked .theme-colors-preview {
+  background: linear-gradient(135deg, #d9ecff 0%, #ecf5ff 100%);
+}
+
+/* 输入字段配置样式 */
+.input-fields-config {
+  width: 100%;
+}
+
+.config-header {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.input-field-item {
+  margin-bottom: 20px;
+}
+
+.field-card {
+  margin-bottom: 15px;
+}
+
+.field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.field-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: #303133;
+}
+
+.select-options {
+  width: 100%;
+}
+
+.option-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.style-config,
+.validation-config {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.empty-tip {
+  padding: 40px 0;
+  text-align: center;
 }
 </style>
 

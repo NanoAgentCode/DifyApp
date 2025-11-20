@@ -11,37 +11,138 @@
       <div class="workflow-content">
         <div class="input-section">
           <h4>输入参数</h4>
-          <el-form :model="inputs" label-width="140px">
+          <el-form :model="inputs" :label-width="formLabelWidth">
+            <!-- 根据配置动态渲染输入字段 -->
             <el-form-item
-              v-for="(value, key) in inputs"
-              :key="key"
-              :label="key"
+              v-for="field in inputFields"
+              :key="field.key"
+              :label="field.label || field.key"
+              :required="field.required"
               v-if="appInfo?.inputEnabled === true"
+              :style="field.style || {}"
             >
-              <!-- 简单字符串输入 -->
+              <!-- 文本输入 -->
               <el-input
-                v-if="isSimpleValue(value)"
-                v-model="inputs[key]"
-                :placeholder="`请输入${key}`"
-                type="textarea"
-                :rows="2"
+                v-if="field.type === 'text'"
+                v-model="inputs[field.key]"
+                :placeholder="field.placeholder || `请输入${field.label || field.key}`"
+                :style="{ width: (field.style && field.style.width) || '100%' }"
               />
-              <!-- 复杂结构（数组或对象）使用 JSON 编辑器 -->
-              <div v-else class="complex-input">
+              
+              <!-- 多行文本 -->
+              <el-input
+                v-else-if="field.type === 'textarea'"
+                v-model="inputs[field.key]"
+                type="textarea"
+                :rows="field.rows || 2"
+                :placeholder="field.placeholder || `请输入${field.label || field.key}`"
+                :style="{ width: (field.style && field.style.width) || '100%' }"
+              />
+              
+              <!-- 数字输入 -->
+              <el-input-number
+                v-else-if="field.type === 'number'"
+                v-model="inputs[field.key]"
+                :placeholder="field.placeholder || `请输入${field.label || field.key}`"
+                :style="{ width: (field.style && field.style.width) || '100%' }"
+              />
+              
+              <!-- 下拉选择 -->
+              <el-select
+                v-else-if="field.type === 'select'"
+                v-model="inputs[field.key]"
+                :placeholder="field.placeholder || `请选择${field.label || field.key}`"
+                :style="{ width: (field.style && field.style.width) || '100%' }"
+              >
+                <el-option
+                  v-for="option in field.options || []"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+              
+              <!-- JSON编辑器 -->
+              <div v-else-if="field.type === 'json'" class="complex-input">
                 <el-input
-                  v-model="inputsJson[key]"
+                  v-model="inputsJson[field.key]"
                   type="textarea"
-                  :rows="6"
-                  :placeholder="getComplexInputPlaceholder(key)"
-                  @blur="validateAndUpdateJson(key)"
+                  :rows="field.rows || 6"
+                  :placeholder="field.placeholder || getComplexInputPlaceholder(field.key)"
+                  @blur="validateAndUpdateJson(field.key)"
+                  :style="{ width: (field.style && field.style.width) || '100%' }"
                 />
                 <div class="input-tip">
                   <el-text type="info" size="small">
-                    支持 JSON 格式，可以是字符串、数组或对象
+                    {{ field.helpText || '支持 JSON 格式，可以是字符串、数组或对象' }}
                   </el-text>
                 </div>
               </div>
+              
+              <!-- 日期选择 -->
+              <el-date-picker
+                v-else-if="field.type === 'date'"
+                v-model="inputs[field.key]"
+                type="date"
+                :placeholder="field.placeholder || `请选择${field.label || field.key}`"
+                :style="{ width: (field.style && field.style.width) || '100%' }"
+              />
+              
+              <!-- 开关 -->
+              <el-switch
+                v-else-if="field.type === 'switch'"
+                v-model="inputs[field.key]"
+              />
+              
+              <!-- 默认：文本输入 -->
+              <el-input
+                v-else
+                v-model="inputs[field.key]"
+                :placeholder="field.placeholder || `请输入${field.label || field.key}`"
+                :style="{ width: (field.style && field.style.width) || '100%' }"
+              />
+              
+              <!-- 帮助文本 -->
+              <div v-if="field.helpText" class="input-tip">
+                <el-text type="info" size="small">
+                  {{ field.helpText }}
+                </el-text>
+              </div>
             </el-form-item>
+            
+            <!-- 兼容旧格式：如果没有配置字段，使用旧的渲染方式 -->
+            <template v-if="inputFields.length === 0">
+              <el-form-item
+                v-for="(value, key) in inputs"
+                :key="key"
+                :label="key"
+                v-if="appInfo?.inputEnabled === true"
+              >
+                <!-- 简单字符串输入 -->
+                <el-input
+                  v-if="isSimpleValue(value)"
+                  v-model="inputs[key]"
+                  :placeholder="`请输入${key}`"
+                  type="textarea"
+                  :rows="2"
+                />
+                <!-- 复杂结构（数组或对象）使用 JSON 编辑器 -->
+                <div v-else class="complex-input">
+                  <el-input
+                    v-model="inputsJson[key]"
+                    type="textarea"
+                    :rows="6"
+                    :placeholder="getComplexInputPlaceholder(key)"
+                    @blur="validateAndUpdateJson(key)"
+                  />
+                  <div class="input-tip">
+                    <el-text type="info" size="small">
+                      支持 JSON 格式，可以是字符串、数组或对象
+                    </el-text>
+                  </div>
+                </div>
+              </el-form-item>
+            </template>
             <!-- 文件上传区域 -->
             <el-form-item v-if="appInfo?.fileUploadEnabled" label="文件上传">
               <el-upload
@@ -184,6 +285,10 @@ const fileUrlPrefix = ref('http://localhost:80') // 文件URL前缀
 const fileList = ref([]) // 文件列表
 const uploadRef = ref(null) // 上传组件引用
 
+// 输入字段配置
+const inputFields = ref([])
+const formLabelWidth = ref('140px')
+
 // 主题样式计算
 const themeStyles = computed(() => {
   if (!appInfo.value?.themeColor) return {}
@@ -240,6 +345,111 @@ const initializeInput = (key, value) => {
   }
 }
 
+// 解析输入字段配置
+const parseInputFieldsConfig = (inputsStr) => {
+  if (!inputsStr || inputsStr.trim() === '') {
+    return []
+  }
+  
+  try {
+    const parsed = JSON.parse(inputsStr)
+    
+    // 检查是否是新格式（包含fields和defaults）
+    if (parsed.fields && parsed.defaults) {
+      // 新格式：从fields配置中提取字段信息
+      const fields = []
+      Object.keys(parsed.fields).forEach(key => {
+        const fieldConfig = parsed.fields[key]
+        fields.push({
+          key,
+          label: fieldConfig.label || key,
+          type: fieldConfig.type || 'text',
+          placeholder: fieldConfig.placeholder || `请输入${fieldConfig.label || key}`,
+          defaultValue: fieldConfig.defaultValue || '',
+          helpText: fieldConfig.helpText || '',
+          required: fieldConfig.required || false,
+          rows: fieldConfig.rows || 2,
+          options: fieldConfig.options || [],
+          style: fieldConfig.style || {},
+          validation: fieldConfig.validation || {}
+        })
+        
+        // 设置默认值
+        if (parsed.defaults && parsed.defaults.hasOwnProperty(key)) {
+          inputs[key] = parsed.defaults[key]
+        } else {
+          // 根据类型设置默认值
+          if (fieldConfig.type === 'json' && fieldConfig.defaultValue) {
+            try {
+              inputs[key] = JSON.parse(fieldConfig.defaultValue)
+            } catch (e) {
+              inputs[key] = fieldConfig.defaultValue
+            }
+          } else if (fieldConfig.type === 'number') {
+            inputs[key] = fieldConfig.defaultValue ? Number(fieldConfig.defaultValue) : null
+          } else if (fieldConfig.type === 'switch') {
+            inputs[key] = fieldConfig.defaultValue === 'true' || fieldConfig.defaultValue === true
+          } else {
+            inputs[key] = fieldConfig.defaultValue || ''
+          }
+        }
+        
+        // 设置表单标签宽度（使用第一个字段的配置）
+        if (fields.length === 1 && fieldConfig.style && fieldConfig.style.labelWidth) {
+          formLabelWidth.value = fieldConfig.style.labelWidth
+        }
+      })
+      return fields
+    } else {
+      // 旧格式或字段配置格式
+      const fields = []
+      Object.keys(parsed).forEach(key => {
+        const value = parsed[key]
+        
+        // 检查是否是字段配置对象
+        if (value && typeof value === 'object' && value.hasOwnProperty('type')) {
+          // 字段配置格式
+          fields.push({
+            key,
+            label: value.label || key,
+            type: value.type || 'text',
+            placeholder: value.placeholder || `请输入${value.label || key}`,
+            defaultValue: value.defaultValue || '',
+            helpText: value.helpText || '',
+            required: value.required || false,
+            rows: value.rows || 2,
+            options: value.options || [],
+            style: value.style || {},
+            validation: value.validation || {}
+          })
+          
+          // 设置默认值
+          if (value.type === 'json' && value.defaultValue) {
+            try {
+              inputs[key] = JSON.parse(value.defaultValue)
+            } catch (e) {
+              inputs[key] = value.defaultValue
+            }
+          } else if (value.type === 'number') {
+            inputs[key] = value.defaultValue ? Number(value.defaultValue) : null
+          } else if (value.type === 'switch') {
+            inputs[key] = value.defaultValue === 'true' || value.defaultValue === true
+          } else {
+            inputs[key] = value.defaultValue || ''
+          }
+        } else {
+          // 旧格式：简单的键值对
+          initializeInput(key, value)
+        }
+      })
+      return fields
+    }
+  } catch (e) {
+    console.error('解析输入字段配置失败:', e)
+    return []
+  }
+}
+
 const fetchAppInfo = async () => {
   try {
     const res = await getAppDetail(route.params.id)
@@ -255,22 +465,32 @@ const fetchAppInfo = async () => {
       delete inputsJson[key]
     })
     fullInputsJson.value = ''
+    inputFields.value = []
     
     // 解析inputs配置，初始化输入表单
     if (res.inputs) {
       try {
-        const inputsConfig = JSON.parse(res.inputs)
-        if (typeof inputsConfig === 'object' && inputsConfig !== null) {
-          Object.keys(inputsConfig).forEach(key => {
-            initializeInput(key, inputsConfig[key])
-          })
-          // 更新完整 JSON
-          fullInputsJson.value = JSON.stringify(inputs, null, 2)
+        // 解析输入字段配置
+        const fields = parseInputFieldsConfig(res.inputs)
+        
+        if (fields.length > 0) {
+          // 使用新格式的字段配置
+          inputFields.value = fields
         } else {
-          // 如果解析的不是对象，使用默认输入
-          console.warn('inputs 配置格式不正确，使用默认配置')
-          inputs['word'] = ''
-          inputsJson['word'] = ''
+          // 旧格式：解析为简单的键值对
+          const inputsConfig = JSON.parse(res.inputs)
+          if (typeof inputsConfig === 'object' && inputsConfig !== null) {
+            Object.keys(inputsConfig).forEach(key => {
+              initializeInput(key, inputsConfig[key])
+            })
+            // 更新完整 JSON
+            fullInputsJson.value = JSON.stringify(inputs, null, 2)
+          } else {
+            // 如果解析的不是对象，使用默认输入
+            console.warn('inputs 配置格式不正确，使用默认配置')
+            inputs['word'] = ''
+            inputsJson['word'] = ''
+          }
         }
       } catch (e) {
         console.error('解析 inputs 配置失败:', e)
@@ -353,18 +573,52 @@ const handleRun = async () => {
 
     // 构建输入对象，保留所有非空值
     const filteredInputs = {}
-    Object.keys(inputs).forEach(key => {
-      const value = inputs[key]
-      // 对于简单值，过滤空字符串
-      if (isSimpleValue(value)) {
-        if (value !== null && value !== undefined && value !== '') {
+    
+    // 如果有配置的字段，使用配置的字段
+    if (inputFields.value.length > 0) {
+      inputFields.value.forEach(field => {
+        const key = field.key
+        const value = inputs[key]
+        
+        // 根据字段类型处理值
+        if (field.type === 'json' && inputsJson[key]) {
+          // JSON类型，使用inputsJson中的值
+          try {
+            filteredInputs[key] = JSON.parse(inputsJson[key])
+          } catch (e) {
+            ElMessage.error(`${field.label || key} JSON格式错误`)
+            throw e
+          }
+        } else if (field.type === 'switch') {
+          // 开关类型，转换为布尔值
+          filteredInputs[key] = value === true || value === 'true'
+        } else if (field.type === 'number') {
+          // 数字类型
+          if (value !== null && value !== undefined && value !== '') {
+            filteredInputs[key] = Number(value)
+          }
+        } else {
+          // 其他类型，过滤空字符串
+          if (value !== null && value !== undefined && value !== '') {
+            filteredInputs[key] = value
+          }
+        }
+      })
+    } else {
+      // 旧格式：使用原有的逻辑
+      Object.keys(inputs).forEach(key => {
+        const value = inputs[key]
+        // 对于简单值，过滤空字符串
+        if (isSimpleValue(value)) {
+          if (value !== null && value !== undefined && value !== '') {
+            filteredInputs[key] = value
+          }
+        } else {
+          // 对于复杂结构，直接保留（可能是空数组或空对象）
           filteredInputs[key] = value
         }
-      } else {
-        // 对于复杂结构，直接保留（可能是空数组或空对象）
-        filteredInputs[key] = value
-      }
-    })
+      })
+    }
 
     // 生成用户ID（用于工作流请求）
     const userId = 'user_' + Date.now()
