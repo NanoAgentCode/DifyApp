@@ -1,5 +1,5 @@
 <template>
-  <div class="workflow-app">
+  <div class="workflow-app" :style="themeStyles">
     <el-card class="workflow-container">
       <template #header>
         <div class="workflow-header">
@@ -66,7 +66,15 @@
               </el-upload>
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="handleRun" :loading="loading">
+              <el-button 
+                type="primary" 
+                @click="handleRun" 
+                :loading="loading"
+                :style="{ 
+                  backgroundColor: themeStyles['--theme-primary'] || undefined,
+                  borderColor: themeStyles['--theme-primary'] || undefined
+                }"
+              >
                 运行工作流
               </el-button>
               <el-button @click="handleClear">清空</el-button>
@@ -154,12 +162,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, FullScreen } from '@element-plus/icons-vue'
 import { getAppDetail, workflowApp, workflowAppStream, uploadFile } from '@/api/aiApp'
 import request from '@/utils/request'
+import { getThemeById, getThemeCSSVariables } from '@/utils/themes'
 
 const route = useRoute()
 const router = useRouter()
@@ -174,6 +183,36 @@ const fullJsonPlaceholder = '{"variable_name": [{"transfer_method": "local_file"
 const fileUrlPrefix = ref('http://localhost:80') // 文件URL前缀
 const fileList = ref([]) // 文件列表
 const uploadRef = ref(null) // 上传组件引用
+
+// 主题样式计算
+const themeStyles = computed(() => {
+  if (!appInfo.value?.themeColor) return {}
+  
+  let theme = null
+  const themeColor = appInfo.value.themeColor
+  
+  // 检查是否是主题格式 themeId:color
+  if (themeColor.includes(':')) {
+    const [themeId] = themeColor.split(':')
+    theme = getThemeById(themeId)
+  } else {
+    // 尝试根据颜色查找主题
+    theme = getThemeById(themeColor) || null
+  }
+  
+  if (theme) {
+    return getThemeCSSVariables(theme)
+  }
+  
+  // 如果是自定义颜色，只设置主色
+  if (themeColor && !themeColor.includes(':')) {
+    return {
+      '--theme-primary': themeColor
+    }
+  }
+  
+  return {}
+})
 
 // 获取复杂输入的占位符
 const getComplexInputPlaceholder = (key) => {
@@ -737,9 +776,18 @@ onMounted(() => {
   margin: 0 0 20px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #303133;
+  color: var(--theme-text, #303133);
   padding-bottom: 12px;
-  border-bottom: 2px solid #409eff;
+  border-bottom: 2px solid var(--theme-primary, #409eff);
+}
+
+.workflow-app {
+  --theme-primary: #409eff;
+  --theme-secondary: #606266;
+  --theme-background: #ffffff;
+  --theme-surface: #f5f7fa;
+  --theme-text: #303133;
+  --theme-accent: #66b1ff;
 }
 
 .result-content {

@@ -93,8 +93,33 @@
             <el-input v-model="form.icon" placeholder="请输入图标URL" />
           </el-form-item>
 
-          <el-form-item label="主题色" prop="themeColor">
-            <el-color-picker v-model="form.themeColor" />
+          <el-form-item label="主题" prop="themeColor">
+            <div class="theme-selector">
+              <el-radio-group v-model="selectedTheme" @change="handleThemeChange">
+                <el-radio 
+                  v-for="theme in industrialThemes" 
+                  :key="theme.id" 
+                  :label="theme.id"
+                  class="theme-radio"
+                >
+                  <div class="theme-preview">
+                    <div 
+                      class="theme-color-box" 
+                      :style="{ backgroundColor: theme.colors.primary }"
+                    ></div>
+                    <div class="theme-info">
+                      <div class="theme-name">{{ theme.name }}</div>
+                      <div class="theme-desc">{{ theme.description }}</div>
+                    </div>
+                  </div>
+                </el-radio>
+              </el-radio-group>
+              <div class="custom-color-section">
+                <el-divider>或自定义颜色</el-divider>
+                <el-color-picker v-model="form.themeColor" @change="handleCustomColorChange" />
+                <span class="custom-color-tip">选择自定义颜色将覆盖预设主题</span>
+              </div>
+            </div>
           </el-form-item>
 
           <el-form-item label="排序" prop="sort">
@@ -124,15 +149,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { createApp, updateApp, getAppDetail } from '@/api/aiApp'
+import { industrialThemes, getThemeById, findThemeByColor } from '@/utils/themes'
 
 const route = useRoute()
 const router = useRouter()
 const formRef = ref(null)
 const isEdit = ref(false)
+const selectedTheme = ref('')
 
 const form = reactive({
   name: '',
@@ -149,6 +176,43 @@ const form = reactive({
   tenantId: 1
 })
 
+// 主题变化处理
+const handleThemeChange = (themeId) => {
+  const theme = getThemeById(themeId)
+  if (theme) {
+    // 保存主题ID和主色到themeColor字段（格式：themeId:primaryColor）
+    form.themeColor = `${themeId}:${theme.colors.primary}`
+  }
+}
+
+// 自定义颜色变化处理
+const handleCustomColorChange = (color) => {
+  if (color) {
+    // 如果选择了自定义颜色，清除主题选择
+    selectedTheme.value = ''
+    form.themeColor = color
+  }
+}
+
+// 监听form.themeColor变化，同步selectedTheme
+watch(() => form.themeColor, (newColor) => {
+  if (newColor && newColor.includes(':')) {
+    // 如果是主题格式 themeId:color
+    const [themeId] = newColor.split(':')
+    selectedTheme.value = themeId
+  } else if (newColor) {
+    // 如果是自定义颜色，尝试查找匹配的主题
+    const matchedTheme = findThemeByColor(newColor)
+    if (matchedTheme) {
+      selectedTheme.value = matchedTheme.id
+    } else {
+      selectedTheme.value = ''
+    }
+  } else {
+    selectedTheme.value = ''
+  }
+}, { immediate: true })
+
 const rules = {
   name: [{ required: true, message: '请输入应用名称', trigger: 'blur' }],
   type: [{ required: true, message: '请选择应用类型', trigger: 'change' }],
@@ -162,6 +226,16 @@ const fetchAppDetail = async () => {
     try {
       const res = await getAppDetail(route.params.id)
       Object.assign(form, res)
+      // 初始化主题选择
+      if (res.themeColor) {
+        if (res.themeColor.includes(':')) {
+          const [themeId] = res.themeColor.split(':')
+          selectedTheme.value = themeId
+        } else {
+          const matchedTheme = findThemeByColor(res.themeColor)
+          selectedTheme.value = matchedTheme ? matchedTheme.id : ''
+        }
+      }
     } catch (error) {
       ElMessage.error('获取应用详情失败')
     }
