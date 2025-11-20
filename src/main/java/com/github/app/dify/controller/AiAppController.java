@@ -105,9 +105,19 @@ public class AiAppController {
     public ResponseEntity<List<AiAppResp>> listAiApps(
             @RequestParam(required = false) Integer tenantId,
             @RequestParam(required = false) Integer type,
-            @RequestParam(required = false) Integer status) {
+            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) Long userId) {
         try {
-            List<AiAppResp> resp = aiAppService.listAiApps(tenantId, type, status);
+            List<AiAppResp> resp;
+            
+            // 如果指定了userId，返回用户可见的应用列表
+            if (userId != null) {
+                resp = aiAppService.listVisibleAppsForUser(userId, tenantId, type, status);
+            } else {
+                // 否则返回所有应用（管理员使用）
+                resp = aiAppService.listAiApps(tenantId, type, status);
+            }
+            
             return ResponseEntity.ok(resp);
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();

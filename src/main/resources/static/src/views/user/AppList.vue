@@ -57,7 +57,36 @@ const appList = ref([])
 const fetchAppList = async () => {
   loading.value = true
   try {
-    const res = await getAppList({ status: 1 }) // 只获取已启用的应用
+    // 获取当前用户ID
+    const userInfoStr = localStorage.getItem('userInfo')
+    let userId = null
+    if (userInfoStr) {
+      try {
+        const userInfo = JSON.parse(userInfoStr)
+        userId = userInfo.userId
+      } catch (e) {
+        console.error('解析用户信息失败', e)
+      }
+    }
+    
+    // 如果用户是管理员，不传userId，获取所有应用；否则传userId，获取可见应用
+    const userInfoStr2 = localStorage.getItem('userInfo')
+    let isAdmin = false
+    if (userInfoStr2) {
+      try {
+        const userInfo = JSON.parse(userInfoStr2)
+        isAdmin = userInfo.role === 1
+      } catch (e) {
+        // ignore
+      }
+    }
+    
+    const params = { status: 1 }
+    if (!isAdmin && userId) {
+      params.userId = userId
+    }
+    
+    const res = await getAppList(params)
     appList.value = (res || []).filter(app => app.status === 1) // 再次过滤确保只显示启用的应用
   } catch (error) {
     ElMessage.error('获取应用列表失败')

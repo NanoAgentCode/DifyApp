@@ -43,3 +43,26 @@ export function resetPassword(userId, newPassword) {
   })
 }
 
+/**
+ * 获取用户的应用可见性列表
+ */
+export function getUserAppVisibilities(userId) {
+  return request({
+    url: `/api/auth/users/${userId}/app-visibilities`,
+    method: 'get'
+  })
+}
+
+/**
+ * 更新用户对应用的可见性
+ */
+export function updateUserAppVisibility(userId, appId, visible) {
+  return request({
+    url: `/api/auth/users/${userId}/app-visibilities/${appId}`,
+    method: 'put',
+    params: {
+      visible
+    }
+  })
+}
+

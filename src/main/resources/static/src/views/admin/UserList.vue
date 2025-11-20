@@ -11,7 +11,35 @@
         :data="userList"
         v-loading="loading"
         style="width: 100%"
+        row-key="id"
+        :expand-row-keys="expandedRows"
+        @expand-change="handleExpandChange"
       >
+        <el-table-column type="expand" width="50">
+          <template #default="{ row }">
+            <div class="app-visibility-container">
+              <div v-loading="row.loadingApps" class="app-list">
+                <div
+                  v-for="app in row.appVisibilities"
+                  :key="app.appId"
+                  class="app-item"
+                >
+                  <div class="app-info">
+                    <span class="app-name">{{ app.appName }}</span>
+                    <el-tag :type="app.appType === 1 ? 'success' : 'info'" size="small" style="margin-left: 8px">
+                      {{ app.appType === 1 ? 'Chat Flow' : 'Workflow' }}
+                    </el-tag>
+                  </div>
+                  <el-switch
+                    v-model="app.visible"
+                    @change="handleVisibilityChange(row.id, app.appId, app.visible)"
+                  />
+                </div>
+                <el-empty v-if="!row.loadingApps && (!row.appVisibilities || row.appVisibilities.length === 0)" description="暂无应用" :image-size="80" />
+              </div>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="username" label="用户名" />
         <el-table-column prop="role" label="角色" width="120">
@@ -87,13 +115,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getUserList, approveUser, disableUser } from '@/api/user'
+import { getUserList, approveUser, disableUser, getUserAppVisibilities, updateUserAppVisibility } from '@/api/user'
 import ResetPasswordDialog from '@/components/ResetPasswordDialog.vue'
 
 const loading = ref(false)
 const userList = ref([])
 const showResetPasswordDialog = ref(false)
 const currentUser = ref(null)
+const expandedRows = ref([])
 
 const loadUsers = async () => {
   loading.value = true
@@ -160,6 +189,45 @@ const handleResetPasswordSuccess = () => {
   loadUsers()
 }
 
+const handleExpandChange = async (row, expandedRows) => {
+  if (expandedRows.includes(row.id)) {
+    // 展开时加载应用列表
+    if (!row.appVisibilities) {
+      await loadUserAppVisibilities(row)
+    }
+  }
+}
+
+const loadUserAppVisibilities = async (user) => {
+  user.loadingApps = true
+  try {
+    const data = await getUserAppVisibilities(user.id)
+    user.appVisibilities = data || []
+  } catch (error) {
+    ElMessage.error(error.response?.data?.error || error.message || '获取应用列表失败')
+    user.appVisibilities = []
+  } finally {
+    user.loadingApps = false
+  }
+}
+
+const handleVisibilityChange = async (userId, appId, visible) => {
+  try {
+    await updateUserAppVisibility(userId, appId, visible)
+    ElMessage.success(visible ? '应用已设为可见' : '应用已设为不可见')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.error || error.message || '更新失败')
+    // 恢复原状态
+    const user = userList.value.find(u => u.id === userId)
+    if (user && user.appVisibilities) {
+      const app = user.appVisibilities.find(a => a.appId === appId)
+      if (app) {
+        app.visible = !visible
+      }
+    }
+  }
+}
+
 const formatDate = (date) => {
   if (!date) return ''
   const d = new Date(date)
@@ -180,6 +248,37 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.app-visibility-container {
+  padding: 20px;
+  background: #f5f7fa;
+}
+
+.app-list {
+  min-height: 100px;
+}
+
+.app-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #e4e7ed;
+}
+
+.app-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.app-name {
+  font-weight: 500;
+  color: #303133;
 }
 </style>
 

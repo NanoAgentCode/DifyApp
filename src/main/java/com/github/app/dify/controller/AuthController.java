@@ -6,7 +6,9 @@ import com.github.app.dify.req.RegisterRequest;
 import com.github.app.dify.req.ResetPasswordRequest;
 import com.github.app.dify.resp.LoginResponse;
 import com.github.app.dify.resp.RegisterResponse;
+import com.github.app.dify.resp.UserAppVisibilityResp;
 import com.github.app.dify.service.AuthService;
+import com.github.app.dify.service.UserAppVisibilityService;
 import com.github.app.dify.util.JwtUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -31,6 +33,9 @@ public class AuthController {
     
     @Autowired
     private AuthService authService;
+    
+    @Autowired
+    private UserAppVisibilityService userAppVisibilityService;
     
     @Autowired
     private JwtUtil jwtUtil;
@@ -160,6 +165,39 @@ public class AuthController {
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             logger.error("重置用户密码失败", e);
+            throw e;
+        }
+    }
+    
+    /**
+     * 获取用户的应用可见性列表
+     */
+    @ApiOperation("获取用户的应用可见性列表")
+    @GetMapping("/users/{userId}/app-visibilities")
+    public ResponseEntity<java.util.List<UserAppVisibilityResp>> getUserAppVisibilities(@PathVariable Long userId) {
+        try {
+            java.util.List<UserAppVisibilityResp> visibilities = userAppVisibilityService.getUserAppVisibilities(userId);
+            return ResponseEntity.ok(visibilities);
+        } catch (Exception e) {
+            logger.error("获取用户应用可见性列表失败", e);
+            throw e;
+        }
+    }
+    
+    /**
+     * 更新用户对应用的可见性
+     */
+    @ApiOperation("更新用户对应用的可见性")
+    @PutMapping("/users/{userId}/app-visibilities/{appId}")
+    public ResponseEntity<Void> updateUserAppVisibility(
+            @PathVariable Long userId,
+            @PathVariable Long appId,
+            @RequestParam Boolean visible) {
+        try {
+            userAppVisibilityService.updateUserAppVisibility(userId, appId, visible);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            logger.error("更新用户应用可见性失败", e);
             throw e;
         }
     }

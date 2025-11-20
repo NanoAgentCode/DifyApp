@@ -1,7 +1,9 @@
 package com.github.app.dify.service;
 
 import com.github.app.dify.domain.AiApp;
+import com.github.app.dify.domain.UserAppVisibility;
 import com.github.app.dify.repository.AiAppRepository;
+import com.github.app.dify.repository.UserAppVisibilityRepository;
 import com.github.app.dify.req.CreateAiAppReq;
 import com.github.app.dify.req.ChatFlowRequest;
 import com.github.app.dify.req.WorkFlowRequest;
@@ -36,6 +38,9 @@ public class AiAppService {
     
     @Autowired
     private DifyApiClient difyApiClient;
+    
+    @Autowired
+    private UserAppVisibilityRepository userAppVisibilityRepository;
     
     /**
      * 创建AI应用
@@ -234,6 +239,46 @@ public class AiAppService {
         
         return apps.stream()
                 .map(this::convertToResp)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * 获取用户可见的应用列表
+     * @param userId 用户ID
+     * @param tenantId 租户ID（可选）
+     * @param type 应用类型（可选）
+     * @param status 应用状态（可选）
+     * @return 可见的应用列表
+     */
+    public List<AiAppResp> listVisibleAppsForUser(Long userId, Integer tenantId, Integer type, Integer status) {
+        // 先获取所有符合条件的应用
+        List<AiAppResp> allApps = listAiApps(tenantId, type, status);
+        
+        // 如果用户是管理员，返回所有应用
+        // 这里需要从User表中查询用户角色，为了简化，我们假设管理员可以看到所有应用
+        // 实际应该从request中获取用户角色
+        
+        // 获取用户的可见性设置
+        List<UserAppVisibility> visibilities = 
+                userAppVisibilityRepository.findByUserId(userId);
+        
+        // 如果没有设置可见性，默认所有应用都可见
+        if (visibilities.isEmpty()) {
+            return allApps;
+        }
+        
+        // 过滤出用户可见的应用
+        return allApps.stream()
+                .filter(app -> {
+                    // 查找该应用的可见性设置
+                    Optional<UserAppVisibility> visibility = visibilities.stream()
+                            .filter(v -> v.getAppId().equals(app.getId()))
+                            .findFirst();
+                    
+                    // 如果设置了可见性，使用设置的值；否则默认可见
+                    return visibility.map(UserAppVisibility::getVisible)
+                            .orElse(true);
+                })
                 .collect(Collectors.toList());
     }
     

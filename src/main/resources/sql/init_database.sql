@@ -119,17 +119,41 @@ VALUES (
 -- ============================================
 -- 4. 验证数据
 -- ============================================
--- 查看用户表数据
-SELECT id, username, role, status, create_time FROM "SYS_USER";
+-- ============================================
+-- 3. 创建用户应用可见性表 (USER_APP_VISIBILITY)
+-- ============================================
+DROP TABLE IF EXISTS "USER_APP_VISIBILITY" CASCADE;
 
--- 查看表结构
-SELECT 
-    table_name,
-    column_name,
-    data_type,
-    is_nullable
-FROM information_schema.columns
-WHERE table_schema = 'public'
-    AND table_name IN ('SYS_USER', 'AI_APP')
-ORDER BY table_name, ordinal_position;
+CREATE TABLE "USER_APP_VISIBILITY" (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    app_id BIGINT NOT NULL,
+    visible BOOLEAN NOT NULL DEFAULT TRUE,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, app_id)
+);
+
+COMMENT ON TABLE "USER_APP_VISIBILITY" IS '用户应用可见性表';
+COMMENT ON COLUMN "USER_APP_VISIBILITY".id IS '主键ID';
+COMMENT ON COLUMN "USER_APP_VISIBILITY".user_id IS '用户ID';
+COMMENT ON COLUMN "USER_APP_VISIBILITY".app_id IS '应用ID';
+COMMENT ON COLUMN "USER_APP_VISIBILITY".visible IS '是否可见：true-可见，false-不可见';
+COMMENT ON COLUMN "USER_APP_VISIBILITY".create_time IS '创建时间';
+COMMENT ON COLUMN "USER_APP_VISIBILITY".update_time IS '更新时间';
+
+-- 创建索引
+CREATE INDEX idx_user_app_visibility_user_id ON "USER_APP_VISIBILITY"(user_id);
+CREATE INDEX idx_user_app_visibility_app_id ON "USER_APP_VISIBILITY"(app_id);
+CREATE INDEX idx_user_app_visibility_visible ON "USER_APP_VISIBILITY"(visible);
+
+-- 外键约束（可选，如果需要）
+-- ALTER TABLE "USER_APP_VISIBILITY" ADD CONSTRAINT fk_user_app_visibility_user 
+--     FOREIGN KEY (user_id) REFERENCES "SYS_USER"(id) ON DELETE CASCADE;
+-- ALTER TABLE "USER_APP_VISIBILITY" ADD CONSTRAINT fk_user_app_visibility_app 
+--     FOREIGN KEY (app_id) REFERENCES "AI_APP"(id) ON DELETE CASCADE;
+
+-- ============================================
+-- 4. 插入默认管理员账户
+-- ============================================
 
