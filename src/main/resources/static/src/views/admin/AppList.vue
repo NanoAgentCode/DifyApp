@@ -18,8 +18,12 @@
             <AppIcon :icon="row.icon" :size="32" />
           </template>
         </el-table-column>
-        <el-table-column prop="name" label="应用名称" />
-        <el-table-column prop="description" label="描述" show-overflow-tooltip />
+        <el-table-column label="应用名称" width="160">
+          <template #default="{ row }">
+            <span :title="row.name">{{ truncateName(row.name) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="description" label="描述" show-overflow-tooltip min-width="200" />
         <el-table-column prop="type" label="类型" width="120">
           <template #default="{ row }">
             <el-tag :type="row.type === 1 ? 'success' : 'info'">
@@ -113,6 +117,12 @@ const handleDelete = async (id) => {
   }
 }
 
+const truncateName = (name) => {
+  if (!name) return ''
+  if (name.length <= 10) return name
+  return name.substring(0, 10) + '...'
+}
+
 onMounted(() => {
   fetchAppList()
 })
@@ -127,6 +137,23 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* 减少应用名称和描述列之间的间距 */
+:deep(.el-table) {
+  .el-table__cell {
+    padding: 8px 0;
+  }
+  
+  /* 应用名称列右侧间距 */
+  .el-table__cell:nth-child(3) {
+    padding-right: 8px;
+  }
+  
+  /* 描述列左侧间距 */
+  .el-table__cell:nth-child(4) {
+    padding-left: 8px;
+  }
 }
 </style>
 
