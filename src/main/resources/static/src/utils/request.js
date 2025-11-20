@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import router from '@/router'
 
 const request = axios.create({
   baseURL: '',
@@ -16,6 +17,11 @@ request.interceptors.request.use(
         config.headers['Content-Type'] = 'application/json'
       }
     }
+    // 添加JWT Token
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`
+    }
     return config
   },
   error => {
@@ -29,6 +35,16 @@ request.interceptors.response.use(
     return response.data
   },
   error => {
+    // 处理401未授权错误
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('userInfo')
+      ElMessage.error('登录已过期，请重新登录')
+      if (router.currentRoute.value.path !== '/login' && router.currentRoute.value.path !== '/register') {
+        router.push('/login')
+      }
+      return Promise.reject(error)
+    }
     // 处理超时错误
     if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
       error.message = '请求超时，请稍后重试。如果Workflow任务需要较长时间，请使用流式接口。'

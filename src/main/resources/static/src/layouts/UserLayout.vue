@@ -1,8 +1,8 @@
 <template>
-  <el-container class="admin-layout">
+  <el-container class="user-layout">
     <el-header class="header">
       <div class="header-left">
-        <h2>Dify应用管理平台</h2>
+        <h2>Dify应用平台</h2>
       </div>
       <div class="header-right">
         <el-dropdown @command="handleCommand">
@@ -18,33 +18,11 @@
             </el-dropdown-menu>
           </template>
         </el-dropdown>
-        <el-button type="primary" @click="goToCreate" style="margin-left: 10px">
-          <el-icon><Plus /></el-icon>
-          创建应用
-        </el-button>
       </div>
     </el-header>
-    <el-container>
-      <el-aside width="200px" class="aside">
-        <el-menu
-          :default-active="activeMenu"
-          router
-          class="menu"
-        >
-          <el-menu-item index="/admin/apps">
-            <el-icon><List /></el-icon>
-            <span>应用列表</span>
-          </el-menu-item>
-          <el-menu-item v-if="isAdmin" index="/admin/users">
-            <el-icon><User /></el-icon>
-            <span>用户管理</span>
-          </el-menu-item>
-        </el-menu>
-      </el-aside>
-      <el-main class="main">
-        <router-view />
-      </el-main>
-    </el-container>
+    <el-main class="main">
+      <router-view />
+    </el-main>
     
     <ChangePasswordDialog
       v-model="showChangePasswordDialog"
@@ -54,18 +32,14 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, List, User, ArrowDown } from '@element-plus/icons-vue'
+import { User, ArrowDown } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 
-const route = useRoute()
 const router = useRouter()
-
-const activeMenu = computed(() => route.path)
 const userInfo = ref(null)
-const isAdmin = computed(() => userInfo.value && userInfo.value.role === 1)
 const showChangePasswordDialog = ref(false)
 
 onMounted(() => {
@@ -78,10 +52,6 @@ onMounted(() => {
     }
   }
 })
-
-const goToCreate = () => {
-  router.push('/admin/apps/create')
-}
 
 const handleCommand = (command) => {
   if (command === 'changePassword') {
@@ -119,7 +89,7 @@ const handlePasswordChangeSuccess = () => {
 </script>
 
 <style scoped>
-.admin-layout {
+.user-layout {
   height: 100vh;
 }
 
@@ -140,7 +110,6 @@ const handlePasswordChangeSuccess = () => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 10px;
 }
 
 .user-info {
@@ -158,18 +127,10 @@ const handlePasswordChangeSuccess = () => {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-.aside {
-  background: #fff;
-  border-right: 1px solid #e4e7ed;
-}
-
-.menu {
-  border-right: none;
-}
-
 .main {
   background: #f5f7fa;
   padding: 20px;
+  overflow-y: auto;
 }
 </style>
 

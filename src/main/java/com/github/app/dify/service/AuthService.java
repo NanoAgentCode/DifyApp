@@ -1,0 +1,263 @@
+package com.github.app.dify.service;
+
+import com.github.app.dify.domain.User;
+import com.github.app.dify.repository.UserRepository;
+import com.github.app.dify.req.LoginRequest;
+import com.github.app.dify.req.RegisterRequest;
+import com.github.app.dify.resp.LoginResponse;
+import com.github.app.dify.resp.RegisterResponse;
+import com.github.app.dify.util.JwtUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Date;
+import java.util.Optional;
+
+/**
+ * 认证服务
+ */
+@Service
+public class AuthService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
+    
+    @Autowired
+    private UserRepository userRepository;
+    
+    @Autowired
+    private JwtUtil jwtUtil;
+    
+    private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    
+    /**
+     * 用户注册
+     * 普通用户注册后状态为待审核（0），需要管理员审核后才能登录
+     */
+    @Transactional
+    public RegisterResponse register(RegisterRequest request) {
+        // 检查用户名是否已存在
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new RuntimeException("用户名已存在: " + request.getUsername());
+        }
+        
+        // 创建新用户
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setRole(2); // 默认角色为普通用户
+        user.setStatus(0); // 状态为待审核
+        user.setCreateTime(new Date());
+        user.setUpdateTime(new Date());
+        user.setDeleted(0); // 未删除
+        
+        user = userRepository.save(user);
+        
+        logger.info("用户注册成功 - 用户名: {}, 用户ID: {}", user.getUsername(), user.getId());
+        
+        RegisterResponse response = new RegisterResponse();
+        response.setUserId(user.getId());
+        response.setUsername(user.getUsername());
+        response.setStatus(user.getStatus());
+        response.setMessage("注册成功，请等待管理员审核");
+        
+        return response;
+    }
+    
+    /**
+     * 用户登录
+     * 只有状态为已激活（1）的用户才能登录
+     */
+    public LoginResponse login(LoginRequest request) {
+        // 查找用户
+        Optional<User> optional = userRepository.findByUsername(request.getUsername());
+        if (!optional.isPresent()) {
+            throw new RuntimeException("用户名或密码错误");
+        }
+        
+        User user = optional.get();
+        
+        // 检查用户是否已删除
+        if (user.getDeleted() != null && user.getDeleted() == 1) {
+            throw new RuntimeException("用户已被删除");
+        }
+        
+        // 验证密码
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new RuntimeException("用户名或密码错误");
+        }
+        
+        // 检查用户状态
+        if (user.getStatus() == null || user.getStatus() == 0) {
+            throw new RuntimeException("账号待审核，请联系管理员");
+        }
+        
+        if (user.getStatus() == 2) {
+            throw new RuntimeException("账号已被禁用，请联系管理员");
+        }
+        
+        // 生成JWT Token
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
+        
+        logger.info("用户登录成功 - 用户名: {}, 用户ID: {}, 角色: {}", 
+                user.getUsername(), user.getId(), user.getRole());
+        
+        LoginResponse response = new LoginResponse();
+        response.setToken(token);
+        response.setUserId(user.getId());
+        response.setUsername(user.getUsername());
+        response.setRole(user.getRole());
+        response.setStatus(user.getStatus());
+        
+        return response;
+    }
+    
+    /**
+     * 管理员审核用户（激活用户）
+     */
+    @Transactional
+    public void approveUser(Long userId) {
+        Optional<User> optional = userRepository.findById(userId);
+        if (!optional.isPresent()) {
+            throw new RuntimeException("用户不存在: " + userId);
+        }
+        
+        User user = optional.get();
+        user.setStatus(1); // 已激活
+        user.setUpdateTime(new Date());
+        userRepository.save(user);
+        
+        logger.info("管理员审核通过用户 - 用户ID: {}, 用户名: {}", user.getId(), user.getUsername());
+    }
+    
+    /**
+     * 管理员禁用用户
+     * 注意：管理员账号不能被禁用
+     */
+    @Transactional
+    public void disableUser(Long userId) {
+        Optional<User> optional = userRepository.findById(userId);
+        if (!optional.isPresent()) {
+            throw new RuntimeException("用户不存在: " + userId);
+        }
+        
+        User user = optional.get();
+        
+        // 检查是否为管理员，管理员不能被禁用
+        if (user.getRole() != null && user.getRole() == 1) {
+            throw new RuntimeException("管理员账号不能被禁用");
+        }
+        
+        user.setStatus(2); // 已禁用
+        user.setUpdateTime(new Date());
+        userRepository.save(user);
+        
+        logger.info("管理员禁用用户 - 用户ID: {}, 用户名: {}", user.getId(), user.getUsername());
+    }
+    
+    /**
+     * 根据用户ID获取用户信息
+     */
+    public User getUserById(Long userId) {
+        Optional<User> optional = userRepository.findById(userId);
+        if (!optional.isPresent()) {
+            throw new RuntimeException("用户不存在: " + userId);
+        }
+        return optional.get();
+    }
+    
+    /**
+     * 根据用户名获取用户信息
+     */
+    public User getUserByUsername(String username) {
+        Optional<User> optional = userRepository.findByUsername(username);
+        if (!optional.isPresent()) {
+            throw new RuntimeException("用户不存在: " + username);
+        }
+        return optional.get();
+    }
+    
+    /**
+     * 获取所有用户列表（管理员使用）
+     */
+    public java.util.List<com.github.app.dify.resp.UserResp> getAllUsers() {
+        java.util.List<User> users = userRepository.findAll();
+        return users.stream()
+                .filter(user -> user.getDeleted() == null || user.getDeleted() == 0)
+                .map(this::convertToResp)
+                .collect(java.util.stream.Collectors.toList());
+    }
+    
+    /**
+     * 修改密码
+     * @param userId 用户ID
+     * @param oldPassword 原密码
+     * @param newPassword 新密码
+     */
+    @Transactional
+    public void changePassword(Long userId, String oldPassword, String newPassword) {
+        Optional<User> optional = userRepository.findById(userId);
+        if (!optional.isPresent()) {
+            throw new RuntimeException("用户不存在: " + userId);
+        }
+        
+        User user = optional.get();
+        
+        // 验证原密码
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new RuntimeException("原密码错误");
+        }
+        
+        // 检查新密码不能与原密码相同
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new RuntimeException("新密码不能与原密码相同");
+        }
+        
+        // 更新密码
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setUpdateTime(new Date());
+        userRepository.save(user);
+        
+        logger.info("用户修改密码成功 - 用户ID: {}, 用户名: {}", user.getId(), user.getUsername());
+    }
+    
+    /**
+     * 管理员重置用户密码（不需要原密码）
+     * @param userId 用户ID
+     * @param newPassword 新密码
+     */
+    @Transactional
+    public void resetPassword(Long userId, String newPassword) {
+        Optional<User> optional = userRepository.findById(userId);
+        if (!optional.isPresent()) {
+            throw new RuntimeException("用户不存在: " + userId);
+        }
+        
+        User user = optional.get();
+        
+        // 更新密码（管理员重置不需要验证原密码）
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setUpdateTime(new Date());
+        userRepository.save(user);
+        
+        logger.info("管理员重置用户密码成功 - 用户ID: {}, 用户名: {}", user.getId(), user.getUsername());
+    }
+    
+    /**
+     * 转换为响应对象
+     */
+    private com.github.app.dify.resp.UserResp convertToResp(User user) {
+        com.github.app.dify.resp.UserResp resp = new com.github.app.dify.resp.UserResp();
+        resp.setId(user.getId());
+        resp.setUsername(user.getUsername());
+        resp.setRole(user.getRole());
+        resp.setStatus(user.getStatus());
+        resp.setCreateTime(user.getCreateTime());
+        resp.setUpdateTime(user.getUpdateTime());
+        return resp;
+    }
+}
+

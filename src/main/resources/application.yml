@@ -50,3 +50,10 @@ dify:
     connect-timeout: 10000
     # 文件URL前缀（用于拼接相对路径的文件URL）
     file-url-prefix: http://localhost:80
+
+# JWT配置
+jwt:
+  # JWT密钥（生产环境请修改为更安全的密钥）
+  secret: dify-app-secret-key-2024
+  # JWT过期时间（毫秒），默认7天
+  expiration: 604800000

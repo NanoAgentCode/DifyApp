@@ -1039,7 +1039,18 @@ const handleClear = () => {
 }
 
 const handleBack = () => {
-  router.push('/admin/apps')
+  // 根据用户角色返回不同页面
+  const userInfoStr = localStorage.getItem('userInfo')
+  if (userInfoStr) {
+    try {
+      const userInfo = JSON.parse(userInfoStr)
+      router.push(userInfo.role === 1 ? '/admin/apps' : '/user/apps')
+    } catch (e) {
+      router.push('/admin/apps')
+    }
+  } else {
+    router.push('/admin/apps')
+  }
 }
 
 const formatResult = (result) => {
