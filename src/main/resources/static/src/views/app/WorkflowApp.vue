@@ -78,7 +78,40 @@
                   {{ result.tip }}
                 </div>
               </div>
-              <pre v-else>{{ formatResult(result) }}</pre>
+              <div v-else>
+                <!-- 文件预览区域 -->
+                <div v-if="hasPreviewableFiles(result)" class="file-preview-section">
+                  <div v-for="(file, index) in extractFiles(result)" :key="index" class="file-preview-item">
+                    <div class="file-info">
+                      <span class="file-name">{{ file.filename || `文件 ${index + 1}` }}</span>
+                      <span class="file-type">{{ file.type || file.mime_type || '未知' }}</span>
+                      <el-button size="small" @click="openFile(file.fullUrl)" type="primary" link>
+                        在新窗口打开
+                      </el-button>
+                    </div>
+                    <!-- 图片预览 -->
+                    <div v-if="isImage(file)" class="image-preview">
+                      <img :src="file.fullUrl" :alt="file.filename" @error="handleImageError" />
+                    </div>
+                    <!-- HTML预览 -->
+                    <div v-else-if="isHtml(file)" class="html-preview">
+                      <iframe :src="file.fullUrl" frameborder="0" class="preview-iframe"></iframe>
+                    </div>
+                    <!-- PDF预览 -->
+                    <div v-else-if="isPdf(file)" class="pdf-preview">
+                      <iframe :src="file.fullUrl" frameborder="0" class="preview-iframe"></iframe>
+                    </div>
+                    <!-- 其他文件类型显示链接 -->
+                    <div v-else class="file-link">
+                      <el-link :href="file.fullUrl" target="_blank" type="primary">
+                        {{ file.filename || file.url }}
+                      </el-link>
+                    </div>
+                  </div>
+                </div>
+                <!-- JSON数据展示（仅在没有文件时显示） -->
+                <pre v-if="!hasPreviewableFiles(result)">{{ formatResult(result) }}</pre>
+              </div>
             </div>
             <div v-else class="result-placeholder">
               运行工作流后，结果将显示在这里
@@ -95,6 +128,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getAppDetail, workflowApp, workflowAppStream } from '@/api/aiApp'
+import request from '@/utils/request'
 
 const route = useRoute()
 const router = useRouter()
@@ -106,6 +140,7 @@ const loading = ref(false)
 const showInputsJson = ref(false) // 是否显示完整 JSON 编辑器
 const fullInputsJson = ref('') // 完整 JSON 字符串
 const fullJsonPlaceholder = '{"variable_name": [{"transfer_method": "local_file", "upload_file_id": "file_id", "type": "document"}]}'
+const fileUrlPrefix = ref('http://localhost:80') // 文件URL前缀
 
 // 获取复杂输入的占位符
 const getComplexInputPlaceholder = (key) => {
@@ -174,7 +209,6 @@ const fetchAppInfo = async () => {
       // 如果没有配置，使用默认输入
       inputs['word'] = ''
       inputsJson['word'] = ''
-      ElMessage.warning('应用未配置 inputs 参数，已使用默认配置。如果工作流需要特定参数，请在应用配置中设置。')
     }
   } catch (error) {
     ElMessage.error('获取应用信息失败')
@@ -280,6 +314,12 @@ const handleRun = async () => {
         error: errorMessage,
         tip: '请在应用配置中正确设置 inputs 字段，包含所有必需的参数。例如：{"word": ""} 或 {"variable_name": [{"transfer_method": "local_file", "upload_file_id": "file_id", "type": "document"}]}'
       }
+    } else if (errorMessage.includes('timeout') || errorMessage.includes('超时') || error.code === 'ECONNABORTED') {
+      ElMessage.error('请求超时，Workflow任务可能需要更长时间处理。请稍后重试或使用流式接口。')
+      result.value = { 
+        error: '请求超时',
+        tip: 'Workflow任务可能需要较长时间处理。如果任务仍在运行，请稍后查看结果，或考虑使用流式接口以获得实时反馈。'
+      }
     } else {
       ElMessage.error('运行工作流失败: ' + (errorMessage || '未知错误'))
       result.value = { error: '运行失败，请稍后重试' }
@@ -370,8 +410,82 @@ const formatResult = (result) => {
   return JSON.stringify(result, null, 2)
 }
 
+// 提取文件列表
+const extractFiles = (result) => {
+  const files = []
+  if (!result || typeof result !== 'object') return files
+  
+  // 检查 data.outputs.files
+  if (result.data && result.data.outputs && result.data.outputs.files) {
+    result.data.outputs.files.forEach(file => {
+      if (file.url) {
+        const fullUrl = file.url.startsWith('http') ? file.url : `${fileUrlPrefix.value}${file.url}`
+        files.push({
+          ...file,
+          fullUrl
+        })
+      }
+    })
+  }
+  
+  return files
+}
+
+// 检查是否有可预览的文件
+const hasPreviewableFiles = (result) => {
+  return extractFiles(result).length > 0
+}
+
+// 判断是否为图片
+const isImage = (file) => {
+  const type = (file.type || file.mime_type || '').toLowerCase()
+  const extension = (file.extension || '').toLowerCase()
+  return type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(extension.replace('.', ''))
+}
+
+// 判断是否为HTML
+const isHtml = (file) => {
+  const type = (file.type || file.mime_type || '').toLowerCase()
+  const extension = (file.extension || '').toLowerCase()
+  return type.includes('html') || extension === '.html' || extension === '.htm'
+}
+
+// 判断是否为PDF
+const isPdf = (file) => {
+  const type = (file.type || file.mime_type || '').toLowerCase()
+  const extension = (file.extension || '').toLowerCase()
+  return type.includes('pdf') || extension === '.pdf'
+}
+
+// 打开文件
+const openFile = (url) => {
+  window.open(url, '_blank')
+}
+
+// 处理图片加载错误
+const handleImageError = (event) => {
+  event.target.style.display = 'none'
+  ElMessage.warning('图片加载失败')
+}
+
+// 获取配置
+const fetchConfig = async () => {
+  try {
+    const config = await request({
+      url: '/api/ai-apps/config',
+      method: 'get'
+    })
+    if (config.fileUrlPrefix) {
+      fileUrlPrefix.value = config.fileUrlPrefix
+    }
+  } catch (error) {
+    console.warn('获取配置失败，使用默认值:', error)
+  }
+}
+
 onMounted(() => {
   fetchAppInfo()
+  fetchConfig()
 })
 </script>
 
@@ -459,6 +573,71 @@ onMounted(() => {
   margin-top: 4px;
   font-size: 12px;
   color: #909399;
+}
+
+.file-preview-section {
+  margin-bottom: 20px;
+}
+
+.file-preview-item {
+  margin-bottom: 20px;
+  padding: 16px;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  background-color: #fafafa;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #303133;
+}
+
+.file-type {
+  padding: 2px 8px;
+  background-color: #ecf5ff;
+  color: #409eff;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.image-preview {
+  text-align: center;
+}
+
+.image-preview img {
+  max-width: 100%;
+  max-height: 500px;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.html-preview,
+.pdf-preview {
+  width: 100%;
+  height: 600px;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.preview-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.file-link {
+  padding: 12px;
+  text-align: center;
 }
 </style>
 

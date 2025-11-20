@@ -20,6 +20,7 @@ public class DifyConfig {
     private String defaultBaseUrl = "http://localhost:80";
     private int timeout = 30000;
     private int connectTimeout = 10000;
+    private String fileUrlPrefix = "http://localhost:80";
     
     public String getDefaultBaseUrl() {
         return defaultBaseUrl;
@@ -43,6 +44,14 @@ public class DifyConfig {
     
     public void setConnectTimeout(int connectTimeout) {
         this.connectTimeout = connectTimeout;
+    }
+    
+    public String getFileUrlPrefix() {
+        return fileUrlPrefix;
+    }
+    
+    public void setFileUrlPrefix(String fileUrlPrefix) {
+        this.fileUrlPrefix = fileUrlPrefix;
     }
 }
 

@@ -27,6 +27,9 @@ spring:
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher
+    # 异步请求超时时间（毫秒），设置为10分钟以支持长时间运行的Workflow任务
+    async:
+      request-timeout: 600000
 
 # Dify配置
 dify:
@@ -37,3 +40,5 @@ dify:
     timeout: 30000
     # 连接超时时间（毫秒）
     connect-timeout: 10000
+    # 文件URL前缀（用于拼接相对路径的文件URL）
+    file-url-prefix: http://localhost:80

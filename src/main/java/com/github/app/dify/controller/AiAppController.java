@@ -1,5 +1,6 @@
 package com.github.app.dify.controller;
 
+import com.github.app.dify.config.DifyConfig;
 import com.github.app.dify.req.CreateAiAppReq;
 import com.github.app.dify.req.DifyChatRequest;
 import com.github.app.dify.req.DifyWorkflowRequest;
@@ -20,7 +21,9 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * AI应用控制器
@@ -34,6 +37,9 @@ public class AiAppController {
     
     @Autowired
     private AiAppService aiAppService;
+    
+    @Autowired
+    private DifyConfig difyConfig;
     
     /**
      * 创建AI应用
@@ -224,6 +230,17 @@ public class AiAppController {
                             .data(errorResponse)
                             .build());
                 });
+    }
+    
+    /**
+     * 获取Dify配置信息（用于前端）
+     */
+    @ApiOperation("获取Dify配置信息")
+    @GetMapping("/config")
+    public ResponseEntity<Map<String, String>> getConfig() {
+        Map<String, String> config = new HashMap<>();
+        config.put("fileUrlPrefix", difyConfig.getFileUrlPrefix());
+        return ResponseEntity.ok(config);
     }
 }
 

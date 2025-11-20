@@ -8,6 +8,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -44,6 +45,15 @@ public class GlobalExceptionHandler {
         response.put("errors", errors);
         response.put("code", HttpStatus.BAD_REQUEST.value());
         return ResponseEntity.badRequest().body(response);
+    }
+    
+    @ExceptionHandler(AsyncRequestTimeoutException.class)
+    public ResponseEntity<Map<String, Object>> handleAsyncRequestTimeoutException(AsyncRequestTimeoutException e) {
+        logger.error("异步请求超时", e);
+        Map<String, Object> response = new HashMap<>();
+        response.put("error", "请求处理超时，请稍后重试或使用流式接口");
+        response.put("code", HttpStatus.REQUEST_TIMEOUT.value());
+        return ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT).body(response);
     }
     
     @ExceptionHandler(Exception.class)

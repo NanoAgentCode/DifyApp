@@ -49,9 +49,12 @@ public class DifyApiClient {
         logger.info("使用Dify API Base URL: {}", url);
         
         // 配置HTTP客户端超时（用于非流式响应）
+        // 对于非流式响应，设置较长的超时时间（至少5分钟），特别是Workflow可能需要更长时间
+        long defaultTimeout = Math.max(difyConfig.getTimeout(), 300000L); // 至少5分钟
         HttpClient httpClient = HttpClient.create()
-                .responseTimeout(Duration.ofMillis(difyConfig.getTimeout()))
+                .responseTimeout(Duration.ofMillis(defaultTimeout))
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, difyConfig.getConnectTimeout());
+        logger.info("非流式WebClient响应超时设置为: {} 毫秒 ({} 分钟)", defaultTimeout, defaultTimeout / 60000);
         
         return WebClient.builder()
                 .baseUrl(url)
@@ -62,7 +65,7 @@ public class DifyApiClient {
     }
     
     /**
-     * 创建用于流式响应的WebClient（不设置responseTimeout，超时由Flux级别控制）
+     * 创建用于流式响应的WebClient（设置较长的响应超时，由Flux级别控制）
      */
     private WebClient createStreamWebClient(String baseUrl) {
         String url = (baseUrl != null && !baseUrl.trim().isEmpty()) 
@@ -74,9 +77,15 @@ public class DifyApiClient {
         }
         logger.info("使用Dify API Base URL (流式): {}", url);
         
-        // 配置HTTP客户端（仅设置连接超时，不设置响应超时，由Flux级别控制）
+        // 对于流式响应，设置较长的响应超时时间（至少10分钟）
+        long streamResponseTimeout = Math.max(difyConfig.getTimeout(), 600000L); // 至少10分钟
+        
+        // 配置HTTP客户端（设置连接超时和响应超时）
         HttpClient httpClient = HttpClient.create()
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, difyConfig.getConnectTimeout());
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, difyConfig.getConnectTimeout())
+                .responseTimeout(Duration.ofMillis(streamResponseTimeout));
+        
+        logger.info("流式WebClient响应超时设置为: {} 毫秒 ({} 分钟)", streamResponseTimeout, streamResponseTimeout / 60000);
         
         return WebClient.builder()
                 .baseUrl(url)
@@ -127,13 +136,17 @@ public class DifyApiClient {
         // Dify API路径
         String apiPath = "/v1/chat-messages";
         
+        // 对于非流式Chat响应，使用较长的超时时间（至少2分钟）
+        long chatTimeout = Math.max(difyConfig.getTimeout(), 120000L); // 至少2分钟
+        logger.info("Chat API超时时间设置为: {} 毫秒 ({} 分钟)", chatTimeout, chatTimeout / 60000);
+        
         return webClient.post()
                 .uri(apiPath)
                 .header("Authorization", "Bearer " + apiKey.trim())
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(String.class)
-                .timeout(Duration.ofMillis(difyConfig.getTimeout()))
+                .timeout(Duration.ofMillis(chatTimeout))
                 .map(response -> {
                     try {
                         return objectMapper.readValue(response, DifyResponse.class);
@@ -218,8 +231,11 @@ public class DifyApiClient {
         // Dify API路径
         String apiPath = "/v1/chat-messages";
         
-        // 对于流式响应，使用更长的超时时间（5分钟）
-        long streamTimeout = Math.max(difyConfig.getTimeout(), 300000); // 至少5分钟
+        // 对于流式响应，使用更长的超时时间（10分钟）
+        // 确保超时时间至少为10分钟，避免使用默认的30秒
+        // 注意：这个超时时间用于监控元素间隔，如果10分钟内没有新元素到达，就会超时
+        long streamTimeout = Math.max(difyConfig.getTimeout(), 600000L); // 至少10分钟
+        logger.info("Chat Stream Flux超时时间设置为: {} 毫秒 ({} 分钟)", streamTimeout, streamTimeout / 60000);
         
         return webClient.post()
                 .uri(apiPath)
@@ -234,7 +250,6 @@ public class DifyApiClient {
                 .doOnNext(dataBuffer -> {
                     logger.info("收到数据块，大小: {} 字节", dataBuffer.readableByteCount());
                 })
-                .timeout(Duration.ofMillis(streamTimeout))
                 .map(dataBuffer -> {
                     byte[] bytes = new byte[dataBuffer.readableByteCount()];
                     dataBuffer.read(bytes);
@@ -312,6 +327,14 @@ public class DifyApiClient {
                         return Mono.<DifyResponse>empty();
                     }
                 })
+                // 设置超时：如果10分钟内没有新元素到达，就会超时
+                // 使用回退机制，超时时返回完成的响应标记
+                .timeout(Duration.ofMillis(streamTimeout), Flux.defer(() -> {
+                    logger.warn("Dify Chat Stream API响应超时（{}分钟内没有新元素），返回完成的响应标记", streamTimeout / 60000);
+                    DifyResponse timeoutResponse = new DifyResponse();
+                    timeoutResponse.setFinished(true);
+                    return Flux.just(timeoutResponse);
+                }))
                 .doOnNext(response -> {
                     logger.info("发送Dify响应: event={}, finished={}", response.getEvent(), response.getFinished());
                 })
@@ -340,6 +363,15 @@ public class DifyApiClient {
                     }
                 })
                 .onErrorResume(error -> {
+                    // 处理超时错误，返回一个完成的响应而不是抛出异常
+                    if (error instanceof java.util.concurrent.TimeoutException) {
+                        logger.warn("Dify Chat Stream API响应超时，返回超时响应");
+                        DifyResponse timeoutResponse = new DifyResponse();
+                        timeoutResponse.setFinished(true);
+                        timeoutResponse.setEvent("error");
+                        timeoutResponse.setAnswer("请求超时：Chat任务处理时间超过" + (streamTimeout / 60000) + "分钟。请稍后重试。");
+                        return Flux.just(timeoutResponse);
+                    }
                     // 处理 conversationId 不存在的情况
                     if (error instanceof org.springframework.web.reactive.function.client.WebClientResponseException.NotFound) {
                         org.springframework.web.reactive.function.client.WebClientResponseException.NotFound notFoundEx = 
@@ -404,6 +436,11 @@ public class DifyApiClient {
         // Dify API路径
         String apiPath = "/v1/workflows/run";
         
+        // 对于非流式Workflow响应，使用更长的超时时间（至少5分钟）
+        // Workflow可能需要较长时间来处理复杂的任务
+        long workflowTimeout = Math.max(difyConfig.getTimeout(), 300000L); // 至少5分钟
+        logger.info("Workflow API超时时间设置为: {} 毫秒 ({} 分钟)", workflowTimeout, workflowTimeout / 60000);
+        
         WebClient.RequestBodySpec requestSpec = webClient.post()
                 .uri(apiPath)
                 .header("Authorization", "Bearer " + apiKey.trim());
@@ -416,7 +453,7 @@ public class DifyApiClient {
         return requestSpec.bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(String.class)
-                .timeout(Duration.ofMillis(difyConfig.getTimeout()))
+                .timeout(Duration.ofMillis(workflowTimeout))
                 .map(response -> {
                     try {
                         return objectMapper.readValue(response, DifyResponse.class);
@@ -534,6 +571,12 @@ public class DifyApiClient {
         logger.info("调用Dify Workflow Stream API, URL: {}, API Key: {}, 请求体: {}", 
                 actualUrl, apiKey.substring(0, Math.min(10, apiKey.length())) + "...", requestBody);
         
+        // 对于流式响应，使用更长的超时时间（10分钟）
+        // 确保超时时间至少为10分钟，避免使用默认的30秒
+        // 注意：这个超时时间用于监控元素间隔，如果10分钟内没有新元素到达，就会超时
+        long streamTimeout = Math.max(difyConfig.getTimeout(), 600000L); // 至少10分钟
+        logger.info("Workflow Stream Flux超时时间设置为: {} 毫秒 ({} 分钟)", streamTimeout, streamTimeout / 60000);
+        
         WebClient.RequestBodySpec requestSpec = webClient.post()
                 .uri("/v1/workflows/run")
                 .header("Authorization", "Bearer " + apiKey.trim())
@@ -547,7 +590,12 @@ public class DifyApiClient {
         return requestSpec.bodyValue(requestBody)
                 .retrieve()
                 .bodyToFlux(DataBuffer.class)
-                .timeout(Duration.ofMillis(difyConfig.getTimeout()))
+                .doOnSubscribe(subscription -> {
+                    logger.info("开始订阅Dify Workflow Stream API响应，Flux超时时间: {} 毫秒", streamTimeout);
+                })
+                .doOnNext(dataBuffer -> {
+                    logger.debug("收到数据块，大小: {} 字节", dataBuffer.readableByteCount());
+                })
                 .map(dataBuffer -> {
                     byte[] bytes = new byte[dataBuffer.readableByteCount()];
                     dataBuffer.read(bytes);
@@ -596,11 +644,23 @@ public class DifyApiClient {
                         return Mono.<DifyResponse>empty(); // 跳过解析失败的行
                     }
                 })
+                // 设置超时：如果10分钟内没有新元素到达，就会超时
+                // 使用回退机制，超时时返回完成的响应标记，并包含错误信息
+                .timeout(Duration.ofMillis(streamTimeout), Flux.defer(() -> {
+                    logger.warn("Dify Workflow Stream API响应超时（{}分钟内没有新元素），返回超时响应", streamTimeout / 60000);
+                    DifyResponse timeoutResponse = new DifyResponse();
+                    timeoutResponse.setFinished(true);
+                    timeoutResponse.setEvent("error");
+                    timeoutResponse.setAnswer("请求超时：Workflow任务处理时间超过" + (streamTimeout / 60000) + "分钟。任务可能仍在后台运行，请稍后查看结果或使用更长的超时时间。");
+                    return Flux.just(timeoutResponse);
+                }))
                 .doOnNext(response -> {
                     logger.debug("发送Dify响应: event={}, finished={}", response.getEvent(), response.getFinished());
                 })
                 .doOnError(error -> {
-                    if (error instanceof org.springframework.web.reactive.function.client.WebClientResponseException) {
+                    if (error instanceof java.util.concurrent.TimeoutException) {
+                        logger.error("调用Dify Workflow Stream API超时: 超时时间 {} 毫秒, URL: {}", streamTimeout, actualUrl);
+                    } else if (error instanceof org.springframework.web.reactive.function.client.WebClientResponseException) {
                         org.springframework.web.reactive.function.client.WebClientResponseException ex = 
                             (org.springframework.web.reactive.function.client.WebClientResponseException) error;
                         try {
@@ -612,10 +672,19 @@ public class DifyApiClient {
                                 ex.getStatusCode(), ex.getStatusText(), actualUrl, requestBody);
                         }
                     } else {
-                        logger.error("调用Dify Workflow Stream API失败", error);
+                        logger.error("调用Dify Workflow Stream API失败, URL: " + actualUrl, error);
                     }
                 })
-                .onErrorMap(error -> {
+                .onErrorResume(error -> {
+                    // 处理超时错误，返回一个完成的响应而不是抛出异常
+                    if (error instanceof java.util.concurrent.TimeoutException) {
+                        logger.warn("Dify Workflow Stream API响应超时，返回超时响应");
+                        DifyResponse timeoutResponse = new DifyResponse();
+                        timeoutResponse.setFinished(true);
+                        timeoutResponse.setEvent("error");
+                        timeoutResponse.setAnswer("请求超时：Workflow任务处理时间超过" + (streamTimeout / 60000) + "分钟。任务可能仍在后台运行，请稍后查看结果或使用更长的超时时间。");
+                        return Flux.just(timeoutResponse);
+                    }
                     // 处理参数缺失错误，提供更友好的错误信息
                     if (error instanceof org.springframework.web.reactive.function.client.WebClientResponseException.BadRequest) {
                         org.springframework.web.reactive.function.client.WebClientResponseException.BadRequest badRequestEx = 
@@ -627,13 +696,13 @@ public class DifyApiClient {
                                 String missingParam = extractMissingParam(responseBody);
                                 String errorMessage = String.format("Workflow 缺少必需的输入参数: %s。请检查应用配置中的 inputs 字段，确保包含所有必需的参数。", missingParam);
                                 logger.warn("Workflow 参数缺失: {}, 当前输入参数: {}", missingParam, requestBody.get("inputs"));
-                                return new RuntimeException(errorMessage, badRequestEx);
+                                return Flux.error(new RuntimeException(errorMessage, badRequestEx));
                             }
                         } catch (Exception e) {
                             logger.warn("无法解析错误响应体", e);
                         }
                     }
-                    return error;
+                    return Flux.error(error);
                 });
     }
 }
