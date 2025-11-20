@@ -66,3 +66,16 @@ export function updateUserAppVisibility(userId, appId, visible) {
   })
 }
 
+/**
+ * 更新用户角色
+ */
+export function updateUserRole(userId, role) {
+  return request({
+    url: `/api/auth/users/${userId}/role`,
+    method: 'put',
+    params: {
+      role
+    }
+  })
+}
+

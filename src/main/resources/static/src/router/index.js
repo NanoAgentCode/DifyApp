@@ -63,6 +63,18 @@ const routes = [
         name: 'UserList',
         component: () => import('@/views/admin/UserList.vue'),
         meta: { title: '用户管理', requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'kb-qa',
+        name: 'KnowledgeBaseQA',
+        component: () => import('@/views/admin/KnowledgeBaseQA.vue'),
+        meta: { title: '知识库问答', requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'knowledge-base',
+        name: 'KnowledgeBaseManagement',
+        component: () => import('@/views/admin/KnowledgeBaseManagement.vue'),
+        meta: { title: '知识库管理', requiresAuth: true, requiresAdmin: true }
       }
     ]
   },

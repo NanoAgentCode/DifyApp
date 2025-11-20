@@ -201,5 +201,22 @@ public class AuthController {
             throw e;
         }
     }
+    
+    /**
+     * 更新用户角色
+     */
+    @ApiOperation("更新用户角色")
+    @PutMapping("/users/{userId}/role")
+    public ResponseEntity<Void> updateUserRole(
+            @PathVariable Long userId,
+            @RequestParam Integer role) {
+        try {
+            authService.updateUserRole(userId, role);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            logger.error("更新用户角色失败", e);
+            throw e;
+        }
+    }
 }
 

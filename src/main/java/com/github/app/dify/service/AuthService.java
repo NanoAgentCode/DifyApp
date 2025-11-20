@@ -247,6 +247,48 @@ public class AuthService {
     }
     
     /**
+     * 更新用户角色
+     * 注意：超级管理员（username为"admin"或id为1）的角色不能被修改
+     * @param userId 用户ID
+     * @param role 新角色：1-管理员，2-普通用户
+     */
+    @Transactional
+    public void updateUserRole(Long userId, Integer role) {
+        Optional<User> optional = userRepository.findById(userId);
+        if (!optional.isPresent()) {
+            throw new RuntimeException("用户不存在: " + userId);
+        }
+        
+        User user = optional.get();
+        
+        // 检查是否是超级管理员
+        if (isSuperAdmin(user)) {
+            throw new RuntimeException("超级管理员的角色不能被修改");
+        }
+        
+        // 验证角色值
+        if (role == null || (role != 1 && role != 2)) {
+            throw new RuntimeException("无效的角色值: " + role);
+        }
+        
+        // 更新角色
+        user.setRole(role);
+        user.setUpdateTime(new Date());
+        userRepository.save(user);
+        
+        logger.info("更新用户角色成功 - 用户ID: {}, 用户名: {}, 新角色: {}", 
+                user.getId(), user.getUsername(), role);
+    }
+    
+    /**
+     * 判断是否是超级管理员
+     * 超级管理员：username为"admin"或id为1的用户
+     */
+    private boolean isSuperAdmin(User user) {
+        return "admin".equals(user.getUsername()) || (user.getId() != null && user.getId() == 1L);
+    }
+    
+    /**
      * 转换为响应对象
      */
     private com.github.app.dify.resp.UserResp convertToResp(User user) {

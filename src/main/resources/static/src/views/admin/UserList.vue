@@ -76,10 +76,18 @@
             </el-dropdown>
           </template>
         </el-table-column>
-        <el-table-column prop="role" label="角色" min-width="100" align="center">
+        <el-table-column prop="role" label="角色" min-width="120" align="center">
           <template #default="scope">
-            <el-tag v-if="scope.row.role === 1" type="danger" size="small">管理员</el-tag>
-            <el-tag v-else type="info" size="small">普通用户</el-tag>
+            <el-select
+              v-model="scope.row.role"
+              size="small"
+              :disabled="isSuperAdmin(scope.row)"
+              @change="handleRoleChange(scope.row)"
+              style="width: 100px"
+            >
+              <el-option label="管理员" :value="1" />
+              <el-option label="普通用户" :value="2" />
+            </el-select>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" min-width="100" align="center">
@@ -152,7 +160,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, InfoFilled } from '@element-plus/icons-vue'
-import { getUserList, approveUser, disableUser, getUserAppVisibilities, updateUserAppVisibility } from '@/api/user'
+import { getUserList, approveUser, disableUser, getUserAppVisibilities, updateUserAppVisibility, updateUserRole } from '@/api/user'
 import ResetPasswordDialog from '@/components/ResetPasswordDialog.vue'
 
 const loading = ref(false)
@@ -277,6 +285,30 @@ const handleVisibilityChange = async (userId, appId, visible) => {
         app.visible = !visible
       }
     }
+  }
+}
+
+const isSuperAdmin = (user) => {
+  // 判断是否是超级管理员：username为"admin"或id为1的用户
+  return user.username === 'admin' || user.id === 1
+}
+
+const handleRoleChange = async (user) => {
+  // 检查是否是超级管理员
+  if (isSuperAdmin(user)) {
+    ElMessage.warning('超级管理员的角色不能被修改')
+    // 恢复原角色
+    await loadUsers()
+    return
+  }
+  
+  try {
+    await updateUserRole(user.id, user.role)
+    ElMessage.success('角色修改成功')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.error || error.message || '修改失败')
+    // 恢复原角色
+    await loadUsers()
   }
 }
 

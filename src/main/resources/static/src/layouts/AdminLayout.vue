@@ -39,6 +39,14 @@
             <el-icon><User /></el-icon>
             <span>用户管理</span>
           </el-menu-item>
+          <el-menu-item v-if="isAdmin" index="/admin/kb-qa">
+            <el-icon><ChatLineRound /></el-icon>
+            <span>知识库问答</span>
+          </el-menu-item>
+          <el-menu-item v-if="isAdmin" index="/admin/knowledge-base">
+            <el-icon><Folder /></el-icon>
+            <span>知识库管理</span>
+          </el-menu-item>
         </el-menu>
       </el-aside>
       <el-main class="main">
@@ -57,13 +65,15 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, List, User, ArrowDown } from '@element-plus/icons-vue'
+import { Plus, List, User, ArrowDown, Folder, ChatLineRound } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
 
-const activeMenu = computed(() => route.path)
+const activeMenu = computed(() => {
+  return route.path
+})
 const userInfo = ref(null)
 const isAdmin = computed(() => userInfo.value && userInfo.value.role === 1)
 const showChangePasswordDialog = ref(false)
@@ -81,6 +91,15 @@ onMounted(() => {
 
 const goToCreate = () => {
   router.push('/admin/apps/create')
+}
+
+const handleMenuClick = (path) => {
+  router.push(path).catch(err => {
+    // 忽略重复导航错误
+    if (err.name !== 'NavigationDuplicated') {
+      console.error('导航错误:', err)
+    }
+  })
 }
 
 const handleCommand = (command) => {
