@@ -18,10 +18,6 @@
             </el-dropdown-menu>
           </template>
         </el-dropdown>
-        <el-button type="primary" @click="goToCreate" style="margin-left: 10px">
-          <el-icon><Plus /></el-icon>
-          创建应用
-        </el-button>
       </div>
     </el-header>
     <el-container>
@@ -65,7 +61,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, List, User, ArrowDown, Folder, ChatLineRound } from '@element-plus/icons-vue'
+import { List, User, ArrowDown, Folder, ChatLineRound } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 
 const route = useRoute()
@@ -88,10 +84,6 @@ onMounted(() => {
     }
   }
 })
-
-const goToCreate = () => {
-  router.push('/admin/apps/create')
-}
 
 const handleMenuClick = (path) => {
   router.push(path).catch(err => {
