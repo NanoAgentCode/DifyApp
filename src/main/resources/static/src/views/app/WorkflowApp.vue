@@ -111,7 +111,7 @@
                       <el-button size="small" @click="openFile(file.fullUrl)" type="primary" link>
                         在新窗口打开
                       </el-button>
-                      <el-button size="small" @click="downloadFile(file.fullUrl, file.filename)" type="success" link>
+                      <el-button size="small" @click="downloadFile(file.fullUrl, file.filename, file)" type="success" link>
                         下载
                       </el-button>
                     </div>
@@ -126,7 +126,13 @@
                     </div>
                     <!-- HTML预览 -->
                     <div v-else-if="isHtml(file)" class="html-preview">
-                      <iframe :src="file.fullUrl" frameborder="0" class="preview-iframe"></iframe>
+                      <iframe 
+                        :ref="el => setIframeRef(index, el)" 
+                        :src="file.fullUrl" 
+                        frameborder="0" 
+                        class="preview-iframe"
+                        @load="onIframeLoad(index)"
+                      ></iframe>
                     </div>
                     <!-- PDF预览 -->
                     <div v-else-if="isPdf(file)" class="pdf-preview">
@@ -161,6 +167,7 @@ import { ElMessage } from 'element-plus'
 import { UploadFilled } from '@element-plus/icons-vue'
 import { getAppDetail, workflowApp, workflowAppStream, uploadFile } from '@/api/aiApp'
 import request from '@/utils/request'
+import html2canvas from 'html2canvas'
 
 const route = useRoute()
 const router = useRouter()
@@ -175,6 +182,7 @@ const fullJsonPlaceholder = '{"variable_name": [{"transfer_method": "local_file"
 const fileUrlPrefix = ref('http://localhost:80') // 文件URL前缀
 const fileList = ref([]) // 文件列表
 const uploadRef = ref(null) // 上传组件引用
+const iframeRefs = ref({}) // iframe引用映射，key为文件索引
 
 // 获取复杂输入的占位符
 const getComplexInputPlaceholder = (key) => {
@@ -654,11 +662,167 @@ const openFile = (url) => {
   window.open(url, '_blank')
 }
 
+// 设置 iframe ref
+const setIframeRef = (index, el) => {
+  if (el) {
+    iframeRefs.value[index] = el
+  }
+}
+
+// iframe 加载完成处理
+const onIframeLoad = (index) => {
+  console.log(`Iframe ${index} 加载完成`)
+}
+
+// 将 HTML 转换为图片
+const htmlToImage = async (fileIndex) => {
+  try {
+    const iframe = iframeRefs.value[fileIndex]
+    if (!iframe) {
+      throw new Error('无法找到对应的 iframe，请确保页面已完全加载')
+    }
+    
+    // 等待 iframe 内容完全加载
+    await new Promise((resolve, reject) => {
+      const checkLoad = () => {
+        try {
+          const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
+          if (iframeDoc && iframeDoc.readyState === 'complete') {
+            resolve()
+          } else {
+            setTimeout(checkLoad, 100)
+          }
+        } catch (e) {
+          // 跨域情况下无法访问 contentDocument
+          // 等待一段时间后尝试
+          setTimeout(() => {
+            try {
+              iframe.onload = resolve
+              // 如果已经加载完成，立即 resolve
+              if (iframe.contentWindow) {
+                resolve()
+              }
+            } catch (err) {
+              reject(new Error('无法访问 iframe 内容（可能是跨域问题）'))
+            }
+          }, 500)
+        }
+      }
+      
+      // 如果已经加载完成
+      try {
+        if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+          resolve()
+        } else {
+          iframe.onload = resolve
+          // 设置超时
+          setTimeout(() => {
+            checkLoad()
+          }, 1000)
+        }
+      } catch (e) {
+        // 跨域情况，等待一段时间
+        setTimeout(() => resolve(), 2000)
+      }
+    })
+    
+    // 获取 iframe 中的文档内容
+    let iframeDoc
+    try {
+      iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
+    } catch (e) {
+      throw new Error('无法访问 iframe 内容（跨域限制）。请尝试在新窗口打开文件后手动保存。')
+    }
+    
+    if (!iframeDoc) {
+      throw new Error('无法访问 iframe 内容')
+    }
+    
+    // 获取 iframe 中的 body 元素
+    const bodyElement = iframeDoc.body || iframeDoc.documentElement
+    if (!bodyElement) {
+      throw new Error('无法找到 iframe 中的 body 元素')
+    }
+    
+    ElMessage.info('正在生成图片，请稍候...')
+    
+    // 使用 html2canvas 将 HTML 转换为 canvas
+    const canvas = await html2canvas(bodyElement, {
+      useCORS: true,
+      allowTaint: false, // 不允许跨域图片污染 canvas
+      scale: 2, // 提高图片清晰度
+      logging: false,
+      width: Math.max(bodyElement.scrollWidth, bodyElement.clientWidth, 800),
+      height: Math.max(bodyElement.scrollHeight, bodyElement.clientHeight, 600),
+      windowWidth: Math.max(bodyElement.scrollWidth, bodyElement.clientWidth, 800),
+      windowHeight: Math.max(bodyElement.scrollHeight, bodyElement.clientHeight, 600)
+    })
+    
+    // 将 canvas 转换为 blob
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob)
+        } else {
+          reject(new Error('图片生成失败'))
+        }
+      }, 'image/png', 1.0)
+    })
+  } catch (error) {
+    console.error('HTML转图片失败:', error)
+    throw error
+  }
+}
+
 // 下载文件
-const downloadFile = async (url, filename) => {
+const downloadFile = async (url, filename, file = null) => {
   if (!url) {
     ElMessage.error('文件URL为空')
     return
+  }
+  
+  // 如果是 HTML 文件，转换为图片下载
+  if (file && isHtml(file)) {
+    try {
+      // 找到文件在列表中的索引
+      const files = extractFiles(result.value)
+      const fileIndex = files.findIndex(f => {
+        return f.fullUrl === url || 
+               f.url === url || 
+               (file.fullUrl && f.fullUrl === file.fullUrl) ||
+               (file.url && f.url === file.url)
+      })
+      
+      if (fileIndex === -1) {
+        console.warn('无法找到文件索引，使用文件对象中的信息')
+        // 如果找不到索引，尝试使用文件对象本身
+        // 这种情况下，我们需要通过其他方式获取 iframe
+        throw new Error('无法定位到对应的预览区域')
+      }
+      
+      // 转换为图片
+      const blob = await htmlToImage(fileIndex)
+      
+      // 下载图片
+      const imageFilename = (filename || 'output.html').replace(/\.html?$/i, '.png')
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = imageFilename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      setTimeout(() => {
+        window.URL.revokeObjectURL(downloadUrl)
+      }, 100)
+      
+      ElMessage.success('图片下载成功')
+      return
+    } catch (error) {
+      console.error('HTML转图片下载失败:', error)
+      ElMessage.warning('HTML转图片失败，尝试下载原始文件: ' + (error.message || '未知错误'))
+      // 继续执行普通下载流程
+    }
   }
   
   try {
