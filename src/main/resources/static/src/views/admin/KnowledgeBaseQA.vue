@@ -471,24 +471,16 @@ const renderMath = (html) => {
   if (!html) return ''
   
   try {
-    // 先处理块级公式 $$...$$（避免与行内公式冲突）
+    // 先标记块级公式 $$...$$，避免被行内公式匹配
+    const blockPlaceholder = '___KATEX_BLOCK_PLACEHOLDER___'
+    const blockMatches = []
     html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
-      try {
-        const trimmed = formula.trim()
-        if (!trimmed) return match
-        return katex.renderToString(trimmed, {
-          displayMode: true,
-          throwOnError: false
-        })
-      } catch (e) {
-        console.warn('KaTeX 渲染失败（块级）:', e)
-        return match
-      }
+      blockMatches.push({ original: match, formula: formula.trim() })
+      return blockPlaceholder + (blockMatches.length - 1) + blockPlaceholder
     })
     
-    // 处理行内公式 $...$（使用更精确的正则，避免匹配已处理的 $$）
-    // 匹配 $...$ 但不匹配 $$...$$
-    html = html.replace(/(?<!\$)\$([^\$\n]+?)\$(?!\$)/g, (match, formula) => {
+    // 处理行内公式 $...$（不包含换行符，支持方括号等特殊字符）
+    html = html.replace(/\$([^$\n]+?)\$/g, (match, formula) => {
       try {
         const trimmed = formula.trim()
         if (!trimmed) return match
@@ -497,8 +489,25 @@ const renderMath = (html) => {
           throwOnError: false
         })
       } catch (e) {
-        console.warn('KaTeX 渲染失败（行内）:', e)
+        console.warn('KaTeX 渲染失败（行内）:', e, '公式:', formula)
         return match
+      }
+    })
+    
+    // 恢复并渲染块级公式
+    html = html.replace(new RegExp(blockPlaceholder + '(\\d+)' + blockPlaceholder, 'g'), (match, index) => {
+      const blockMatch = blockMatches[parseInt(index)]
+      if (!blockMatch) return match
+      
+      try {
+        if (!blockMatch.formula) return blockMatch.original
+        return katex.renderToString(blockMatch.formula, {
+          displayMode: true,
+          throwOnError: false
+        })
+      } catch (e) {
+        console.warn('KaTeX 渲染失败（块级）:', e, '公式:', blockMatch.formula)
+        return blockMatch.original
       }
     })
     
@@ -1200,7 +1209,7 @@ html {
   background: #fafafa;
   flex-shrink: 0;
   position: sticky;
-  bottom: 0;
+  bottom: 10px;
   z-index: 20;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
 }
