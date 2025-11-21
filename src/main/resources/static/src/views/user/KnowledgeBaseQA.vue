@@ -184,6 +184,8 @@ import { knowledgeBaseQA, knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
+import katex from 'katex'
+import 'katex/dist/katex.min.css'
 
 // 配置 marked（在组件初始化时配置一次即可）
 marked.setOptions({
@@ -464,12 +466,59 @@ const handleStreamResponse = async (userQuestion, history) => {
   }
 }
 
+// 渲染数学公式（支持行内公式 $...$ 和块级公式 $$...$$）
+const renderMath = (html) => {
+  if (!html) return ''
+  
+  try {
+    // 先处理块级公式 $$...$$（避免与行内公式冲突）
+    html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
+      try {
+        const trimmed = formula.trim()
+        if (!trimmed) return match
+        return katex.renderToString(trimmed, {
+          displayMode: true,
+          throwOnError: false
+        })
+      } catch (e) {
+        console.warn('KaTeX 渲染失败（块级）:', e)
+        return match
+      }
+    })
+    
+    // 处理行内公式 $...$（使用更精确的正则，避免匹配已处理的 $$）
+    // 匹配 $...$ 但不匹配 $$...$$
+    html = html.replace(/(?<!\$)\$([^\$\n]+?)\$(?!\$)/g, (match, formula) => {
+      try {
+        const trimmed = formula.trim()
+        if (!trimmed) return match
+        return katex.renderToString(trimmed, {
+          displayMode: false,
+          throwOnError: false
+        })
+      } catch (e) {
+        console.warn('KaTeX 渲染失败（行内）:', e)
+        return match
+      }
+    })
+    
+    return html
+  } catch (error) {
+    console.error('数学公式渲染失败', error)
+    return html
+  }
+}
+
 // 渲染Markdown
 const renderMarkdown = (content) => {
   if (!content) return ''
   
   try {
-    return marked.parse(content)
+    // 先渲染 Markdown
+    let html = marked.parse(content)
+    // 再渲染数学公式
+    html = renderMath(html)
+    return html
   } catch (error) {
     console.error('Markdown渲染失败', error)
     return content
@@ -967,6 +1016,31 @@ html {
 
 .message-text :deep(em) {
   font-style: italic;
+}
+
+/* KaTeX 数学公式样式 */
+.message-text :deep(.katex) {
+  font-size: 1.1em;
+}
+
+.message-text :deep(.katex-display) {
+  margin: 1em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.message-text :deep(.katex-display > .katex) {
+  display: inline-block;
+  text-align: initial;
+}
+
+/* 确保数学公式在深色和浅色背景下都清晰可见 */
+.message-item.assistant .message-text :deep(.katex) {
+  color: #303133;
+}
+
+.message-item.user .message-text :deep(.katex) {
+  color: white;
 }
 
 .message-text.loading {
