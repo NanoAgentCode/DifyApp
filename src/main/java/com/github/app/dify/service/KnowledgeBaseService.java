@@ -113,6 +113,9 @@ public class KnowledgeBaseService {
         if (req.getStatus() != null) {
             knowledgeBase.setStatus(req.getStatus());
         }
+        if (req.getIsPublic() != null) {
+            knowledgeBase.setIsPublic(req.getIsPublic());
+        }
         
         knowledgeBase.setUpdateTime(new Date());
         knowledgeBase = knowledgeBaseRepository.save(knowledgeBase);

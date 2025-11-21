@@ -87,7 +87,19 @@ const routes = [
         path: 'apps',
         name: 'UserAppList',
         component: () => import('@/views/user/AppList.vue'),
-        meta: { title: '微应用', requiresAuth: true }
+        meta: { title: '智能应用', requiresAuth: true }
+      },
+      {
+        path: 'knowledge-base',
+        name: 'UserKnowledgeBaseManagement',
+        component: () => import('@/views/user/KnowledgeBaseManagement.vue'),
+        meta: { title: '知识库管理', requiresAuth: true }
+      },
+      {
+        path: 'kb-qa',
+        name: 'UserKnowledgeBaseQA',
+        component: () => import('@/views/user/KnowledgeBaseQA.vue'),
+        meta: { title: '知识库问答', requiresAuth: true }
       }
     ]
   },

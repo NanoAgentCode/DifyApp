@@ -1,7 +1,7 @@
 <template>
   <div class="user-app-list">
     <div class="page-header">
-      <h1>微应用</h1>
+      <h1>智能应用</h1>
       <p class="subtitle">选择您要使用的应用</p>
     </div>
     

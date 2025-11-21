@@ -24,6 +24,9 @@ public class UpdateKnowledgeBaseReq {
     @ApiModelProperty("知识库状态：1-启用，0-禁用")
     private Integer status;
     
+    @ApiModelProperty("是否公开：true-公开，false-私有")
+    private Boolean isPublic;
+    
     // Getters and Setters
     public String getName() {
         return name;
@@ -47,6 +50,14 @@ public class UpdateKnowledgeBaseReq {
     
     public void setStatus(Integer status) {
         this.status = status;
+    }
+    
+    public Boolean getIsPublic() {
+        return isPublic;
+    }
+    
+    public void setIsPublic(Boolean isPublic) {
+        this.isPublic = isPublic;
     }
 }
 

@@ -29,7 +29,7 @@
         >
           <el-menu-item index="/user/apps">
             <el-icon><List /></el-icon>
-            <span>微应用</span>
+            <span>智能应用</span>
           </el-menu-item>
           <el-menu-item index="/user/knowledge-base">
             <el-icon><Folder /></el-icon>
