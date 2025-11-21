@@ -9,7 +9,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
@@ -39,15 +38,15 @@ public class EmbeddingService {
             WebClient.Builder builder = WebClient.builder()
                     .baseUrl(embeddingConfig.getApiUrl())
                     .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                    // 增加缓冲区大小以支持大响应（默认256KB，增加到10MB）
-                    .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024));
+                    // 增加缓冲区大小以支持大响应（默认256KB，增加到50MB以支持大批量向量化）
+                    .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(50 * 1024 * 1024));
             
             if (embeddingConfig.getApiKey() != null && !embeddingConfig.getApiKey().trim().isEmpty()) {
                 builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + embeddingConfig.getApiKey());
             }
             
             webClient = builder.build();
-            logger.info("EmbeddingService WebClient已创建，缓冲区大小: 10MB");
+            logger.info("EmbeddingService WebClient已创建，缓冲区大小: 50MB");
         }
         return webClient;
     }

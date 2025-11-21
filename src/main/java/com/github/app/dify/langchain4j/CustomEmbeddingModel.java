@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -49,7 +48,8 @@ public class CustomEmbeddingModel implements EmbeddingModel {
                     .map(TextSegment::text)
                     .collect(Collectors.toList());
             
-            List<List<Float>> embeddingVectors = embeddingService.embedBatch(texts);
+            // 使用分批处理以避免响应数据过大导致缓冲区溢出
+            List<List<Float>> embeddingVectors = embeddingService.embedBatchWithChunking(texts);
             
             List<Embedding> embeddings = embeddingVectors.stream()
                     .map(vector -> Embedding.from(convertToFloatArray(vector)))
