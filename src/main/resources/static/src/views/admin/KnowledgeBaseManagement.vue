@@ -39,12 +39,19 @@
 
       <!-- 知识库列表 -->
       <el-table
-        :data="filteredKnowledgeBases"
+        :data="paginatedKnowledgeBases"
         v-loading="loading"
         stripe
         style="margin-top: 20px"
       >
         <el-table-column prop="id" label="ID" width="80" align="center" />
+        <el-table-column label="可见性" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.isPublic ? 'success' : 'info'" size="small">
+              {{ row.isPublic ? '公开' : '私有' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="知识库名称" min-width="200">
           <template #default="{ row }">
             <div class="kb-name-cell">
@@ -61,8 +68,8 @@
         </el-table-column>
         <el-table-column label="状态" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'info'">
-              {{ row.status === 'active' ? '启用' : '禁用' }}
+            <el-tag :type="isActive(row.status) ? 'success' : 'info'">
+              {{ getStatusText(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -119,6 +126,27 @@
             placeholder="请输入知识库描述"
           />
         </el-form-item>
+        <el-form-item label="可见性" prop="isPublic" v-if="isAdmin">
+          <el-radio-group v-model="formData.isPublic">
+            <el-radio :label="true">公开</el-radio>
+            <el-radio :label="false">私有</el-radio>
+          </el-radio-group>
+          <div style="font-size: 12px; color: #909399; margin-top: 5px;">
+            公开知识库：所有用户都可以访问<br/>
+            私有知识库：只有创建者可以访问
+          </div>
+        </el-form-item>
+        <el-form-item v-else>
+          <el-alert
+            type="info"
+            :closable="false"
+            show-icon
+          >
+            <template #title>
+              <span>普通用户只能创建私有知识库</span>
+            </template>
+          </el-alert>
+        </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="formData.status">
             <el-radio label="active">启用</el-radio>
@@ -142,62 +170,166 @@
         <el-descriptions-item label="ID">{{ currentKB.id }}</el-descriptions-item>
         <el-descriptions-item label="名称">{{ currentKB.name }}</el-descriptions-item>
         <el-descriptions-item label="状态" :span="2">
-          <el-tag :type="currentKB.status === 'active' ? 'success' : 'info'">
-            {{ currentKB.status === 'active' ? '启用' : '禁用' }}
+          <el-tag :type="isActive(currentKB.status) ? 'success' : 'info'">
+            {{ getStatusText(currentKB.status) }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="文档数量">{{ currentKB.documentCount || 0 }} 个</el-descriptions-item>
+        <el-descriptions-item label="文档总数">{{ currentKB.documentCount || 0 }} 个</el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ formatDate(currentKB.createTime) }}</el-descriptions-item>
+        <el-descriptions-item label="成功文档">
+          <el-tag type="success" size="small">{{ currentKB.successDocumentCount || 0 }} 个</el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="失败文档">
+          <el-tag type="danger" size="small">{{ currentKB.failedDocumentCount || 0 }} 个</el-tag>
+        </el-descriptions-item>
         <el-descriptions-item label="描述" :span="2">{{ currentKB.description || '无' }}</el-descriptions-item>
       </el-descriptions>
       <template #footer>
         <el-button type="primary" @click="viewDialogVisible = false">关闭</el-button>
       </template>
     </el-dialog>
+
+    <!-- 文件管理对话框 -->
+    <el-dialog
+      v-model="docDialogVisible"
+      :title="`管理文档 - ${currentKBForDocs?.name || ''}`"
+      width="900px"
+      @close="handleDocDialogClose"
+    >
+      <div class="doc-management">
+        <!-- 文件上传区域 -->
+        <div class="upload-section">
+          <el-upload
+            ref="uploadRef"
+            :action="uploadAction"
+            :headers="uploadHeaders"
+            :data="uploadData"
+            :file-list="fileList"
+            :auto-upload="false"
+            :on-change="handleFileChange"
+            :on-remove="handleFileRemove"
+            :before-upload="beforeUpload"
+            :limit="10"
+            drag
+            multiple
+          >
+            <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+            <div class="el-upload__text">
+              将文件拖到此处，或<em>点击上传</em>
+            </div>
+            <template #tip>
+              <div class="el-upload__tip">
+                支持上传 pdf、doc、docx、txt、md、xls、xlsx、ppt、pptx、png、jpg、jpeg、gif 格式文件，单个文件不超过100MB
+              </div>
+            </template>
+          </el-upload>
+          <div class="upload-actions" style="margin-top: 10px">
+            <el-button type="primary" @click="handleUploadFiles" :loading="uploading">
+              开始上传
+            </el-button>
+            <el-button @click="clearFileList">清空列表</el-button>
+          </div>
+        </div>
+
+        <!-- 文件列表 -->
+        <div class="doc-list-section" style="margin-top: 30px">
+          <div class="section-title">
+            <span>文档列表</span>
+            <el-button size="small" @click="loadDocuments" :loading="docLoading">
+              <el-icon><Refresh /></el-icon>
+              刷新
+            </el-button>
+          </div>
+          <el-table
+            :data="documents"
+            v-loading="docLoading"
+            stripe
+            size="small"
+            style="margin-top: 10px"
+            class="compact-table"
+          >
+            <el-table-column prop="originalFileName" label="文件名" min-width="180" show-overflow-tooltip />
+            <el-table-column label="类型" width="70" align="center">
+              <template #default="{ row }">
+                <el-tag size="small" effect="plain">{{ row.fileType || '-' }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="大小" width="90" align="center">
+              <template #default="{ row }">
+                {{ formatFileSize(row.fileSize) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="createTime" label="上传时间" width="150" align="center">
+              <template #default="{ row }">
+                {{ formatDate(row.createTime) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="向量化状态" width="110" align="center">
+              <template #default="{ row }">
+                <el-tooltip 
+                  v-if="row.vectorizedError" 
+                  :content="row.vectorizedError" 
+                  placement="top"
+                >
+                  <el-tag :type="getVectorizedStatusType(row.vectorizedStatus)" size="small" effect="plain">
+                    {{ getVectorizedStatusText(row.vectorizedStatus) }}
+                  </el-tag>
+                </el-tooltip>
+                <el-tag 
+                  v-else
+                  :type="getVectorizedStatusType(row.vectorizedStatus)" 
+                  size="small"
+                  effect="plain"
+                >
+                  {{ getVectorizedStatusText(row.vectorizedStatus) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="200" fixed="right" align="center">
+              <template #default="{ row }">
+                <el-button size="small" type="primary" @click="handleDownloadDoc(row)">下载</el-button>
+                <el-button 
+                  size="small" 
+                  type="warning" 
+                  @click="handleReindexDoc(row)"
+                  :loading="reindexingDocId === row.id"
+                  :disabled="row.vectorizedStatus === 1"
+                >
+                  重向量化
+                </el-button>
+                <el-button size="small" type="danger" @click="handleDeleteDoc(row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="docDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Document } from '@element-plus/icons-vue'
+import { Plus, Search, Document, UploadFilled, Refresh } from '@element-plus/icons-vue'
+import { 
+  getKnowledgeBaseList, 
+  createKnowledgeBase, 
+  updateKnowledgeBase, 
+  deleteKnowledgeBase,
+  getKnowledgeBaseDetail
+} from '@/api/knowledgeBase'
+import {
+  getDocumentList,
+  uploadDocument,
+  deleteDocument,
+  downloadDocument,
+  reindexDocument
+} from '@/api/knowledgeBaseDocument'
 
-// 模拟数据
-const mockKnowledgeBases = ref([
-  {
-    id: 1,
-    name: '产品使用手册',
-    description: '包含产品功能说明、操作指南、常见问题等',
-    documentCount: 15,
-    status: 'active',
-    createTime: '2025-01-15 10:30:00'
-  },
-  {
-    id: 2,
-    name: '技术文档库',
-    description: 'API文档、开发指南、架构设计等技术相关文档',
-    documentCount: 32,
-    status: 'active',
-    createTime: '2025-01-10 14:20:00'
-  },
-  {
-    id: 3,
-    name: '客户服务知识库',
-    description: '客户常见问题、服务流程、政策说明等',
-    documentCount: 28,
-    status: 'active',
-    createTime: '2025-01-08 09:15:00'
-  },
-  {
-    id: 4,
-    name: '内部培训资料',
-    description: '员工培训材料、操作规范、最佳实践等',
-    documentCount: 12,
-    status: 'inactive',
-    createTime: '2025-01-05 16:45:00'
-  }
-])
-
+const knowledgeBases = ref([])
 const loading = ref(false)
 const searchKeyword = ref('')
 const filterStatus = ref('')
@@ -205,14 +337,43 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const dialogVisible = ref(false)
 const viewDialogVisible = ref(false)
+const docDialogVisible = ref(false)
 const currentKB = ref(null)
+const currentKBForDocs = ref(null)
 const isEdit = ref(false)
 const formRef = ref(null)
+const currentEditId = ref(null)
+const uploadRef = ref(null)
+const fileList = ref([])
+const uploading = ref(false)
+const documents = ref([])
+const docLoading = ref(false)
+const refreshTimer = ref(null)
+const reindexingDocId = ref(null)
 
 const formData = ref({
   name: '',
   description: '',
-  status: 'active'
+  status: 'active',
+  isPublic: false
+})
+
+// 获取用户信息，判断是否是管理员
+const userInfo = ref(null)
+const isAdmin = computed(() => {
+  return userInfo.value && userInfo.value.role === 1
+})
+
+onMounted(() => {
+  const userInfoStr = localStorage.getItem('userInfo')
+  if (userInfoStr) {
+    try {
+      userInfo.value = JSON.parse(userInfoStr)
+    } catch (e) {
+      console.error('解析用户信息失败', e)
+    }
+  }
+  loadKnowledgeBases()
 })
 
 const formRules = {
@@ -228,10 +389,64 @@ const dialogTitle = computed(() => {
   return isEdit.value ? '编辑知识库' : '创建知识库'
 })
 
+// 状态映射：前端使用active/inactive，后端使用1/0
+const statusMap = {
+  'active': 1,
+  'inactive': 0,
+  1: 'active',
+  0: 'inactive'
+}
+
+// 辅助函数：判断状态是否为启用
+const isActive = (status) => {
+  if (typeof status === 'number') {
+    return status === 1
+  }
+  return status === 'active'
+}
+
+// 辅助函数：获取状态文本
+const getStatusText = (status) => {
+  return isActive(status) ? '启用' : '禁用'
+}
+
+// 向量化状态相关函数
+const getVectorizedStatusText = (status) => {
+  if (status === null || status === undefined) return '未向量化'
+  switch (status) {
+    case 0:
+      return '未向量化'
+    case 1:
+      return '向量化中'
+    case 2:
+      return '向量化成功'
+    case 3:
+      return '向量化失败'
+    default:
+      return '未知'
+  }
+}
+
+const getVectorizedStatusType = (status) => {
+  if (status === null || status === undefined) return 'info'
+  switch (status) {
+    case 0:
+      return 'info'
+    case 1:
+      return 'warning'
+    case 2:
+      return 'success'
+    case 3:
+      return 'danger'
+    default:
+      return 'info'
+  }
+}
+
 const filteredKnowledgeBases = computed(() => {
-  let result = [...mockKnowledgeBases.value]
+  let result = [...knowledgeBases.value]
   
-  // 搜索过滤
+  // 搜索过滤（后端已处理，这里保留前端过滤作为备用）
   if (searchKeyword.value) {
     const keyword = searchKeyword.value.toLowerCase()
     result = result.filter(kb => 
@@ -240,50 +455,314 @@ const filteredKnowledgeBases = computed(() => {
     )
   }
   
-  // 状态过滤
+  // 状态过滤（后端已处理，这里保留前端过滤作为备用）
   if (filterStatus.value) {
-    result = result.filter(kb => kb.status === filterStatus.value)
+    result = result.filter(kb => {
+      const kbStatus = typeof kb.status === 'number' ? statusMap[kb.status] : kb.status
+      return kbStatus === filterStatus.value
+    })
   }
   
   return result
 })
 
+// 分页后的数据
+const paginatedKnowledgeBases = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return filteredKnowledgeBases.value.slice(start, end)
+})
+
+// 加载知识库列表
+const loadKnowledgeBases = async () => {
+  loading.value = true
+  try {
+    const params = {}
+    if (filterStatus.value) {
+      params.status = statusMap[filterStatus.value]
+    }
+    if (searchKeyword.value) {
+      params.keyword = searchKeyword.value
+    }
+    
+    const response = await getKnowledgeBaseList(params)
+    knowledgeBases.value = response.map(kb => ({
+      ...kb,
+      status: typeof kb.status === 'number' ? statusMap[kb.status] : kb.status
+    }))
+  } catch (error) {
+    ElMessage.error('加载知识库列表失败：' + (error.message || '未知错误'))
+  } finally {
+    loading.value = false
+  }
+}
+
 const handleSearch = () => {
   currentPage.value = 1
+  loadKnowledgeBases()
 }
 
 const handleFilter = () => {
   currentPage.value = 1
+  loadKnowledgeBases()
 }
 
 const handleCreate = () => {
   isEdit.value = false
+  currentEditId.value = null
   formData.value = {
     name: '',
     description: '',
-    status: 'active'
+    status: 'active',
+    isPublic: false // 默认私有
   }
   dialogVisible.value = true
 }
 
 const handleEdit = (row) => {
   isEdit.value = true
+  currentEditId.value = row.id
   formData.value = {
     name: row.name,
-    description: row.description,
-    status: row.status
+    description: row.description || '',
+    status: typeof row.status === 'number' ? statusMap[row.status] : row.status,
+    isPublic: row.isPublic !== undefined ? row.isPublic : false
   }
   dialogVisible.value = true
 }
 
-const handleView = (row) => {
-  currentKB.value = row
-  viewDialogVisible.value = true
+const handleView = async (row) => {
+  try {
+    const response = await getKnowledgeBaseDetail(row.id)
+    // request工具已经返回response.data，所以直接使用response
+    currentKB.value = {
+      ...response,
+      status: typeof response.status === 'number' ? statusMap[response.status] : response.status
+    }
+    viewDialogVisible.value = true
+  } catch (error) {
+    ElMessage.error('获取知识库详情失败：' + (error.message || '未知错误'))
+  }
 }
 
 const handleManageDocs = (row) => {
-  ElMessage.info(`管理知识库"${row.name}"的文档`)
-  // 这里可以跳转到文档管理页面
+  currentKBForDocs.value = row
+  docDialogVisible.value = true
+  loadDocuments()
+}
+
+// 文件上传相关
+const uploadAction = computed(() => {
+  if (!currentKBForDocs.value) return ''
+  return `/api/knowledge-bases/${currentKBForDocs.value.id}/documents/upload`
+})
+
+const uploadHeaders = computed(() => {
+  const token = localStorage.getItem('token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+})
+
+const uploadData = computed(() => {
+  return {}
+})
+
+const handleFileChange = (file, files) => {
+  fileList.value = files
+}
+
+const handleFileRemove = (file, files) => {
+  fileList.value = files
+}
+
+const beforeUpload = (file) => {
+  // 验证文件大小（100MB）
+  const maxSize = 100 * 1024 * 1024
+  if (file.size > maxSize) {
+    ElMessage.error('文件大小不能超过100MB')
+    return false
+  }
+  
+  // 验证文件类型
+  const allowedTypes = ['pdf', 'doc', 'docx', 'txt', 'md', 'xls', 'xlsx', 'ppt', 'pptx', 'png', 'jpg', 'jpeg', 'gif']
+  const fileExtension = file.name.split('.').pop()?.toLowerCase()
+  if (!fileExtension || !allowedTypes.includes(fileExtension)) {
+    ElMessage.error('不支持的文件类型')
+    return false
+  }
+  
+  return true
+}
+
+const clearFileList = () => {
+  fileList.value = []
+  uploadRef.value?.clearFiles()
+}
+
+const handleUploadFiles = async () => {
+  if (fileList.value.length === 0) {
+    ElMessage.warning('请先选择要上传的文件')
+    return
+  }
+  
+  uploading.value = true
+  const uploadPromises = []
+  
+  for (const fileItem of fileList.value) {
+    if (fileItem.raw) {
+      const formData = new FormData()
+      formData.append('file', fileItem.raw)
+      
+      uploadPromises.push(
+        uploadDocument(currentKBForDocs.value.id, formData)
+          .then(() => {
+            ElMessage.success(`文件 ${fileItem.name} 上传成功`)
+          })
+          .catch((error) => {
+            ElMessage.error(`文件 ${fileItem.name} 上传失败: ${error.message || '未知错误'}`)
+            throw error
+          })
+      )
+    }
+  }
+  
+  try {
+    await Promise.all(uploadPromises)
+    clearFileList()
+    await loadDocuments() // 等待文档列表加载完成
+    loadKnowledgeBases() // 刷新知识库列表以更新文档数量
+    // 上传成功后启动自动刷新，以便实时显示向量化状态
+    startAutoRefresh()
+  } catch (error) {
+    // 错误已在Promise中处理
+  } finally {
+    uploading.value = false
+  }
+}
+
+// 文档列表相关
+const loadDocuments = async () => {
+  if (!currentKBForDocs.value) return
+  
+  docLoading.value = true
+  try {
+    const response = await getDocumentList(currentKBForDocs.value.id)
+    documents.value = response || []
+    
+    // 检查是否有正在向量化的文档，如果有则启动定时刷新
+    const hasVectorizing = documents.value.some(doc => doc.vectorizedStatus === 1)
+    if (hasVectorizing) {
+      startAutoRefresh()
+    } else {
+      stopAutoRefresh()
+    }
+  } catch (error) {
+    ElMessage.error('加载文档列表失败：' + (error.message || '未知错误'))
+  } finally {
+    docLoading.value = false
+  }
+}
+
+// 自动刷新文档列表（用于实时显示向量化状态）
+const startAutoRefresh = () => {
+  if (refreshTimer.value) return // 如果已经有定时器，不重复创建
+  
+  refreshTimer.value = setInterval(() => {
+    if (docDialogVisible.value && currentKBForDocs.value) {
+      // 静默刷新，不显示loading
+      getDocumentList(currentKBForDocs.value.id)
+        .then(response => {
+          documents.value = response || []
+          // 如果没有正在向量化的文档，停止定时刷新
+          const hasVectorizing = documents.value.some(doc => doc.vectorizedStatus === 1)
+          if (!hasVectorizing) {
+            stopAutoRefresh()
+          }
+        })
+        .catch(() => {
+          // 静默失败，不影响用户体验
+        })
+    } else {
+      stopAutoRefresh()
+    }
+  }, 3000) // 每3秒刷新一次
+}
+
+const stopAutoRefresh = () => {
+  if (refreshTimer.value) {
+    clearInterval(refreshTimer.value)
+    refreshTimer.value = null
+  }
+}
+
+const handleDeleteDoc = (doc) => {
+  ElMessageBox.confirm(
+    `确定要删除文档"${doc.originalFileName}"吗？此操作不可恢复。`,
+    '删除确认',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    try {
+      await deleteDocument(currentKBForDocs.value.id, doc.id)
+      ElMessage.success('删除成功')
+      loadDocuments()
+      loadKnowledgeBases() // 刷新知识库列表以更新文档数量
+    } catch (error) {
+      ElMessage.error('删除失败：' + (error.message || '未知错误'))
+    }
+  }).catch(() => {
+    // 取消操作
+  })
+}
+
+const handleDownloadDoc = async (doc) => {
+  try {
+    const blob = await downloadDocument(currentKBForDocs.value.id, doc.id)
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = doc.originalFileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('下载成功')
+  } catch (error) {
+    ElMessage.error('下载失败：' + (error.message || '未知错误'))
+  }
+}
+
+const handleReindexDoc = async (doc) => {
+  try {
+    reindexingDocId.value = doc.id
+    await reindexDocument(currentKBForDocs.value.id, doc.id)
+    ElMessage.success('重新向量化任务已提交，请稍后查看状态')
+    // 刷新文档列表
+    await loadDocuments()
+    // 启动自动刷新以查看向量化进度
+    startAutoRefresh()
+  } catch (error) {
+    ElMessage.error('重新向量化失败：' + (error.message || '未知错误'))
+  } finally {
+    reindexingDocId.value = null
+  }
+}
+
+const handleDocDialogClose = () => {
+  clearFileList()
+  documents.value = []
+  currentKBForDocs.value = null
+  stopAutoRefresh() // 关闭对话框时停止自动刷新
+}
+
+const formatFileSize = (bytes) => {
+  if (!bytes || bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
 }
 
 const handleDelete = (row) => {
@@ -295,11 +774,13 @@ const handleDelete = (row) => {
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(() => {
-    const index = mockKnowledgeBases.value.findIndex(kb => kb.id === row.id)
-    if (index > -1) {
-      mockKnowledgeBases.value.splice(index, 1)
+  ).then(async () => {
+    try {
+      await deleteKnowledgeBase(row.id)
       ElMessage.success('删除成功')
+      loadKnowledgeBases()
+    } catch (error) {
+      ElMessage.error('删除失败：' + (error.message || '未知错误'))
     }
   }).catch(() => {
     // 取消操作
@@ -307,22 +788,32 @@ const handleDelete = (row) => {
 }
 
 const handleSubmit = () => {
-  formRef.value.validate((valid) => {
+  formRef.value.validate(async (valid) => {
     if (valid) {
-      if (isEdit.value) {
-        ElMessage.success('编辑成功')
-      } else {
-        // 创建新知识库
-        const newKB = {
-          id: mockKnowledgeBases.value.length + 1,
-          ...formData.value,
-          documentCount: 0,
-          createTime: new Date().toLocaleString('zh-CN')
+      try {
+        const data = {
+          name: formData.value.name,
+          description: formData.value.description,
+          status: statusMap[formData.value.status]
         }
-        mockKnowledgeBases.value.unshift(newKB)
-        ElMessage.success('创建成功')
+        
+        // 只有管理员可以设置公开/私有，普通用户创建的知识库强制为私有
+        if (isAdmin.value && formData.value.isPublic !== undefined) {
+          data.isPublic = formData.value.isPublic
+        }
+        
+        if (isEdit.value) {
+          await updateKnowledgeBase(currentEditId.value, data)
+          ElMessage.success('编辑成功')
+        } else {
+          await createKnowledgeBase(data)
+          ElMessage.success('创建成功')
+        }
+        dialogVisible.value = false
+        loadKnowledgeBases()
+      } catch (error) {
+        ElMessage.error((isEdit.value ? '编辑' : '创建') + '失败：' + (error.message || '未知错误'))
       }
-      dialogVisible.value = false
     }
   })
 }
@@ -342,11 +833,34 @@ const handlePageChange = (page) => {
 
 const formatDate = (date) => {
   if (!date) return ''
-  return date
+  if (typeof date === 'string') {
+    return date
+  }
+  if (date instanceof Date) {
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  }
+  // 如果是时间戳
+  const d = new Date(date)
+  return d.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
 }
 
-onMounted(() => {
-  // 页面加载时的初始化操作
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  stopAutoRefresh()
 })
 </script>
 
@@ -378,10 +892,65 @@ onMounted(() => {
   font-size: 18px;
 }
 
+/* 减少名称和描述列之间的间距 */
+:deep(.el-table__body-wrapper .el-table__body tr td:nth-child(3)) {
+  padding-right: 8px;
+}
+
+:deep(.el-table__body-wrapper .el-table__body tr td:nth-child(4)) {
+  padding-left: 8px;
+}
+
 .pagination {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+.doc-management {
+  padding: 10px 0;
+}
+
+.upload-section {
+  padding: 20px;
+  border: 1px dashed #dcdfe6;
+  border-radius: 4px;
+  background-color: #fafafa;
+}
+
+.upload-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.doc-list-section {
+  margin-top: 20px;
+}
+
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+/* 紧凑表格样式 */
+.compact-table :deep(.el-table__cell) {
+  padding: 8px 0;
+}
+
+.compact-table :deep(.el-button) {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.compact-table :deep(.el-tag) {
+  font-size: 12px;
+  padding: 0 6px;
+  height: 22px;
+  line-height: 22px;
 }
 </style>
 

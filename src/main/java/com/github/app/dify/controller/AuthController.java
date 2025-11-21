@@ -7,8 +7,10 @@ import com.github.app.dify.req.ResetPasswordRequest;
 import com.github.app.dify.resp.LoginResponse;
 import com.github.app.dify.resp.RegisterResponse;
 import com.github.app.dify.resp.UserAppVisibilityResp;
+import com.github.app.dify.resp.UserKnowledgeBaseVisibilityResp;
 import com.github.app.dify.service.AuthService;
 import com.github.app.dify.service.UserAppVisibilityService;
+import com.github.app.dify.service.UserKnowledgeBaseVisibilityService;
 import com.github.app.dify.util.JwtUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -20,6 +22,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
  * 认证控制器
@@ -36,6 +39,9 @@ public class AuthController {
     
     @Autowired
     private UserAppVisibilityService userAppVisibilityService;
+    
+    @Autowired
+    private UserKnowledgeBaseVisibilityService userKnowledgeBaseVisibilityService;
     
     @Autowired
     private JwtUtil jwtUtil;
@@ -215,6 +221,41 @@ public class AuthController {
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             logger.error("更新用户角色失败", e);
+            throw e;
+        }
+    }
+    
+    /**
+     * 获取用户的知识库可见性列表
+     */
+    @ApiOperation("获取用户的知识库可见性列表")
+    @GetMapping("/users/{userId}/knowledge-base-visibilities")
+    public ResponseEntity<List<UserKnowledgeBaseVisibilityResp>> getUserKnowledgeBaseVisibilities(
+            @PathVariable Long userId) {
+        try {
+            List<UserKnowledgeBaseVisibilityResp> resp = 
+                    userKnowledgeBaseVisibilityService.getUserKnowledgeBaseVisibilities(userId);
+            return ResponseEntity.ok(resp);
+        } catch (Exception e) {
+            logger.error("获取用户知识库可见性列表失败", e);
+            throw e;
+        }
+    }
+    
+    /**
+     * 更新用户对知识库的可见性
+     */
+    @ApiOperation("更新用户对知识库的可见性")
+    @PutMapping("/users/{userId}/knowledge-base-visibilities/{knowledgeBaseId}")
+    public ResponseEntity<Void> updateUserKnowledgeBaseVisibility(
+            @PathVariable Long userId,
+            @PathVariable Long knowledgeBaseId,
+            @RequestParam Boolean visible) {
+        try {
+            userKnowledgeBaseVisibilityService.updateUserKnowledgeBaseVisibility(userId, knowledgeBaseId, visible);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            logger.error("更新用户知识库可见性失败", e);
             throw e;
         }
     }

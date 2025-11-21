@@ -154,6 +154,128 @@ CREATE INDEX idx_user_app_visibility_visible ON "USER_APP_VISIBILITY"(visible);
 --     FOREIGN KEY (app_id) REFERENCES "AI_APP"(id) ON DELETE CASCADE;
 
 -- ============================================
--- 4. 插入默认管理员账户
+-- 4. 创建知识库表 (KNOWLEDGE_BASE)
+-- ============================================
+DROP TABLE IF EXISTS "KNOWLEDGE_BASE" CASCADE;
+
+CREATE TABLE "KNOWLEDGE_BASE" (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(500),
+    status INTEGER DEFAULT 1,
+    creator VARCHAR(64),
+    creator_id BIGINT,
+    is_public BOOLEAN DEFAULT FALSE,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updater VARCHAR(64),
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted INTEGER DEFAULT 0,
+    tenant_id INTEGER DEFAULT 1
+);
+
+COMMENT ON TABLE "KNOWLEDGE_BASE" IS '知识库表';
+COMMENT ON COLUMN "KNOWLEDGE_BASE".id IS '知识库编号';
+COMMENT ON COLUMN "KNOWLEDGE_BASE".name IS '知识库名称';
+COMMENT ON COLUMN "KNOWLEDGE_BASE".description IS '知识库描述';
+COMMENT ON COLUMN "KNOWLEDGE_BASE".status IS '知识库状态：1-启用，0-禁用';
+COMMENT ON COLUMN "KNOWLEDGE_BASE".creator IS '创建者';
+COMMENT ON COLUMN "KNOWLEDGE_BASE".creator_id IS '创建者ID';
+COMMENT ON COLUMN "KNOWLEDGE_BASE".is_public IS '是否公开：true-公开，false-私有';
+COMMENT ON COLUMN "KNOWLEDGE_BASE".create_time IS '创建时间';
+COMMENT ON COLUMN "KNOWLEDGE_BASE".updater IS '更新者';
+COMMENT ON COLUMN "KNOWLEDGE_BASE".update_time IS '更新时间';
+COMMENT ON COLUMN "KNOWLEDGE_BASE".deleted IS '是否删除：0-未删除，1-已删除';
+COMMENT ON COLUMN "KNOWLEDGE_BASE".tenant_id IS '租户编号';
+
+-- 创建索引
+CREATE INDEX idx_knowledge_base_status ON "KNOWLEDGE_BASE"(status);
+CREATE INDEX idx_knowledge_base_tenant_id ON "KNOWLEDGE_BASE"(tenant_id);
+CREATE INDEX idx_knowledge_base_deleted ON "KNOWLEDGE_BASE"(deleted);
+CREATE INDEX idx_knowledge_base_name ON "KNOWLEDGE_BASE"(name);
+CREATE INDEX idx_knowledge_base_creator_id ON "KNOWLEDGE_BASE"(creator_id);
+CREATE INDEX idx_knowledge_base_is_public ON "KNOWLEDGE_BASE"(is_public);
+
+-- ============================================
+-- 创建用户知识库可见性表 (USER_KNOWLEDGE_BASE_VISIBILITY)
+-- ============================================
+DROP TABLE IF EXISTS "USER_KNOWLEDGE_BASE_VISIBILITY" CASCADE;
+
+CREATE TABLE "USER_KNOWLEDGE_BASE_VISIBILITY" (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    knowledge_base_id BIGINT NOT NULL,
+    visible BOOLEAN NOT NULL DEFAULT TRUE,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, knowledge_base_id)
+);
+
+COMMENT ON TABLE "USER_KNOWLEDGE_BASE_VISIBILITY" IS '用户知识库可见性表';
+COMMENT ON COLUMN "USER_KNOWLEDGE_BASE_VISIBILITY".id IS '主键ID';
+COMMENT ON COLUMN "USER_KNOWLEDGE_BASE_VISIBILITY".user_id IS '用户ID';
+COMMENT ON COLUMN "USER_KNOWLEDGE_BASE_VISIBILITY".knowledge_base_id IS '知识库ID';
+COMMENT ON COLUMN "USER_KNOWLEDGE_BASE_VISIBILITY".visible IS '是否可见：true-可见，false-不可见';
+COMMENT ON COLUMN "USER_KNOWLEDGE_BASE_VISIBILITY".create_time IS '创建时间';
+COMMENT ON COLUMN "USER_KNOWLEDGE_BASE_VISIBILITY".update_time IS '更新时间';
+
+-- 创建索引
+CREATE INDEX idx_user_kb_visibility_user_id ON "USER_KNOWLEDGE_BASE_VISIBILITY"(user_id);
+CREATE INDEX idx_user_kb_visibility_kb_id ON "USER_KNOWLEDGE_BASE_VISIBILITY"(knowledge_base_id);
+CREATE INDEX idx_user_kb_visibility_visible ON "USER_KNOWLEDGE_BASE_VISIBILITY"(visible);
+
+-- ============================================
+-- 5. 创建知识库文档表 (KNOWLEDGE_BASE_DOCUMENT)
+-- ============================================
+DROP TABLE IF EXISTS "KNOWLEDGE_BASE_DOCUMENT" CASCADE;
+
+CREATE TABLE "KNOWLEDGE_BASE_DOCUMENT" (
+    id BIGSERIAL PRIMARY KEY,
+    knowledge_base_id BIGINT NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    original_file_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_url VARCHAR(500),
+    file_size BIGINT,
+    file_type VARCHAR(50),
+    mime_type VARCHAR(100),
+    storage_type VARCHAR(20) DEFAULT 'minio',
+    status INTEGER DEFAULT 1,
+    upload_user VARCHAR(64),
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted INTEGER DEFAULT 0,
+    tenant_id INTEGER DEFAULT 1
+);
+
+COMMENT ON TABLE "KNOWLEDGE_BASE_DOCUMENT" IS '知识库文档表';
+COMMENT ON COLUMN "KNOWLEDGE_BASE_DOCUMENT".id IS '文档编号';
+COMMENT ON COLUMN "KNOWLEDGE_BASE_DOCUMENT".knowledge_base_id IS '知识库编号';
+COMMENT ON COLUMN "KNOWLEDGE_BASE_DOCUMENT".file_name IS '文件名（存储后的文件名）';
+COMMENT ON COLUMN "KNOWLEDGE_BASE_DOCUMENT".original_file_name IS '原始文件名';
+COMMENT ON COLUMN "KNOWLEDGE_BASE_DOCUMENT".file_path IS '文件路径（在MinIO中的路径）';
+COMMENT ON COLUMN "KNOWLEDGE_BASE_DOCUMENT".file_url IS '文件访问URL';
+COMMENT ON COLUMN "KNOWLEDGE_BASE_DOCUMENT".file_size IS '文件大小（字节）';
+COMMENT ON COLUMN "KNOWLEDGE_BASE_DOCUMENT".file_type IS '文件类型（扩展名）';
+COMMENT ON COLUMN "KNOWLEDGE_BASE_DOCUMENT".mime_type IS 'MIME类型';
+COMMENT ON COLUMN "KNOWLEDGE_BASE_DOCUMENT".storage_type IS '存储类型（minio）';
+COMMENT ON COLUMN "KNOWLEDGE_BASE_DOCUMENT".status IS '文档状态：1-正常，0-已删除';
+COMMENT ON COLUMN "KNOWLEDGE_BASE_DOCUMENT".upload_user IS '上传用户';
+COMMENT ON COLUMN "KNOWLEDGE_BASE_DOCUMENT".create_time IS '创建时间';
+COMMENT ON COLUMN "KNOWLEDGE_BASE_DOCUMENT".update_time IS '更新时间';
+COMMENT ON COLUMN "KNOWLEDGE_BASE_DOCUMENT".deleted IS '是否删除：0-未删除，1-已删除';
+COMMENT ON COLUMN "KNOWLEDGE_BASE_DOCUMENT".tenant_id IS '租户编号';
+
+-- 创建索引
+CREATE INDEX idx_kb_doc_kb_id ON "KNOWLEDGE_BASE_DOCUMENT"(knowledge_base_id);
+CREATE INDEX idx_kb_doc_status ON "KNOWLEDGE_BASE_DOCUMENT"(status);
+CREATE INDEX idx_kb_doc_deleted ON "KNOWLEDGE_BASE_DOCUMENT"(deleted);
+CREATE INDEX idx_kb_doc_tenant_id ON "KNOWLEDGE_BASE_DOCUMENT"(tenant_id);
+
+-- 外键约束（可选，如果需要）
+-- ALTER TABLE "KNOWLEDGE_BASE_DOCUMENT" ADD CONSTRAINT fk_kb_doc_kb 
+--     FOREIGN KEY (knowledge_base_id) REFERENCES "KNOWLEDGE_BASE"(id) ON DELETE CASCADE;
+
+-- ============================================
+-- 6. 插入默认管理员账户
 -- ============================================
 

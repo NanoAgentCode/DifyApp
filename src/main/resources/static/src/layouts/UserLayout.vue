@@ -20,9 +20,31 @@
         </el-dropdown>
       </div>
     </el-header>
-    <el-main class="main">
-      <router-view />
-    </el-main>
+    <el-container>
+      <el-aside width="200px" class="aside">
+        <el-menu
+          :default-active="activeMenu"
+          router
+          class="menu"
+        >
+          <el-menu-item index="/user/apps">
+            <el-icon><List /></el-icon>
+            <span>微应用</span>
+          </el-menu-item>
+          <el-menu-item index="/user/knowledge-base">
+            <el-icon><Folder /></el-icon>
+            <span>知识库管理</span>
+          </el-menu-item>
+          <el-menu-item index="/user/kb-qa">
+            <el-icon><ChatLineRound /></el-icon>
+            <span>知识库问答</span>
+          </el-menu-item>
+        </el-menu>
+      </el-aside>
+      <el-main class="main">
+        <router-view />
+      </el-main>
+    </el-container>
     
     <ChangePasswordDialog
       v-model="showChangePasswordDialog"
@@ -32,13 +54,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { User, ArrowDown } from '@element-plus/icons-vue'
+import { User, ArrowDown, List, Folder, ChatLineRound } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 
+const route = useRoute()
 const router = useRouter()
+const activeMenu = computed(() => {
+  return route.path
+})
 const userInfo = ref(null)
 const showChangePasswordDialog = ref(false)
 
@@ -125,6 +151,15 @@ const handlePasswordChangeSuccess = () => {
 
 .user-info:hover {
   background-color: rgba(255, 255, 255, 0.1);
+}
+
+.aside {
+  background: #fff;
+  border-right: 1px solid #e4e7ed;
+}
+
+.menu {
+  border-right: none;
 }
 
 .main {

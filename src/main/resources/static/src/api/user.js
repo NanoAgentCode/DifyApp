@@ -79,3 +79,26 @@ export function updateUserRole(userId, role) {
   })
 }
 
+/**
+ * 获取用户的知识库可见性列表
+ */
+export function getUserKnowledgeBaseVisibilities(userId) {
+  return request({
+    url: `/api/auth/users/${userId}/knowledge-base-visibilities`,
+    method: 'get'
+  })
+}
+
+/**
+ * 更新用户对知识库的可见性
+ */
+export function updateUserKnowledgeBaseVisibility(userId, knowledgeBaseId, visible) {
+  return request({
+    url: `/api/auth/users/${userId}/knowledge-base-visibilities/${knowledgeBaseId}`,
+    method: 'put',
+    params: {
+      visible
+    }
+  })
+}
+

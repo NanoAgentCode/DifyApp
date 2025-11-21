@@ -23,7 +23,7 @@
             <el-dropdown 
               trigger="click" 
               placement="bottom-start"
-              @visible-change="handleDropdownVisibleChange(row, $event)"
+              @visible-change="handleAppDropdownVisibleChange(row, $event)"
             >
               <el-button type="primary" size="small" :loading="row.loadingApps" plain>
                 应用管理
@@ -61,7 +61,7 @@
                         v-model="app.visible"
                         size="small"
                         :disabled="row.role === 1"
-                        @change="handleVisibilityChange(row.id, app.appId, app.visible)"
+                        @change="handleAppVisibilityChange(row.id, app.appId, app.visible)"
                       />
                     </div>
                     <div 
@@ -69,6 +69,64 @@
                       class="app-empty"
                     >
                       <span>暂无应用</span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </el-dropdown>
+          </template>
+        </el-table-column>
+        <el-table-column label="知识库管理" min-width="130" align="center">
+          <template #default="{ row }">
+            <el-dropdown 
+              trigger="click" 
+              placement="bottom-start"
+              @visible-change="handleKbDropdownVisibleChange(row, $event)"
+            >
+              <el-button type="success" size="small" :loading="row.loadingKbs" plain>
+                知识库管理
+                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <div class="app-dropdown-menu">
+                  <div class="app-dropdown-header">
+                    <span class="header-title">知识库可见性管理</span>
+                    <span class="header-count">
+                      {{ getKbVisibleCount(row.kbVisibilities) }}/{{ row.kbVisibilities?.length || 0 }}
+                    </span>
+                  </div>
+                  <div v-if="row.role === 1" class="admin-tip">
+                    <el-icon><InfoFilled /></el-icon>
+                    <span>管理员拥有所有知识库的访问权限，不可修改</span>
+                  </div>
+                  <div v-loading="row.loadingKbs" class="app-dropdown-content">
+                    <div
+                      v-for="kb in row.kbVisibilities"
+                      :key="kb.knowledgeBaseId"
+                      class="app-dropdown-item"
+                    >
+                      <div class="app-info">
+                        <span class="app-name" :title="kb.knowledgeBaseName">{{ kb.knowledgeBaseName }}</span>
+                        <el-tag 
+                          :type="kb.knowledgeBaseStatus === 1 ? 'success' : 'info'" 
+                          size="small"
+                          class="app-type-tag"
+                        >
+                          {{ kb.knowledgeBaseStatus === 1 ? '启用' : '禁用' }}
+                        </el-tag>
+                      </div>
+                      <el-switch
+                        v-model="kb.visible"
+                        size="small"
+                        :disabled="row.role === 1"
+                        @change="handleKbVisibilityChange(row.id, kb.knowledgeBaseId, kb.visible)"
+                      />
+                    </div>
+                    <div 
+                      v-if="!row.loadingKbs && (!row.kbVisibilities || row.kbVisibilities.length === 0)" 
+                      class="app-empty"
+                    >
+                      <span>暂无知识库</span>
                     </div>
                   </div>
                 </div>
@@ -160,7 +218,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, InfoFilled } from '@element-plus/icons-vue'
-import { getUserList, approveUser, disableUser, getUserAppVisibilities, updateUserAppVisibility, updateUserRole } from '@/api/user'
+import { getUserList, approveUser, disableUser, getUserAppVisibilities, updateUserAppVisibility, getUserKnowledgeBaseVisibilities, updateUserKnowledgeBaseVisibility, updateUserRole } from '@/api/user'
 import ResetPasswordDialog from '@/components/ResetPasswordDialog.vue'
 
 const loading = ref(false)
@@ -173,10 +231,12 @@ const loadUsers = async () => {
   try {
     const data = await getUserList()
     userList.value = data
-    // 初始化应用列表为空，延迟加载
+    // 初始化应用列表和知识库列表为空，延迟加载
     data.forEach(user => {
       user.appVisibilities = []
       user.loadingApps = false
+      user.kbVisibilities = []
+      user.loadingKbs = false
     })
   } catch (error) {
     ElMessage.error(error.response?.data?.error || error.message || '获取用户列表失败')
@@ -251,14 +311,34 @@ const loadUserAppVisibilities = async (user) => {
   }
 }
 
-const handleDropdownVisibleChange = async (user, visible) => {
+const handleAppDropdownVisibleChange = async (user, visible) => {
   // 当下拉菜单打开时，如果应用列表未加载，则加载
   if (visible && (!user.appVisibilities || user.appVisibilities.length === 0)) {
     await loadUserAppVisibilities(user)
   }
 }
 
-const handleVisibilityChange = async (userId, appId, visible) => {
+const handleKbDropdownVisibleChange = async (user, visible) => {
+  // 当下拉菜单打开时，如果知识库列表未加载，则加载
+  if (visible && (!user.kbVisibilities || user.kbVisibilities.length === 0)) {
+    await loadUserKnowledgeBaseVisibilities(user)
+  }
+}
+
+const loadUserKnowledgeBaseVisibilities = async (user) => {
+  user.loadingKbs = true
+  try {
+    const data = await getUserKnowledgeBaseVisibilities(user.id)
+    user.kbVisibilities = data || []
+  } catch (error) {
+    ElMessage.error(error.response?.data?.error || error.message || '获取知识库列表失败')
+    user.kbVisibilities = []
+  } finally {
+    user.loadingKbs = false
+  }
+}
+
+const handleAppVisibilityChange = async (userId, appId, visible) => {
   // 检查是否是管理员
   const user = userList.value.find(u => u.id === userId)
   if (user && user.role === 1) {
@@ -312,9 +392,44 @@ const handleRoleChange = async (user) => {
   }
 }
 
+const handleKbVisibilityChange = async (userId, knowledgeBaseId, visible) => {
+  // 检查是否是管理员
+  const user = userList.value.find(u => u.id === userId)
+  if (user && user.role === 1) {
+    ElMessage.warning('管理员拥有所有知识库的访问权限，不可修改')
+    // 恢复原状态
+    if (user.kbVisibilities) {
+      const kb = user.kbVisibilities.find(k => k.knowledgeBaseId === knowledgeBaseId)
+      if (kb) {
+        kb.visible = !visible
+      }
+    }
+    return
+  }
+  
+  try {
+    await updateUserKnowledgeBaseVisibility(userId, knowledgeBaseId, visible)
+    ElMessage.success(visible ? '知识库已设为可见' : '知识库已设为不可见')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.error || error.message || '更新失败')
+    // 恢复原状态
+    if (user && user.kbVisibilities) {
+      const kb = user.kbVisibilities.find(k => k.knowledgeBaseId === knowledgeBaseId)
+      if (kb) {
+        kb.visible = !visible
+      }
+    }
+  }
+}
+
 const getVisibleCount = (appVisibilities) => {
   if (!appVisibilities || appVisibilities.length === 0) return 0
   return appVisibilities.filter(app => app.visible).length
+}
+
+const getKbVisibleCount = (kbVisibilities) => {
+  if (!kbVisibilities || kbVisibilities.length === 0) return 0
+  return kbVisibilities.filter(kb => kb.visible).length
 }
 
 const formatDate = (date) => {
