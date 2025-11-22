@@ -23,6 +23,15 @@ public class RagConfig {
      */
     private String provider = "openai";
     
+    /**
+     * 上下文压缩配置
+     */
+    private boolean enableContextCompression = true; // 是否启用上下文压缩
+    private String compressionStrategy = "sliding_window"; // 压缩策略：sliding_window, summary, hybrid
+    private int maxHistoryRounds = 10; // 最大历史对话轮数（滑动窗口策略）
+    private int maxHistoryTokens = 2000; // 最大历史对话token数（用于判断是否需要压缩）
+    private boolean enableSummary = false; // 是否启用总结压缩（需要额外调用LLM）
+    
     public int getChunkSize() {
         return chunkSize;
     }
@@ -85,6 +94,46 @@ public class RagConfig {
     
     public void setProvider(String provider) {
         this.provider = provider;
+    }
+    
+    public boolean isEnableContextCompression() {
+        return enableContextCompression;
+    }
+    
+    public void setEnableContextCompression(boolean enableContextCompression) {
+        this.enableContextCompression = enableContextCompression;
+    }
+    
+    public String getCompressionStrategy() {
+        return compressionStrategy;
+    }
+    
+    public void setCompressionStrategy(String compressionStrategy) {
+        this.compressionStrategy = compressionStrategy;
+    }
+    
+    public int getMaxHistoryRounds() {
+        return maxHistoryRounds;
+    }
+    
+    public void setMaxHistoryRounds(int maxHistoryRounds) {
+        this.maxHistoryRounds = maxHistoryRounds;
+    }
+    
+    public int getMaxHistoryTokens() {
+        return maxHistoryTokens;
+    }
+    
+    public void setMaxHistoryTokens(int maxHistoryTokens) {
+        this.maxHistoryTokens = maxHistoryTokens;
+    }
+    
+    public boolean isEnableSummary() {
+        return enableSummary;
+    }
+    
+    public void setEnableSummary(boolean enableSummary) {
+        this.enableSummary = enableSummary;
     }
 }
 

@@ -404,11 +404,22 @@ const handleSend = async () => {
   scrollToBottom()
 
   try {
-    // 构建对话历史
-    const history = chatHistory.value.slice(0, -1).map(msg => ({
+    // 构建对话历史（限制最近10轮对话，避免token过多）
+    const maxHistoryRounds = 10 // 最多保留10轮对话（20条消息）
+    const historyMessages = chatHistory.value.slice(0, -1)
+    const limitedHistory = historyMessages.slice(-maxHistoryRounds * 2).map(msg => ({
       role: msg.type === 'user' ? 'user' : 'assistant',
       content: msg.content
     }))
+    
+    // 确保历史记录格式正确（user和assistant交替）
+    const history = []
+    for (let i = 0; i < limitedHistory.length; i++) {
+      const msg = limitedHistory[i]
+      if (msg.role && msg.content) {
+        history.push(msg)
+      }
+    }
 
     if (useStream.value) {
       // 流式响应
@@ -436,12 +447,15 @@ const handleSend = async () => {
 
 // 处理非流式响应
 const handleNormalResponse = async (userQuestion, history) => {
+  // 确保历史记录不为空时才传递
+  const historyToSend = history && history.length > 0 ? history : null
+  
   const res = await knowledgeBaseQA(
     selectedKB.value.id,
     userQuestion,
     conversationId.value,
     null,
-    history
+    historyToSend
   )
 
   if (res && res.data) {
@@ -484,12 +498,15 @@ const handleStreamResponse = async (userQuestion, history) => {
   let finalConversationId = conversationId.value
 
   try {
+    // 确保历史记录不为空时才传递
+    const historyToSend = history && history.length > 0 ? history : null
+    
     const response = await knowledgeBaseQAStream(
       selectedKB.value.id,
       userQuestion,
       conversationId.value,
       null,
-      history
+      historyToSend
     )
 
     if (!response.ok) {

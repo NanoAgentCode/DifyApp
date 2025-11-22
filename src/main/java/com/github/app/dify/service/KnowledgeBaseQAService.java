@@ -53,6 +53,9 @@ public class KnowledgeBaseQAService {
     @Autowired
     private VectorStoreService vectorStoreService;
     
+    @Autowired
+    private ContextCompressionService contextCompressionService;
+    
     // 缓存每个知识库的RAG服务实例
     private final Map<Long, RagService> ragServiceCache = new ConcurrentHashMap<>();
     
@@ -91,15 +94,18 @@ public class KnowledgeBaseQAService {
             // 构建消息列表（包含历史对话）
             List<ChatMessage> messages = buildMessages(request);
             
-            // 使用langchain4j RAG生成答案
-            String answer;
-            if (messages.size() == 1) {
-                // 单轮对话，直接使用RAG服务
-                answer = ragService.answer(request.getQuestion());
-            } else {
-                // 多轮对话，手动调用LLM
-                answer = generateAnswerWithHistory(messages, knowledgeBaseId, request);
+            // 记录历史对话信息
+            if (request.getHistory() != null && !request.getHistory().isEmpty()) {
+                logger.info("使用历史对话，历史消息数量: {}", request.getHistory().size());
             }
+            logger.debug("构建的消息列表大小: {}", messages.size());
+            
+            // 应用上下文压缩策略
+            messages = contextCompressionService.compressContext(messages, request);
+            logger.debug("压缩后的消息列表大小: {}", messages.size());
+            
+            // 使用langchain4j RAG生成答案（始终使用历史对话）
+            String answer = generateAnswerWithHistory(messages, knowledgeBaseId, request);
             
             // 构建响应
             KnowledgeBaseQAResponse response = new KnowledgeBaseQAResponse();
@@ -157,6 +163,10 @@ public class KnowledgeBaseQAService {
             
             // 构建消息列表（包含历史对话）
             List<ChatMessage> messages = buildMessages(request);
+            
+            // 应用上下文压缩策略
+            messages = contextCompressionService.compressContext(messages, request);
+            logger.debug("压缩后的消息列表大小（流式）: {}", messages.size());
             
             // 使用langchain4j流式LLM生成答案（手动检索+RAG）
             return generateStreamAnswerWithHistory(messages, knowledgeBaseId, request, sources);

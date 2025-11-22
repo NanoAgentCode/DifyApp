@@ -96,6 +96,12 @@ rag:
   # 使用示例：
   # - OpenAI/SiliconFlow/VLLM（默认）: provider: openai 或省略，llm-api-url 包含完整路径或基础URL
   # - Ollama: provider: ollama, llm-api-url: http://localhost:11434（不包含路径，会自动添加 /api/chat）
+  # 上下文压缩配置（用于连续对话时压缩历史上下文）
+  enable-context-compression: true  # 是否启用上下文压缩
+  compression-strategy: sliding_window  # 压缩策略：sliding_window（滑动窗口）、summary（总结）、hybrid（混合）
+  max-history-rounds: 10  # 最大历史对话轮数（滑动窗口策略，每轮包含一问一答）
+  max-history-tokens: 2000  # 最大历史对话token数（用于判断是否需要压缩）
+  enable-summary: false  # 是否启用总结压缩（需要额外调用LLM，会增加延迟和成本）
 
 # 注意：
 # - LangChain4j 相关的配置已集成到上面的 embedding 和 rag 配置中
