@@ -61,9 +61,12 @@
         </el-table-column>
         <el-table-column label="状态" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="isActive(row.status) ? 'success' : 'info'">
-              {{ getStatusText(row.status) }}
-            </el-tag>
+            <el-tooltip :content="getStatusText(row.status)" placement="top">
+              <el-icon :size="20" :color="isActive(row.status) ? '#67c23a' : '#909399'">
+                <Check v-if="isActive(row.status)" />
+                <Close v-else />
+              </el-icon>
+            </el-tooltip>
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" align="center">
@@ -74,12 +77,8 @@
             <el-table-column label="操作" width="200" fixed="right" align="center">
               <template #default="{ row }">
                 <div class="action-buttons-row">
-                  <el-button size="small" type="success" @click="handleUploadDocs(row)">
-                    <el-icon><UploadFilled /></el-icon>
-                    上传文档
-                  </el-button>
                   <el-dropdown @command="(command) => handleDropdownCommand(command, row)">
-                    <el-button size="small" type="info">
+                    <el-button size="small" type="primary">
                       更多<el-icon class="el-icon--right"><arrow-down /></el-icon>
                     </el-button>
                     <template #dropdown>
@@ -91,6 +90,10 @@
                         <el-dropdown-item command="edit">
                           <el-icon><Edit /></el-icon>
                           编辑
+                        </el-dropdown-item>
+                        <el-dropdown-item command="upload">
+                          <el-icon><UploadFilled /></el-icon>
+                          上传文档
                         </el-dropdown-item>
                         <el-dropdown-item command="list">
                           <el-icon><Document /></el-icon>
@@ -202,7 +205,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit } from '@element-plus/icons-vue'
+import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Check, Close } from '@element-plus/icons-vue'
 import { 
   getKnowledgeBaseList, 
   createKnowledgeBase, 
@@ -403,6 +406,9 @@ const handleDropdownCommand = (command, row) => {
       break
     case 'edit':
       handleEdit(row)
+      break
+    case 'upload':
+      handleUploadDocs(row)
       break
     case 'list':
       handleListDocs(row)
