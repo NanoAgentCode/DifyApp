@@ -137,40 +137,118 @@ const goToLogin = () => {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #409EFF 0%, #1890ff 50%, #096dd9 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.register-container::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 50px 50px;
+  animation: move 20s linear infinite;
+}
+
+@keyframes move {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(50px, 50px);
+  }
 }
 
 .register-box {
-  width: 400px;
-  padding: 40px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  width: 420px;
+  padding: 50px 40px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 12px;
+  box-shadow: 0 15px 50px rgba(64, 158, 255, 0.3);
+  position: relative;
+  z-index: 1;
+  backdrop-filter: blur(10px);
 }
 
 .title {
   text-align: center;
-  margin-bottom: 30px;
-  color: #333;
-  font-size: 24px;
+  margin-bottom: 40px;
+  color: #409EFF;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 1px;
 }
 
 .register-form {
   margin-top: 20px;
 }
 
+.register-form :deep(.el-input__wrapper) {
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px #dcdfe6 inset;
+  transition: all 0.3s;
+}
+
+.register-form :deep(.el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #409EFF inset;
+}
+
+.register-form :deep(.el-input.is-focus .el-input__wrapper) {
+  box-shadow: 0 0 0 1px #409EFF inset;
+}
+
+.register-form :deep(.el-input__inner) {
+  color: #333;
+}
+
+.register-form :deep(.el-input__prefix) {
+  color: #409EFF;
+}
+
 .register-button {
   width: 100%;
+  background: linear-gradient(135deg, #409EFF 0%, #1890ff 100%);
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  height: 44px;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
+}
+
+.register-button:hover {
+  background: linear-gradient(135deg, #66b1ff 0%, #409EFF 100%);
+  box-shadow: 0 6px 16px rgba(64, 158, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.register-button:active {
+  transform: translateY(0);
 }
 
 .login-link {
   text-align: center;
   width: 100%;
-  color: #666;
+  color: #606266;
+  font-size: 14px;
 }
 
 .login-link span {
   margin-right: 8px;
+}
+
+.login-link :deep(.el-link) {
+  color: #409EFF;
+  font-weight: 500;
+}
+
+.login-link :deep(.el-link:hover) {
+  color: #66b1ff;
 }
 </style>
 
