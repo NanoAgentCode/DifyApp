@@ -3,10 +3,11 @@ import request from '@/utils/request'
 /**
  * 获取所有用户列表
  */
-export function getUserList() {
+export function getUserList(params) {
   return request({
     url: '/api/auth/users',
-    method: 'get'
+    method: 'get',
+    params
   })
 }
 

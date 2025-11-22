@@ -7,6 +7,44 @@
         </div>
       </template>
       
+      <!-- 搜索栏 -->
+      <div class="search-bar">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="搜索用户名"
+          clearable
+          style="width: 300px"
+          @input="handleSearch"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        <el-select
+          v-model="filterStatus"
+          placeholder="筛选状态"
+          clearable
+          style="width: 150px; margin-left: 10px"
+          @change="handleFilter"
+        >
+          <el-option label="全部" value="" />
+          <el-option label="待审核" :value="0" />
+          <el-option label="已激活" :value="1" />
+          <el-option label="已禁用" :value="2" />
+        </el-select>
+        <el-select
+          v-model="filterRole"
+          placeholder="筛选角色"
+          clearable
+          style="width: 150px; margin-left: 10px"
+          @change="handleFilter"
+        >
+          <el-option label="全部" value="" />
+          <el-option label="管理员" :value="1" />
+          <el-option label="普通用户" :value="2" />
+        </el-select>
+      </div>
+      
       <el-table
         :data="userList"
         v-loading="loading"
@@ -204,6 +242,19 @@
           </template>
         </el-table-column>
       </el-table>
+      
+      <!-- 分页 -->
+      <div class="pagination">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
     </el-card>
     
     <ResetPasswordDialog
@@ -217,7 +268,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, InfoFilled } from '@element-plus/icons-vue'
+import { ArrowDown, InfoFilled, Search } from '@element-plus/icons-vue'
 import { getUserList, approveUser, disableUser, getUserAppVisibilities, updateUserAppVisibility, getUserKnowledgeBaseVisibilities, updateUserKnowledgeBaseVisibility, updateUserRole } from '@/api/user'
 import ResetPasswordDialog from '@/components/ResetPasswordDialog.vue'
 
@@ -225,14 +276,44 @@ const loading = ref(false)
 const userList = ref([])
 const showResetPasswordDialog = ref(false)
 const currentUser = ref(null)
+const searchKeyword = ref('')
+const filterStatus = ref('')
+const filterRole = ref('')
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
 
 const loadUsers = async () => {
   loading.value = true
   try {
-    const data = await getUserList()
-    userList.value = data
+    const params = {
+      page: currentPage.value,
+      pageSize: pageSize.value
+    }
+    if (searchKeyword.value) {
+      params.keyword = searchKeyword.value
+    }
+    if (filterStatus.value !== '') {
+      params.status = filterStatus.value
+    }
+    if (filterRole.value !== '') {
+      params.role = filterRole.value
+    }
+    const response = await getUserList(params)
+    
+    // 检查是否是分页响应
+    if (response && typeof response === 'object' && 'content' in response && 'total' in response) {
+      // 分页响应
+      userList.value = response.content || []
+      total.value = response.total || 0
+    } else {
+      // 兼容旧接口（非分页响应）
+      userList.value = Array.isArray(response) ? response : []
+      total.value = userList.value.length
+    }
+    
     // 初始化应用列表和知识库列表为空，延迟加载
-    data.forEach(user => {
+    userList.value.forEach(user => {
       user.appVisibilities = []
       user.loadingApps = false
       user.kbVisibilities = []
@@ -438,6 +519,27 @@ const formatDate = (date) => {
   return d.toLocaleString('zh-CN')
 }
 
+const handleSearch = () => {
+  currentPage.value = 1
+  loadUsers()
+}
+
+const handleFilter = () => {
+  currentPage.value = 1
+  loadUsers()
+}
+
+const handleSizeChange = (size) => {
+  pageSize.value = size
+  currentPage.value = 1
+  loadUsers()
+}
+
+const handlePageChange = (page) => {
+  currentPage.value = page
+  loadUsers()
+}
+
 onMounted(() => {
   loadUsers()
 })
@@ -560,6 +662,18 @@ onMounted(() => {
   gap: 6px;
   justify-content: center;
   align-items: center;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.pagination {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
 }
 </style>
 

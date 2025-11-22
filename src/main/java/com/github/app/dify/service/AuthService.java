@@ -183,12 +183,76 @@ public class AuthService {
     /**
      * 获取所有用户列表（管理员使用）
      */
-    public java.util.List<com.github.app.dify.resp.UserResp> getAllUsers() {
-        java.util.List<User> users = userRepository.findAll();
+    public java.util.List<com.github.app.dify.resp.UserResp> getAllUsers(String keyword, Integer status, Integer role) {
+        java.util.List<User> users;
+        
+        // 如果有关键词或筛选条件，使用搜索方法
+        if ((keyword != null && !keyword.trim().isEmpty()) || status != null || role != null) {
+            users = userRepository.searchByFilters(
+                keyword != null ? keyword.trim() : null, 
+                status, 
+                role
+            );
+        } else {
+            // 否则获取所有用户
+            users = userRepository.findAll();
+            // 过滤已删除的用户
+            users = users.stream()
+                    .filter(user -> user.getDeleted() == null || user.getDeleted() == 0)
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        
         return users.stream()
-                .filter(user -> user.getDeleted() == null || user.getDeleted() == 0)
                 .map(this::convertToResp)
                 .collect(java.util.stream.Collectors.toList());
+    }
+    
+    /**
+     * 获取所有用户列表（分页，管理员使用）
+     */
+    public com.github.app.dify.resp.PageResponse<com.github.app.dify.resp.UserResp> getAllUsersWithPagination(
+            String keyword, Integer status, Integer role, int page, int pageSize) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                page - 1, pageSize, org.springframework.data.domain.Sort.by("createTime").descending());
+        
+        org.springframework.data.domain.Page<User> userPage;
+        
+        // 如果有关键词或筛选条件，使用搜索方法（已包含删除过滤）
+        if ((keyword != null && !keyword.trim().isEmpty()) || status != null || role != null) {
+            userPage = userRepository.searchByFiltersWithPagination(
+                keyword != null ? keyword.trim() : null, 
+                status, 
+                role,
+                pageable
+            );
+        } else {
+            // 否则获取所有用户（需要手动过滤已删除的）
+            // 为了准确计算总数，先查询所有未删除的用户
+            java.util.List<User> allUsers = userRepository.findAll().stream()
+                    .filter(user -> user.getDeleted() == null || user.getDeleted() == 0)
+                    .collect(java.util.stream.Collectors.toList());
+            
+            // 手动分页
+            int start = (page - 1) * pageSize;
+            int end = Math.min(start + pageSize, allUsers.size());
+            java.util.List<User> pageContent = start < allUsers.size() 
+                    ? allUsers.subList(start, end) 
+                    : java.util.Collections.emptyList();
+            
+            // 转换为Page对象（简化处理）
+            java.util.List<com.github.app.dify.resp.UserResp> content = pageContent.stream()
+                    .map(this::convertToResp)
+                    .collect(java.util.stream.Collectors.toList());
+            
+            return new com.github.app.dify.resp.PageResponse<>(content, allUsers.size(), page, pageSize);
+        }
+        
+        // 搜索方法已经过滤了已删除的用户
+        java.util.List<com.github.app.dify.resp.UserResp> content = userPage.getContent().stream()
+                .map(this::convertToResp)
+                .collect(java.util.stream.Collectors.toList());
+        
+        return new com.github.app.dify.resp.PageResponse<>(content, userPage.getTotalElements(), page, pageSize);
     }
     
     /**

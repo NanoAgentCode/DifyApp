@@ -34,21 +34,32 @@ public class KnowledgeBaseController {
      */
     @ApiOperation("创建知识库")
     @PostMapping
-    public ResponseEntity<KnowledgeBaseResp> createKnowledgeBase(
+    public ResponseEntity<?> createKnowledgeBase(
             @Validated @RequestBody CreateKnowledgeBaseReq req,
+            @RequestParam(required = false, defaultValue = "false") Boolean force,
             HttpServletRequest request) {
-        logger.info("接收到创建知识库请求 - 名称: {}", req.getName());
+        logger.info("接收到创建知识库请求 - 名称: {}, 强制创建: {}", req.getName(), force);
         try {
             // 从request中获取用户信息（由JWT拦截器设置）
             Long userId = (Long) request.getAttribute("userId");
             String username = (String) request.getAttribute("username");
             Integer role = (Integer) request.getAttribute("role");
             
-            KnowledgeBaseResp resp = knowledgeBaseService.createKnowledgeBase(req, userId, username, role);
+            KnowledgeBaseResp resp = knowledgeBaseService.createKnowledgeBase(req, userId, username, role, force);
             return ResponseEntity.ok(resp);
         } catch (Exception e) {
             logger.error("创建知识库失败", e);
-            return ResponseEntity.badRequest().build();
+            // 如果是重复名称错误，返回特殊错误信息
+            if (e.getMessage() != null && e.getMessage().startsWith("DUPLICATE_NAME:")) {
+                java.util.Map<String, Object> errorResponse = new java.util.HashMap<>();
+                errorResponse.put("error", e.getMessage().substring("DUPLICATE_NAME:".length()));
+                errorResponse.put("code", "DUPLICATE_NAME");
+                return ResponseEntity.status(409) // 409 Conflict
+                        .body(errorResponse);
+            }
+            java.util.Map<String, Object> errorResponse = new java.util.HashMap<>();
+            errorResponse.put("error", e.getMessage() != null ? e.getMessage() : "创建知识库失败");
+            return ResponseEntity.badRequest().body(errorResponse);
         }
     }
     
@@ -103,11 +114,13 @@ public class KnowledgeBaseController {
      */
     @ApiOperation("获取知识库列表")
     @GetMapping
-    public ResponseEntity<List<KnowledgeBaseResp>> listKnowledgeBases(
+    public ResponseEntity<?> listKnowledgeBases(
             @RequestParam(required = false) Integer tenantId,
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer pageSize,
             HttpServletRequest request) {
         try {
             // 从request中获取用户信息（由JWT拦截器设置）
@@ -119,8 +132,17 @@ public class KnowledgeBaseController {
                 userId = currentUserId;
             }
             
-            List<KnowledgeBaseResp> resp = knowledgeBaseService.listKnowledgeBases(tenantId, status, keyword, userId, userRole);
-            return ResponseEntity.ok(resp);
+            // 如果指定了分页参数，使用分页接口
+            if (page != null && pageSize != null && page > 0 && pageSize > 0) {
+                com.github.app.dify.resp.PageResponse<KnowledgeBaseResp> pageResponse = 
+                        knowledgeBaseService.listKnowledgeBasesWithPagination(
+                                tenantId, status, keyword, userId, userRole, page, pageSize);
+                return ResponseEntity.ok(pageResponse);
+            } else {
+                // 否则返回所有数据（兼容旧接口）
+                List<KnowledgeBaseResp> resp = knowledgeBaseService.listKnowledgeBases(tenantId, status, keyword, userId, userRole);
+                return ResponseEntity.ok(resp);
+            }
         } catch (Exception e) {
             logger.error("获取知识库列表失败", e);
             return ResponseEntity.badRequest().build();

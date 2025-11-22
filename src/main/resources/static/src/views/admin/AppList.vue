@@ -11,6 +11,43 @@
         </div>
       </template>
 
+      <!-- 搜索栏 -->
+      <div class="search-bar">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="搜索应用名称或描述"
+          clearable
+          style="width: 300px"
+          @input="handleSearch"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        <el-select
+          v-model="filterType"
+          placeholder="筛选类型"
+          clearable
+          style="width: 150px; margin-left: 10px"
+          @change="handleFilter"
+        >
+          <el-option label="全部" value="" />
+          <el-option label="Chat Flow" :value="1" />
+          <el-option label="Workflow" :value="2" />
+        </el-select>
+        <el-select
+          v-model="filterStatus"
+          placeholder="筛选状态"
+          clearable
+          style="width: 150px; margin-left: 10px"
+          @change="handleFilter"
+        >
+          <el-option label="全部" value="" />
+          <el-option label="启用" :value="1" />
+          <el-option label="禁用" :value="0" />
+        </el-select>
+      </div>
+
       <el-table :data="appList" v-loading="loading" stripe>
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column label="图标" width="80" align="center">
@@ -54,6 +91,19 @@
           </template>
         </el-table-column>
       </el-table>
+      
+      <!-- 分页 -->
+      <div class="pagination">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
     </el-card>
   </div>
 </template>
@@ -62,19 +112,48 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Search } from '@element-plus/icons-vue'
 import { getAppList, deleteApp } from '@/api/aiApp'
 import AppIcon from '@/components/AppIcon.vue'
 
 const router = useRouter()
 const appList = ref([])
 const loading = ref(false)
+const searchKeyword = ref('')
+const filterType = ref('')
+const filterStatus = ref('')
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
 
 const fetchAppList = async () => {
   loading.value = true
   try {
-    const res = await getAppList()
-    appList.value = res || []
+    const params = {
+      page: currentPage.value,
+      pageSize: pageSize.value
+    }
+    if (searchKeyword.value) {
+      params.keyword = searchKeyword.value
+    }
+    if (filterType.value !== '') {
+      params.type = filterType.value
+    }
+    if (filterStatus.value !== '') {
+      params.status = filterStatus.value
+    }
+    const response = await getAppList(params)
+    
+    // 检查是否是分页响应
+    if (response && typeof response === 'object' && 'content' in response && 'total' in response) {
+      // 分页响应
+      appList.value = response.content || []
+      total.value = response.total || 0
+    } else {
+      // 兼容旧接口（非分页响应）
+      appList.value = Array.isArray(response) ? response : []
+      total.value = appList.value.length
+    }
   } catch (error) {
     ElMessage.error('获取应用列表失败')
   } finally {
@@ -123,6 +202,27 @@ const truncateName = (name) => {
   return name.substring(0, 10) + '...'
 }
 
+const handleSearch = () => {
+  currentPage.value = 1
+  fetchAppList()
+}
+
+const handleFilter = () => {
+  currentPage.value = 1
+  fetchAppList()
+}
+
+const handleSizeChange = (size) => {
+  pageSize.value = size
+  currentPage.value = 1
+  fetchAppList()
+}
+
+const handlePageChange = (page) => {
+  currentPage.value = page
+  fetchAppList()
+}
+
 onMounted(() => {
   fetchAppList()
 })
@@ -137,6 +237,18 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.pagination {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* 减少应用名称和描述列之间的间距 */

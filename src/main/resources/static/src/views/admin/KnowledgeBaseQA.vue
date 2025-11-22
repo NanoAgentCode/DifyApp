@@ -18,6 +18,20 @@
             <el-icon><Folder /></el-icon>
             <span>选择知识库</span>
           </div>
+          <!-- 搜索框 -->
+          <div class="kb-search">
+            <el-input
+              v-model="kbSearchKeyword"
+              placeholder="搜索知识库"
+              clearable
+              size="small"
+              @input="handleKbSearch"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </div>
           <div class="kb-list">
             <div v-if="knowledgeBases.length === 0" class="empty-kb-list">
               <el-icon><Document /></el-icon>
@@ -25,7 +39,7 @@
               <p class="empty-tip">请先在知识库管理中创建知识库</p>
             </div>
             <div
-              v-for="kb in knowledgeBases"
+              v-for="kb in filteredKnowledgeBases"
               :key="kb.id"
               :class="['kb-item', { active: selectedKB?.id === kb.id }]"
               @click="selectKB(kb)"
@@ -177,7 +191,8 @@ import {
   Service,
   Promotion,
   Loading,
-  Star
+  Star,
+  Search
 } from '@element-plus/icons-vue'
 import { getKnowledgeBaseList } from '@/api/knowledgeBase'
 import { knowledgeBaseQA, knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
@@ -215,6 +230,24 @@ const chatHistoryRef = ref(null)
 const conversationId = ref(null)
 const useStream = ref(true) // 默认使用流式响应
 const currentStreamingMessage = ref(null) // 当前正在流式接收的消息索引
+const kbSearchKeyword = ref('') // 知识库搜索关键词
+
+// 过滤知识库列表
+const filteredKnowledgeBases = computed(() => {
+  if (!kbSearchKeyword.value) {
+    return knowledgeBases.value
+  }
+  
+  const keyword = kbSearchKeyword.value.toLowerCase()
+  return knowledgeBases.value.filter(kb => 
+    (kb.name && kb.name.toLowerCase().includes(keyword)) ||
+    (kb.description && kb.description.toLowerCase().includes(keyword))
+  )
+})
+
+const handleKbSearch = () => {
+  // 搜索是实时的，通过computed自动过滤
+}
 
 const selectKB = (kb) => {
   selectedKB.value = kb
@@ -230,16 +263,25 @@ const loadKnowledgeBases = async () => {
     // 从localStorage获取用户信息
     const userInfoStr = localStorage.getItem('userInfo')
     let userId = null
+    let userRole = null
     if (userInfoStr) {
       try {
         const userInfo = JSON.parse(userInfoStr)
         userId = userInfo.userId
+        userRole = userInfo.role
       } catch (e) {
         console.warn('解析用户信息失败', e)
       }
     }
     
-    const params = { status: 1 }
+    // 管理员可以看到所有知识库（包括禁用的），普通用户只能看到启用的
+    const params = {}
+    if (userRole !== 1) {
+      // 普通用户只获取启用的知识库
+      params.status = 1
+    }
+    // 管理员不传status参数，可以获取所有状态的知识库
+    
     if (userId) {
       params.userId = userId
     }
@@ -652,6 +694,10 @@ html {
   border-bottom: 1px solid #e4e7ed;
 }
 
+.kb-search {
+  margin-bottom: 16px;
+}
+
 .kb-list {
   display: flex;
   flex-direction: column;
@@ -882,6 +928,7 @@ html {
   align-items: flex-end;
 }
 
+
 .message-text {
   padding: 12px 16px;
   border-radius: 8px;
@@ -1077,15 +1124,6 @@ html {
   font-size: 12px;
   color: #909399;
   padding: 0 4px;
-}
-
-.message-sources {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 2px dashed #e4e7ed;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
 }
 
 .sources-title {

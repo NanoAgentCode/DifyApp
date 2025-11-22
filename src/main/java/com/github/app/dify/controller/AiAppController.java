@@ -102,23 +102,50 @@ public class AiAppController {
      */
     @ApiOperation("获取应用列表")
     @GetMapping
-    public ResponseEntity<List<AiAppResp>> listAiApps(
+    public ResponseEntity<?> listAiApps(
             @RequestParam(required = false) Integer tenantId,
             @RequestParam(required = false) Integer type,
             @RequestParam(required = false) Integer status,
-            @RequestParam(required = false) Long userId) {
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer pageSize) {
         try {
-            List<AiAppResp> resp;
-            
-            // 如果指定了userId，返回用户可见的应用列表
-            if (userId != null) {
-                resp = aiAppService.listVisibleAppsForUser(userId, tenantId, type, status);
+            // 如果指定了分页参数，使用分页接口
+            if (page != null && pageSize != null && page > 0 && pageSize > 0) {
+                com.github.app.dify.resp.PageResponse<AiAppResp> pageResponse;
+                
+                // 如果指定了userId，返回用户可见的应用列表（分页）
+                // 注意：用户可见性过滤比较复杂，这里先使用所有应用的分页
+                // 实际应用中可能需要优化
+                if (userId != null) {
+                    // 用户端暂时不支持分页，返回所有可见应用
+                    List<AiAppResp> allApps = aiAppService.listVisibleAppsForUser(userId, tenantId, type, status, keyword);
+                    // 手动分页
+                    int start = (page - 1) * pageSize;
+                    int end = Math.min(start + pageSize, allApps.size());
+                    List<AiAppResp> content = start < allApps.size() ? allApps.subList(start, end) : java.util.Collections.emptyList();
+                    pageResponse = new com.github.app.dify.resp.PageResponse<>(content, allApps.size(), page, pageSize);
+                } else {
+                    // 管理员使用分页接口
+                    pageResponse = aiAppService.listAiAppsWithPagination(tenantId, type, status, keyword, page, pageSize);
+                }
+                
+                return ResponseEntity.ok(pageResponse);
             } else {
-                // 否则返回所有应用（管理员使用）
-                resp = aiAppService.listAiApps(tenantId, type, status);
+                // 否则返回所有数据（兼容旧接口）
+                List<AiAppResp> resp;
+                
+                // 如果指定了userId，返回用户可见的应用列表
+                if (userId != null) {
+                    resp = aiAppService.listVisibleAppsForUser(userId, tenantId, type, status, keyword);
+                } else {
+                    // 否则返回所有应用（管理员使用）
+                    resp = aiAppService.listAiApps(tenantId, type, status, keyword);
+                }
+                
+                return ResponseEntity.ok(resp);
             }
-            
-            return ResponseEntity.ok(resp);
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
         }

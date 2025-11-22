@@ -111,10 +111,23 @@ public class AuthController {
      */
     @ApiOperation("获取所有用户列表（管理员使用）")
     @GetMapping("/users")
-    public ResponseEntity<java.util.List<com.github.app.dify.resp.UserResp>> getAllUsers() {
+    public ResponseEntity<?> getAllUsers(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) Integer role,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer pageSize) {
         try {
-            java.util.List<com.github.app.dify.resp.UserResp> users = authService.getAllUsers();
-            return ResponseEntity.ok(users);
+            // 如果指定了分页参数，使用分页接口
+            if (page != null && pageSize != null && page > 0 && pageSize > 0) {
+                com.github.app.dify.resp.PageResponse<com.github.app.dify.resp.UserResp> pageResponse = 
+                        authService.getAllUsersWithPagination(keyword, status, role, page, pageSize);
+                return ResponseEntity.ok(pageResponse);
+            } else {
+                // 否则返回所有数据（兼容旧接口）
+                java.util.List<com.github.app.dify.resp.UserResp> users = authService.getAllUsers(keyword, status, role);
+                return ResponseEntity.ok(users);
+            }
         } catch (Exception e) {
             logger.error("获取用户列表失败", e);
             throw e;

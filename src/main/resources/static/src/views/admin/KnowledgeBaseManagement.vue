@@ -39,7 +39,7 @@
 
       <!-- 知识库列表 -->
       <el-table
-        :data="paginatedKnowledgeBases"
+        :data="knowledgeBases"
         v-loading="loading"
         stripe
         style="margin-top: 20px"
@@ -94,7 +94,7 @@
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :page-sizes="[10, 20, 50, 100]"
-          :total="filteredKnowledgeBases.length"
+          :total="total"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
           @current-change="handlePageChange"
@@ -335,6 +335,7 @@ const searchKeyword = ref('')
 const filterStatus = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
+const total = ref(0)
 const dialogVisible = ref(false)
 const viewDialogVisible = ref(false)
 const docDialogVisible = ref(false)
@@ -443,41 +444,15 @@ const getVectorizedStatusType = (status) => {
   }
 }
 
-const filteredKnowledgeBases = computed(() => {
-  let result = [...knowledgeBases.value]
-  
-  // 搜索过滤（后端已处理，这里保留前端过滤作为备用）
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.toLowerCase()
-    result = result.filter(kb => 
-      kb.name.toLowerCase().includes(keyword) ||
-      (kb.description && kb.description.toLowerCase().includes(keyword))
-    )
-  }
-  
-  // 状态过滤（后端已处理，这里保留前端过滤作为备用）
-  if (filterStatus.value) {
-    result = result.filter(kb => {
-      const kbStatus = typeof kb.status === 'number' ? statusMap[kb.status] : kb.status
-      return kbStatus === filterStatus.value
-    })
-  }
-  
-  return result
-})
-
-// 分页后的数据
-const paginatedKnowledgeBases = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return filteredKnowledgeBases.value.slice(start, end)
-})
 
 // 加载知识库列表
 const loadKnowledgeBases = async () => {
   loading.value = true
   try {
-    const params = {}
+    const params = {
+      page: currentPage.value,
+      pageSize: pageSize.value
+    }
     if (filterStatus.value) {
       params.status = statusMap[filterStatus.value]
     }
@@ -486,10 +461,23 @@ const loadKnowledgeBases = async () => {
     }
     
     const response = await getKnowledgeBaseList(params)
-    knowledgeBases.value = response.map(kb => ({
-      ...kb,
-      status: typeof kb.status === 'number' ? statusMap[kb.status] : kb.status
-    }))
+    
+    // 检查是否是分页响应
+    if (response && typeof response === 'object' && 'content' in response && 'total' in response) {
+      // 分页响应
+      knowledgeBases.value = (response.content || []).map(kb => ({
+        ...kb,
+        status: typeof kb.status === 'number' ? statusMap[kb.status] : kb.status
+      }))
+      total.value = response.total || 0
+    } else {
+      // 兼容旧接口（非分页响应）
+      knowledgeBases.value = (Array.isArray(response) ? response : []).map(kb => ({
+        ...kb,
+        status: typeof kb.status === 'number' ? statusMap[kb.status] : kb.status
+      }))
+      total.value = knowledgeBases.value.length
+    }
   } catch (error) {
     ElMessage.error('加载知识库列表失败：' + (error.message || '未知错误'))
   } finally {
@@ -787,32 +775,73 @@ const handleDelete = (row) => {
   })
 }
 
+const doSubmit = async (force = false) => {
+  const data = {
+    name: formData.value.name,
+    description: formData.value.description,
+    status: statusMap[formData.value.status]
+  }
+  
+  // 只有管理员可以设置公开/私有，普通用户创建的知识库强制为私有
+  if (isAdmin.value && formData.value.isPublic !== undefined) {
+    data.isPublic = formData.value.isPublic
+  }
+  
+  if (isEdit.value) {
+    await updateKnowledgeBase(currentEditId.value, data)
+    ElMessage.success('编辑成功')
+    dialogVisible.value = false
+    loadKnowledgeBases()
+        } else {
+          try {
+            await createKnowledgeBase(data, force)
+            ElMessage.success('创建成功')
+            dialogVisible.value = false
+            loadKnowledgeBases()
+          } catch (error) {
+            // 检查是否是重复名称错误（通过状态码或错误代码）
+            const isDuplicateError = error.response && (
+              error.response.status === 409 || 
+              (error.response.data && error.response.data.code === 'DUPLICATE_NAME')
+            )
+            
+            if (isDuplicateError && !force) {
+              // 显示确认对话框
+              try {
+                const errorMessage = error.response?.data?.error || `已存在名称为 "${formData.value.name}" 的知识库，是否继续创建？`
+                await ElMessageBox.confirm(
+                  errorMessage,
+                  '提示',
+                  {
+                    confirmButtonText: '继续创建',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                  }
+                )
+                // 用户确认，强制创建
+                await doSubmit(true)
+              } catch (confirmError) {
+                // 用户取消，不做任何操作
+                if (confirmError !== 'cancel') {
+                  throw confirmError
+                }
+              }
+              return
+            }
+            throw error
+          }
+        }
+}
+
 const handleSubmit = () => {
   formRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        const data = {
-          name: formData.value.name,
-          description: formData.value.description,
-          status: statusMap[formData.value.status]
-        }
-        
-        // 只有管理员可以设置公开/私有，普通用户创建的知识库强制为私有
-        if (isAdmin.value && formData.value.isPublic !== undefined) {
-          data.isPublic = formData.value.isPublic
-        }
-        
-        if (isEdit.value) {
-          await updateKnowledgeBase(currentEditId.value, data)
-          ElMessage.success('编辑成功')
-        } else {
-          await createKnowledgeBase(data)
-          ElMessage.success('创建成功')
-        }
-        dialogVisible.value = false
-        loadKnowledgeBases()
+        await doSubmit(false)
       } catch (error) {
-        ElMessage.error((isEdit.value ? '编辑' : '创建') + '失败：' + (error.message || '未知错误'))
+        if (error !== 'cancel') {
+          ElMessage.error((isEdit.value ? '编辑' : '创建') + '失败：' + (error.message || '未知错误'))
+        }
       }
     }
   })
@@ -825,10 +854,12 @@ const handleDialogClose = () => {
 const handleSizeChange = (size) => {
   pageSize.value = size
   currentPage.value = 1
+  loadKnowledgeBases()
 }
 
 const handlePageChange = (page) => {
   currentPage.value = page
+  loadKnowledgeBases()
 }
 
 const formatDate = (date) => {

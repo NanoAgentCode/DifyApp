@@ -31,13 +31,13 @@
             <el-icon><List /></el-icon>
             <span>智能应用</span>
           </el-menu-item>
-          <el-menu-item index="/user/knowledge-base">
-            <el-icon><Folder /></el-icon>
-            <span>知识库管理</span>
-          </el-menu-item>
           <el-menu-item index="/user/kb-qa">
             <el-icon><ChatLineRound /></el-icon>
             <span>知识库问答</span>
+          </el-menu-item>
+          <el-menu-item index="/user/knowledge-base">
+            <el-icon><Folder /></el-icon>
+            <span>知识库管理</span>
           </el-menu-item>
         </el-menu>
       </el-aside>

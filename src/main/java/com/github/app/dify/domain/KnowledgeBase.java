@@ -31,6 +31,7 @@ public class KnowledgeBase implements Serializable {
     @Size(max= 100,message="编码长度不能超过100")
     @ApiModelProperty("知识库名称")
     @Length(max= 100,message="编码长度不能超过100")
+    @Column(name = "name", columnDefinition = "VARCHAR(100)")
     private String name;
     
     /**
@@ -39,6 +40,7 @@ public class KnowledgeBase implements Serializable {
     @Size(max= 500,message="编码长度不能超过500")
     @ApiModelProperty("知识库描述")
     @Length(max= 500,message="编码长度不能超过500")
+    @Column(name = "description", columnDefinition = "VARCHAR(500)")
     private String description;
     
     /**

@@ -23,12 +23,17 @@ export function getKnowledgeBaseDetail(id) {
 
 /**
  * 创建知识库
+ * @param {Object} data 知识库数据
+ * @param {Boolean} force 是否强制创建（忽略重复名称检查）
  */
-export function createKnowledgeBase(data) {
+export function createKnowledgeBase(data, force = false) {
   return request({
     url: '/api/knowledge-bases',
     method: 'post',
-    data
+    data,
+    params: {
+      force
+    }
   })
 }
 

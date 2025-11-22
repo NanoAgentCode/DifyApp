@@ -213,33 +213,85 @@ public class AiAppService {
     /**
      * 获取应用列表
      */
-    public List<AiAppResp> listAiApps(Integer tenantId, Integer type, Integer status) {
+    public List<AiAppResp> listAiApps(Integer tenantId, Integer type, Integer status, String keyword) {
         List<AiApp> apps;
         
-        if (tenantId != null && type != null && status != null) {
-            apps = aiAppRepository.findByTenantIdAndTypeAndStatus(tenantId, type, status);
-        } else if (tenantId != null && type != null) {
-            apps = aiAppRepository.findByTenantIdAndType(tenantId, type);
-        } else if (tenantId != null && status != null) {
-            apps = aiAppRepository.findByTenantIdAndStatus(tenantId, status);
-        } else if (tenantId != null) {
-            apps = aiAppRepository.findByTenantId(tenantId);
-        } else if (type != null) {
-            apps = aiAppRepository.findByType(type);
-        } else if (status != null) {
-            apps = aiAppRepository.findByStatus(status);
+        // 如果有关键词，使用搜索方法
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            apps = aiAppRepository.searchByKeywordAndFilters(keyword.trim(), type, status);
         } else {
-            apps = aiAppRepository.findAll();
+            // 否则使用原有的查询方法
+            if (tenantId != null && type != null && status != null) {
+                apps = aiAppRepository.findByTenantIdAndTypeAndStatus(tenantId, type, status);
+            } else if (tenantId != null && type != null) {
+                apps = aiAppRepository.findByTenantIdAndType(tenantId, type);
+            } else if (tenantId != null && status != null) {
+                apps = aiAppRepository.findByTenantIdAndStatus(tenantId, status);
+            } else if (tenantId != null) {
+                apps = aiAppRepository.findByTenantId(tenantId);
+            } else if (type != null) {
+                apps = aiAppRepository.findByType(type);
+            } else if (status != null) {
+                apps = aiAppRepository.findByStatus(status);
+            } else {
+                apps = aiAppRepository.findAll();
+            }
+            
+            // 过滤已删除的应用
+            apps = apps.stream()
+                    .filter(app -> app.getDeleted() == null || app.getDeleted() == 0)
+                    .collect(Collectors.toList());
         }
-        
-        // 过滤已删除的应用
-        apps = apps.stream()
-                .filter(app -> app.getDeleted() == null || app.getDeleted() == 0)
-                .collect(Collectors.toList());
         
         return apps.stream()
                 .map(this::convertToResp)
                 .collect(Collectors.toList());
+    }
+    
+    /**
+     * 获取应用列表（分页）
+     */
+    public com.github.app.dify.resp.PageResponse<AiAppResp> listAiAppsWithPagination(
+            Integer tenantId, Integer type, Integer status, String keyword, int page, int pageSize) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                page - 1, pageSize, org.springframework.data.domain.Sort.by("createTime").descending());
+        
+        org.springframework.data.domain.Page<AiApp> appPage;
+        
+        // 如果有关键词，使用搜索方法
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            appPage = aiAppRepository.searchByKeywordAndFiltersWithPagination(
+                    keyword.trim(), type, status, pageable);
+        } else {
+            // 否则使用分页查询方法
+            appPage = aiAppRepository.findByFiltersWithPagination(type, status, pageable);
+        }
+        
+        // 过滤已删除的应用并转换
+        List<AiAppResp> content = appPage.getContent().stream()
+                .filter(app -> app.getDeleted() == null || app.getDeleted() == 0)
+                .map(this::convertToResp)
+                .collect(Collectors.toList());
+        
+        // 如果过滤了已删除的应用，需要重新计算总数
+        long total = appPage.getTotalElements();
+        if (appPage.getContent().size() != content.size()) {
+            // 有应用被过滤，需要重新计算总数（排除已删除的）
+            // 查询所有数据并过滤已删除的来计算总数
+            org.springframework.data.domain.Page<AiApp> allPage = (keyword != null && !keyword.trim().isEmpty()) 
+                ? aiAppRepository.searchByKeywordAndFiltersWithPagination(
+                    keyword.trim(), type, status, 
+                    org.springframework.data.domain.PageRequest.of(0, Integer.MAX_VALUE))
+                : aiAppRepository.findByFiltersWithPagination(
+                    type, status, 
+                    org.springframework.data.domain.PageRequest.of(0, Integer.MAX_VALUE));
+            
+            total = allPage.getContent().stream()
+                    .filter(app -> app.getDeleted() == null || app.getDeleted() == 0)
+                    .count();
+        }
+        
+        return new com.github.app.dify.resp.PageResponse<>(content, total, page, pageSize);
     }
     
     /**
@@ -248,11 +300,12 @@ public class AiAppService {
      * @param tenantId 租户ID（可选）
      * @param type 应用类型（可选）
      * @param status 应用状态（可选）
+     * @param keyword 搜索关键词（可选）
      * @return 可见的应用列表
      */
-    public List<AiAppResp> listVisibleAppsForUser(Long userId, Integer tenantId, Integer type, Integer status) {
+    public List<AiAppResp> listVisibleAppsForUser(Long userId, Integer tenantId, Integer type, Integer status, String keyword) {
         // 先获取所有符合条件的应用
-        List<AiAppResp> allApps = listAiApps(tenantId, type, status);
+        List<AiAppResp> allApps = listAiApps(tenantId, type, status, keyword);
         
         // 如果用户是管理员，返回所有应用
         // 这里需要从User表中查询用户角色，为了简化，我们假设管理员可以看到所有应用
