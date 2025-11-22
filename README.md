@@ -224,6 +224,25 @@ cd DifyApp
 
 #### 启动 PostgreSQL
 
+**方式一：使用 Docker 启动 PostgreSQL with pgvector（推荐）**
+
+```bash
+docker run -d \
+  -p 15432:5432 \
+  -e POSTGRES_PASSWORD=123456 \
+  -e POSTGRES_DB=postgres \
+  --name pgvector \
+  ankane/pgvector:latest
+```
+
+然后创建应用数据库：
+
+```sql
+CREATE DATABASE difyapp;
+```
+
+**方式二：本地安装 PostgreSQL**
+
 确保 PostgreSQL 15 已安装并运行，然后创建数据库：
 
 ```sql
