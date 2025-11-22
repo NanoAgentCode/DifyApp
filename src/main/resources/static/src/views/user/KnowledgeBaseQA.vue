@@ -18,32 +18,64 @@
             <el-icon><Folder /></el-icon>
             <span>选择知识库</span>
           </div>
+          <!-- 搜索框 -->
+          <div class="kb-search">
+            <el-input
+              v-model="kbSearchKeyword"
+              placeholder="搜索知识库"
+              clearable
+              size="small"
+              @input="handleKbSearch"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </div>
           <div class="kb-list">
-            <div v-if="knowledgeBases.length === 0" class="empty-kb-list">
+            <div v-if="displayedKnowledgeBases.length === 0 && !kbSearchKeyword" class="empty-kb-list">
               <el-icon><Document /></el-icon>
               <p>暂无可用知识库</p>
               <p class="empty-tip">请先在知识库管理中创建知识库</p>
             </div>
-            <div
-              v-for="kb in knowledgeBases"
-              :key="kb.id"
-              :class="['kb-item', { active: selectedKB?.id === kb.id }]"
-              @click="selectKB(kb)"
-            >
-              <el-icon class="kb-icon"><Document /></el-icon>
-              <div class="kb-info">
-                <div class="kb-name">{{ kb.name }}</div>
-                <div class="kb-docs">{{ kb.documentCount }} 个文档</div>
-              </div>
-              <el-tag
-                v-if="kb.status === 'active'"
-                type="success"
-                size="small"
-                class="kb-status"
-              >
-                启用
-              </el-tag>
+            <div v-else-if="displayedKnowledgeBases.length === 0 && kbSearchKeyword" class="empty-kb-list">
+              <el-icon><Search /></el-icon>
+              <p>未找到匹配的知识库</p>
             </div>
+            <template v-else>
+              <div
+                v-for="kb in displayedKnowledgeBases"
+                :key="kb.id"
+                :class="['kb-item', { active: selectedKB?.id === kb.id }]"
+                @click="selectKB(kb)"
+              >
+                <el-icon class="kb-icon"><Document /></el-icon>
+                <div class="kb-info">
+                  <div class="kb-name">{{ kb.name }}</div>
+                  <div class="kb-docs">{{ kb.documentCount }} 个文档</div>
+                </div>
+                <el-tag
+                  v-if="kb.status === 'active'"
+                  type="success"
+                  size="small"
+                  class="kb-status"
+                >
+                  启用
+                </el-tag>
+              </div>
+              <!-- 加载更多按钮 -->
+              <div v-if="hasMoreToLoad" class="load-more-container">
+                <el-button
+                  text
+                  type="primary"
+                  @click="loadMore"
+                  :loading="loadingMore"
+                  class="load-more-btn"
+                >
+                  {{ loadingMore ? '加载中...' : `加载更多 (还有 ${remainingCount} 个)` }}
+                </el-button>
+              </div>
+            </template>
           </div>
         </div>
 
@@ -166,7 +198,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   Delete,
@@ -177,7 +209,8 @@ import {
   Service,
   Promotion,
   Loading,
-  Star
+  Star,
+  Search
 } from '@element-plus/icons-vue'
 import { getKnowledgeBaseList } from '@/api/knowledgeBase'
 import { knowledgeBaseQA, knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
@@ -215,6 +248,72 @@ const chatHistoryRef = ref(null)
 const conversationId = ref(null)
 const useStream = ref(true) // 默认使用流式响应
 const currentStreamingMessage = ref(null) // 当前正在流式接收的消息索引
+const kbSearchKeyword = ref('') // 知识库搜索关键词
+const displayedCount = ref(50) // 初始显示数量
+const loadingMore = ref(false) // 加载更多状态
+const searchDebounceTimer = ref(null) // 防抖定时器
+
+// 过滤知识库列表
+const filteredKnowledgeBases = computed(() => {
+  if (!kbSearchKeyword.value) {
+    return knowledgeBases.value
+  }
+  
+  const keyword = kbSearchKeyword.value.toLowerCase()
+  return knowledgeBases.value.filter(kb => 
+    (kb.name && kb.name.toLowerCase().includes(keyword)) ||
+    (kb.description && kb.description.toLowerCase().includes(keyword))
+  )
+})
+
+// 显示的知识库列表（限制数量）
+const displayedKnowledgeBases = computed(() => {
+  return filteredKnowledgeBases.value.slice(0, displayedCount.value)
+})
+
+// 是否还有更多可加载
+const hasMoreToLoad = computed(() => {
+  return displayedCount.value < filteredKnowledgeBases.value.length
+})
+
+// 剩余数量
+const remainingCount = computed(() => {
+  return filteredKnowledgeBases.value.length - displayedCount.value
+})
+
+// 防抖搜索
+const handleKbSearch = () => {
+  // 重置显示数量
+  displayedCount.value = 50
+  
+  // 清除之前的定时器
+  if (searchDebounceTimer.value) {
+    clearTimeout(searchDebounceTimer.value)
+  }
+  
+  // 设置新的定时器（300ms 防抖）
+  searchDebounceTimer.value = setTimeout(() => {
+    // 搜索时自动展开所有结果
+    if (kbSearchKeyword.value) {
+      displayedCount.value = filteredKnowledgeBases.value.length
+    } else {
+      displayedCount.value = 50
+    }
+  }, 300)
+}
+
+// 加载更多
+const loadMore = () => {
+  loadingMore.value = true
+  // 模拟加载延迟，实际可以异步加载
+  setTimeout(() => {
+    displayedCount.value = Math.min(
+      displayedCount.value + 50,
+      filteredKnowledgeBases.value.length
+    )
+    loadingMore.value = false
+  }, 300)
+}
 
 const selectKB = (kb) => {
   selectedKB.value = kb
@@ -256,6 +355,9 @@ const loadKnowledgeBases = async () => {
         documentCount: kb.documentCount || 0,
         status: kb.status === 1 ? 'active' : 'inactive'
       }))
+      
+      // 重置显示数量
+      displayedCount.value = 50
       
       // 默认选择第一个知识库
       if (knowledgeBases.value.length > 0) {
@@ -556,6 +658,13 @@ onMounted(() => {
   // 加载知识库列表
   loadKnowledgeBases()
 })
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  if (searchDebounceTimer.value) {
+    clearTimeout(searchDebounceTimer.value)
+  }
+})
 </script>
 
 <style>
@@ -652,6 +761,10 @@ html {
   border-bottom: 1px solid #e4e7ed;
 }
 
+.kb-search {
+  margin-bottom: 12px;
+}
+
 .kb-list {
   display: flex;
   flex-direction: column;
@@ -733,6 +846,17 @@ html {
 
 .kb-status {
   flex-shrink: 0;
+}
+
+.load-more-container {
+  margin-top: 12px;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.load-more-btn {
+  width: 100%;
+  font-size: 12px;
 }
 
 .right-panel {
