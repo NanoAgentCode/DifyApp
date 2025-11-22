@@ -386,7 +386,7 @@ const selectKB = (kb) => {
   // 切换知识库时，清空对话历史
   chatHistory.value = []
   conversationId.value = null
-  scrollToBottom()
+  scrollToBottom(true) // 切换知识库后强制滚动到底部
 }
 
 // 加载知识库列表
@@ -465,9 +465,9 @@ const handleSend = async () => {
   question.value = ''
   sending.value = true
 
-  // 滚动到底部
+  // 滚动到底部（强制滚动，因为这是新消息）
   await nextTick()
-  scrollToBottom()
+  scrollToBottom(true)
 
   try {
     // 构建对话历史（限制最近10轮对话，避免token过多）
@@ -507,7 +507,8 @@ const handleSend = async () => {
   } finally {
     sending.value = false
     currentStreamingMessage.value = null
-    scrollToBottom()
+    // 流式响应完成后，只在用户还在底部时滚动
+    scrollToBottom(false)
   }
 }
 
@@ -541,7 +542,8 @@ const handleNormalResponse = async (userQuestion, history) => {
     // 触发代码高亮
     await nextTick()
     highlightCodeBlocks()
-    scrollToBottom()
+    // 非流式响应完成后，只在用户还在底部时滚动
+    scrollToBottom(false)
   } else {
     throw new Error('API返回数据格式错误')
   }
@@ -560,9 +562,9 @@ const handleStreamResponse = async (userQuestion, history) => {
   })
   currentStreamingMessage.value = aiMessageIndex
   
-  // 滚动到底部显示加载提示
+  // 滚动到底部显示加载提示（强制滚动，因为这是新消息）
   await nextTick()
-  scrollToBottom()
+  scrollToBottom(true)
 
   let fullAnswer = ''
   let sources = []
@@ -626,11 +628,11 @@ const handleStreamResponse = async (userQuestion, history) => {
                 }
                 chatHistory.value[aiMessageIndex].content = fullAnswer
                 
-                // 实时滚动
+                // 实时滚动（只在用户还在底部时滚动）
                 await nextTick()
                 // 手动触发代码高亮（确保流式响应中的代码块被正确高亮）
                 highlightCodeBlocks()
-                scrollToBottom()
+                scrollToBottom(false) // 不强制滚动，如果用户向上滚动了就不滚动
               }
 
             // 更新来源文档（通常在最后一条消息中）
@@ -753,16 +755,14 @@ const renderMarkdown = (content) => {
   
   try {
     // 先预处理公式，在 Markdown 渲染之前标记公式
-    // 使用不会被 Markdown 解析器改变的占位符格式
-    const formulaPlaceholderPrefix = 'KATEX_FORMULA_'
-    const formulaPlaceholderSuffix = '_KATEX_END'
+    // 使用 HTML 注释作为占位符，这样不会被 Markdown 解析器处理
     const formulaMatches = []
     
     // 标记块级公式 $$...$$
     content = content.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
       const index = formulaMatches.length
       formulaMatches.push({ type: 'block', original: match, formula: formula.trim() })
-      return formulaPlaceholderPrefix + index + formulaPlaceholderSuffix
+      return `<!--KATEX_FORMULA_${index}-->`
     })
     
     // 标记块级公式 [...]（独立成行）
@@ -771,7 +771,7 @@ const renderMarkdown = (content) => {
       if (/\\[a-zA-Z]+/.test(formula)) {
         const index = formulaMatches.length
         formulaMatches.push({ type: 'block', original: match.trim(), formula: formula.trim() })
-        return '\n' + formulaPlaceholderPrefix + index + formulaPlaceholderSuffix + '\n'
+        return `\n<!--KATEX_FORMULA_${index}-->\n`
       }
       return match
     })
@@ -779,21 +779,21 @@ const renderMarkdown = (content) => {
     // 标记行内公式 $...$
     content = content.replace(/\$([^$\n]+?)\$/g, (match, formula) => {
       // 如果已经被处理过，跳过
-      if (match.includes(formulaPlaceholderPrefix)) return match
+      if (match.includes('<!--KATEX_FORMULA_')) return match
       const index = formulaMatches.length
       formulaMatches.push({ type: 'inline', original: match, formula: formula.trim() })
-      return formulaPlaceholderPrefix + index + formulaPlaceholderSuffix
+      return `<!--KATEX_FORMULA_${index}-->`
     })
     
     // 标记行内的 [ ... ] 格式公式
     content = content.replace(/\[([\s\S]*?)\]/g, (match, formula) => {
       // 如果已经被处理过，跳过
-      if (match.includes(formulaPlaceholderPrefix)) return match
+      if (match.includes('<!--KATEX_FORMULA_')) return match
       // 检查是否包含 LaTeX 命令
       if (/\\[a-zA-Z]+/.test(formula)) {
         const index = formulaMatches.length
         formulaMatches.push({ type: 'block', original: match, formula: formula.trim() })
-        return formulaPlaceholderPrefix + index + formulaPlaceholderSuffix
+        return `<!--KATEX_FORMULA_${index}-->`
       }
       return match
     })
@@ -803,10 +803,10 @@ const renderMarkdown = (content) => {
     
     // 检查是否有公式占位符被误识别为代码块，如果是则恢复
     // 这种情况可能发生在公式格式被 Markdown 解析器识别为代码块时
-    html = html.replace(/<pre><code[^>]*>([\s\S]*?)(KATEX_FORMULA_\d+_KATEX_END)([\s\S]*?)<\/code><\/pre>/g, (match, before, placeholder, after) => {
+    html = html.replace(/<pre><code[^>]*>([\s\S]*?)<!--KATEX_FORMULA_(\d+)-->([\s\S]*?)<\/code><\/pre>/g, (match, before, index, after) => {
       // 如果代码块中包含公式占位符，说明公式被误识别为代码块
       // 移除代码块标签，保留占位符
-      return (before || '') + placeholder + (after || '')
+      return (before || '') + `<!--KATEX_FORMULA_${index}-->` + (after || '')
     })
     
     // 确保代码块有正确的类名（hljs）
@@ -819,15 +819,11 @@ const renderMarkdown = (content) => {
       return match
     })
     
-    // 恢复并渲染公式（使用全局替换，确保所有匹配都被替换）
+    // 恢复并渲染公式（使用 HTML 注释占位符）
     formulaMatches.forEach((formulaMatch, index) => {
-      // 构建占位符的正则表达式，支持可能的 HTML 转义
-      const placeholderRegex = new RegExp(
-        formulaPlaceholderPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + 
-        index + 
-        formulaPlaceholderSuffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-        'g'
-      )
+      const placeholder = `<!--KATEX_FORMULA_${index}-->`
+      // 使用全局替换，确保所有匹配都被替换
+      const placeholderRegex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
       
       try {
         if (formulaMatch.formula) {
@@ -875,31 +871,6 @@ const renderMarkdown = (content) => {
       }
       // 如果没有对应的公式，返回空字符串，避免显示占位符
       console.warn('发现未处理的公式占位符，但没有对应的公式内容:', match)
-      return ''
-    })
-    
-    // 也处理旧格式的占位符（KATEX_FORMULA_X_KATEX_END）
-    html = html.replace(/KATEX_FORMULA_(\d+)_KATEX_END/g, (match, indexStr) => {
-      const index = parseInt(indexStr)
-      // 检查是否有对应的公式
-      if (formulaMatches[index]) {
-        const formulaMatch = formulaMatches[index]
-        try {
-          if (formulaMatch.formula) {
-            const rendered = katex.renderToString(formulaMatch.formula, {
-              displayMode: formulaMatch.type === 'block',
-              throwOnError: false
-            })
-            const finalRendered = formulaMatch.type === 'block' 
-              ? `<div class="katex-formula-block">${rendered}</div>` 
-              : rendered
-            return finalRendered
-          }
-        } catch (e) {
-          console.warn('渲染遗留占位符公式失败:', e, '公式:', formulaMatch.formula)
-        }
-      }
-      console.warn('发现未处理的旧格式公式占位符，但没有对应的公式内容:', match)
       return ''
     })
     
@@ -980,9 +951,21 @@ const handleClearHistory = () => {
   ElMessage.success('已清空对话历史')
 }
 
-const scrollToBottom = () => {
+// 检查是否在底部（允许一定的误差范围）
+const isNearBottom = () => {
+  if (!chatHistoryRef.value) return true
+  const element = chatHistoryRef.value
+  const threshold = 100 // 距离底部100px内认为是在底部
+  return element.scrollHeight - element.scrollTop - element.clientHeight < threshold
+}
+
+const scrollToBottom = (force = false) => {
   nextTick(() => {
     if (chatHistoryRef.value) {
+      // 如果用户手动向上滚动了，且不是强制滚动，则不自动滚动
+      if (!force && !isNearBottom()) {
+        return
+      }
       chatHistoryRef.value.scrollTop = chatHistoryRef.value.scrollHeight
     }
   })
@@ -1373,21 +1356,25 @@ html {
 }
 
 .message-text :deep(pre) {
-  background: rgba(0, 0, 0, 0.05);
+  background: #1e1e1e;
+  color: #d4d4d4;
   padding: 12px;
   border-radius: 6px;
   overflow-x: auto;
   margin: 0.5em 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .message-item.assistant .message-text :deep(pre) {
-  background: rgba(0, 0, 0, 0.1);
+  background: #1e1e1e;
+  color: #d4d4d4;
 }
 
 .message-text :deep(pre code) {
   background: transparent;
   padding: 0;
-  /* 重要：不要设置color，否则会覆盖highlight.js的颜色 */
+  color: #d4d4d4;
+  /* 重要：对于没有高亮的代码块，设置默认文字颜色以确保可读性 */
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 14px;
   line-height: 1.6;
@@ -1406,6 +1393,13 @@ html {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 14px;
   line-height: 1.6;
+  /* 对于没有高亮的代码块，确保有默认颜色 */
+  color: #d4d4d4;
+}
+
+/* 对于没有hljs类的代码块，确保文字颜色可见 */
+.message-text :deep(pre code:not(.hljs)) {
+  color: #d4d4d4;
 }
 
 /* 确保highlight.js的样式能够正确应用 */

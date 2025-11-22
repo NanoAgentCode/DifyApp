@@ -102,6 +102,12 @@ const routes = [
         meta: {requiresAuth: true},
         children: [
             {
+                path: 'chat',
+                name: 'UserChat',
+                component: () => import('@/views/user/Chat.vue'),
+                meta: {title: '智能问答', requiresAuth: true}
+            },
+            {
                 path: 'apps',
                 name: 'UserAppList',
                 component: () => import('@/views/user/AppList.vue'),
