@@ -2,6 +2,13 @@
   <el-container class="admin-layout">
     <el-header class="header">
       <div class="header-left">
+        <el-button
+          text
+          @click="toggleCollapse"
+          class="collapse-btn"
+        >
+          <el-icon><Fold v-if="!isCollapse" /><Expand v-else /></el-icon>
+        </el-button>
         <h2>Dify应用管理平台</h2>
       </div>
       <div class="header-right">
@@ -21,9 +28,10 @@
       </div>
     </el-header>
     <el-container>
-      <el-aside width="200px" class="aside">
+      <el-aside :width="isCollapse ? '64px' : '200px'" class="aside">
         <el-menu
           :default-active="activeMenu"
+          :collapse="isCollapse"
           router
           class="menu"
         >
@@ -67,7 +75,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { List, User, ArrowDown, Folder, ChatLineRound } from '@element-plus/icons-vue'
+import { List, User, ArrowDown, Folder, ChatLineRound, Fold, Expand } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 
 const route = useRoute()
@@ -80,7 +88,23 @@ const userInfo = ref(null)
 const isAdmin = computed(() => userInfo.value && userInfo.value.role === 1)
 const showChangePasswordDialog = ref(false)
 
+// 导航菜单收缩状态
+const isCollapse = ref(false)
+
+// 切换收缩状态
+const toggleCollapse = () => {
+  isCollapse.value = !isCollapse.value
+  // 保存状态到本地存储
+  localStorage.setItem('adminMenuCollapse', String(isCollapse.value))
+}
+
+// 从本地存储恢复收缩状态
 onMounted(() => {
+  const savedCollapse = localStorage.getItem('adminMenuCollapse')
+  if (savedCollapse !== null) {
+    isCollapse.value = savedCollapse === 'true'
+  }
+  
   const userInfoStr = localStorage.getItem('userInfo')
   if (userInfoStr) {
     try {
@@ -90,6 +114,7 @@ onMounted(() => {
     }
   }
 })
+
 
 const handleMenuClick = (path) => {
   router.push(path).catch(err => {
@@ -153,9 +178,25 @@ const handlePasswordChangeSuccess = () => {
   height: 60px;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .header-left h2 {
   margin: 0;
   font-size: 20px;
+}
+
+.collapse-btn {
+  color: white;
+  font-size: 18px;
+  padding: 8px;
+}
+
+.collapse-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .header-right {
@@ -184,10 +225,12 @@ const handlePasswordChangeSuccess = () => {
   border-right: 1px solid #e4e7ed;
   overflow-y: auto;
   overflow-x: hidden;
+  transition: width 0.3s;
 }
 
 .menu {
   border-right: none;
+  height: 100%;
 }
 
 .main {
