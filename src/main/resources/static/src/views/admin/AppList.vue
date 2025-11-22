@@ -48,7 +48,15 @@
         </el-select>
       </div>
 
-      <el-table :data="appList" v-loading="loading" stripe>
+      <div class="table-container">
+        <el-table 
+          :data="appList" 
+          v-loading="loading" 
+          stripe
+          :lazy="false"
+          :row-key="row => row.id"
+          :default-sort="{ prop: 'createTime', order: 'descending' }"
+        >
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column label="图标" width="80" align="center">
           <template #default="{ row }">
@@ -90,14 +98,15 @@
             <el-button size="small" type="danger" @click="handleDelete(row.id)">删除</el-button>
           </template>
         </el-table-column>
-      </el-table>
+        </el-table>
+      </div>
       
       <!-- 分页 -->
       <div class="pagination">
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50, 100]"
+          :page-sizes="[10, 20, 50, 100, 200]"
           :total="total"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
@@ -109,7 +118,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
@@ -123,8 +132,9 @@ const searchKeyword = ref('')
 const filterType = ref('')
 const filterStatus = ref('')
 const currentPage = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(20) // 默认每页20条，提升性能
 const total = ref(0)
+let searchTimer = null // 搜索防抖定时器
 
 const fetchAppList = async () => {
   loading.value = true
@@ -202,9 +212,17 @@ const truncateName = (name) => {
   return name.substring(0, 10) + '...'
 }
 
+// 搜索防抖处理
 const handleSearch = () => {
-  currentPage.value = 1
-  fetchAppList()
+  // 清除之前的定时器
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+  // 设置新的定时器，500ms后执行搜索
+  searchTimer = setTimeout(() => {
+    currentPage.value = 1
+    fetchAppList()
+  }, 500)
 }
 
 const handleFilter = () => {
@@ -226,11 +244,44 @@ const handlePageChange = (page) => {
 onMounted(() => {
   fetchAppList()
 })
+
+// 组件卸载时清理定时器
+onBeforeUnmount(() => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+})
 </script>
 
 <style scoped>
 .app-list {
   width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:deep(.el-card) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: 0;
+}
+
+:deep(.el-card__header) {
+  flex-shrink: 0;
+  padding: 18px 20px;
+}
+
+:deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px;
+  min-height: 0;
 }
 
 .card-header {
@@ -243,12 +294,21 @@ onMounted(() => {
   display: flex;
   align-items: center;
   margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.table-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .pagination {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 /* 减少应用名称和描述列之间的间距 */

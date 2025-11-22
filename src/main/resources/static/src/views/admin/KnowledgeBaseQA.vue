@@ -220,17 +220,83 @@ import 'highlight.js/styles/github-dark.css'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 
-// 配置 marked（在组件初始化时配置一次即可）
+// 主流开发语言别名映射
+const languageAliases = {
+  'js': 'javascript',
+  'ts': 'typescript',
+  'py': 'python',
+  'rb': 'ruby',
+  'sh': 'bash',
+  'yml': 'yaml',
+  'md': 'markdown',
+  'json': 'json',
+  'xml': 'xml',
+  'html': 'html',
+  'css': 'css',
+  'scss': 'scss',
+  'less': 'less',
+  'vue': 'vue',
+  'react': 'jsx',
+  'jsx': 'jsx',
+  'tsx': 'tsx',
+  'go': 'go',
+  'java': 'java',
+  'c': 'c',
+  'cpp': 'cpp',
+  'cs': 'csharp',
+  'php': 'php',
+  'swift': 'swift',
+  'kt': 'kotlin',
+  'rs': 'rust',
+  'sql': 'sql',
+  'dockerfile': 'dockerfile',
+  'yaml': 'yaml'
+}
+
+// 规范化语言标识符
+const normalizeLanguage = (lang) => {
+  if (!lang) return null
+  const normalized = lang.toLowerCase().trim()
+  return languageAliases[normalized] || normalized
+}
+
+// 配置 marked - 使用更可靠的代码高亮方式
 marked.setOptions({
   highlight: function(code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
+    if (!code) return ''
+    
+    // 规范化语言标识符
+    const normalizedLang = normalizeLanguage(lang)
+    
+    try {
+      let result
+      
+      // 如果指定了语言且支持，使用指定语言高亮
+      if (normalizedLang && hljs.getLanguage(normalizedLang)) {
+        try {
+          const highlighted = hljs.highlight(code, { language: normalizedLang })
+          result = highlighted.value
+        } catch (err) {
+          console.warn('代码高亮失败', err, '语言:', normalizedLang)
+          // 如果指定语言失败，尝试自动检测
+          result = hljs.highlightAuto(code).value
+        }
+      } else {
+        // 自动检测语言
+        const autoResult = hljs.highlightAuto(code, ['javascript', 'typescript', 'python', 'java', 'go', 'rust', 'cpp', 'c', 'csharp', 'php', 'ruby', 'swift', 'kotlin', 'sql', 'html', 'css', 'json', 'xml', 'yaml', 'bash', 'shell'])
+        result = autoResult.value
+      }
+      
+      return result
+    } catch (err) {
+      console.error('代码高亮异常', err)
       try {
-        return hljs.highlight(code, { language: lang }).value
-      } catch (err) {
-        console.warn('代码高亮失败', err)
+        return hljs.highlightAuto(code).value
+      } catch (fallbackErr) {
+        console.error('代码高亮降级失败', fallbackErr)
+        return code
       }
     }
-    return hljs.highlightAuto(code).value
   },
   breaks: true, // 支持换行
   gfm: true, // 启用 GitHub Flavored Markdown
@@ -471,6 +537,11 @@ const handleNormalResponse = async (userQuestion, history) => {
       time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
       sources: res.data.sources || []
     })
+    
+    // 触发代码高亮
+    await nextTick()
+    highlightCodeBlocks()
+    scrollToBottom()
   } else {
     throw new Error('API返回数据格式错误')
   }
@@ -545,20 +616,22 @@ const handleStreamResponse = async (userQuestion, history) => {
           try {
             const json = JSON.parse(data)
             
-            // 更新答案内容（后端已经累积，直接使用）
-            if (json.answer !== undefined && json.answer !== null) {
-              // 后端使用scan操作符累积答案，所以每次返回的都是完整的累积答案
-              fullAnswer = json.answer
-              // 清除加载状态，显示实际内容
-              if (chatHistory.value[aiMessageIndex].isLoading) {
-                chatHistory.value[aiMessageIndex].isLoading = false
+              // 更新答案内容（后端已经累积，直接使用）
+              if (json.answer !== undefined && json.answer !== null) {
+                // 后端使用scan操作符累积答案，所以每次返回的都是完整的累积答案
+                fullAnswer = json.answer
+                // 清除加载状态，显示实际内容
+                if (chatHistory.value[aiMessageIndex].isLoading) {
+                  chatHistory.value[aiMessageIndex].isLoading = false
+                }
+                chatHistory.value[aiMessageIndex].content = fullAnswer
+                
+                // 实时滚动
+                await nextTick()
+                // 手动触发代码高亮（确保流式响应中的代码块被正确高亮）
+                highlightCodeBlocks()
+                scrollToBottom()
               }
-              chatHistory.value[aiMessageIndex].content = fullAnswer
-              
-              // 实时滚动
-              await nextTick()
-              scrollToBottom()
-            }
 
             // 更新来源文档（通常在最后一条消息中）
             if (json.sources && json.sources.length > 0) {
@@ -594,17 +667,45 @@ const handleStreamResponse = async (userQuestion, history) => {
   }
 }
 
-// 渲染数学公式（支持行内公式 $...$ 和块级公式 $$...$$）
+// 渲染数学公式（支持行内公式 $...$、块级公式 $$...$$ 和 [ ... ] 格式）
 const renderMath = (html) => {
   if (!html) return ''
   
   try {
-    // 先标记块级公式 $$...$$，避免被行内公式匹配
+    // 先标记块级公式，避免被行内公式匹配
     const blockPlaceholder = '___KATEX_BLOCK_PLACEHOLDER___'
     const blockMatches = []
+    
+    // 处理块级公式 $$...$$
     html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
       blockMatches.push({ original: match, formula: formula.trim() })
       return blockPlaceholder + (blockMatches.length - 1) + blockPlaceholder
+    })
+    
+    // 处理块级公式 [...]
+    // 使用更智能的匹配：找到所有 [ ... ] 对，检查是否包含 LaTeX 命令
+    // 由于公式可能包含嵌套括号，我们需要更仔细地匹配
+    
+    // 先处理独立成行的公式（前后有换行）
+    html = html.replace(/(?:^|\n)\s*\[([\s\S]*?)\]\s*(?:\n|$)/g, (match, formula) => {
+      // 检查是否包含 LaTeX 命令
+      if (/\\[a-zA-Z]+/.test(formula)) {
+        blockMatches.push({ original: match.trim(), formula: formula.trim() })
+        return '\n' + blockPlaceholder + (blockMatches.length - 1) + blockPlaceholder + '\n'
+      }
+      return match
+    })
+    
+    // 处理行内的 [ ... ] 格式（如果包含 LaTeX 命令且未被处理）
+    html = html.replace(/\[([\s\S]*?)\]/g, (match, formula) => {
+      // 如果已经被处理过（包含占位符），跳过
+      if (match.includes(blockPlaceholder)) return match
+      // 检查是否包含 LaTeX 命令
+      if (/\\[a-zA-Z]+/.test(formula)) {
+        blockMatches.push({ original: match, formula: formula.trim() })
+        return blockPlaceholder + (blockMatches.length - 1) + blockPlaceholder
+      }
+      return match
     })
     
     // 处理行内公式 $...$（不包含换行符，支持方括号等特殊字符）
@@ -651,15 +752,222 @@ const renderMarkdown = (content) => {
   if (!content) return ''
   
   try {
-    // 先渲染 Markdown
+    // 先预处理公式，在 Markdown 渲染之前标记公式
+    // 使用不会被 Markdown 解析器改变的占位符格式
+    const formulaPlaceholderPrefix = 'KATEX_FORMULA_'
+    const formulaPlaceholderSuffix = '_KATEX_END'
+    const formulaMatches = []
+    
+    // 标记块级公式 $$...$$
+    content = content.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
+      const index = formulaMatches.length
+      formulaMatches.push({ type: 'block', original: match, formula: formula.trim() })
+      return formulaPlaceholderPrefix + index + formulaPlaceholderSuffix
+    })
+    
+    // 标记块级公式 [...]（独立成行）
+    content = content.replace(/(?:^|\n)\s*\[([\s\S]*?)\]\s*(?:\n|$)/g, (match, formula) => {
+      // 检查是否包含 LaTeX 命令
+      if (/\\[a-zA-Z]+/.test(formula)) {
+        const index = formulaMatches.length
+        formulaMatches.push({ type: 'block', original: match.trim(), formula: formula.trim() })
+        return '\n' + formulaPlaceholderPrefix + index + formulaPlaceholderSuffix + '\n'
+      }
+      return match
+    })
+    
+    // 标记行内公式 $...$
+    content = content.replace(/\$([^$\n]+?)\$/g, (match, formula) => {
+      // 如果已经被处理过，跳过
+      if (match.includes(formulaPlaceholderPrefix)) return match
+      const index = formulaMatches.length
+      formulaMatches.push({ type: 'inline', original: match, formula: formula.trim() })
+      return formulaPlaceholderPrefix + index + formulaPlaceholderSuffix
+    })
+    
+    // 标记行内的 [ ... ] 格式公式
+    content = content.replace(/\[([\s\S]*?)\]/g, (match, formula) => {
+      // 如果已经被处理过，跳过
+      if (match.includes(formulaPlaceholderPrefix)) return match
+      // 检查是否包含 LaTeX 命令
+      if (/\\[a-zA-Z]+/.test(formula)) {
+        const index = formulaMatches.length
+        formulaMatches.push({ type: 'block', original: match, formula: formula.trim() })
+        return formulaPlaceholderPrefix + index + formulaPlaceholderSuffix
+      }
+      return match
+    })
+    
+    // 渲染 Markdown（包含代码高亮）
     let html = marked.parse(content)
-    // 再渲染数学公式
-    html = renderMath(html)
+    
+    // 检查是否有公式占位符被误识别为代码块，如果是则恢复
+    // 这种情况可能发生在公式格式被 Markdown 解析器识别为代码块时
+    html = html.replace(/<pre><code[^>]*>([\s\S]*?)(KATEX_FORMULA_\d+_KATEX_END)([\s\S]*?)<\/code><\/pre>/g, (match, before, placeholder, after) => {
+      // 如果代码块中包含公式占位符，说明公式被误识别为代码块
+      // 移除代码块标签，保留占位符
+      return (before || '') + placeholder + (after || '')
+    })
+    
+    // 确保代码块有正确的类名（hljs）
+    html = html.replace(/<pre><code(?!\s+class)/g, '<pre><code class="hljs"')
+    html = html.replace(/<pre><code class="language-(\w+)(?!.*hljs)"/g, '<pre><code class="hljs language-$1"')
+    html = html.replace(/<pre><code class="([^"]*)"(?!.*hljs)/g, (match, classes) => {
+      if (classes && !classes.includes('hljs')) {
+        return `<pre><code class="hljs ${classes}"`
+      }
+      return match
+    })
+    
+    // 恢复并渲染公式（使用全局替换，确保所有匹配都被替换）
+    formulaMatches.forEach((formulaMatch, index) => {
+      // 构建占位符的正则表达式，支持可能的 HTML 转义
+      const placeholderRegex = new RegExp(
+        formulaPlaceholderPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + 
+        index + 
+        formulaPlaceholderSuffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+        'g'
+      )
+      
+      try {
+        if (formulaMatch.formula) {
+          const rendered = katex.renderToString(formulaMatch.formula, {
+            displayMode: formulaMatch.type === 'block',
+            throwOnError: false
+          })
+          // 如果是块级公式，包装在 div 中以便正确显示
+          const finalRendered = formulaMatch.type === 'block' 
+            ? `<div class="katex-formula-block">${rendered}</div>` 
+            : rendered
+          html = html.replace(placeholderRegex, finalRendered)
+        } else {
+          html = html.replace(placeholderRegex, formulaMatch.original)
+        }
+      } catch (e) {
+        console.warn('KaTeX 渲染失败:', e, '公式:', formulaMatch.formula)
+        html = html.replace(placeholderRegex, formulaMatch.original)
+      }
+    })
+    
+    // 处理可能遗留的占位符（如果公式没有被识别，但占位符已经存在）
+    // 这种情况可能发生在流式响应中，公式内容还没有完全接收，或者后端直接返回了占位符
+    // 先尝试从占位符中提取索引，看看是否有对应的公式
+    html = html.replace(/<!--KATEX_FORMULA_(\d+)-->/g, (match, indexStr) => {
+      const index = parseInt(indexStr)
+      // 检查是否有对应的公式
+      if (formulaMatches[index]) {
+        // 如果有对应的公式，尝试渲染它
+        const formulaMatch = formulaMatches[index]
+        try {
+          if (formulaMatch.formula) {
+            const rendered = katex.renderToString(formulaMatch.formula, {
+              displayMode: formulaMatch.type === 'block',
+              throwOnError: false
+            })
+            const finalRendered = formulaMatch.type === 'block' 
+              ? `<div class="katex-formula-block">${rendered}</div>` 
+              : rendered
+            return finalRendered
+          }
+        } catch (e) {
+          console.warn('渲染遗留占位符公式失败:', e, '公式:', formulaMatch.formula)
+        }
+      }
+      // 如果没有对应的公式，返回空字符串，避免显示占位符
+      console.warn('发现未处理的公式占位符，但没有对应的公式内容:', match)
+      return ''
+    })
+    
+    // 也处理旧格式的占位符（KATEX_FORMULA_X_KATEX_END）
+    html = html.replace(/KATEX_FORMULA_(\d+)_KATEX_END/g, (match, indexStr) => {
+      const index = parseInt(indexStr)
+      // 检查是否有对应的公式
+      if (formulaMatches[index]) {
+        const formulaMatch = formulaMatches[index]
+        try {
+          if (formulaMatch.formula) {
+            const rendered = katex.renderToString(formulaMatch.formula, {
+              displayMode: formulaMatch.type === 'block',
+              throwOnError: false
+            })
+            const finalRendered = formulaMatch.type === 'block' 
+              ? `<div class="katex-formula-block">${rendered}</div>` 
+              : rendered
+            return finalRendered
+          }
+        } catch (e) {
+          console.warn('渲染遗留占位符公式失败:', e, '公式:', formulaMatch.formula)
+        }
+      }
+      console.warn('发现未处理的旧格式公式占位符，但没有对应的公式内容:', match)
+      return ''
+    })
+    
     return html
   } catch (error) {
     console.error('Markdown渲染失败', error)
     return content
   }
+}
+
+// 手动触发代码高亮（用于流式响应中逐步生成的代码块）
+const highlightCodeBlocks = () => {
+  nextTick(() => {
+    if (chatHistoryRef.value) {
+      // 查找所有代码块（包括没有hljs类的）
+      const codeBlocks = chatHistoryRef.value.querySelectorAll('pre code')
+      
+      codeBlocks.forEach((block, index) => {
+        try {
+          // 检查是否是公式（包含 KaTeX 相关元素或公式占位符）
+          const isFormula = block.closest('.katex') || 
+                           block.closest('.katex-formula-block') ||
+                           block.textContent.includes('KATEX_FORMULA_') ||
+                           block.textContent.includes('<!--KATEX_FORMULA_') ||
+                           block.parentElement?.classList.contains('katex-formula-block')
+          
+          if (isFormula) {
+            console.debug(`代码块 ${index} 是公式，跳过代码高亮`)
+            return
+          }
+          
+          const originalText = block.textContent
+          // 如果代码块没有hljs类，或者内容已更新，重新高亮
+          const needsHighlight = !block.classList.contains('hljs') || 
+                                block.dataset.highlighted !== 'true' ||
+                                block.dataset.originalText !== originalText
+          
+          if (needsHighlight && originalText.trim()) {
+            // 获取语言标识符（从class或父元素）
+            let lang = block.className.match(/language-(\w+)/)?.[1] || 
+                      block.parentElement?.className.match(/language-(\w+)/)?.[1] ||
+                      block.getAttribute('data-lang')
+            
+            // 规范化语言标识符
+            const normalizedLang = lang ? normalizeLanguage(lang) : null
+            
+            let highlightedHtml
+            if (normalizedLang && hljs.getLanguage(normalizedLang)) {
+              // 使用指定语言高亮
+              highlightedHtml = hljs.highlight(originalText, { language: normalizedLang }).value
+            } else {
+              // 自动检测语言
+              const result = hljs.highlightAuto(originalText, ['javascript', 'typescript', 'python', 'java', 'go', 'rust', 'cpp', 'c', 'csharp', 'php', 'ruby', 'swift', 'kotlin', 'sql', 'html', 'css', 'json', 'xml', 'yaml', 'bash', 'shell'])
+              highlightedHtml = result.value
+            }
+            
+            // 更新HTML并添加类名
+            block.innerHTML = highlightedHtml
+            block.classList.add('hljs')
+            block.dataset.highlighted = 'true'
+            block.dataset.originalText = originalText
+          }
+        } catch (err) {
+          console.warn('手动高亮代码块失败', err, block)
+        }
+      })
+    }
+  })
 }
 
 const handleClearHistory = () => {
@@ -1079,7 +1387,30 @@ html {
 .message-text :deep(pre code) {
   background: transparent;
   padding: 0;
+  /* 重要：不要设置color，否则会覆盖highlight.js的颜色 */
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  display: block;
+  width: 100%;
 }
+
+/* 确保代码高亮正常工作 */
+.message-text :deep(pre code.hljs) {
+  display: block;
+  overflow-x: auto;
+  padding: 0;
+  background: transparent;
+  /* 关键：不设置color，让highlight.js的github-dark主题自己处理所有颜色 */
+  /* 如果设置了color，会覆盖highlight.js的关键字颜色 */
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* 确保highlight.js的样式能够正确应用 */
+/* github-dark主题已经包含了所有关键字、字符串、注释等的颜色样式 */
+/* 不要在这里覆盖任何颜色相关的样式 */
 
 .message-text :deep(ul),
 .message-text :deep(ol) {

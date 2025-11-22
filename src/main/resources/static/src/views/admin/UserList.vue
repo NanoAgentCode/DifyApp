@@ -56,11 +56,25 @@
       >
         <el-table-column prop="id" label="ID" width="70" align="center" />
         <el-table-column prop="username" label="用户名" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="role" label="角色" min-width="120" align="center">
+          <template #default="scope">
+            <el-select
+              v-model="scope.row.role"
+              size="small"
+              :disabled="isSuperAdmin(scope.row)"
+              @change="handleRoleChange(scope.row)"
+            >
+              <el-option label="管理员" :value="1" />
+              <el-option label="普通用户" :value="2" />
+            </el-select>
+          </template>
+        </el-table-column>
         <el-table-column label="应用管理" min-width="130" align="center">
           <template #default="{ row }">
             <el-dropdown 
               trigger="click" 
-              placement="bottom-start"
+              placement="auto-start"
+              :popper-options="{ strategy: 'fixed', modifiers: [{ name: 'preventOverflow', options: { boundary: 'viewport', padding: 10 } }] }"
               @visible-change="handleAppDropdownVisibleChange(row, $event)"
             >
               <el-button type="primary" size="small" :loading="row.loadingApps" plain>
@@ -81,7 +95,7 @@
                   </div>
                   <div v-loading="row.loadingApps" class="app-dropdown-content">
                     <div
-                      v-for="app in row.appVisibilities"
+                      v-for="app in getPaginatedApps(row)"
                       :key="app.appId"
                       class="app-dropdown-item"
                     >
@@ -109,6 +123,15 @@
                       <span>暂无应用</span>
                     </div>
                   </div>
+                  <div v-if="row.appVisibilities && row.appVisibilities.length > 10" class="app-dropdown-pagination">
+                    <el-pagination
+                      v-model:current-page="row.appPage"
+                      :page-size="10"
+                      :total="row.appVisibilities.length"
+                      layout="prev, pager, next"
+                      small
+                    />
+                  </div>
                 </div>
               </template>
             </el-dropdown>
@@ -118,7 +141,8 @@
           <template #default="{ row }">
             <el-dropdown 
               trigger="click" 
-              placement="bottom-start"
+              placement="auto-start"
+              :popper-options="{ strategy: 'fixed', modifiers: [{ name: 'preventOverflow', options: { boundary: 'viewport', padding: 10 } }] }"
               @visible-change="handleKbDropdownVisibleChange(row, $event)"
             >
               <el-button type="success" size="small" :loading="row.loadingKbs" plain>
@@ -139,7 +163,7 @@
                   </div>
                   <div v-loading="row.loadingKbs" class="app-dropdown-content">
                     <div
-                      v-for="kb in row.kbVisibilities"
+                      v-for="kb in getPaginatedKbs(row)"
                       :key="kb.knowledgeBaseId"
                       class="app-dropdown-item"
                     >
@@ -167,30 +191,29 @@
                       <span>暂无知识库</span>
                     </div>
                   </div>
+                  <div v-if="row.kbVisibilities && row.kbVisibilities.length > 10" class="app-dropdown-pagination">
+                    <el-pagination
+                      v-model:current-page="row.kbPage"
+                      :page-size="10"
+                      :total="row.kbVisibilities.length"
+                      layout="prev, pager, next"
+                      small
+                    />
+                  </div>
                 </div>
               </template>
             </el-dropdown>
           </template>
         </el-table-column>
-        <el-table-column prop="role" label="角色" min-width="120" align="center">
-          <template #default="scope">
-            <el-select
-              v-model="scope.row.role"
-              size="small"
-              :disabled="isSuperAdmin(scope.row)"
-              @change="handleRoleChange(scope.row)"
-              style="width: 100px"
-            >
-              <el-option label="管理员" :value="1" />
-              <el-option label="普通用户" :value="2" />
-            </el-select>
-          </template>
-        </el-table-column>
         <el-table-column prop="status" label="状态" min-width="100" align="center">
           <template #default="scope">
-            <el-tag v-if="scope.row.status === 0" type="warning" size="small">待审核</el-tag>
-            <el-tag v-else-if="scope.row.status === 1" type="success" size="small">已激活</el-tag>
-            <el-tag v-else type="danger" size="small">已禁用</el-tag>
+            <el-tooltip :content="getStatusText(scope.row.status)" placement="top">
+              <el-icon :size="20" :color="getStatusColor(scope.row.status)">
+                <Check v-if="scope.row.status === 1" />
+                <Close v-else-if="scope.row.status === 2" />
+                <Clock v-else-if="scope.row.status === 0" />
+              </el-icon>
+            </el-tooltip>
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" min-width="180" align="center">
@@ -268,7 +291,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, InfoFilled, Search } from '@element-plus/icons-vue'
+import { ArrowDown, InfoFilled, Search, Check, Close, Clock } from '@element-plus/icons-vue'
 import { getUserList, approveUser, disableUser, getUserAppVisibilities, updateUserAppVisibility, getUserKnowledgeBaseVisibilities, updateUserKnowledgeBaseVisibility, updateUserRole } from '@/api/user'
 import ResetPasswordDialog from '@/components/ResetPasswordDialog.vue'
 
@@ -316,8 +339,10 @@ const loadUsers = async () => {
     userList.value.forEach(user => {
       user.appVisibilities = []
       user.loadingApps = false
+      user.appPage = 1 // 初始化应用分页
       user.kbVisibilities = []
       user.loadingKbs = false
+      user.kbPage = 1 // 初始化知识库分页
     })
   } catch (error) {
     ElMessage.error(error.response?.data?.error || error.message || '获取用户列表失败')
@@ -393,6 +418,10 @@ const loadUserAppVisibilities = async (user) => {
 }
 
 const handleAppDropdownVisibleChange = async (user, visible) => {
+  // 重置分页
+  if (visible) {
+    user.appPage = 1
+  }
   // 当下拉菜单打开时，如果应用列表未加载，则加载
   if (visible && (!user.appVisibilities || user.appVisibilities.length === 0)) {
     await loadUserAppVisibilities(user)
@@ -400,6 +429,10 @@ const handleAppDropdownVisibleChange = async (user, visible) => {
 }
 
 const handleKbDropdownVisibleChange = async (user, visible) => {
+  // 重置分页
+  if (visible) {
+    user.kbPage = 1
+  }
   // 当下拉菜单打开时，如果知识库列表未加载，则加载
   if (visible && (!user.kbVisibilities || user.kbVisibilities.length === 0)) {
     await loadUserKnowledgeBaseVisibilities(user)
@@ -513,6 +546,42 @@ const getKbVisibleCount = (kbVisibilities) => {
   return kbVisibilities.filter(kb => kb.visible).length
 }
 
+// 获取分页后的应用列表
+const getPaginatedApps = (row) => {
+  if (!row.appVisibilities || row.appVisibilities.length === 0) return []
+  const page = row.appPage || 1
+  const pageSize = 10
+  const start = (page - 1) * pageSize
+  const end = start + pageSize
+  return row.appVisibilities.slice(start, end)
+}
+
+// 获取分页后的知识库列表
+const getPaginatedKbs = (row) => {
+  if (!row.kbVisibilities || row.kbVisibilities.length === 0) return []
+  const page = row.kbPage || 1
+  const pageSize = 10
+  const start = (page - 1) * pageSize
+  const end = start + pageSize
+  return row.kbVisibilities.slice(start, end)
+}
+
+// 获取状态文本
+const getStatusText = (status) => {
+  if (status === 0) return '待审核'
+  if (status === 1) return '已激活'
+  if (status === 2) return '已禁用'
+  return '未知'
+}
+
+// 获取状态颜色
+const getStatusColor = (status) => {
+  if (status === 0) return '#e6a23c' // 橙色 - 待审核
+  if (status === 1) return '#67c23a' // 绿色 - 已激活
+  if (status === 2) return '#f56c6c' // 红色 - 已禁用
+  return '#909399' // 灰色 - 未知
+}
+
 const formatDate = (date) => {
   if (!date) return ''
   const d = new Date(date)
@@ -590,8 +659,36 @@ onMounted(() => {
 
 .app-dropdown-content {
   padding: 4px 0;
-  max-height: 400px;
+  min-height: 484px; /* 固定最小高度：10个项目(440px) + 提示信息高度(约44px) */
+  max-height: calc(100vh - 250px); /* 动态计算最大高度，确保不超出视口，为分页留出空间 */
   overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.app-dropdown-pagination {
+  padding: 8px 16px;
+  border-top: 1px solid #e4e7ed;
+  display: flex;
+  justify-content: center;
+  background: #fafafa;
+}
+
+.app-dropdown-pagination :deep(.el-pagination) {
+  justify-content: center;
+}
+
+.app-dropdown-pagination :deep(.el-pagination .el-pager li) {
+  min-width: 28px;
+  height: 28px;
+  line-height: 28px;
+  font-size: 12px;
+}
+
+.app-dropdown-pagination :deep(.el-pagination .btn-prev),
+.app-dropdown-pagination :deep(.el-pagination .btn-next) {
+  width: 28px;
+  height: 28px;
+  line-height: 28px;
 }
 
 .app-dropdown-item {
@@ -638,6 +735,32 @@ onMounted(() => {
   text-align: center;
   color: #909399;
   font-size: 13px;
+}
+
+.app-dropdown-pagination {
+  padding: 8px 16px;
+  border-top: 1px solid #e4e7ed;
+  display: flex;
+  justify-content: center;
+  background: #fafafa;
+}
+
+.app-dropdown-pagination :deep(.el-pagination) {
+  justify-content: center;
+}
+
+.app-dropdown-pagination :deep(.el-pagination .el-pager li) {
+  min-width: 28px;
+  height: 28px;
+  line-height: 28px;
+  font-size: 12px;
+}
+
+.app-dropdown-pagination :deep(.el-pagination .btn-prev),
+.app-dropdown-pagination :deep(.el-pagination .btn-next) {
+  width: 28px;
+  height: 28px;
+  line-height: 28px;
 }
 
 .admin-tip {

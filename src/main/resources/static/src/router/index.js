@@ -35,6 +35,12 @@ const routes = [
         meta: {requiresAuth: true},
         children: [
             {
+                path: 'chat',
+                name: 'Chat',
+                component: () => import('@/views/admin/Chat.vue'),
+                meta: {title: '智能问答', requiresAuth: true}
+            },
+            {
                 path: 'apps',
                 name: 'AppList',
                 component: () => import('@/views/admin/AppList.vue'),

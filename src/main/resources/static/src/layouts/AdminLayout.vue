@@ -27,6 +27,10 @@
           router
           class="menu"
         >
+          <el-menu-item index="/admin/chat">
+            <el-icon><ChatLineRound /></el-icon>
+            <span>智能问答</span>
+          </el-menu-item>
           <el-menu-item index="/admin/apps">
             <el-icon><List /></el-icon>
             <span>应用列表</span>
@@ -46,7 +50,9 @@
         </el-menu>
       </el-aside>
       <el-main class="main">
-        <router-view />
+        <div class="main-content">
+          <router-view />
+        </div>
       </el-main>
     </el-container>
     
@@ -129,9 +135,11 @@ const handlePasswordChangeSuccess = () => {
 }
 </script>
 
+
 <style scoped>
 .admin-layout {
   height: 100vh;
+  overflow: hidden;
 }
 
 .header {
@@ -141,6 +149,8 @@ const handlePasswordChangeSuccess = () => {
   background: #409eff;
   color: white;
   padding: 0 20px;
+  flex-shrink: 0;
+  height: 60px;
 }
 
 .header-left h2 {
@@ -172,6 +182,8 @@ const handlePasswordChangeSuccess = () => {
 .aside {
   background: #fff;
   border-right: 1px solid #e4e7ed;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .menu {
@@ -181,6 +193,18 @@ const handlePasswordChangeSuccess = () => {
 .main {
   background: #f5f7fa;
   padding: 20px;
+  overflow: hidden;
+  height: calc(100vh - 60px); /* 减去header高度 */
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 </style>
 

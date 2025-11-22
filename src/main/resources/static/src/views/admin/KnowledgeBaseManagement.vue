@@ -38,12 +38,15 @@
       </div>
 
       <!-- 知识库列表 -->
-      <el-table
-        :data="knowledgeBases"
-        v-loading="loading"
-        stripe
-        style="margin-top: 20px"
-      >
+      <div class="table-container">
+        <el-table
+          :data="knowledgeBases"
+          v-loading="loading"
+          stripe
+          :lazy="false"
+          :row-key="row => row.id"
+          :default-sort="{ prop: 'createTime', order: 'descending' }"
+        >
         <el-table-column prop="id" label="ID" width="80" align="center" />
         <el-table-column label="知识库名称" min-width="200">
           <template #default="{ row }">
@@ -116,14 +119,15 @@
                 </div>
               </template>
             </el-table-column>
-      </el-table>
+        </el-table>
+      </div>
 
       <!-- 分页 -->
       <div class="pagination">
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50, 100]"
+          :page-sizes="[10, 20, 50, 100, 200]"
           :total="total"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
@@ -222,7 +226,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Unlock, Lock, Check, Close } from '@element-plus/icons-vue'
@@ -239,8 +243,9 @@ const loading = ref(false)
 const searchKeyword = ref('')
 const filterStatus = ref('')
 const currentPage = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(10) // 默认每页10条
 const total = ref(0)
+let searchTimer = null // 搜索防抖定时器
 const dialogVisible = ref(false)
 const viewDialogVisible = ref(false)
 const currentKB = ref(null)
@@ -349,9 +354,17 @@ const loadKnowledgeBases = async () => {
   }
 }
 
+// 搜索防抖处理
 const handleSearch = () => {
-  currentPage.value = 1
-  loadKnowledgeBases()
+  // 清除之前的定时器
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+  // 设置新的定时器，500ms后执行搜索
+  searchTimer = setTimeout(() => {
+    currentPage.value = 1
+    loadKnowledgeBases()
+  }, 500)
 }
 
 const handleFilter = () => {
@@ -533,6 +546,13 @@ const handlePageChange = (page) => {
   loadKnowledgeBases()
 }
 
+// 组件卸载时清理定时器
+onBeforeUnmount(() => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+})
+
 const formatDate = (date) => {
   if (!date) return ''
   if (typeof date === 'string') {
@@ -565,6 +585,32 @@ const formatDate = (date) => {
 <style scoped>
 .knowledge-base-management {
   padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:deep(.el-card) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: 0;
+}
+
+:deep(.el-card__header) {
+  flex-shrink: 0;
+  padding: 18px 20px;
+}
+
+:deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px;
+  min-height: 0;
 }
 
 .card-header {
@@ -577,6 +623,7 @@ const formatDate = (date) => {
   display: flex;
   align-items: center;
   margin-bottom: 20px;
+  flex-shrink: 0;
 }
 
 .kb-name-cell {
@@ -599,10 +646,18 @@ const formatDate = (date) => {
   padding-left: 8px;
 }
 
+.table-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .pagination {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .doc-management {
