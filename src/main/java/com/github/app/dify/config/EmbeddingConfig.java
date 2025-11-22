@@ -15,6 +15,11 @@ public class EmbeddingConfig {
     private String model = "text-embedding-ada-002";
     private int timeout = 30000;
     private int batchSize = 100;
+    /**
+     * 提供商类型：openai（默认，兼容 OpenAI API，包括 SiliconFlow、VLLM 等）、ollama
+     * 默认值为 openai，保持向后兼容
+     */
+    private String provider = "openai";
     
     public String getApiUrl() {
         return apiUrl;
@@ -54,6 +59,14 @@ public class EmbeddingConfig {
     
     public void setBatchSize(int batchSize) {
         this.batchSize = batchSize;
+    }
+    
+    public String getProvider() {
+        return provider;
+    }
+    
+    public void setProvider(String provider) {
+        this.provider = provider;
     }
 }
 

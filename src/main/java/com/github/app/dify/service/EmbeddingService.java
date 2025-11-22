@@ -2,6 +2,7 @@ package com.github.app.dify.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.config.EmbeddingConfig;
+import com.github.app.dify.config.ProviderType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,20 +34,41 @@ public class EmbeddingService {
     
     private WebClient webClient;
     
+    /**
+     * 根据 provider 类型构建完整的 API URL
+     */
+    private String buildApiUrl() {
+        String apiUrl = embeddingConfig.getApiUrl();
+        ProviderType providerType = ProviderType.fromValue(embeddingConfig.getProvider());
+        
+        // 如果 URL 已经包含路径（包含 /api/ 或 /v1/），则直接使用
+        if (apiUrl.contains("/api/") || apiUrl.contains("/v1/")) {
+            return apiUrl;
+        }
+        
+        // 根据 provider 类型添加相应的路径
+        String path = providerType.getEmbeddingPath();
+        return apiUrl.endsWith("/") ? apiUrl + path.substring(1) : apiUrl + path;
+    }
+    
     private WebClient getWebClient() {
         if (webClient == null) {
+            String baseUrl = buildApiUrl();
             WebClient.Builder builder = WebClient.builder()
-                    .baseUrl(embeddingConfig.getApiUrl())
+                    .baseUrl(baseUrl)
                     .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                     // 增加缓冲区大小以支持大响应（默认256KB，增加到50MB以支持大批量向量化）
                     .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(50 * 1024 * 1024));
             
-            if (embeddingConfig.getApiKey() != null && !embeddingConfig.getApiKey().trim().isEmpty()) {
+            // 根据 provider 类型决定是否需要 API Key
+            ProviderType providerType = ProviderType.fromValue(embeddingConfig.getProvider());
+            if (providerType.requiresApiKey() && embeddingConfig.getApiKey() != null && !embeddingConfig.getApiKey().trim().isEmpty()) {
                 builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + embeddingConfig.getApiKey());
             }
             
             webClient = builder.build();
-            logger.info("EmbeddingService WebClient已创建，缓冲区大小: 50MB");
+            logger.info("EmbeddingService WebClient已创建，Provider: {}, URL: {}, 缓冲区大小: 50MB", 
+                    providerType.getValue(), baseUrl);
         }
         return webClient;
     }
@@ -80,7 +102,9 @@ public class EmbeddingService {
                 requestBody.put("model", embeddingConfig.getModel());
             }
             
-            logger.debug("调用向量化API - URL: {}, 文本数量: {}", embeddingConfig.getApiUrl(), texts.size());
+            String apiUrl = buildApiUrl();
+            logger.debug("调用向量化API - Provider: {}, URL: {}, 文本数量: {}", 
+                    embeddingConfig.getProvider(), apiUrl, texts.size());
             
             String response = getWebClient()
                     .post()

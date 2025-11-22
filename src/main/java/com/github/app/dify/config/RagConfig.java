@@ -17,6 +17,11 @@ public class RagConfig {
     private String llmApiUrl;
     private String llmApiKey;
     private String llmModel = "gpt-3.5-turbo"; // 默认模型
+    /**
+     * 提供商类型：openai（默认，兼容 OpenAI API，包括 SiliconFlow、VLLM 等）、ollama
+     * 默认值为 openai，保持向后兼容
+     */
+    private String provider = "openai";
     
     public int getChunkSize() {
         return chunkSize;
@@ -72,6 +77,14 @@ public class RagConfig {
     
     public void setLlmModel(String llmModel) {
         this.llmModel = llmModel;
+    }
+    
+    public String getProvider() {
+        return provider;
+    }
+    
+    public void setProvider(String provider) {
+        this.provider = provider;
     }
 }
 

@@ -956,20 +956,51 @@ qdrant:
 
 ### 向量化配置
 
+> 💡 **提示**：详细的配置模板请参考 `src/main/resources/application-provider-template.yml` 文件，其中包含了所有支持的 provider 类型的完整配置示例。
+
 在 `application.yml` 中配置向量化服务：
+
+**默认配置（OpenAI 兼容格式，包括 SiliconFlow、VLLM 等）：**
 
 ```yaml
 embedding:
-  api-url: https://api.siliconflow.cn/v1/embeddings
+  api-url: https://api.siliconflow.cn/v1/embeddings  # 或只配置基础URL: https://api.siliconflow.cn
   api-key: your-api-key
   model: Qwen/Qwen3-Embedding-8B
   timeout: 300000  # 5分钟超时，支持大文档向量化
   batch-size: 100
+  # provider: openai  # 默认值，可省略
+```
+
+**使用 Ollama：**
+
+```yaml
+embedding:
+  api-url: http://localhost:11434  # Ollama 服务地址（不包含路径）
+  api-key: # Ollama 不需要 API Key，可留空
+  model: nomic-embed-text  # Ollama 模型名称
+  timeout: 300000
+  batch-size: 100
+  provider: ollama  # 指定使用 Ollama
+```
+
+**使用 VLLM（兼容 OpenAI）：**
+
+```yaml
+embedding:
+  api-url: http://localhost:8000  # VLLM 服务地址（不包含路径）
+  api-key: # VLLM 通常不需要 API Key，除非启用了认证
+  model: Qwen/Qwen3-Embedding-8B
+  timeout: 300000
+  batch-size: 100
+  provider: openai  # 或省略，VLLM 兼容 OpenAI API
 ```
 
 ### RAG 配置
 
 在 `application.yml` 中配置 RAG：
+
+**默认配置（OpenAI 兼容格式，包括 SiliconFlow、VLLM 等）：**
 
 ```yaml
 rag:
@@ -977,9 +1008,38 @@ rag:
   chunk-overlap: 50             # 分块重叠大小
   top-k: 10                     # 检索数量
   similarity-threshold: 0.3     # 相似度阈值
-  llm-api-url: https://api.siliconflow.cn
+  llm-api-url: https://api.siliconflow.cn  # 或只配置基础URL
   llm-api-key: your-api-key
   llm-model: Qwen/Qwen2.5-72B-Instruct
+  # provider: openai  # 默认值，可省略
+```
+
+**使用 Ollama：**
+
+```yaml
+rag:
+  chunk-size: 500
+  chunk-overlap: 50
+  top-k: 10
+  similarity-threshold: 0.3
+  llm-api-url: http://localhost:11434  # Ollama 服务地址（不包含路径）
+  llm-api-key: # Ollama 不需要 API Key，可留空
+  llm-model: qwen2.5:72b  # Ollama 模型名称
+  provider: ollama  # 指定使用 Ollama
+```
+
+**使用 VLLM（兼容 OpenAI）：**
+
+```yaml
+rag:
+  chunk-size: 500
+  chunk-overlap: 50
+  top-k: 10
+  similarity-threshold: 0.3
+  llm-api-url: http://localhost:8000  # VLLM 服务地址（不包含路径）
+  llm-api-key: # VLLM 通常不需要 API Key，除非启用了认证
+  llm-model: Qwen/Qwen2.5-72B-Instruct
+  provider: openai  # 或省略，VLLM 兼容 OpenAI API
 ```
 
 ### Dify 配置

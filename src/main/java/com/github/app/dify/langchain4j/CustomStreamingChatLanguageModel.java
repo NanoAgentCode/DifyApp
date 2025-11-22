@@ -3,6 +3,7 @@ package com.github.app.dify.langchain4j;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.config.RagConfig;
+import com.github.app.dify.config.ProviderType;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -59,10 +60,10 @@ public class CustomStreamingChatLanguageModel {
             // 构建请求体
             Map<String, Object> requestBody = buildRequestBody(messages);
             
-            // 调用流式LLM API
+            // 调用流式LLM API（URL 已经在 baseUrl 中设置，这里不需要再添加路径）
             // 使用DataBuffer处理流式响应，然后按行分割
             Flux<String> responseFlux = client.post()
-                    .uri("/v1/chat/completions")
+                    .uri("")
                     .accept(MediaType.TEXT_EVENT_STREAM)  // 明确指定接受SSE格式
                     .bodyValue(requestBody)
                     .retrieve()
@@ -305,21 +306,44 @@ public class CustomStreamingChatLanguageModel {
     }
     
     /**
+     * 根据 provider 类型构建完整的 API URL
+     */
+    private String buildApiUrl() {
+        String apiUrl = ragConfig.getLlmApiUrl();
+        ProviderType providerType = ProviderType.fromValue(ragConfig.getProvider());
+        
+        // 如果 URL 已经包含路径（包含 /api/ 或 /v1/），则直接使用
+        if (apiUrl.contains("/api/") || apiUrl.contains("/v1/")) {
+            return apiUrl;
+        }
+        
+        // 根据 provider 类型添加相应的路径
+        String path = providerType.getChatPath();
+        return apiUrl.endsWith("/") ? apiUrl + path.substring(1) : apiUrl + path;
+    }
+    
+    /**
      * 获取LLM WebClient
      */
     private WebClient getLlmWebClient() {
         if (llmWebClient == null && ragConfig.getLlmApiUrl() != null) {
+            String baseUrl = buildApiUrl();
+            String provider = ragConfig.getProvider() != null ? ragConfig.getProvider().toLowerCase() : "openai";
+            
             WebClient.Builder builder = WebClient.builder()
-                    .baseUrl(ragConfig.getLlmApiUrl())
+                    .baseUrl(baseUrl)
                     .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                     // 增加缓冲区大小以支持大响应（默认256KB，增加到10MB）
                     .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024));
             
-            if (ragConfig.getLlmApiKey() != null && !ragConfig.getLlmApiKey().trim().isEmpty()) {
+            // 根据 provider 类型决定是否需要 API Key
+            ProviderType providerType = ProviderType.fromValue(ragConfig.getProvider());
+            if (providerType.requiresApiKey() && ragConfig.getLlmApiKey() != null && !ragConfig.getLlmApiKey().trim().isEmpty()) {
                 builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + ragConfig.getLlmApiKey());
             }
             
             llmWebClient = builder.build();
+            logger.info("CustomStreamingChatLanguageModel WebClient已创建，Provider: {}, URL: {}", providerType.getValue(), baseUrl);
         }
         return llmWebClient;
     }
