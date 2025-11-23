@@ -13,6 +13,7 @@ DifyApp 是一个集成了 Dify AI 平台的应用管理系统，支持：
 - **知识库管理**：创建、管理知识库，上传、删除文档
 - **RAG 问答**：基于 LangChain4j 的检索增强生成，支持流式和非流式问答
 - **文档向量化**：自动文档解析、分块、向量化存储
+- **对话历史管理**：完整的对话会话管理，支持会话记录、消息历史、继续对话、开启新对话
 - **文件存储**：基于 MinIO 的对象存储
 - **向量存储**：基于 Qdrant 的向量数据库
 - **多租户支持**：支持多租户应用和知识库管理
@@ -68,8 +69,11 @@ DifyApp/
 │       │       │   ├── SwaggerConfig.java                     # Swagger配置
 │       │       │   └── WebMvcConfig.java                      # Web MVC配置
 │       │       ├── controller/                                 # 控制器层
+│       │       │   ├── AdminChatHistoryController.java        # 管理员对话历史控制器
 │       │       │   ├── AiAppController.java                   # AI应用控制器
 │       │       │   ├── AuthController.java                    # 认证控制器
+│       │       │   ├── ChatController.java                    # 智能问答控制器
+│       │       │   ├── ChatHistoryController.java             # 用户对话历史控制器
 │       │       │   ├── GlobalExceptionHandler.java            # 全局异常处理
 │       │       │   ├── KnowledgeBaseController.java          # 知识库控制器
 │       │       │   ├── KnowledgeBaseDocumentController.java   # 知识库文档控制器
@@ -77,6 +81,8 @@ DifyApp/
 │       │       ├── domain/                                     # 实体类
 │       │       │   ├── AiApp.java                             # AI应用实体
 │       │       │   ├── AiAppUser.java                         # AI应用用户实体
+│       │       │   ├── ChatConversation.java                  # 对话会话实体
+│       │       │   ├── ChatMessage.java                       # 对话消息实体
 │       │       │   ├── KnowledgeBase.java                     # 知识库实体
 │       │       │   ├── KnowledgeBaseDocument.java             # 知识库文档实体
 │       │       │   ├── User.java                              # 用户实体
@@ -95,6 +101,8 @@ DifyApp/
 │       │       ├── repository/                                 # 数据访问层
 │       │       │   ├── AiAppRepository.java                   # AI应用仓库
 │       │       │   ├── AiAppUserRepository.java              # AI应用用户仓库
+│       │       │   ├── ChatConversationRepository.java        # 对话会话仓库
+│       │       │   ├── ChatMessageRepository.java             # 对话消息仓库
 │       │       │   ├── KnowledgeBaseRepository.java          # 知识库仓库
 │       │       │   ├── KnowledgeBaseDocumentRepository.java  # 知识库文档仓库
 │       │       │   ├── UserRepository.java                   # 用户仓库
@@ -103,6 +111,8 @@ DifyApp/
 │       │       ├── service/                                    # 服务层
 │       │       │   ├── AiAppService.java                     # AI应用服务
 │       │       │   ├── AuthService.java                       # 认证服务
+│       │       │   ├── ChatHistoryService.java                # 对话历史服务
+│       │       │   ├── ChatService.java                       # 智能问答服务
 │       │       │   ├── ChunkService.java                     # 文档分块服务
 │       │       │   ├── DifyApiClient.java                    # Dify API客户端
 │       │       │   ├── DocumentParserService.java            # 文档解析服务
@@ -119,7 +129,9 @@ DifyApp/
 │       │       ├── req/                                       # 请求对象
 │       │       │   ├── ChangePasswordRequest.java            # 修改密码请求
 │       │       │   ├── ChatFlowRequest.java                   # Chat Flow请求
+│       │       │   ├── ChatHistoryRequest.java                # 对话历史查询请求
 │       │       │   ├── CreateAiAppReq.java                    # 创建应用请求
+│       │       │   ├── CreateConversationRequest.java         # 创建会话请求
 │       │       │   ├── CreateKnowledgeBaseReq.java           # 创建知识库请求
 │       │       │   ├── DifyChatRequest.java                  # Dify聊天请求
 │       │       │   ├── DifyWorkflowRequest.java              # Dify工作流请求
@@ -132,6 +144,10 @@ DifyApp/
 │       │       │   └── WorkFlowRequest.java                   # Workflow请求
 │       │       ├── resp/                                       # 响应对象
 │       │       │   ├── AiAppResp.java                         # AI应用响应
+│       │       │   ├── ChatConversationResponse.java          # 对话会话响应
+│       │       │   ├── ChatHistoryStatisticsResponse.java    # 对话历史统计响应
+│       │       │   ├── ChatMessageResponse.java                # 对话消息响应
+│       │       │   ├── ChatResponse.java                      # 智能问答响应
 │       │       │   ├── DifyResponse.java                      # Dify响应
 │       │       │   ├── KnowledgeBaseDocumentResp.java        # 知识库文档响应
 │       │       │   ├── KnowledgeBaseQAResponse.java           # 知识库问答响应
@@ -154,6 +170,7 @@ DifyApp/
 │               │   ├── api/                                    # API接口
 │               │   │   ├── aiApp.js                           # AI应用API
 │               │   │   ├── auth.js                            # 认证API
+│               │   │   ├── chat.js                            # 智能问答和对话历史API
 │               │   │   ├── knowledgeBase.js                   # 知识库API
 │               │   │   ├── knowledgeBaseDocument.js           # 知识库文档API
 │               │   │   ├── knowledgeBaseQA.js                 # 知识库问答API
@@ -584,8 +601,17 @@ Content-Type: application/json
   "query": "你好",
   "user": "user-123",
   "inputs": {},
-  "conversation_id": "conversation-123",
+  "conversationId": 123,
   "response_mode": "blocking"
+}
+```
+
+**响应示例：**
+```json
+{
+  "answer": "你好！我是AI助手...",
+  "finished": true,
+  "conversationId": 123
 }
 ```
 
@@ -599,6 +625,13 @@ Accept: text/event-stream
 ```
 
 **响应格式：** Server-Sent Events (SSE)
+
+**响应数据格式：**
+```
+data: {"answer":"你好","finished":false,"conversationId":123}
+data: {"answer":"！","finished":false,"conversationId":123}
+data: {"answer":"","finished":true,"conversationId":123}
+```
 
 ### Workflow API
 
@@ -814,6 +847,115 @@ Accept: text/event-stream
 
 **响应格式：** Server-Sent Events (SSE)
 
+**响应数据格式：**
+```
+data: {"answer":"人工智能是...","finished":false,"conversationId":"123"}
+data: {"answer":"一种技术...","finished":false,"conversationId":"123"}
+data: {"answer":"","finished":true,"conversationId":"123"}
+```
+
+### 对话历史管理 API
+
+#### 1. 获取我的会话列表（用户端）
+
+```
+GET /api/chat/history/conversations?page=1&size=20&keyword=搜索关键词&type=1
+Authorization: Bearer {token}
+```
+
+**查询参数：**
+- `page` (可选): 页码，默认 1
+- `size` (可选): 每页数量，默认 20
+- `keyword` (可选): 搜索关键词
+- `type` (可选): 会话类型 (1-普通聊天, 2-知识库问答)
+
+**响应示例：**
+```json
+{
+  "content": [
+    {
+      "id": 1,
+      "appId": 1,
+      "knowledgeBaseId": null,
+      "type": 1,
+      "title": "会话标题",
+      "messageCount": 5,
+      "lastMessageTime": "2024-01-01T12:00:00",
+      "createdTime": "2024-01-01T10:00:00"
+    }
+  ],
+  "totalElements": 10,
+  "totalPages": 1,
+  "number": 0,
+  "size": 20
+}
+```
+
+#### 2. 获取会话消息列表
+
+```
+GET /api/chat/history/conversations/{conversationId}/messages
+Authorization: Bearer {token}
+```
+
+**响应示例：**
+```json
+[
+  {
+    "id": 1,
+    "conversationId": 1,
+    "role": "user",
+    "content": "你好",
+    "createdTime": "2024-01-01T10:00:00"
+  },
+  {
+    "id": 2,
+    "conversationId": 1,
+    "role": "assistant",
+    "content": "你好！我是AI助手...",
+    "createdTime": "2024-01-01T10:00:01"
+  }
+]
+```
+
+#### 3. 删除会话
+
+```
+DELETE /api/chat/history/conversations/{conversationId}
+Authorization: Bearer {token}
+```
+
+#### 4. 获取所有会话列表（管理员）
+
+```
+GET /api/admin/chat/history/conversations?page=1&size=20&keyword=搜索关键词&userId=1&type=1
+Authorization: Bearer {token}
+```
+
+**查询参数：**
+- `page` (可选): 页码，默认 1
+- `size` (可选): 每页数量，默认 20
+- `keyword` (可选): 搜索关键词
+- `userId` (可选): 用户ID
+- `type` (可选): 会话类型 (1-普通聊天, 2-知识库问答)
+
+#### 5. 获取对话历史统计（管理员）
+
+```
+GET /api/admin/chat/history/statistics
+Authorization: Bearer {token}
+```
+
+**响应示例：**
+```json
+{
+  "totalConversations": 100,
+  "totalMessages": 500,
+  "todayConversations": 10,
+  "todayMessages": 50
+}
+```
+
 ### 用户权限管理 API
 
 #### 1. 获取用户的应用可见性列表
@@ -876,6 +1018,17 @@ Authorization: Bearer {token}
   - 流式和非流式问答
   - 相似度检索
   - 可配置的检索参数
+  - 会话ID管理，支持连续对话
+
+- ✅ **对话历史管理**
+  - 完整的会话和消息记录
+  - 会话列表查询（分页、搜索、筛选）
+  - 消息历史查询
+  - 继续对话功能
+  - 开启新对话功能
+  - 会话删除功能
+  - 管理员查看所有用户对话历史
+  - 对话历史统计
 
 - ✅ **文件存储**
   - MinIO 对象存储
@@ -898,12 +1051,16 @@ Authorization: Bearer {token}
 - ✅ **管理端界面**
   - 应用列表、创建、编辑、删除
   - 用户管理（审核、禁用、重置密码、角色管理）
+  - 智能问答
+  - 对话历史管理
   - 知识库管理
   - 知识库问答
   - 用户权限管理（应用和知识库可见性）
 
 - ✅ **用户端界面**
   - 应用列表（仅显示有权限的应用）
+  - 智能问答
+  - 对话历史管理
   - 知识库管理（仅显示有权限的知识库）
   - 知识库问答
 
@@ -914,6 +1071,14 @@ Authorization: Bearer {token}
   - Markdown 渲染和代码高亮
   - 文件上传支持
   - 响应式设计
+
+- ✅ **对话历史界面**
+  - 用户端：卡片式布局展示会话历史
+  - 管理端：表格形式展示所有用户会话
+  - 支持 Markdown 渲染、代码高亮、数学公式渲染
+  - 支持继续对话、开启新对话
+  - 支持会话搜索、筛选、排序
+  - 响应式设计，自适应布局
 
 ## 配置说明
 
@@ -1128,6 +1293,14 @@ yarn build
 
 - **KNOWLEDGE_BASE_DOCUMENT**: 知识库文档表
   - 存储文档信息、向量化状态等
+
+- **CHAT_CONVERSATION**: 对话会话表
+  - 存储会话信息（用户ID、应用ID、知识库ID、会话类型、标题等）
+  - 一个会话包含多轮对话消息
+
+- **CHAT_MESSAGE**: 对话消息表
+  - 存储单条消息信息（会话ID、角色、内容、创建时间等）
+  - 支持用户消息和助手消息
 
 - **USER_APP_VISIBILITY**: 用户应用可见性表
   - 存储用户对应用的可见性权限
