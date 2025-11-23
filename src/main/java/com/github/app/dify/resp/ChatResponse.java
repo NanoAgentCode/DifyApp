@@ -15,6 +15,9 @@ public class ChatResponse {
     @ApiModelProperty("是否完成（流式响应时使用）")
     private Boolean finished;
     
+    @ApiModelProperty("会话ID")
+    private Long conversationId;
+    
     public String getAnswer() {
         return answer;
     }
@@ -29,6 +32,14 @@ public class ChatResponse {
     
     public void setFinished(Boolean finished) {
         this.finished = finished;
+    }
+    
+    public Long getConversationId() {
+        return conversationId;
+    }
+    
+    public void setConversationId(Long conversationId) {
+        this.conversationId = conversationId;
     }
 }
 

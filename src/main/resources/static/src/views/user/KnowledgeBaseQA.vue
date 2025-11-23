@@ -100,11 +100,12 @@
 
             <!-- 对话历史 -->
             <div class="chat-history" ref="chatHistoryRef">
-              <div
-                v-for="(message, index) in chatHistory"
-                :key="index"
-                :class="['message-item', message.type]"
-              >
+              <div class="chat-history-content">
+                <div
+                  v-for="(message, index) in chatHistory"
+                  :key="index"
+                  :class="['message-item', message.type]"
+                >
                 <div class="message-avatar">
                   <el-icon v-if="message.type === 'user'"><User /></el-icon>
                   <el-icon v-else><Service /></el-icon>
@@ -161,6 +162,7 @@
                   <div class="message-time">{{ message.time }}</div>
                 </div>
               </div>
+              </div>
             </div>
 
             <!-- 输入区域 -->
@@ -179,15 +181,24 @@
                   <el-checkbox v-model="useStream" size="small">流式响应</el-checkbox>
                   <span class="tips-text">按 Ctrl + Enter 或 Enter 发送</span>
                 </div>
-                <el-button
-                  type="primary"
-                  :disabled="!question.trim() || !selectedKB || sending"
-                  @click="handleSend"
-                  :loading="sending"
-                >
-                  <el-icon><Promotion /></el-icon>
-                  发送
-                </el-button>
+                <div class="input-buttons">
+                  <el-button
+                    @click="handleNewConversation"
+                    :disabled="sending"
+                  >
+                    <el-icon><Plus /></el-icon>
+                    开启新对话
+                  </el-button>
+                  <el-button
+                    type="primary"
+                    :disabled="!question.trim() || !selectedKB || sending"
+                    @click="handleSend"
+                    :loading="sending"
+                  >
+                    <el-icon><Promotion /></el-icon>
+                    发送
+                  </el-button>
+                </div>
               </div>
             </div>
           </div>
@@ -210,27 +221,95 @@ import {
   Promotion,
   Loading,
   Star,
-  Search
+  Search,
+  Plus
 } from '@element-plus/icons-vue'
 import { getKnowledgeBaseList } from '@/api/knowledgeBase'
 import { knowledgeBaseQA, knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
+import { getConversationMessages, getConversation } from '@/api/chat'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 
+// 主流开发语言别名映射
+const languageAliases = {
+  'js': 'javascript',
+  'ts': 'typescript',
+  'py': 'python',
+  'rb': 'ruby',
+  'sh': 'bash',
+  'yml': 'yaml',
+  'md': 'markdown',
+  'json': 'json',
+  'xml': 'xml',
+  'html': 'html',
+  'css': 'css',
+  'scss': 'scss',
+  'less': 'less',
+  'vue': 'vue',
+  'react': 'jsx',
+  'jsx': 'jsx',
+  'tsx': 'tsx',
+  'go': 'go',
+  'java': 'java',
+  'c': 'c',
+  'cpp': 'cpp',
+  'cs': 'csharp',
+  'php': 'php',
+  'swift': 'swift',
+  'kt': 'kotlin',
+  'rs': 'rust',
+  'sql': 'sql',
+  'dockerfile': 'dockerfile',
+  'yaml': 'yaml'
+}
+
+// 规范化语言标识符
+const normalizeLanguage = (lang) => {
+  if (!lang) return null
+  const normalized = lang.toLowerCase().trim()
+  return languageAliases[normalized] || normalized
+}
+
 // 配置 marked（在组件初始化时配置一次即可）
 marked.setOptions({
   highlight: function(code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
+    if (!code) return ''
+    
+    // 规范化语言标识符
+    const normalizedLang = normalizeLanguage(lang)
+    
+    try {
+      let result
+      
+      // 如果指定了语言且支持，使用指定语言高亮
+      if (normalizedLang && hljs.getLanguage(normalizedLang)) {
+        try {
+          const highlighted = hljs.highlight(code, { language: normalizedLang })
+          result = highlighted.value
+        } catch (err) {
+          console.warn('代码高亮失败', err, '语言:', normalizedLang)
+          // 如果指定语言失败，尝试自动检测
+          result = hljs.highlightAuto(code).value
+        }
+      } else {
+        // 自动检测语言
+        const autoResult = hljs.highlightAuto(code, ['javascript', 'typescript', 'python', 'java', 'go', 'rust', 'cpp', 'c', 'csharp', 'php', 'ruby', 'swift', 'kotlin', 'sql', 'html', 'css', 'json', 'xml', 'yaml', 'bash', 'shell'])
+        result = autoResult.value
+      }
+      
+      return result
+    } catch (err) {
+      console.error('代码高亮异常', err)
       try {
-        return hljs.highlight(code, { language: lang }).value
-      } catch (err) {
-        console.warn('代码高亮失败', err)
+        return hljs.highlightAuto(code).value
+      } catch (fallbackErr) {
+        console.error('代码高亮降级失败', fallbackErr)
+        return `<code class="hljs">${code}</code>`
       }
     }
-    return hljs.highlightAuto(code).value
   },
   breaks: true, // 支持换行
   gfm: true, // 启用 GitHub Flavored Markdown
@@ -453,6 +532,7 @@ const handleNormalResponse = async (userQuestion, history) => {
     // 更新对话ID
     if (res.data.conversationId) {
       conversationId.value = res.data.conversationId
+      console.log('非流式响应完成，更新 conversationId:', conversationId.value)
     }
 
     // 添加AI回复
@@ -538,6 +618,11 @@ const handleStreamResponse = async (userQuestion, history) => {
             
             // 更新答案内容（后端已经累积，直接使用）
             if (json.answer !== undefined && json.answer !== null) {
+              // 检查消息对象是否存在
+              if (!chatHistory.value[aiMessageIndex]) {
+                console.warn('消息对象不存在，索引:', aiMessageIndex, '数组长度:', chatHistory.value.length)
+                continue
+              }
               // 后端使用scan操作符累积答案，所以每次返回的都是完整的累积答案
               fullAnswer = json.answer
               // 清除加载状态，显示实际内容
@@ -557,17 +642,24 @@ const handleStreamResponse = async (userQuestion, history) => {
               chatHistory.value[aiMessageIndex].sources = sources
             }
 
-            // 更新对话ID
+            // 更新对话ID（如果响应中包含 conversationId，立即更新，不等待 finished）
             if (json.conversationId) {
+              conversationId.value = json.conversationId
               finalConversationId = json.conversationId
+              console.log('流式响应中更新 conversationId:', conversationId.value)
             }
 
             // 流式响应完成
             if (json.finished) {
-              chatHistory.value[aiMessageIndex].content = fullAnswer || json.answer || ''
-              chatHistory.value[aiMessageIndex].sources = sources
-              if (finalConversationId) {
-                conversationId.value = finalConversationId
+              // 检查消息对象是否存在
+              if (chatHistory.value[aiMessageIndex]) {
+                chatHistory.value[aiMessageIndex].content = fullAnswer || json.answer || ''
+                chatHistory.value[aiMessageIndex].sources = sources
+              }
+              // 确保会话ID已更新（如果之前没有更新）
+              if (json.conversationId) {
+                conversationId.value = json.conversationId
+                console.log('流式响应完成，最终 conversationId:', conversationId.value)
               }
               break
             }
@@ -653,6 +745,21 @@ const renderMarkdown = (content) => {
   }
 }
 
+// 开启新对话
+const handleNewConversation = () => {
+  chatHistory.value = []
+  conversationId.value = null
+  question.value = ''
+  sending.value = false
+  currentStreamingMessage.value = null
+  ElMessage.success('已开启新对话')
+  
+  // 滚动到底部
+  nextTick(() => {
+    scrollToBottom(true)
+  })
+}
+
 const handleClearHistory = () => {
   if (chatHistory.value.length === 0) {
     ElMessage.info('当前没有对话历史')
@@ -660,20 +767,155 @@ const handleClearHistory = () => {
   }
   
   chatHistory.value = []
+  conversationId.value = null
   ElMessage.success('已清空对话历史')
 }
 
-const scrollToBottom = () => {
+const scrollToBottom = (force = false) => {
   nextTick(() => {
     if (chatHistoryRef.value) {
+      // 如果用户手动向上滚动了，且不是强制滚动，则不自动滚动
+      if (!force) {
+        const element = chatHistoryRef.value
+        const threshold = 100 // 距离底部100px内认为是在底部
+        const isNearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < threshold
+        if (!isNearBottom) {
+          return
+        }
+      }
       chatHistoryRef.value.scrollTop = chatHistoryRef.value.scrollHeight
     }
   })
 }
 
-onMounted(() => {
+// 手动触发代码高亮（用于流式响应中逐步生成的代码块）
+const highlightCodeBlocks = () => {
+  nextTick(() => {
+    if (chatHistoryRef.value) {
+      // 查找所有代码块（包括没有hljs类的）
+      const codeBlocks = chatHistoryRef.value.querySelectorAll('pre code')
+      
+      codeBlocks.forEach((block, index) => {
+        try {
+          // 检查是否是公式（包含 KaTeX 相关元素或公式占位符）
+          const isFormula = block.closest('.katex') || 
+                           block.closest('.katex-formula-block') ||
+                           block.textContent.includes('<!--KATEX_FORMULA_') ||
+                           block.parentElement?.classList.contains('katex-formula-block')
+          
+          if (isFormula) {
+            console.debug(`代码块 ${index} 是公式，跳过代码高亮`)
+            return
+          }
+          
+          const originalText = block.textContent
+          // 如果代码块没有hljs类，或者内容已更新，重新高亮
+          const needsHighlight = !block.classList.contains('hljs') || 
+                                block.dataset.highlighted !== 'true' ||
+                                block.dataset.originalText !== originalText
+          
+          if (needsHighlight && originalText.trim()) {
+            
+            let lang = block.className.match(/language-(\w+)/)?.[1] || 
+                      block.parentElement?.className.match(/language-(\w+)/)?.[1] ||
+                      block.getAttribute('data-lang')
+            
+            // 规范化语言标识符
+            const normalizedLang = lang ? normalizeLanguage(lang) : null
+            
+            let highlightedHtml
+            if (normalizedLang && hljs.getLanguage(normalizedLang)) {
+              // 使用指定语言高亮
+              highlightedHtml = hljs.highlight(originalText, { language: normalizedLang }).value
+            } else {
+              // 自动检测语言
+              const result = hljs.highlightAuto(originalText, ['javascript', 'typescript', 'python', 'java', 'go', 'rust', 'cpp', 'c', 'csharp', 'php', 'ruby', 'swift', 'kotlin', 'sql', 'html', 'css', 'json', 'xml', 'yaml', 'bash', 'shell'])
+              highlightedHtml = result.value
+            }
+            
+            // 更新HTML并添加类名
+            block.innerHTML = highlightedHtml
+            block.classList.add('hljs')
+            block.dataset.highlighted = 'true'
+            block.dataset.originalText = originalText
+          }
+        } catch (err) {
+          console.error('手动高亮代码块失败', err, block)
+        }
+      })
+    }
+  })
+}
+
+// 加载历史对话记录
+const loadConversationHistory = async (convId) => {
+  try {
+    const messages = await getConversationMessages(convId)
+    if (messages && messages.length > 0) {
+      // 获取会话信息以确定知识库ID
+      let kbId = null
+      try {
+        const conversation = await getConversation(convId)
+        if (conversation && conversation.knowledgeBaseId) {
+          kbId = conversation.knowledgeBaseId
+          console.log('加载历史对话，知识库ID:', kbId)
+          // 确保知识库列表已加载
+          if (knowledgeBases.value.length === 0) {
+            await loadKnowledgeBases()
+          }
+          // 如果知识库ID存在，尝试选择对应的知识库
+          if (kbId && knowledgeBases.value.length > 0) {
+            const kb = knowledgeBases.value.find(k => k.id === kbId)
+            if (kb) {
+              selectedKB.value = kb
+              console.log('已选择知识库:', kb.name)
+            } else {
+              console.warn('未找到对应的知识库，ID:', kbId, '可用知识库:', knowledgeBases.value.map(k => k.id))
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('获取会话信息失败', e)
+      }
+      
+      // 将历史消息转换为聊天历史格式
+      chatHistory.value = messages.map(msg => ({
+        type: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.content || '',
+        sources: msg.sources || [], // 注意：历史消息中可能没有sources，因为数据库未保存
+        time: msg.createTime ? new Date(msg.createTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        isLoading: false
+      }))
+      
+      // 设置会话ID
+      conversationId.value = convId.toString()
+      
+      // 滚动到底部
+      await nextTick()
+      scrollToBottom(true)
+      await nextTick()
+      highlightCodeBlocks()
+      
+      ElMessage.success('已加载历史对话记录')
+    }
+  } catch (error) {
+    console.error('加载历史对话失败', error)
+    ElMessage.warning('加载历史对话失败：' + (error.message || '未知错误'))
+  }
+}
+
+onMounted(async () => {
   // 加载知识库列表
   loadKnowledgeBases()
+  
+  // 检查是否有继续对话的标记
+  const continueConvId = localStorage.getItem('continueConversationId')
+  if (continueConvId) {
+    // 清除标记
+    localStorage.removeItem('continueConversationId')
+    // 加载历史对话
+    await loadConversationHistory(continueConvId)
+  }
 })
 
 // 组件卸载时清理定时器
@@ -729,6 +971,12 @@ html {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .qa-container {
@@ -947,12 +1195,17 @@ html {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 20px;
-  padding-bottom: 200px; /* 为输入框留出空间，确保最后一条消息不被遮挡 */
+  padding: 0;
+  min-height: 0;
+}
+
+.chat-history-content {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  min-height: 0;
+  padding: 20px;
+  min-height: 100%;
+  justify-content: flex-end;
 }
 
 /* 隐藏对话历史滚动条 */
@@ -1360,6 +1613,12 @@ html {
   justify-content: space-between;
   align-items: center;
   margin-top: 12px;
+}
+
+.input-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .input-tips {

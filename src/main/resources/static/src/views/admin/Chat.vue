@@ -259,12 +259,16 @@ const handleSend = async () => {
   const userId = userInfo ? userInfo.userId : null
 
   try {
+    // 确保 conversationId 正确传递（null 或字符串）
+    const currentConversationId = conversationId.value
+    console.log('发送消息，当前 conversationId:', currentConversationId)
+    
     if (useStream.value) {
       // 流式响应
-      await handleStreamResponse(userQuestion, conversationId.value, userId, history, aiMessageIndex)
+      await handleStreamResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex)
     } else {
       // 非流式响应
-      await handleNormalResponse(userQuestion, conversationId.value, userId, history, aiMessageIndex)
+      await handleNormalResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex)
     }
   } catch (error) {
     console.error('发送消息失败', error)
@@ -283,12 +287,12 @@ const handleSend = async () => {
 }
 
 // 处理流式响应
-const handleStreamResponse = async (question, conversationId, userId, history, aiMessageIndex) => {
+const handleStreamResponse = async (question, requestConversationId, userId, history, aiMessageIndex) => {
   let reader = null
   let response = null
   
   try {
-    response = await chatStream(question, conversationId, userId, history)
+    response = await chatStream(question, requestConversationId, userId, history)
     
     if (!response.ok) {
       const errorText = await response.text().catch(() => '未知错误')
@@ -353,8 +357,19 @@ const handleStreamResponse = async (question, conversationId, userId, history, a
             try {
               const json = JSON.parse(data)
               
+              // 更新会话ID（如果响应中包含 conversationId，立即更新，不等待 finished）
+              if (json.conversationId) {
+                conversationId.value = json.conversationId.toString()
+                console.log('流式响应中更新 conversationId:', conversationId.value)
+              }
+              
               // 更新答案内容（后端已经累积，直接使用）
               if (json.answer !== undefined && json.answer !== null) {
+                // 检查消息对象是否存在
+                if (!chatHistory.value[aiMessageIndex]) {
+                  console.warn('消息对象不存在，索引:', aiMessageIndex, '数组长度:', chatHistory.value.length)
+                  continue
+                }
                 chatHistory.value[aiMessageIndex].content = json.answer
                 // 清除加载状态，显示实际内容
                 if (chatHistory.value[aiMessageIndex].isLoading) {
@@ -370,8 +385,16 @@ const handleStreamResponse = async (question, conversationId, userId, history, a
 
               // 流式响应完成
               if (json.finished) {
-                chatHistory.value[aiMessageIndex].isLoading = false
-                chatHistory.value[aiMessageIndex].content = json.answer || chatHistory.value[aiMessageIndex].content || ''
+                // 检查消息对象是否存在
+                if (chatHistory.value[aiMessageIndex]) {
+                  chatHistory.value[aiMessageIndex].isLoading = false
+                  chatHistory.value[aiMessageIndex].content = json.answer || chatHistory.value[aiMessageIndex].content || ''
+                }
+                // 确保会话ID已更新（如果之前没有更新）
+                if (json.conversationId) {
+                  conversationId.value = json.conversationId.toString()
+                  console.log('流式响应完成，最终 conversationId:', conversationId.value)
+                }
                 // 最终确保代码块被高亮
                 await nextTick()
                 highlightCodeBlocks()
@@ -408,7 +431,7 @@ const handleStreamResponse = async (question, conversationId, userId, history, a
           
           try {
             const json = JSON.parse(data)
-            if (json.answer !== undefined && json.answer !== null) {
+            if (json.answer !== undefined && json.answer !== null && chatHistory.value[aiMessageIndex]) {
               chatHistory.value[aiMessageIndex].content = json.answer
               chatHistory.value[aiMessageIndex].isLoading = false
             }
@@ -420,7 +443,7 @@ const handleStreamResponse = async (question, conversationId, userId, history, a
     }
 
     // 如果连接正常结束但没有收到完成标记，确保清除加载状态
-    if (chatHistory.value[aiMessageIndex].isLoading) {
+    if (chatHistory.value[aiMessageIndex] && chatHistory.value[aiMessageIndex].isLoading) {
       chatHistory.value[aiMessageIndex].isLoading = false
     }
     
@@ -445,11 +468,19 @@ const handleStreamResponse = async (question, conversationId, userId, history, a
 }
 
 // 处理非流式响应
-const handleNormalResponse = async (question, conversationId, userId, history, aiMessageIndex) => {
+const handleNormalResponse = async (question, requestConversationId, userId, history, aiMessageIndex) => {
   try {
-    const response = await chat(question, conversationId, userId, history)
-    chatHistory.value[aiMessageIndex].content = response.answer || '抱歉，未能生成答案。'
-    chatHistory.value[aiMessageIndex].isLoading = false
+    const response = await chat(question, requestConversationId, userId, history)
+    if (chatHistory.value[aiMessageIndex]) {
+      chatHistory.value[aiMessageIndex].content = response.answer || '抱歉，未能生成答案。'
+      chatHistory.value[aiMessageIndex].isLoading = false
+    }
+    
+    // 更新会话ID
+    if (response.conversationId) {
+      conversationId.value = response.conversationId.toString()
+      console.log('非流式响应完成，更新 conversationId:', conversationId.value)
+    }
     
     // 触发代码高亮
     await nextTick()

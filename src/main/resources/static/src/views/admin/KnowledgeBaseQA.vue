@@ -529,6 +529,7 @@ const handleNormalResponse = async (userQuestion, history) => {
     // 更新对话ID
     if (res.data.conversationId) {
       conversationId.value = res.data.conversationId
+      console.log('非流式响应完成，更新 conversationId:', conversationId.value)
     }
 
     // 添加AI回复
@@ -620,6 +621,11 @@ const handleStreamResponse = async (userQuestion, history) => {
             
               // 更新答案内容（后端已经累积，直接使用）
               if (json.answer !== undefined && json.answer !== null) {
+                // 检查消息对象是否存在
+                if (!chatHistory.value[aiMessageIndex]) {
+                  console.warn('消息对象不存在，索引:', aiMessageIndex, '数组长度:', chatHistory.value.length)
+                  continue
+                }
                 // 后端使用scan操作符累积答案，所以每次返回的都是完整的累积答案
                 fullAnswer = json.answer
                 // 清除加载状态，显示实际内容
@@ -641,17 +647,24 @@ const handleStreamResponse = async (userQuestion, history) => {
               chatHistory.value[aiMessageIndex].sources = sources
             }
 
-            // 更新对话ID
+            // 更新对话ID（如果响应中包含 conversationId，立即更新，不等待 finished）
             if (json.conversationId) {
+              conversationId.value = json.conversationId
               finalConversationId = json.conversationId
+              console.log('流式响应中更新 conversationId:', conversationId.value)
             }
 
             // 流式响应完成
             if (json.finished) {
-              chatHistory.value[aiMessageIndex].content = fullAnswer || json.answer || ''
-              chatHistory.value[aiMessageIndex].sources = sources
-              if (finalConversationId) {
-                conversationId.value = finalConversationId
+              // 检查消息对象是否存在
+              if (chatHistory.value[aiMessageIndex]) {
+                chatHistory.value[aiMessageIndex].content = fullAnswer || json.answer || ''
+                chatHistory.value[aiMessageIndex].sources = sources
+              }
+              // 确保会话ID已更新（如果之前没有更新）
+              if (json.conversationId) {
+                conversationId.value = json.conversationId
+                console.log('流式响应完成，最终 conversationId:', conversationId.value)
               }
               break
             }

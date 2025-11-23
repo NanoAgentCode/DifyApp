@@ -93,6 +93,12 @@ const routes = [
                 name: 'DocumentList',
                 component: () => import('@/views/admin/DocumentList.vue'),
                 meta: {title: '文件列表', requiresAuth: true, requiresAdmin: true}
+            },
+            {
+                path: 'chat-history',
+                name: 'AdminChatHistory',
+                component: () => import('@/views/admin/ChatHistory.vue'),
+                meta: {title: '会话历史', requiresAuth: true, requiresAdmin: true}
             }
         ]
     },
@@ -136,6 +142,12 @@ const routes = [
                 name: 'UserDocumentList',
                 component: () => import('@/views/user/DocumentList.vue'),
                 meta: {title: '文件列表', requiresAuth: true}
+            },
+            {
+                path: 'chat-history',
+                name: 'UserChatHistory',
+                component: () => import('@/views/user/ChatHistory.vue'),
+                meta: {title: '会话历史', requiresAuth: true}
             }
         ]
     },

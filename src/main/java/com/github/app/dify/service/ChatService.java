@@ -39,10 +39,13 @@ public class ChatService {
     @Autowired
     private ContextCompressionService contextCompressionService;
     
+    @Autowired
+    private ChatHistoryService chatHistoryService;
+    
     /**
      * 智能问答（非流式）
      */
-    public ChatResponse chat(ChatRequest request) {
+    public ChatResponse chat(ChatRequest request, Long userId) {
         try {
             // 检查LLM配置
             if (ragConfig.getLlmApiUrl() == null || ragConfig.getLlmApiUrl().trim().isEmpty()) {
@@ -67,9 +70,34 @@ public class ChatService {
             Response<AiMessage> response = chatLanguageModel.generate(messages);
             String answer = response.content().text();
             
+            // 保存历史记录
+            Long conversationId = null;
+            if (userId != null) {
+                try {
+                    Long requestConversationId = null;
+                    if (request.getConversationId() != null && !request.getConversationId().trim().isEmpty()) {
+                        try {
+                            requestConversationId = Long.parseLong(request.getConversationId());
+                        } catch (NumberFormatException e) {
+                            logger.warn("无效的conversationId: {}", request.getConversationId());
+                        }
+                    }
+                    conversationId = chatHistoryService.getOrCreateConversation(
+                            userId, requestConversationId, 1, null, null, request.getQuestion());
+                    logger.info("非流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}", 
+                            requestConversationId, conversationId);
+                    chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
+                    chatHistoryService.saveMessage(conversationId, "assistant", answer);
+                } catch (Exception e) {
+                    logger.error("保存历史记录失败", e);
+                    // 不抛出异常，避免影响主流程
+                }
+            }
+            
             // 构建响应
             ChatResponse chatResponse = new ChatResponse();
             chatResponse.setAnswer(answer);
+            chatResponse.setConversationId(conversationId);
             
             logger.info("智能问答完成 - 问题: {}", request.getQuestion());
             
@@ -84,7 +112,7 @@ public class ChatService {
     /**
      * 智能问答（流式）
      */
-    public Flux<ChatResponse> chatStream(ChatRequest request) {
+    public Flux<ChatResponse> chatStream(ChatRequest request, Long userId) {
         try {
             // 检查LLM配置
             if (ragConfig.getLlmApiUrl() == null || ragConfig.getLlmApiUrl().trim().isEmpty()) {
@@ -115,6 +143,32 @@ public class ChatService {
                         logger.error("token流发生错误", error);
                     });
             
+            // 在流式响应开始前，先创建或获取会话（这样可以在第一个数据包就返回 conversationId）
+            final java.util.concurrent.atomic.AtomicReference<Long> conversationIdRef = 
+                    new java.util.concurrent.atomic.AtomicReference<>(null);
+            if (userId != null) {
+                try {
+                    Long requestConversationId = null;
+                    if (request.getConversationId() != null && !request.getConversationId().trim().isEmpty()) {
+                        try {
+                            requestConversationId = Long.parseLong(request.getConversationId());
+                        } catch (NumberFormatException e) {
+                            logger.warn("无效的conversationId: {}", request.getConversationId());
+                        }
+                    }
+                    Long conversationId = chatHistoryService.getOrCreateConversation(
+                            userId, requestConversationId, 1, null, null, request.getQuestion());
+                    conversationIdRef.set(conversationId);
+                    logger.info("流式响应开始 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}", 
+                            requestConversationId, conversationId);
+                    // 先保存用户消息
+                    chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
+                } catch (Exception e) {
+                    logger.error("创建会话失败（流式）", e);
+                    // 不抛出异常，避免影响主流程
+                }
+            }
+            
             // 使用scan累积答案，并保存最后一个完整答案
             final java.util.concurrent.atomic.AtomicReference<String> lastAnswer = 
                     new java.util.concurrent.atomic.AtomicReference<>("");
@@ -126,10 +180,13 @@ public class ChatService {
                         logger.debug("累积答案，当前长度: {}", newAccumulated.length());
                         return newAccumulated;
                     })
+                    .skip(1) // 跳过第一个空字符串（scan 的初始值）
                     .map(fullAnswer -> {
                         ChatResponse response = new ChatResponse();
                         response.setAnswer(fullAnswer);
                         response.setFinished(false);
+                        // 在流式响应过程中，也包含 conversationId，这样前端可以立即更新
+                        response.setConversationId(conversationIdRef.get());
                         return response;
                     })
                     .doOnNext(response -> {
@@ -145,9 +202,23 @@ public class ChatService {
                     .concatWith(Flux.defer(() -> {
                         String finalAnswer = lastAnswer.get();
                         logger.info("发送最终响应标记，完整答案长度: {}", finalAnswer.length());
+                        
+                        // 保存助手消息（会话已在开始时创建）
+                        Long conversationId = conversationIdRef.get();
+                        if (userId != null && conversationId != null && finalAnswer != null && !finalAnswer.trim().isEmpty()) {
+                            try {
+                                chatHistoryService.saveMessage(conversationId, "assistant", finalAnswer);
+                                logger.info("流式响应完成 - 保存助手消息到会话: {}", conversationId);
+                            } catch (Exception e) {
+                                logger.error("保存助手消息失败（流式）", e);
+                                // 不抛出异常，避免影响主流程
+                            }
+                        }
+                        
                         ChatResponse finalResponse = new ChatResponse();
                         finalResponse.setAnswer(finalAnswer);
                         finalResponse.setFinished(true);
+                        finalResponse.setConversationId(conversationId);
                         return Flux.just(finalResponse);
                     }))
                     .onErrorResume(error -> {

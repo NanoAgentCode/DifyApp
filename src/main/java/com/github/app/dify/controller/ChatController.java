@@ -16,6 +16,8 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
+import javax.servlet.http.HttpServletRequest;
+
 /**
  * 智能问答控制器（直接对话，不使用知识库）
  */
@@ -38,10 +40,12 @@ public class ChatController {
     @ApiOperation("智能问答")
     @PostMapping
     public ResponseEntity<ChatResponse> chat(
-            @Validated @RequestBody ChatRequest request) {
+            @Validated @RequestBody ChatRequest request,
+            HttpServletRequest httpRequest) {
         try {
             logger.info("接收到智能问答请求 - 问题: {}", request.getQuestion());
-            ChatResponse response = chatService.chat(request);
+            Long userId = (Long) httpRequest.getAttribute("userId");
+            ChatResponse response = chatService.chat(request, userId);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("智能问答失败", e);
@@ -55,10 +59,12 @@ public class ChatController {
     @ApiOperation("智能问答（流式）")
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> chatStream(
-            @Validated @RequestBody ChatRequest request) {
+            @Validated @RequestBody ChatRequest request,
+            HttpServletRequest httpRequest) {
         try {
             logger.info("接收到智能问答请求（流式） - 问题: {}", request.getQuestion());
-            Flux<ChatResponse> responseFlux = chatService.chatStream(request);
+            Long userId = (Long) httpRequest.getAttribute("userId");
+            Flux<ChatResponse> responseFlux = chatService.chatStream(request, userId);
             
             // 转换为SSE格式
             return responseFlux

@@ -56,6 +56,9 @@ public class KnowledgeBaseQAService {
     @Autowired
     private ContextCompressionService contextCompressionService;
     
+    @Autowired
+    private ChatHistoryService chatHistoryService;
+    
     // 缓存每个知识库的RAG服务实例
     private final Map<Long, RagService> ragServiceCache = new ConcurrentHashMap<>();
     
@@ -70,7 +73,7 @@ public class KnowledgeBaseQAService {
     /**
      * 问答（非流式）
      */
-    public KnowledgeBaseQAResponse answer(Long knowledgeBaseId, KnowledgeBaseQARequest request) {
+    public KnowledgeBaseQAResponse answer(Long knowledgeBaseId, KnowledgeBaseQARequest request, Long userId) {
         try {
             // 检查LLM配置
             if (ragConfig.getLlmApiUrl() == null || ragConfig.getLlmApiUrl().trim().isEmpty()) {
@@ -107,9 +110,34 @@ public class KnowledgeBaseQAService {
             // 使用langchain4j RAG生成答案（始终使用历史对话）
             String answer = generateAnswerWithHistory(messages, knowledgeBaseId, request);
             
+            // 保存历史记录
+            Long conversationId = null;
+            if (userId != null) {
+                try {
+                    Long requestConversationId = null;
+                    if (request.getConversationId() != null && !request.getConversationId().trim().isEmpty()) {
+                        try {
+                            requestConversationId = Long.parseLong(request.getConversationId());
+                        } catch (NumberFormatException e) {
+                            logger.warn("无效的conversationId: {}", request.getConversationId());
+                        }
+                    }
+                    conversationId = chatHistoryService.getOrCreateConversation(
+                            userId, requestConversationId, 2, null, knowledgeBaseId, request.getQuestion());
+                    logger.info("非流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}", 
+                            requestConversationId, conversationId);
+                    chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
+                    chatHistoryService.saveMessage(conversationId, "assistant", answer);
+                } catch (Exception e) {
+                    logger.error("保存历史记录失败", e);
+                    // 不抛出异常，避免影响主流程
+                }
+            }
+            
             // 构建响应
             KnowledgeBaseQAResponse response = new KnowledgeBaseQAResponse();
             response.setAnswer(answer);
+            response.setConversationId(conversationId != null ? conversationId.toString() : null);
             response.setSources(retrievalResults.stream().map(r -> {
                 KnowledgeBaseQAResponse.SourceDocument source = new KnowledgeBaseQAResponse.SourceDocument();
                 source.setDocumentId(r.getDocumentId());
@@ -132,7 +160,7 @@ public class KnowledgeBaseQAService {
     /**
      * 问答（流式）
      */
-    public Flux<KnowledgeBaseQAResponse> answerStream(Long knowledgeBaseId, KnowledgeBaseQARequest request) {
+    public Flux<KnowledgeBaseQAResponse> answerStream(Long knowledgeBaseId, KnowledgeBaseQARequest request, Long userId) {
         try {
             // 检查LLM配置
             if (ragConfig.getLlmApiUrl() == null || ragConfig.getLlmApiUrl().trim().isEmpty()) {
@@ -169,7 +197,7 @@ public class KnowledgeBaseQAService {
             logger.debug("压缩后的消息列表大小（流式）: {}", messages.size());
             
             // 使用langchain4j流式LLM生成答案（手动检索+RAG）
-            return generateStreamAnswerWithHistory(messages, knowledgeBaseId, request, sources);
+            return generateStreamAnswerWithHistory(messages, knowledgeBaseId, request, sources, userId);
             
         } catch (Exception e) {
             logger.error("知识库问答失败（流式） - 知识库ID: {}", knowledgeBaseId, e);
@@ -328,7 +356,7 @@ public class KnowledgeBaseQAService {
      */
     private Flux<KnowledgeBaseQAResponse> generateStreamAnswerWithHistory(
             List<ChatMessage> messages, Long knowledgeBaseId, 
-            KnowledgeBaseQARequest request, List<KnowledgeBaseQAResponse.SourceDocument> sources) {
+            KnowledgeBaseQARequest request, List<KnowledgeBaseQAResponse.SourceDocument> sources, Long userId) {
         // 获取最后一个用户消息作为查询
         String query = request.getQuestion();
         ChatMessage lastMessage = messages.get(messages.size() - 1);
@@ -387,6 +415,32 @@ public class KnowledgeBaseQAService {
                     logger.error("token流发生错误", error);
                 });
         
+        // 在流式响应开始前，先创建或获取会话（这样可以在第一个数据包就返回 conversationId）
+        final java.util.concurrent.atomic.AtomicReference<Long> conversationIdRef = 
+                new java.util.concurrent.atomic.AtomicReference<>(null);
+        if (userId != null) {
+            try {
+                Long requestConversationId = null;
+                if (request.getConversationId() != null && !request.getConversationId().trim().isEmpty()) {
+                    try {
+                        requestConversationId = Long.parseLong(request.getConversationId());
+                    } catch (NumberFormatException e) {
+                        logger.warn("无效的conversationId: {}", request.getConversationId());
+                    }
+                }
+                Long conversationId = chatHistoryService.getOrCreateConversation(
+                        userId, requestConversationId, 2, null, knowledgeBaseId, request.getQuestion());
+                conversationIdRef.set(conversationId);
+                logger.info("流式响应开始 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}", 
+                        requestConversationId, conversationId);
+                // 先保存用户消息
+                chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
+            } catch (Exception e) {
+                logger.error("创建会话失败（流式）", e);
+                // 不抛出异常，避免影响主流程
+            }
+        }
+        
         // 使用scan累积答案，并保存最后一个完整答案
         final java.util.concurrent.atomic.AtomicReference<String> lastAnswer = new java.util.concurrent.atomic.AtomicReference<>("");
         
@@ -397,11 +451,14 @@ public class KnowledgeBaseQAService {
                     logger.debug("累积答案，当前长度: {}", newAccumulated.length());
                     return newAccumulated;
                 })
+                .skip(1) // 跳过第一个空字符串（scan 的初始值）
                 .map(fullAnswer -> {
                     KnowledgeBaseQAResponse response = new KnowledgeBaseQAResponse();
                     response.setAnswer(fullAnswer);
                     response.setSources(sources);
                     response.setFinished(false);
+                    // 在流式响应过程中，也包含 conversationId，这样前端可以立即更新
+                    response.setConversationId(conversationIdRef.get() != null ? conversationIdRef.get().toString() : null);
                     return response;
                 })
                 .doOnNext(response -> {
@@ -420,10 +477,24 @@ public class KnowledgeBaseQAService {
                     // 发送最终响应（包含完整答案和sources）
                     String finalAnswer = lastAnswer.get();
                     logger.info("发送最终响应标记，完整答案长度: {}", finalAnswer.length());
+                    
+                    // 保存助手消息（会话已在开始时创建）
+                    Long conversationId = conversationIdRef.get();
+                    if (userId != null && conversationId != null && finalAnswer != null && !finalAnswer.trim().isEmpty()) {
+                        try {
+                            chatHistoryService.saveMessage(conversationId, "assistant", finalAnswer);
+                            logger.info("流式响应完成 - 保存助手消息到会话: {}", conversationId);
+                        } catch (Exception e) {
+                            logger.error("保存助手消息失败（流式）", e);
+                            // 不抛出异常，避免影响主流程
+                        }
+                    }
+                    
                     KnowledgeBaseQAResponse finalResponse = new KnowledgeBaseQAResponse();
                     finalResponse.setAnswer(finalAnswer); // 包含完整的答案，而不是空字符串
                     finalResponse.setSources(sources);
                     finalResponse.setFinished(true);
+                    finalResponse.setConversationId(conversationId != null ? conversationId.toString() : null);
                     return Flux.just(finalResponse);
                 }))
                 .onErrorResume(error -> {

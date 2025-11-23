@@ -16,6 +16,8 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
+import javax.servlet.http.HttpServletRequest;
+
 /**
  * 知识库问答控制器
  */
@@ -39,10 +41,12 @@ public class KnowledgeBaseQAController {
     @PostMapping
     public ResponseEntity<KnowledgeBaseQAResponse> answer(
             @PathVariable Long kbId,
-            @Validated @RequestBody KnowledgeBaseQARequest request) {
+            @Validated @RequestBody KnowledgeBaseQARequest request,
+            HttpServletRequest httpRequest) {
         try {
             logger.info("接收到知识库问答请求 - 知识库ID: {}, 问题: {}", kbId, request.getQuestion());
-            KnowledgeBaseQAResponse response = knowledgeBaseQAService.answer(kbId, request);
+            Long userId = (Long) httpRequest.getAttribute("userId");
+            KnowledgeBaseQAResponse response = knowledgeBaseQAService.answer(kbId, request, userId);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("知识库问答失败 - 知识库ID: {}", kbId, e);
@@ -57,10 +61,12 @@ public class KnowledgeBaseQAController {
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> answerStream(
             @PathVariable Long kbId,
-            @Validated @RequestBody KnowledgeBaseQARequest request) {
+            @Validated @RequestBody KnowledgeBaseQARequest request,
+            HttpServletRequest httpRequest) {
         try {
             logger.info("接收到知识库问答请求（流式） - 知识库ID: {}, 问题: {}", kbId, request.getQuestion());
-            Flux<KnowledgeBaseQAResponse> responseFlux = knowledgeBaseQAService.answerStream(kbId, request);
+            Long userId = (Long) httpRequest.getAttribute("userId");
+            Flux<KnowledgeBaseQAResponse> responseFlux = knowledgeBaseQAService.answerStream(kbId, request, userId);
             
             // 转换为SSE格式
             return responseFlux

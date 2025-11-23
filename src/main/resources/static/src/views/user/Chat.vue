@@ -17,11 +17,12 @@
       <div class="chat-container">
         <!-- 对话历史 -->
         <div class="chat-history" ref="chatHistoryRef">
-          <div
-            v-for="(message, index) in chatHistory"
-            :key="index"
-            :class="['message-item', message.type]"
-          >
+          <div class="chat-history-content">
+            <div
+              v-for="(message, index) in chatHistory"
+              :key="index"
+              :class="['message-item', message.type]"
+            >
             <div class="message-avatar">
               <el-icon v-if="message.type === 'user'"><User /></el-icon>
               <el-icon v-else><Service /></el-icon>
@@ -44,6 +45,7 @@
               <div class="message-time">{{ message.time }}</div>
             </div>
           </div>
+          </div>
         </div>
 
         <!-- 输入区域 -->
@@ -61,15 +63,24 @@
             <div class="input-tips">
               <span class="tips-text">按 Ctrl + Enter 或 Enter 发送</span>
             </div>
-            <el-button
-              type="primary"
-              :disabled="!question.trim() || sending"
-              @click="handleSend"
-              :loading="sending"
-            >
-              <el-icon><Promotion /></el-icon>
-              发送
-            </el-button>
+            <div class="input-buttons">
+              <el-button
+                @click="handleNewConversation"
+                :disabled="sending"
+              >
+                <el-icon><Plus /></el-icon>
+                开启新对话
+              </el-button>
+              <el-button
+                type="primary"
+                :disabled="!question.trim() || sending"
+                @click="handleSend"
+                :loading="sending"
+              >
+                <el-icon><Promotion /></el-icon>
+                发送
+              </el-button>
+            </div>
           </div>
         </div>
       </div>
@@ -86,9 +97,10 @@ import {
   User,
   Service,
   Promotion,
-  Loading
+  Loading,
+  Plus
 } from '@element-plus/icons-vue'
-import { chat, chatStream } from '@/api/chat'
+import { chat, chatStream, getConversationMessages } from '@/api/chat'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
@@ -246,12 +258,16 @@ const handleSend = async () => {
   const userId = userInfo ? userInfo.userId : null
 
   try {
+    // 确保 conversationId 正确传递（null 或字符串）
+    const currentConversationId = conversationId.value
+    console.log('发送消息，当前 conversationId:', currentConversationId)
+    
     if (useStream.value) {
       // 流式响应
-      await handleStreamResponse(userQuestion, conversationId.value, userId, history, aiMessageIndex)
+      await handleStreamResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex)
     } else {
       // 非流式响应
-      await handleNormalResponse(userQuestion, conversationId.value, userId, history, aiMessageIndex)
+      await handleNormalResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex)
     }
   } catch (error) {
     console.error('发送消息失败', error)
@@ -270,12 +286,12 @@ const handleSend = async () => {
 }
 
 // 处理流式响应
-const handleStreamResponse = async (question, conversationId, userId, history, aiMessageIndex) => {
+const handleStreamResponse = async (question, requestConversationId, userId, history, aiMessageIndex) => {
   let reader = null
   let response = null
   
   try {
-    response = await chatStream(question, conversationId, userId, history)
+    response = await chatStream(question, requestConversationId, userId, history)
     
     if (!response.ok) {
       const errorText = await response.text().catch(() => '未知错误')
@@ -339,10 +355,28 @@ const handleStreamResponse = async (question, conversationId, userId, history, a
 
             try {
               const json = JSON.parse(data)
+              console.log('收到流式数据:', { 
+                hasAnswer: json.answer !== undefined && json.answer !== null,
+                answerLength: json.answer ? json.answer.length : 0,
+                finished: json.finished,
+                conversationId: json.conversationId
+              })
+              
+              // 更新会话ID（如果响应中包含 conversationId，立即更新，不等待 finished）
+              if (json.conversationId) {
+                conversationId.value = json.conversationId.toString()
+                console.log('流式响应中更新 conversationId:', conversationId.value)
+              }
               
               // 更新答案内容（后端已经累积，直接使用）
               if (json.answer !== undefined && json.answer !== null) {
+                // 检查消息对象是否存在
+                if (!chatHistory.value[aiMessageIndex]) {
+                  console.warn('消息对象不存在，索引:', aiMessageIndex, '数组长度:', chatHistory.value.length)
+                  continue
+                }
                 chatHistory.value[aiMessageIndex].content = json.answer
+                console.log('更新消息内容，长度:', json.answer.length, '内容预览:', json.answer.substring(0, 50))
                 // 清除加载状态，显示实际内容
                 if (chatHistory.value[aiMessageIndex].isLoading) {
                   chatHistory.value[aiMessageIndex].isLoading = false
@@ -357,8 +391,16 @@ const handleStreamResponse = async (question, conversationId, userId, history, a
 
               // 流式响应完成
               if (json.finished) {
-                chatHistory.value[aiMessageIndex].isLoading = false
-                chatHistory.value[aiMessageIndex].content = json.answer || chatHistory.value[aiMessageIndex].content || ''
+                // 检查消息对象是否存在
+                if (chatHistory.value[aiMessageIndex]) {
+                  chatHistory.value[aiMessageIndex].isLoading = false
+                  chatHistory.value[aiMessageIndex].content = json.answer || chatHistory.value[aiMessageIndex].content || ''
+                }
+                // 确保会话ID已更新（如果之前没有更新）
+                if (json.conversationId) {
+                  conversationId.value = json.conversationId.toString()
+                  console.log('流式响应完成，最终 conversationId:', conversationId.value)
+                }
                 // 最终确保代码块被高亮
                 await nextTick()
                 highlightCodeBlocks()
@@ -395,7 +437,7 @@ const handleStreamResponse = async (question, conversationId, userId, history, a
           
           try {
             const json = JSON.parse(data)
-            if (json.answer !== undefined && json.answer !== null) {
+            if (json.answer !== undefined && json.answer !== null && chatHistory.value[aiMessageIndex]) {
               chatHistory.value[aiMessageIndex].content = json.answer
               chatHistory.value[aiMessageIndex].isLoading = false
             }
@@ -407,7 +449,7 @@ const handleStreamResponse = async (question, conversationId, userId, history, a
     }
 
     // 如果连接正常结束但没有收到完成标记，确保清除加载状态
-    if (chatHistory.value[aiMessageIndex].isLoading) {
+    if (chatHistory.value[aiMessageIndex] && chatHistory.value[aiMessageIndex].isLoading) {
       chatHistory.value[aiMessageIndex].isLoading = false
     }
     
@@ -432,11 +474,19 @@ const handleStreamResponse = async (question, conversationId, userId, history, a
 }
 
 // 处理非流式响应
-const handleNormalResponse = async (question, conversationId, userId, history, aiMessageIndex) => {
+const handleNormalResponse = async (question, requestConversationId, userId, history, aiMessageIndex) => {
   try {
-    const response = await chat(question, conversationId, userId, history)
-    chatHistory.value[aiMessageIndex].content = response.answer || '抱歉，未能生成答案。'
-    chatHistory.value[aiMessageIndex].isLoading = false
+    const response = await chat(question, requestConversationId, userId, history)
+    if (chatHistory.value[aiMessageIndex]) {
+      chatHistory.value[aiMessageIndex].content = response.answer || '抱歉，未能生成答案。'
+      chatHistory.value[aiMessageIndex].isLoading = false
+    }
+    
+    // 更新会话ID
+    if (response.conversationId) {
+      conversationId.value = response.conversationId.toString()
+      console.log('非流式响应完成，更新 conversationId:', conversationId.value)
+    }
     
     // 触发代码高亮
     await nextTick()
@@ -641,6 +691,21 @@ const highlightCodeBlocks = () => {
   })
 }
 
+// 开启新对话
+const handleNewConversation = () => {
+  chatHistory.value = []
+  conversationId.value = null
+  question.value = ''
+  sending.value = false
+  currentStreamingMessage.value = null
+  ElMessage.success('已开启新对话')
+  
+  // 滚动到底部
+  nextTick(() => {
+    scrollToBottom(true)
+  })
+}
+
 const handleClearHistory = () => {
   if (chatHistory.value.length === 0) {
     ElMessage.info('当前没有对话历史')
@@ -672,11 +737,49 @@ const scrollToBottom = (force = false) => {
   })
 }
 
-onMounted(() => {
-  // 页面加载时滚动到底部
-  scrollToBottom(true)
-  // 确保代码高亮正常工作
-  highlightCodeBlocks()
+// 加载历史对话记录
+const loadConversationHistory = async (convId) => {
+  try {
+    const messages = await getConversationMessages(convId)
+    if (messages && messages.length > 0) {
+      // 将历史消息转换为聊天历史格式
+      chatHistory.value = messages.map(msg => ({
+        type: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.content || '',
+        time: msg.createTime ? new Date(msg.createTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        isLoading: false
+      }))
+      
+      // 设置会话ID
+      conversationId.value = convId.toString()
+      
+      // 滚动到底部
+      await nextTick()
+      scrollToBottom(true)
+      highlightCodeBlocks()
+      
+      ElMessage.success('已加载历史对话记录')
+    }
+  } catch (error) {
+    console.error('加载历史对话失败', error)
+    ElMessage.warning('加载历史对话失败')
+  }
+}
+
+onMounted(async () => {
+  // 检查是否有继续对话的标记
+  const continueConvId = localStorage.getItem('continueConversationId')
+  if (continueConvId) {
+    // 清除标记
+    localStorage.removeItem('continueConversationId')
+    // 加载历史对话
+    await loadConversationHistory(continueConvId)
+  } else {
+    // 页面加载时滚动到底部
+    scrollToBottom(true)
+    // 确保代码高亮正常工作
+    highlightCodeBlocks()
+  }
 })
 </script>
 
@@ -732,12 +835,17 @@ onMounted(() => {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 20px;
-  padding-bottom: 200px;
+  padding: 0;
+  min-height: 0;
+}
+
+.chat-history-content {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  min-height: 0;
+  padding: 20px;
+  min-height: 100%;
+  justify-content: flex-end;
 }
 
 .chat-history::-webkit-scrollbar {
@@ -838,6 +946,12 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-top: 12px;
+}
+
+.input-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .input-tips {
