@@ -110,8 +110,10 @@ onMounted(() => {
 
 <style scoped>
 .user-app-list {
-  max-width: 1200px;
+  width: 100%;
   margin: 0 auto;
+  padding: 0 20px;
+  box-sizing: border-box;
 }
 
 .page-header {
@@ -137,14 +139,17 @@ onMounted(() => {
 
 .app-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 24px;
+  width: 100%;
 }
 
 .app-card {
   cursor: pointer;
   transition: all 0.3s ease;
   height: 100%;
+  width: 100%;
+  margin: 0;
 }
 
 .app-card:hover {
