@@ -106,6 +106,25 @@
                   <div class="kb-header-desc">{{ selectedKB.description }}</div>
                 </div>
               </div>
+              <!-- 问答模型选择 -->
+              <div class="model-selector" style="margin-top: 10px;">
+                <el-select
+                  v-model="selectedModelId"
+                  placeholder="选择问答模型"
+                  size="small"
+                  style="width: 200px;"
+                  :disabled="sending || !isEmbeddingModelEnabled(selectedKB.embeddingModelId)"
+                >
+                  <el-option
+                    v-for="model in availableQAModels"
+                    :key="model.id"
+                    :label="model.name"
+                    :value="model.id"
+                  >
+                    <span :style="getModelStyle(model.id)">{{ model.name }}</span>
+                  </el-option>
+                </el-select>
+              </div>
               <!-- 向量化模型禁用提示 -->
               <el-alert
                 v-if="!isEmbeddingModelEnabled(selectedKB.embeddingModelId)"
@@ -236,7 +255,7 @@ import {
 } from '@element-plus/icons-vue'
 import { getKnowledgeBaseList } from '@/api/knowledgeBase'
 import { knowledgeBaseQA, knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
-import { getModelConfig } from '@/api/model'
+import { getModelConfig, getAvailableQAModelsForRAG } from '@/api/model'
 import { getModelStyle } from '@/utils/modelColor'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
@@ -343,6 +362,8 @@ const kbSearchKeyword = ref('') // 知识库搜索关键词
 const displayedCount = ref(50) // 初始显示数量
 const loadingMore = ref(false) // 加载更多状态
 const searchDebounceTimer = ref(null) // 防抖定时器
+const availableQAModels = ref([]) // 可用的问答模型列表
+const selectedModelId = ref(null) // 选中的问答模型ID
 
 // 过滤知识库列表
 const filteredKnowledgeBases = computed(() => {
@@ -555,7 +576,8 @@ const handleNormalResponse = async (userQuestion, history) => {
     userQuestion,
     conversationId.value,
     null,
-    historyToSend
+    historyToSend,
+    selectedModelId.value
   )
 
   if (res && res.data) {
@@ -613,7 +635,8 @@ const handleStreamResponse = async (userQuestion, history) => {
       userQuestion,
       conversationId.value,
       null,
-      historyToSend
+      historyToSend,
+      selectedModelId.value
     )
 
     if (!response.ok) {
@@ -1022,6 +1045,8 @@ onMounted(() => {
   loadKnowledgeBases()
   // 加载向量化模型列表
   loadEmbeddingModels()
+  // 加载问答模型列表
+  loadQAModels()
 })
 
 // 加载向量化模型列表（包括禁用的，用于检查状态）
@@ -1056,6 +1081,30 @@ const isEmbeddingModelEnabled = (modelId) => {
     // 如果没有指定模型ID，检查默认模型是否启用
     const defaultModel = embeddingModels.value.find(m => m.isDefault)
     return defaultModel ? defaultModel.enabled : false
+  }
+}
+
+// 加载问答模型列表（用于知识库问答）
+const loadQAModels = async () => {
+  try {
+    const response = await getAvailableQAModelsForRAG()
+    // request拦截器已经提取了response.data，所以response就是数据本身
+    const data = Array.isArray(response) ? response : (response?.data || [])
+    availableQAModels.value = data || []
+    console.log('加载的问答模型列表:', availableQAModels.value)
+    // 如果没有选中模型，默认选择第一个或默认模型
+    if (!selectedModelId.value && availableQAModels.value.length > 0) {
+      const defaultModel = availableQAModels.value.find(m => m.isDefault)
+      selectedModelId.value = defaultModel ? defaultModel.id : availableQAModels.value[0].id
+    } else if (availableQAModels.value.length === 0) {
+      console.warn('没有可用的RAG问答模型，请先在"大模型管理"页面配置useFor为"rag"或"both"的模型')
+      ElMessage.warning('当前没有可用的RAG问答模型，请先在"大模型管理"页面配置模型')
+    }
+  } catch (error) {
+    console.error('加载问答模型列表失败', error)
+    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || '未知错误'
+    ElMessage.error(`加载问答模型列表失败: ${errorMessage}`)
+    availableQAModels.value = []
   }
 }
 

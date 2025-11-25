@@ -93,5 +93,19 @@ public class ModelConfigController {
             throw new RuntimeException("获取可用问答模型列表失败: " + e.getMessage());
         }
     }
+    
+    /**
+     * 获取可用的问答模型列表（用于知识库问答）
+     */
+    @ApiOperation("获取可用的问答模型列表（用于知识库问答）")
+    @GetMapping("/qa/available/rag")
+    public ResponseEntity<?> getAvailableQAModelsForRAG(HttpServletRequest request) {
+        try {
+            return ResponseEntity.ok(modelConfigService.getAvailableQAModels("rag"));
+        } catch (Exception e) {
+            logger.error("获取可用问答模型列表失败", e);
+            throw new RuntimeException("获取可用问答模型列表失败: " + e.getMessage());
+        }
+    }
 }
 

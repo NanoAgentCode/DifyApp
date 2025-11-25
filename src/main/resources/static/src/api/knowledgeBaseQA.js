@@ -3,7 +3,7 @@ import request from '@/utils/request'
 /**
  * 知识库问答（非流式）
  */
-export function knowledgeBaseQA(kbId, question, conversationId, userId, history) {
+export function knowledgeBaseQA(kbId, question, conversationId, userId, history, modelId) {
   return request({
     url: `/api/knowledge-bases/${kbId}/qa`,
     method: 'post',
@@ -11,7 +11,8 @@ export function knowledgeBaseQA(kbId, question, conversationId, userId, history)
       question,
       conversationId,
       userId,
-      history
+      history,
+      modelId
     }
   })
 }
@@ -19,7 +20,7 @@ export function knowledgeBaseQA(kbId, question, conversationId, userId, history)
 /**
  * 知识库问答（流式）
  */
-export function knowledgeBaseQAStream(kbId, question, conversationId, userId, history) {
+export function knowledgeBaseQAStream(kbId, question, conversationId, userId, history, modelId) {
   // 获取JWT token
   const token = localStorage.getItem('token')
   
@@ -42,7 +43,8 @@ export function knowledgeBaseQAStream(kbId, question, conversationId, userId, hi
       conversationId,
       userId,
       history,
-      stream: true
+      stream: true,
+      modelId
     })
   })
 }

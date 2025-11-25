@@ -45,3 +45,13 @@ export function getAvailableQAModels() {
   })
 }
 
+/**
+ * 获取可用的问答模型列表（用于知识库问答）
+ */
+export function getAvailableQAModelsForRAG() {
+  return request({
+    url: '/api/models/qa/available/rag',
+    method: 'get'
+  })
+}
+
