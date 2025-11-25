@@ -1,9 +1,10 @@
 package com.github.app.dify.service;
 
 import com.github.app.dify.config.RagConfig;
+import com.github.app.dify.domain.QAModel;
 import com.github.app.dify.langchain4j.CustomChatLanguageModel;
 import com.github.app.dify.langchain4j.CustomEmbeddingModel;
-import com.github.app.dify.langchain4j.CustomStreamingChatLanguageModel;
+import com.github.app.dify.langchain4j.ModelLanguageModelFactory;
 import com.github.app.dify.langchain4j.QdrantEmbeddingStore;
 import com.github.app.dify.req.KnowledgeBaseQARequest;
 import com.github.app.dify.resp.KnowledgeBaseQAResponse;
@@ -48,7 +49,13 @@ public class KnowledgeBaseQAService {
     private CustomChatLanguageModel chatLanguageModel;
     
     @Autowired
-    private CustomStreamingChatLanguageModel streamingChatLanguageModel;
+    private KnowledgeBaseService knowledgeBaseService;
+    
+    @Autowired
+    private ModelLanguageModelFactory modelLanguageModelFactory;
+    
+    @Autowired
+    private ModelConfigService modelConfigService;
     
     @Autowired
     private VectorStoreService vectorStoreService;
@@ -75,14 +82,18 @@ public class KnowledgeBaseQAService {
      */
     public KnowledgeBaseQAResponse answer(Long knowledgeBaseId, KnowledgeBaseQARequest request, Long userId) {
         try {
-            // 检查LLM配置
-            if (ragConfig.getLlmApiUrl() == null || ragConfig.getLlmApiUrl().trim().isEmpty()) {
-                throw new IllegalStateException("LLM API URL未配置，请在application.yml中配置rag.llm-api-url");
+            // 获取知识库的向量化模型ID
+            Long embeddingModelId = null;
+            try {
+                com.github.app.dify.resp.KnowledgeBaseResp kb = knowledgeBaseService.getKnowledgeBaseById(knowledgeBaseId);
+                embeddingModelId = kb.getEmbeddingModelId();
+            } catch (Exception e) {
+                logger.warn("获取知识库向量化模型ID失败，使用默认模型 - 知识库ID: {}", knowledgeBaseId, e);
             }
             
             // 先检索相关文档（用于构建sources）
             List<RagRetrievalService.RetrievalResult> retrievalResults = 
-                    ragRetrievalService.retrieve(knowledgeBaseId, request.getQuestion());
+                    ragRetrievalService.retrieve(knowledgeBaseId, request.getQuestion(), embeddingModelId);
             
             if (retrievalResults.isEmpty()) {
                 KnowledgeBaseQAResponse response = new KnowledgeBaseQAResponse();
@@ -90,9 +101,6 @@ public class KnowledgeBaseQAService {
                 response.setSources(new ArrayList<>());
                 return response;
             }
-            
-            // 获取或创建RAG服务实例
-            RagService ragService = getOrCreateRagService(knowledgeBaseId);
             
             // 构建消息列表（包含历史对话）
             List<ChatMessage> messages = buildMessages(request);
@@ -162,14 +170,18 @@ public class KnowledgeBaseQAService {
      */
     public Flux<KnowledgeBaseQAResponse> answerStream(Long knowledgeBaseId, KnowledgeBaseQARequest request, Long userId) {
         try {
-            // 检查LLM配置
-            if (ragConfig.getLlmApiUrl() == null || ragConfig.getLlmApiUrl().trim().isEmpty()) {
-                return Flux.error(new IllegalStateException("LLM API URL未配置，请在application.yml中配置rag.llm-api-url"));
+            // 获取知识库的向量化模型ID
+            Long embeddingModelId = null;
+            try {
+                com.github.app.dify.resp.KnowledgeBaseResp kb = knowledgeBaseService.getKnowledgeBaseById(knowledgeBaseId);
+                embeddingModelId = kb.getEmbeddingModelId();
+            } catch (Exception e) {
+                logger.warn("获取知识库向量化模型ID失败，使用默认模型 - 知识库ID: {}", knowledgeBaseId, e);
             }
             
             // 先检索相关文档（用于构建sources）
             List<RagRetrievalService.RetrievalResult> retrievalResults = 
-                    ragRetrievalService.retrieve(knowledgeBaseId, request.getQuestion());
+                    ragRetrievalService.retrieve(knowledgeBaseId, request.getQuestion(), embeddingModelId);
             
             if (retrievalResults.isEmpty()) {
                 KnowledgeBaseQAResponse response = new KnowledgeBaseQAResponse();
@@ -399,9 +411,30 @@ public class KnowledgeBaseQAService {
                     "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符"));
         }
         
+        // 获取问答模型（优先使用请求中的modelId，否则使用默认的RAG模型）
+        Long modelId = request.getModelId();
+        QAModel qaModel;
+        try {
+            if (modelId != null) {
+                // 使用指定的模型
+                qaModel = modelConfigService.getQAModelById(modelId);
+            } else {
+                // 使用默认的RAG模型
+                qaModel = modelConfigService.getDefaultQAModelForRAG();
+            }
+        } catch (Exception e) {
+            logger.error("获取问答模型失败，使用默认模型 - 知识库ID: {}, modelId: {}", knowledgeBaseId, modelId, e);
+            qaModel = modelConfigService.getDefaultQAModelForRAG();
+        }
+        
+        // 创建流式模型实例
+        ModelLanguageModelFactory.StreamingChatLanguageModel streamingModel = 
+                modelLanguageModelFactory.createStreamingChatLanguageModel(qaModel);
+        
         // 调用流式LLM生成答案
-        logger.info("开始调用流式LLM生成答案 - 知识库ID: {}, 消息数量: {}", knowledgeBaseId, messages.size());
-        Flux<String> tokenFlux = streamingChatLanguageModel.generateStream(messages)
+        logger.info("开始调用流式LLM生成答案 - 知识库ID: {}, 模型ID: {}, 模型名称: {}, 消息数量: {}", 
+                knowledgeBaseId, qaModel.getId(), qaModel.getName(), messages.size());
+        Flux<String> tokenFlux = streamingModel.generateStream(messages)
                 .doOnSubscribe(subscription -> {
                     logger.info("开始订阅token流");
                 })

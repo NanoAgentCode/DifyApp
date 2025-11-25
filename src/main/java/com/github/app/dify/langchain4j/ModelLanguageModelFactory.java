@@ -1,0 +1,340 @@
+package com.github.app.dify.langchain4j;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.app.dify.config.ProviderType;
+import com.github.app.dify.domain.QAModel;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.output.Response;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
+import reactor.util.function.Tuples;
+
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 模型语言模型工厂，根据模型配置动态创建模型实例
+ */
+@Component
+public class ModelLanguageModelFactory {
+    
+    private static final Logger logger = LoggerFactory.getLogger(ModelLanguageModelFactory.class);
+    
+    @Autowired
+    private ObjectMapper objectMapper;
+    
+    /**
+     * 创建非流式聊天模型
+     */
+    public ChatLanguageModel createChatLanguageModel(QAModel qaModel) {
+        return new ChatLanguageModel() {
+            private WebClient webClient;
+            
+            @Override
+            public Response<AiMessage> generate(List<ChatMessage> messages) {
+                try {
+                    WebClient client = getWebClient(qaModel);
+                    
+                    // 构建请求体
+                    Map<String, Object> requestBody = buildRequestBody(messages, qaModel);
+                    
+                    // 调用LLM API
+                    String responseJson = client.post()
+                            .uri("")
+                            .bodyValue(requestBody)
+                            .retrieve()
+                            .bodyToMono(String.class)
+                            .timeout(Duration.ofSeconds(120))
+                            .block();
+                    
+                    // 解析响应
+                    String answer = parseResponse(responseJson);
+                    
+                    return Response.from(AiMessage.from(answer));
+                    
+                } catch (Exception e) {
+                    logger.error("调用LLM API失败", e);
+                    throw new RuntimeException("调用LLM API失败: " + e.getMessage(), e);
+                }
+            }
+            
+            private WebClient getWebClient(QAModel model) {
+                if (webClient == null) {
+                    String baseUrl = buildApiUrl(model);
+                    ProviderType providerType = ProviderType.fromValue(model.getProvider());
+                    
+                    WebClient.Builder builder = WebClient.builder()
+                            .baseUrl(baseUrl)
+                            .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                            .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024));
+                    
+                    if (providerType.requiresApiKey() && model.getApiKey() != null && !model.getApiKey().trim().isEmpty()) {
+                        builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + model.getApiKey());
+                    }
+                    
+                    webClient = builder.build();
+                    logger.info("ChatLanguageModel WebClient已创建，Provider: {}, URL: {}", providerType.getValue(), baseUrl);
+                }
+                return webClient;
+            }
+        };
+    }
+    
+    /**
+     * 创建流式聊天模型
+     */
+    public StreamingChatLanguageModel createStreamingChatLanguageModel(QAModel qaModel) {
+        return new StreamingChatLanguageModel() {
+            private WebClient webClient;
+            
+            @Override
+            public Flux<String> generateStream(List<ChatMessage> messages) {
+                try {
+                    WebClient client = getWebClient(qaModel);
+                    
+                    // 构建请求体
+                    Map<String, Object> requestBody = buildRequestBody(messages, qaModel);
+                    requestBody.put("stream", true);
+                    
+                    // 调用流式LLM API
+                    Flux<String> responseFlux = client.post()
+                            .uri("")
+                            .accept(MediaType.TEXT_EVENT_STREAM)
+                            .bodyValue(requestBody)
+                            .retrieve()
+                            .bodyToFlux(DataBuffer.class)
+                            .timeout(Duration.ofSeconds(300))
+                            .map(dataBuffer -> {
+                                byte[] bytes = new byte[dataBuffer.readableByteCount()];
+                                dataBuffer.read(bytes);
+                                DataBufferUtils.release(dataBuffer);
+                                return new String(bytes, StandardCharsets.UTF_8);
+                            })
+                            .scan(Tuples.<String, List<String>>of("", new ArrayList<String>()), (state, chunk) -> {
+                                String buffer = state.getT1() + chunk;
+                                List<String> lines = new ArrayList<>();
+                                String[] splitLines = buffer.split("\n", -1);
+                                
+                                String lastLine = splitLines[splitLines.length - 1];
+                                for (int i = 0; i < splitLines.length - 1; i++) {
+                                    String line = splitLines[i];
+                                    if (i == 0 && !state.getT1().isEmpty()) {
+                                        line = state.getT1() + line;
+                                    }
+                                    String trimmed = line.trim();
+                                    if (!trimmed.isEmpty()) {
+                                        lines.add(trimmed);
+                                    }
+                                }
+                                
+                                return Tuples.of(lastLine, lines);
+                            })
+                            .flatMap(state -> Flux.fromIterable(state.getT2()))
+                            .filter(line -> line != null && !line.trim().isEmpty())
+                            .<String>handle((line, sink) -> {
+                                try {
+                                    String chunk = parseStreamChunk(line);
+                                    if (chunk != null && !chunk.isEmpty()) {
+                                        sink.next(chunk);
+                                    }
+                                } catch (Exception e) {
+                                    logger.error("解析流式响应块时发生异常", e);
+                                }
+                            });
+                    
+                    return responseFlux;
+                    
+                } catch (Exception e) {
+                    logger.error("调用流式LLM API失败", e);
+                    return Flux.error(new RuntimeException("调用流式LLM API失败: " + e.getMessage(), e));
+                }
+            }
+            
+            private WebClient getWebClient(QAModel model) {
+                if (webClient == null) {
+                    String baseUrl = buildApiUrl(model);
+                    ProviderType providerType = ProviderType.fromValue(model.getProvider());
+                    
+                    WebClient.Builder builder = WebClient.builder()
+                            .baseUrl(baseUrl)
+                            .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                            .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024));
+                    
+                    if (providerType.requiresApiKey() && model.getApiKey() != null && !model.getApiKey().trim().isEmpty()) {
+                        builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + model.getApiKey());
+                    }
+                    
+                    webClient = builder.build();
+                    logger.info("StreamingChatLanguageModel WebClient已创建，Provider: {}, URL: {}", providerType.getValue(), baseUrl);
+                }
+                return webClient;
+            }
+        };
+    }
+    
+    /**
+     * 构建请求体
+     */
+    private Map<String, Object> buildRequestBody(List<ChatMessage> messages, QAModel qaModel) {
+        Map<String, Object> requestBody = new HashMap<>();
+        
+        // 转换消息格式
+        List<Map<String, String>> apiMessages = new ArrayList<>();
+        for (ChatMessage message : messages) {
+            Map<String, String> apiMessage = new HashMap<>();
+            
+            if (message instanceof SystemMessage) {
+                apiMessage.put("role", "system");
+                apiMessage.put("content", ((SystemMessage) message).text());
+            } else if (message instanceof UserMessage) {
+                apiMessage.put("role", "user");
+                apiMessage.put("content", ((UserMessage) message).singleText());
+            } else if (message instanceof AiMessage) {
+                apiMessage.put("role", "assistant");
+                apiMessage.put("content", ((AiMessage) message).text());
+            }
+            
+            apiMessages.add(apiMessage);
+        }
+        
+        requestBody.put("messages", apiMessages);
+        requestBody.put("stream", false);
+        requestBody.put("temperature", 0.7);
+        requestBody.put("max_tokens", 2000);
+        
+        // 添加模型名称
+        if (qaModel.getModel() != null && !qaModel.getModel().trim().isEmpty()) {
+            requestBody.put("model", qaModel.getModel());
+        }
+        
+        return requestBody;
+    }
+    
+    /**
+     * 解析响应
+     */
+    private String parseResponse(String responseJson) {
+        try {
+            com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(responseJson);
+            
+            if (root.has("choices") && root.get("choices").isArray() && root.get("choices").size() > 0) {
+                com.fasterxml.jackson.databind.JsonNode choice = root.get("choices").get(0);
+                if (choice.has("message")) {
+                    com.fasterxml.jackson.databind.JsonNode message = choice.get("message");
+                    if (message.has("content")) {
+                        return message.get("content").asText();
+                    }
+                }
+                if (choice.has("text")) {
+                    return choice.get("text").asText();
+                }
+            }
+            
+            if (root.has("text")) {
+                return root.get("text").asText();
+            }
+            
+            if (root.has("content")) {
+                return root.get("content").asText();
+            }
+            
+            logger.warn("无法解析LLM响应，返回原始JSON: {}", responseJson);
+            return responseJson;
+            
+        } catch (Exception e) {
+            logger.error("解析LLM响应失败", e);
+            return "解析LLM响应失败: " + e.getMessage();
+        }
+    }
+    
+    /**
+     * 解析流式响应块
+     */
+    private String parseStreamChunk(String line) {
+        try {
+            // SSE格式：data: {...}
+            if (line.startsWith("data: ")) {
+                String jsonStr = line.substring(6).trim();
+                if (jsonStr.equals("[DONE]")) {
+                    return null;
+                }
+                
+                com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(jsonStr);
+                
+                if (root.has("choices") && root.get("choices").isArray() && root.get("choices").size() > 0) {
+                    com.fasterxml.jackson.databind.JsonNode choice = root.get("choices").get(0);
+                    if (choice.has("delta")) {
+                        com.fasterxml.jackson.databind.JsonNode delta = choice.get("delta");
+                        if (delta.has("content")) {
+                            return delta.get("content").asText();
+                        }
+                    }
+                    if (choice.has("text")) {
+                        return choice.get("text").asText();
+                    }
+                }
+                
+                if (root.has("text")) {
+                    return root.get("text").asText();
+                }
+                
+                if (root.has("content")) {
+                    return root.get("content").asText();
+                }
+            }
+            
+            return null;
+            
+        } catch (Exception e) {
+            logger.error("解析流式响应块失败", e);
+            return null;
+        }
+    }
+    
+    /**
+     * 根据 provider 类型构建完整的 API URL
+     */
+    private String buildApiUrl(QAModel qaModel) {
+        String apiUrl = qaModel.getApiUrl();
+        ProviderType providerType = ProviderType.fromValue(qaModel.getProvider());
+        
+        // 如果 URL 已经包含路径（包含 /api/ 或 /v1/），则直接使用
+        if (apiUrl.contains("/api/") || apiUrl.contains("/v1/")) {
+            return apiUrl;
+        }
+        
+        // 根据 provider 类型添加相应的路径
+        String path = providerType.getChatPath();
+        return apiUrl.endsWith("/") ? apiUrl + path.substring(1) : apiUrl + path;
+    }
+    
+    /**
+     * 聊天语言模型接口
+     */
+    public interface ChatLanguageModel {
+        Response<AiMessage> generate(List<ChatMessage> messages);
+    }
+    
+    /**
+     * 流式聊天语言模型接口
+     */
+    public interface StreamingChatLanguageModel {
+        Flux<String> generateStream(List<ChatMessage> messages);
+    }
+}
+

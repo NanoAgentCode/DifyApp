@@ -1,0 +1,1257 @@
+<template>
+  <div class="model-management">
+    <el-card>
+      <template #header>
+        <div class="card-header">
+          <span>大模型管理</span>
+        </div>
+      </template>
+
+      <el-tabs v-model="activeTab" type="border-card">
+        <!-- 问答模型配置（智能问答和知识库问答） -->
+        <el-tab-pane label="问答模型" name="qa">
+          <div class="model-list-section">
+            <div class="section-header">
+              <el-button type="primary" @click="handleAddModel">
+                <el-icon><Plus /></el-icon>
+                添加模型
+              </el-button>
+            </div>
+
+            <el-table
+              :data="qaModelList"
+              v-loading="loading.qa"
+              stripe
+              border
+              style="width: 100%"
+              :row-class-name="getQARowClassName"
+            >
+              <el-table-column prop="name" label="模型名称" min-width="150" show-overflow-tooltip />
+              <el-table-column prop="provider" label="提供商" width="100" align="center">
+                <template #default="{ row }">
+                  <el-tag :type="getProviderTagType(row.provider)">
+                    {{ getProviderLabel(row.provider) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="模型标识" min-width="200">
+                <template #default="{ row }">
+                  <el-tag size="small" :style="getModelStyle(row.id)">
+                    {{ row.model }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="apiUrl" label="API 地址" min-width="200" show-overflow-tooltip />
+              <el-table-column label="使用场景" width="180" align="center">
+                <template #default="{ row }">
+                  <el-tag
+                    v-if="row.useFor === 'chat'"
+                    type="primary"
+                    size="small"
+                  >
+                    仅智能问答
+                  </el-tag>
+                  <el-tag
+                    v-else-if="row.useFor === 'rag'"
+                    type="success"
+                    size="small"
+                  >
+                    仅知识库问答
+                  </el-tag>
+                  <el-tag
+                    v-else-if="row.useFor === 'both'"
+                    type="warning"
+                    size="small"
+                  >
+                    两者都使用
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="状态" width="100" align="center">
+                <template #default="{ row }">
+                  <el-tag :type="row.enabled ? 'success' : 'info'">
+                    {{ row.enabled ? '启用' : '禁用' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="默认" width="100" align="center">
+                <template #default="{ row }">
+                  <el-radio
+                    :model-value="getDefaultQAModelId(row.useFor)"
+                    :label="row.id"
+                    @change="handleSetDefault(row)"
+                    :disabled="!row.enabled"
+                    style="--el-radio-input-width: 16px; --el-radio-input-height: 16px;"
+                  >
+                    <template #default></template>
+                  </el-radio>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="280" fixed="right" align="center">
+                <template #default="{ row }">
+                  <div class="action-buttons">
+                    <el-button
+                      size="small"
+                      type="success"
+                      @click="handleTestModel(row)"
+                      :loading="row.testing"
+                      :icon="Refresh"
+                    >
+                      测试
+                    </el-button>
+                    <el-button
+                      size="small"
+                      type="primary"
+                      @click="handleEditModel(row)"
+                      :icon="Edit"
+                    >
+                      编辑
+                    </el-button>
+                    <el-dropdown @command="(cmd) => handleActionCommand(cmd, row)" trigger="click">
+                      <el-button size="small" :icon="More">
+                        更多<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                      </el-button>
+                      <template #dropdown>
+                        <el-dropdown-menu>
+                          <el-dropdown-item
+                            command="toggleEnabled"
+                            :icon="row.enabled ? SwitchButton : CircleCheck"
+                          >
+                            {{ row.enabled ? '禁用' : '启用' }}
+                          </el-dropdown-item>
+                          <el-dropdown-item
+                            command="delete"
+                            :disabled="row.isDefault"
+                            :icon="Delete"
+                            divided
+                          >
+                            删除
+                          </el-dropdown-item>
+                        </el-dropdown-menu>
+                      </template>
+                    </el-dropdown>
+                  </div>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-tab-pane>
+
+        <!-- 向量化模型配置 -->
+        <el-tab-pane label="向量化模型" name="embedding">
+          <div class="model-list-section">
+            <div class="section-header">
+              <el-button type="primary" @click="handleAddEmbeddingModel">
+                <el-icon><Plus /></el-icon>
+                添加模型
+              </el-button>
+            </div>
+
+            <el-table
+              :data="embeddingModelList"
+              v-loading="loading.embedding"
+              stripe
+              border
+              style="width: 100%"
+              :row-class-name="getEmbeddingRowClassName"
+            >
+              <el-table-column prop="name" label="模型名称" min-width="150" show-overflow-tooltip />
+              <el-table-column prop="provider" label="提供商" width="100" align="center">
+                <template #default="{ row }">
+                  <el-tag :type="getProviderTagType(row.provider)">
+                    {{ getProviderLabel(row.provider) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="模型标识" min-width="200">
+                <template #default="{ row }">
+                  <el-tag size="small" :style="getModelStyle(row.id)">
+                    {{ row.model }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="apiUrl" label="API 地址" min-width="200" show-overflow-tooltip />
+              <el-table-column prop="timeout" label="超时时间（ms）" width="120" align="center" />
+              <el-table-column prop="batchSize" label="批处理大小" width="120" align="center" />
+              <el-table-column label="状态" width="100" align="center">
+                <template #default="{ row }">
+                  <el-tag :type="row.enabled ? 'success' : 'info'">
+                    {{ row.enabled ? '启用' : '禁用' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="默认" width="100" align="center">
+                <template #default="{ row }">
+                  <el-radio
+                    :model-value="getDefaultEmbeddingModelId()"
+                    :label="row.id"
+                    @change="handleSetDefaultEmbedding(row)"
+                    :disabled="!row.enabled"
+                    style="--el-radio-input-width: 16px; --el-radio-input-height: 16px;"
+                  >
+                    <template #default></template>
+                  </el-radio>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="280" fixed="right" align="center">
+                <template #default="{ row }">
+                  <div class="action-buttons">
+                    <el-button
+                      size="small"
+                      type="success"
+                      @click="handleTestEmbeddingModel(row)"
+                      :loading="row.testing"
+                      :icon="Refresh"
+                    >
+                      测试
+                    </el-button>
+                    <el-button
+                      size="small"
+                      type="primary"
+                      @click="handleEditEmbeddingModel(row)"
+                      :icon="Edit"
+                    >
+                      编辑
+                    </el-button>
+                    <el-dropdown @command="(cmd) => handleEmbeddingActionCommand(cmd, row)" trigger="click">
+                      <el-button size="small" :icon="More">
+                        更多<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                      </el-button>
+                      <template #dropdown>
+                        <el-dropdown-menu>
+                          <el-dropdown-item
+                            command="toggleEnabled"
+                            :icon="row.enabled ? SwitchButton : CircleCheck"
+                          >
+                            {{ row.enabled ? '禁用' : '启用' }}
+                          </el-dropdown-item>
+                          <el-dropdown-item
+                            command="delete"
+                            :disabled="row.isDefault"
+                            :icon="Delete"
+                            divided
+                          >
+                            删除
+                          </el-dropdown-item>
+                        </el-dropdown-menu>
+                      </template>
+                    </el-dropdown>
+                  </div>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
+
+    <!-- 问答模型编辑对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="dialogTitle"
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <el-form
+        :model="currentModel"
+        :rules="modelFormRules"
+        ref="modelFormRef"
+        label-width="120px"
+      >
+        <el-form-item label="模型名称" prop="name">
+          <el-input
+            v-model="currentModel.name"
+            placeholder="请输入模型名称，用于标识"
+          />
+        </el-form-item>
+
+        <el-form-item label="提供商类型" prop="provider">
+          <el-select v-model="currentModel.provider" placeholder="请选择提供商类型" style="width: 100%">
+            <el-option label="OpenAI" value="openai" />
+            <el-option label="VLLM" value="vllm" />
+            <el-option label="Ollama" value="ollama" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="API 地址" prop="apiUrl">
+          <el-input
+            v-model="currentModel.apiUrl"
+            placeholder="例如: https://api.siliconflow.cn 或 http://localhost:8000"
+          />
+        </el-form-item>
+
+        <el-form-item label="API Key" prop="apiKey" v-if="currentModel.provider === 'openai'">
+          <el-input
+            v-model="currentModel.apiKey"
+            type="password"
+            show-password
+            placeholder="请输入 API Key"
+          />
+        </el-form-item>
+
+        <el-form-item label="API Key" prop="apiKey" v-else-if="currentModel.provider === 'vllm'">
+          <el-input
+            v-model="currentModel.apiKey"
+            type="password"
+            show-password
+            placeholder="VLLM 通常不需要 API Key（可选）"
+          />
+        </el-form-item>
+
+        <el-form-item label="API Key" prop="apiKey" v-else>
+          <el-input
+            v-model="currentModel.apiKey"
+            type="password"
+            show-password
+            placeholder="Ollama 通常不需要 API Key（可选）"
+          />
+        </el-form-item>
+
+        <el-form-item label="模型标识" prop="model">
+          <el-input
+            v-model="currentModel.model"
+            placeholder="请输入模型标识"
+          />
+          <div class="form-tip">
+            <el-icon><InfoFilled /></el-icon>
+            <span v-if="currentModel.provider === 'openai'">
+              例如: Qwen/Qwen2.5-72B-Instruct, gpt-4, gpt-3.5-turbo
+            </span>
+            <span v-else-if="currentModel.provider === 'vllm'">
+              例如: Qwen/Qwen2.5-72B-Instruct
+            </span>
+            <span v-else>
+              例如: qwen2.5:72b, llama3:70b, mistral:7b
+            </span>
+          </div>
+        </el-form-item>
+
+        <el-form-item label="使用场景" prop="useFor">
+          <el-radio-group v-model="currentModel.useFor">
+            <el-radio label="chat">仅用于智能问答</el-radio>
+            <el-radio label="rag">仅用于知识库问答</el-radio>
+            <el-radio label="both">两者都使用</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item label="启用状态">
+          <el-switch v-model="currentModel.enabled" />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSaveModel" :loading="saving">
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 向量化模型编辑对话框 -->
+    <el-dialog
+      v-model="embeddingDialogVisible"
+      :title="embeddingDialogTitle"
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <el-form
+        :model="currentEmbeddingModel"
+        :rules="embeddingModelFormRules"
+        ref="embeddingModelFormRef"
+        label-width="120px"
+      >
+        <el-form-item label="模型名称" prop="name">
+          <el-input
+            v-model="currentEmbeddingModel.name"
+            placeholder="请输入模型名称，用于标识"
+          />
+        </el-form-item>
+
+        <el-form-item label="提供商类型" prop="provider">
+          <el-select v-model="currentEmbeddingModel.provider" placeholder="请选择提供商类型" style="width: 100%">
+            <el-option label="OpenAI" value="openai" />
+            <el-option label="VLLM" value="vllm" />
+            <el-option label="Ollama" value="ollama" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="API 地址" prop="apiUrl">
+          <el-input
+            v-model="currentEmbeddingModel.apiUrl"
+            placeholder="例如: https://api.siliconflow.cn 或 http://localhost:8000"
+          />
+        </el-form-item>
+
+        <el-form-item label="API Key" prop="apiKey" v-if="currentEmbeddingModel.provider === 'openai'">
+          <el-input
+            v-model="currentEmbeddingModel.apiKey"
+            type="password"
+            show-password
+            placeholder="请输入 API Key"
+          />
+        </el-form-item>
+
+        <el-form-item label="API Key" prop="apiKey" v-else-if="currentEmbeddingModel.provider === 'vllm'">
+          <el-input
+            v-model="currentEmbeddingModel.apiKey"
+            type="password"
+            show-password
+            placeholder="VLLM 通常不需要 API Key（可选）"
+          />
+        </el-form-item>
+
+        <el-form-item label="API Key" prop="apiKey" v-else>
+          <el-input
+            v-model="currentEmbeddingModel.apiKey"
+            type="password"
+            show-password
+            placeholder="Ollama 通常不需要 API Key（可选）"
+          />
+        </el-form-item>
+
+        <el-form-item label="模型标识" prop="model">
+          <el-input
+            v-model="currentEmbeddingModel.model"
+            placeholder="请输入模型标识"
+          />
+          <div class="form-tip">
+            <el-icon><InfoFilled /></el-icon>
+            <span v-if="currentEmbeddingModel.provider === 'openai'">
+              例如: Qwen/Qwen3-Embedding-8B, text-embedding-ada-002
+            </span>
+            <span v-else>
+              例如: nomic-embed-text, mxbai-embed-large
+            </span>
+          </div>
+        </el-form-item>
+
+        <el-form-item label="超时时间（ms）" prop="timeout">
+          <el-input-number
+            v-model="currentEmbeddingModel.timeout"
+            :min="1000"
+            :max="600000"
+            :step="1000"
+            style="width: 100%"
+          />
+          <div class="form-tip">
+            <el-icon><InfoFilled /></el-icon>
+            <span>建议设置为 300000（5分钟），支持大文档向量化</span>
+          </div>
+        </el-form-item>
+
+        <el-form-item label="批处理大小" prop="batchSize">
+          <el-input-number
+            v-model="currentEmbeddingModel.batchSize"
+            :min="1"
+            :max="1000"
+            :step="10"
+            style="width: 100%"
+          />
+          <div class="form-tip">
+            <el-icon><InfoFilled /></el-icon>
+            <span>每次向量化的文档块数量，建议设置为 100</span>
+          </div>
+        </el-form-item>
+
+        <el-form-item label="启用状态">
+          <el-switch v-model="currentEmbeddingModel.enabled" />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="embeddingDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSaveEmbeddingModel" :loading="saving">
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, computed, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  InfoFilled,
+  Link,
+  Key,
+  Box,
+  Refresh,
+  Plus,
+  Edit,
+  Delete,
+  More,
+  ArrowDown,
+  SwitchButton,
+  CircleCheck
+} from '@element-plus/icons-vue'
+import { getModelConfig, updateModelConfig, testModelConnection } from '@/api/model'
+import { getModelStyle } from '@/utils/modelColor'
+
+const activeTab = ref('qa')
+const saving = ref(false)
+const loading = reactive({
+  qa: false,
+  embedding: false
+})
+
+const qaModelList = ref([])
+const embeddingModelList = ref([])
+
+// 问答模型对话框相关
+const dialogVisible = ref(false)
+const dialogTitle = ref('添加模型')
+const currentModel = reactive({
+  id: null,
+  name: '',
+  provider: 'openai',
+  apiUrl: '',
+  apiKey: '',
+  model: '',
+  useFor: 'both', // 'chat', 'rag', 'both'
+  enabled: true
+})
+const modelFormRef = ref(null)
+
+// 向量化模型对话框相关
+const embeddingDialogVisible = ref(false)
+const embeddingDialogTitle = ref('添加向量化模型')
+const currentEmbeddingModel = reactive({
+  id: null,
+  name: '',
+  provider: 'openai',
+  apiUrl: '',
+  apiKey: '',
+  model: '',
+  timeout: 300000,
+  batchSize: 100,
+  enabled: true
+})
+const embeddingModelFormRef = ref(null)
+
+
+
+const modelFormRules = {
+  name: [
+    { required: true, message: '请输入模型名称', trigger: 'blur' }
+  ],
+  provider: [
+    { required: true, message: '请选择提供商类型', trigger: 'change' }
+  ],
+  apiUrl: [
+    { required: true, message: '请输入 API 地址', trigger: 'blur' },
+    {
+      pattern: /^https?:\/\/.+$/,
+      message: '请输入有效的 URL 地址（以 http:// 或 https:// 开头）',
+      trigger: 'blur'
+    }
+  ],
+  model: [
+    { required: true, message: '请输入模型标识', trigger: 'blur' }
+  ],
+  useFor: [
+    { required: true, message: '请选择使用场景', trigger: 'change' }
+  ]
+}
+
+const embeddingModelFormRules = {
+  name: [
+    { required: true, message: '请输入模型名称', trigger: 'blur' }
+  ],
+  provider: [
+    { required: true, message: '请选择提供商类型', trigger: 'change' }
+  ],
+  apiUrl: [
+    { required: true, message: '请输入 API 地址', trigger: 'blur' },
+    {
+      pattern: /^https?:\/\/.+$/,
+      message: '请输入有效的 URL 地址（以 http:// 或 https:// 开头）',
+      trigger: 'blur'
+    }
+  ],
+  model: [
+    { required: true, message: '请输入模型标识', trigger: 'blur' }
+  ],
+  timeout: [
+    { required: true, message: '请输入超时时间', trigger: 'blur' },
+    { type: 'number', min: 1000, message: '超时时间不能小于 1000 毫秒', trigger: 'blur' }
+  ],
+  batchSize: [
+    { required: true, message: '请输入批处理大小', trigger: 'blur' },
+    { type: 'number', min: 1, message: '批处理大小不能小于 1', trigger: 'blur' }
+  ]
+}
+
+// 获取提供商标签类型
+const getProviderTagType = (provider) => {
+  const map = {
+    openai: 'primary',
+    vllm: 'success',
+    ollama: 'info'
+  }
+  return map[provider] || 'info'
+}
+
+// 获取提供商标签文本
+const getProviderLabel = (provider) => {
+  const map = {
+    openai: 'OpenAI',
+    vllm: 'VLLM',
+    ollama: 'Ollama'
+  }
+  return map[provider] || provider
+}
+
+// 获取问答模型表格行类名（用于高亮默认模型）
+const getQARowClassName = ({ row }) => {
+  return row.isDefault ? 'default-model-row' : ''
+}
+
+// 获取向量化模型表格行类名（用于高亮默认模型）
+const getEmbeddingRowClassName = ({ row }) => {
+  return row.isDefault ? 'default-model-row' : ''
+}
+
+// 获取默认问答模型ID（根据使用场景）
+const getDefaultQAModelId = (useFor) => {
+  const defaultModel = qaModelList.value.find(model => 
+    model.isDefault && (model.useFor === useFor || model.useFor === 'both')
+  )
+  return defaultModel ? defaultModel.id : null
+}
+
+// 获取默认向量化模型ID
+const getDefaultEmbeddingModelId = () => {
+  const defaultModel = embeddingModelList.value.find(model => model.isDefault)
+  return defaultModel ? defaultModel.id : null
+}
+
+// 加载配置
+const loadConfig = async () => {
+  try {
+    loading.qa = true
+    
+    const data = await getModelConfig()
+    
+    // 加载问答模型列表（统一管理）
+    if (data.qaModels && Array.isArray(data.qaModels)) {
+      qaModelList.value = data.qaModels.map(model => ({
+        ...model,
+        testing: false
+      }))
+    } else if (data.models && Array.isArray(data.models)) {
+      // 兼容 models 字段
+      qaModelList.value = data.models.map(model => ({
+        ...model,
+        testing: false
+      }))
+    } else {
+      // 兼容旧格式：分别从 chat 和 rag 加载
+      const models = []
+      
+      if (data.chatModels && Array.isArray(data.chatModels)) {
+        data.chatModels.forEach(model => {
+          models.push({
+            ...model,
+            useFor: model.useFor || 'chat',
+            testing: false
+          })
+        })
+      } else if (data.chat) {
+        models.push({
+          id: 1,
+          name: data.chat.name || '默认模型（智能问答）',
+          provider: data.chat.providerType || data.chat.provider || 'openai',
+          apiUrl: data.chat.apiUrl || '',
+          apiKey: data.chat.apiKey || '',
+          model: data.chat.model || '',
+          useFor: 'chat',
+          enabled: true,
+          isDefault: true,
+          testing: false
+        })
+      }
+      
+      if (data.ragModels && Array.isArray(data.ragModels)) {
+        data.ragModels.forEach(model => {
+          models.push({
+            ...model,
+            useFor: model.useFor || 'rag',
+            testing: false
+          })
+        })
+      } else if (data.rag) {
+        models.push({
+          id: models.length + 1,
+          name: data.rag.name || '默认模型（知识库问答）',
+          provider: data.rag.providerType || data.rag.provider || 'openai',
+          apiUrl: data.rag.apiUrl || '',
+          apiKey: data.rag.apiKey || '',
+          model: data.rag.model || '',
+          useFor: 'rag',
+          enabled: true,
+          isDefault: true,
+          testing: false
+        })
+      }
+      
+      qaModelList.value = models
+    }
+    
+    // 加载向量化模型列表
+    if (data.embeddingModels && Array.isArray(data.embeddingModels)) {
+      embeddingModelList.value = data.embeddingModels.map(model => ({
+        ...model,
+        testing: false
+      }))
+    } else if (data.embedding) {
+      // 兼容旧格式：单个向量化模型配置
+      embeddingModelList.value = [{
+        id: 1,
+        name: data.embedding.name || '默认向量化模型',
+        provider: data.embedding.providerType || (data.embedding.provider === 'openai' && data.embedding.apiUrl && data.embedding.apiUrl.includes('localhost') ? 'vllm' : data.embedding.provider) || 'openai',
+        apiUrl: data.embedding.apiUrl || '',
+        apiKey: data.embedding.apiKey || '',
+        model: data.embedding.model || '',
+        timeout: data.embedding.timeout || 300000,
+        batchSize: data.embedding.batchSize || 100,
+        enabled: true,
+        isDefault: true,
+        testing: false
+      }]
+    } else {
+      embeddingModelList.value = []
+    }
+  } catch (error) {
+    console.warn('加载模型配置失败，使用默认值:', error)
+  } finally {
+    loading.qa = false
+    loading.embedding = false
+  }
+}
+
+// 添加模型
+const handleAddModel = () => {
+  dialogTitle.value = '添加问答模型'
+  currentModel.id = null
+  currentModel.name = ''
+  currentModel.provider = 'openai'
+  currentModel.apiUrl = ''
+  currentModel.apiKey = ''
+  currentModel.model = ''
+  currentModel.useFor = 'both'
+  currentModel.enabled = true
+  dialogVisible.value = true
+}
+
+// 编辑模型
+const handleEditModel = (row) => {
+  dialogTitle.value = '编辑问答模型'
+  currentModel.id = row.id
+  currentModel.name = row.name
+  currentModel.provider = row.provider
+  currentModel.apiUrl = row.apiUrl
+  currentModel.apiKey = row.apiKey || ''
+  currentModel.model = row.model
+  currentModel.useFor = row.useFor || 'both'
+  currentModel.enabled = row.enabled !== false
+  dialogVisible.value = true
+}
+
+// 保存模型
+const handleSaveModel = async () => {
+  if (!modelFormRef.value) return
+  
+  try {
+    await modelFormRef.value.validate()
+    
+    saving.value = true
+    
+    const modelData = {
+      id: currentModel.id,
+      name: currentModel.name,
+      provider: currentModel.provider === 'vllm' ? 'openai' : currentModel.provider,
+      providerType: currentModel.provider,
+      apiUrl: currentModel.apiUrl,
+      apiKey: currentModel.apiKey,
+      model: currentModel.model,
+      useFor: currentModel.useFor,
+      enabled: currentModel.enabled
+    }
+    
+    if (currentModel.id) {
+      // 更新
+      const response = await updateModelConfig({
+        action: 'update',
+        model: modelData
+      })
+      
+      const index = qaModelList.value.findIndex(m => m.id === currentModel.id)
+      if (index !== -1) {
+        qaModelList.value[index] = { ...response, testing: false }
+      }
+    } else {
+      // 新增
+      const response = await updateModelConfig({
+        action: 'add',
+        model: modelData
+      })
+      
+      qaModelList.value.push({ ...response, testing: false })
+    }
+    
+    ElMessage.success('保存成功')
+    dialogVisible.value = false
+  } catch (error) {
+    if (error !== false) {
+      ElMessage.error(error.response?.data?.error || error.message || '保存失败')
+    }
+  } finally {
+    saving.value = false
+  }
+}
+
+// 删除模型
+const handleDeleteModel = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除模型 "${row.name}" 吗？`,
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    await updateModelConfig({
+      action: 'delete',
+      modelId: row.id
+    })
+    
+    const index = qaModelList.value.findIndex(m => m.id === row.id)
+    if (index !== -1) {
+      qaModelList.value.splice(index, 1)
+    }
+    
+    ElMessage.success('删除成功')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.response?.data?.error || error.message || '删除失败')
+    }
+  }
+}
+
+// 设置默认模型
+const handleSetDefault = async (row) => {
+  try {
+    await updateModelConfig({
+      action: 'setDefault',
+      modelId: row.id,
+      useFor: row.useFor
+    })
+    
+    // 根据使用场景设置默认模型
+    qaModelList.value.forEach(model => {
+      if (row.useFor === 'both') {
+        // 如果设置为两者都使用，则清除所有默认标记
+        if (model.id === row.id) {
+          model.isDefault = true
+        } else {
+          model.isDefault = false
+        }
+      } else {
+        // 如果只用于某个场景，只在该场景下设置默认
+        if (model.id === row.id && model.useFor === row.useFor) {
+          model.isDefault = true
+        } else if (model.useFor === row.useFor) {
+          model.isDefault = false
+        }
+      }
+    })
+    
+    ElMessage.success('设置默认模型成功')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.error || error.message || '设置失败')
+  }
+}
+
+// 切换启用状态
+const handleToggleEnabled = async (row) => {
+  try {
+    const newEnabled = !row.enabled
+    
+    await updateModelConfig({
+      action: 'toggleEnabled',
+      modelId: row.id,
+      enabled: newEnabled
+    })
+    
+    row.enabled = newEnabled
+    ElMessage.success(newEnabled ? '模型已启用' : '模型已禁用')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.error || error.message || '操作失败')
+    row.enabled = !row.enabled // 恢复原状态
+  }
+}
+
+// 处理操作命令（问答模型）
+const handleActionCommand = (command, row) => {
+  if (command === 'toggleEnabled') {
+    handleToggleEnabled(row)
+  } else if (command === 'delete') {
+    handleDeleteModel(row)
+  }
+}
+
+// 处理操作命令（向量化模型）
+const handleEmbeddingActionCommand = (command, row) => {
+  if (command === 'setDefault') {
+    handleSetDefaultEmbedding(row)
+  } else if (command === 'toggleEnabled') {
+    handleToggleEnabledEmbedding(row)
+  } else if (command === 'delete') {
+    handleDeleteEmbeddingModel(row)
+  }
+}
+
+// 测试模型连接
+const handleTestModel = async (row) => {
+  row.testing = true
+  try {
+    const testData = {
+      type: 'qa',
+      provider: row.provider === 'vllm' ? 'openai' : row.provider,
+      providerType: row.provider,
+      apiUrl: row.apiUrl,
+      apiKey: row.apiKey,
+      model: row.model
+    }
+    
+    await testModelConnection(testData)
+    ElMessage.success('连接测试成功')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.error || error.message || '连接测试失败')
+  } finally {
+    row.testing = false
+  }
+}
+
+// 添加向量化模型
+const handleAddEmbeddingModel = () => {
+  embeddingDialogTitle.value = '添加向量化模型'
+  currentEmbeddingModel.id = null
+  currentEmbeddingModel.name = ''
+  currentEmbeddingModel.provider = 'openai'
+  currentEmbeddingModel.apiUrl = ''
+  currentEmbeddingModel.apiKey = ''
+  currentEmbeddingModel.model = ''
+  currentEmbeddingModel.timeout = 300000
+  currentEmbeddingModel.batchSize = 100
+  currentEmbeddingModel.enabled = true
+  embeddingDialogVisible.value = true
+}
+
+// 编辑向量化模型
+const handleEditEmbeddingModel = (row) => {
+  embeddingDialogTitle.value = '编辑向量化模型'
+  currentEmbeddingModel.id = row.id
+  currentEmbeddingModel.name = row.name
+  currentEmbeddingModel.provider = row.provider
+  currentEmbeddingModel.apiUrl = row.apiUrl
+  currentEmbeddingModel.apiKey = row.apiKey || ''
+  currentEmbeddingModel.model = row.model
+  currentEmbeddingModel.timeout = row.timeout || 300000
+  currentEmbeddingModel.batchSize = row.batchSize || 100
+  currentEmbeddingModel.enabled = row.enabled !== false
+  embeddingDialogVisible.value = true
+}
+
+// 保存向量化模型
+const handleSaveEmbeddingModel = async () => {
+  if (!embeddingModelFormRef.value) return
+  
+  try {
+    await embeddingModelFormRef.value.validate()
+    
+    saving.value = true
+    
+    const modelData = {
+      id: currentEmbeddingModel.id,
+      name: currentEmbeddingModel.name,
+      provider: currentEmbeddingModel.provider === 'vllm' ? 'openai' : currentEmbeddingModel.provider,
+      providerType: currentEmbeddingModel.provider,
+      apiUrl: currentEmbeddingModel.apiUrl,
+      apiKey: currentEmbeddingModel.apiKey,
+      model: currentEmbeddingModel.model,
+      timeout: currentEmbeddingModel.timeout,
+      batchSize: currentEmbeddingModel.batchSize,
+      enabled: currentEmbeddingModel.enabled
+    }
+    
+    if (currentEmbeddingModel.id) {
+      // 更新
+      const response = await updateModelConfig({
+        action: 'update',
+        type: 'embedding',
+        model: modelData
+      })
+      
+      const index = embeddingModelList.value.findIndex(m => m.id === currentEmbeddingModel.id)
+      if (index !== -1) {
+        embeddingModelList.value[index] = { ...response, testing: false }
+      }
+    } else {
+      // 新增
+      const response = await updateModelConfig({
+        action: 'add',
+        type: 'embedding',
+        model: modelData
+      })
+      
+      embeddingModelList.value.push({ ...response, testing: false })
+    }
+    
+    ElMessage.success('保存成功')
+    embeddingDialogVisible.value = false
+  } catch (error) {
+    if (error !== false) {
+      ElMessage.error(error.response?.data?.error || error.message || '保存失败')
+    }
+  } finally {
+    saving.value = false
+  }
+}
+
+// 删除向量化模型
+const handleDeleteEmbeddingModel = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除向量化模型 "${row.name}" 吗？`,
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    await updateModelConfig({
+      action: 'delete',
+      type: 'embedding',
+      modelId: row.id
+    })
+    
+    const index = embeddingModelList.value.findIndex(m => m.id === row.id)
+    if (index !== -1) {
+      embeddingModelList.value.splice(index, 1)
+    }
+    
+    ElMessage.success('删除成功')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.response?.data?.error || error.message || '删除失败')
+    }
+  }
+}
+
+// 设置默认向量化模型
+const handleSetDefaultEmbedding = async (row) => {
+  try {
+    await updateModelConfig({
+      action: 'setDefault',
+      type: 'embedding',
+      modelId: row.id
+    })
+    
+    embeddingModelList.value.forEach(model => {
+      model.isDefault = model.id === row.id
+    })
+    
+    ElMessage.success('设置默认模型成功')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.error || error.message || '设置失败')
+  }
+}
+
+// 切换向量化模型启用状态
+const handleToggleEnabledEmbedding = async (row) => {
+  try {
+    const newEnabled = !row.enabled
+    
+    await updateModelConfig({
+      action: 'toggleEnabled',
+      type: 'embedding',
+      modelId: row.id,
+      enabled: newEnabled
+    })
+    
+    row.enabled = newEnabled
+    ElMessage.success(newEnabled ? '模型已启用' : '模型已禁用')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.error || error.message || '操作失败')
+    row.enabled = !row.enabled // 恢复原状态
+  }
+}
+
+// 测试向量化模型连接
+const handleTestEmbeddingModel = async (row) => {
+  row.testing = true
+  try {
+    const testData = {
+      type: 'embedding',
+      provider: row.provider === 'vllm' ? 'openai' : row.provider,
+      providerType: row.provider,
+      apiUrl: row.apiUrl,
+      apiKey: row.apiKey,
+      model: row.model
+    }
+    
+    await testModelConnection(testData)
+    ElMessage.success('连接测试成功')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.error || error.message || '连接测试失败')
+  } finally {
+    row.testing = false
+  }
+}
+
+onMounted(() => {
+  loadConfig()
+})
+</script>
+
+<style scoped>
+.model-management {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:deep(.el-card) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: 0;
+}
+
+:deep(.el-card__header) {
+  flex-shrink: 0;
+  padding: 18px 20px;
+}
+
+:deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px;
+  min-height: 0;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+:deep(.el-tabs) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:deep(.el-tabs__content) {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px;
+}
+
+.model-list-section {
+  width: 100%;
+}
+
+.section-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+
+.config-section {
+  max-width: 800px;
+}
+
+.form-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: #909399;
+  font-size: 12px;
+}
+
+.form-tip .el-icon {
+  font-size: 14px;
+  color: #409eff;
+}
+
+:deep(.el-form-item) {
+  margin-bottom: 24px;
+}
+
+:deep(.el-input-group__prepend) {
+  background-color: #f5f7fa;
+  color: #909399;
+  border-right: none;
+}
+
+:deep(.el-input__wrapper) {
+  border-left: none;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-buttons .el-button {
+  margin: 0;
+}
+
+.action-buttons .el-dropdown {
+  margin-left: 0;
+}
+
+/* 高亮默认模型行 */
+:deep(.el-table .default-model-row) {
+  background-color: #ecf5ff !important;
+}
+
+:deep(.el-table .default-model-row:hover) {
+  background-color: #d4e8ff !important;
+}
+
+/* 确保条纹表格中默认模型行也能正确高亮 */
+:deep(.el-table--striped .default-model-row.el-table__row--striped) {
+  background-color: #ecf5ff !important;
+}
+
+:deep(.el-table--striped .default-model-row.el-table__row--striped:hover) {
+  background-color: #d4e8ff !important;
+}
+
+/* 隐藏单选按钮的 label 文本 */
+:deep(.el-table .el-radio__label) {
+  display: none !important;
+  padding: 0 !important;
+  width: 0 !important;
+}
+</style>

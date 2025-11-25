@@ -5,6 +5,36 @@
         <div class="card-header">
           <span>智能问答</span>
           <div class="header-actions">
+            <el-select
+              v-model="selectedModelId"
+              placeholder="选择模型"
+              style="width: 200px; margin-right: 10px"
+              size="small"
+              clearable
+              :disabled="sending"
+            >
+              <el-option
+                v-for="model in availableModels"
+                :key="model.id"
+                :label="model.name"
+                :value="model.id"
+              >
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%">
+                  <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0">
+                    <el-tag 
+                      size="small"
+                      :style="getModelStyle(model.id)"
+                      style="flex-shrink: 0"
+                    >
+                      {{ model.name }}
+                    </el-tag>
+                  </div>
+                  <el-tag v-if="model.isDefault" type="primary" size="small" style="margin-left: 8px; flex-shrink: 0">
+                    默认
+                  </el-tag>
+                </div>
+              </el-option>
+            </el-select>
             <el-checkbox v-model="useStream" size="small">流式响应</el-checkbox>
             <el-button type="primary" @click="handleClearHistory">
               <el-icon><Delete /></el-icon>
@@ -101,6 +131,8 @@ import {
   Plus
 } from '@element-plus/icons-vue'
 import { chat, chatStream, getConversationMessages } from '@/api/chat'
+import { getAvailableQAModels } from '@/api/model'
+import { getModelStyle } from '@/utils/modelColor'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
@@ -163,6 +195,7 @@ marked.setOptions({
         try {
           const highlighted = hljs.highlight(code, { language: normalizedLang })
           result = highlighted.value
+          console.debug('代码高亮成功', { lang, normalizedLang, codeLength: code.length, resultLength: result.length })
         } catch (err) {
           console.warn('代码高亮失败', err, '语言:', normalizedLang)
           // 如果指定语言失败，尝试自动检测
@@ -172,6 +205,17 @@ marked.setOptions({
         // 自动检测语言
         const autoResult = hljs.highlightAuto(code, ['javascript', 'typescript', 'python', 'java', 'go', 'rust', 'cpp', 'c', 'csharp', 'php', 'ruby', 'swift', 'kotlin', 'sql', 'html', 'css', 'json', 'xml', 'yaml', 'bash', 'shell'])
         result = autoResult.value
+        console.debug('自动检测语言高亮', { detectedLanguage: autoResult.language, codeLength: code.length })
+      }
+      
+      // highlight.js返回的HTML是纯内容，包含带类的span标签
+      // 例如：<span class="hljs-keyword">public</span> <span class="hljs-type">int</span>
+      // marked会自动将其包装在<pre><code class="hljs">中
+      // 检查返回的HTML是否包含高亮标签
+      if (result.includes('class="hljs-')) {
+        console.debug('highlight.js返回的HTML包含高亮标签，前200字符:', result.substring(0, 200))
+      } else {
+        console.warn('highlight.js返回的HTML可能没有高亮标签', { result: result.substring(0, 100) })
       }
       
       return result
@@ -181,6 +225,7 @@ marked.setOptions({
         return hljs.highlightAuto(code).value
       } catch (fallbackErr) {
         console.error('代码高亮降级失败', fallbackErr)
+        // 最后的降级：返回原始代码，但添加基本样式
         return `<code class="hljs">${code}</code>`
       }
     }
@@ -198,6 +243,8 @@ const chatHistoryRef = ref(null)
 const conversationId = ref(null)
 const useStream = ref(true) // 默认使用流式响应
 const currentStreamingMessage = ref(null) // 当前正在流式接收的消息索引
+const availableModels = ref([]) // 可用的模型列表
+const selectedModelId = ref(null) // 选中的模型ID
 
 // 获取用户信息
 const getUserInfo = () => {
@@ -264,10 +311,10 @@ const handleSend = async () => {
     
     if (useStream.value) {
       // 流式响应
-      await handleStreamResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex)
+      await handleStreamResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value)
     } else {
       // 非流式响应
-      await handleNormalResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex)
+      await handleNormalResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value)
     }
   } catch (error) {
     console.error('发送消息失败', error)
@@ -286,12 +333,12 @@ const handleSend = async () => {
 }
 
 // 处理流式响应
-const handleStreamResponse = async (question, requestConversationId, userId, history, aiMessageIndex) => {
+const handleStreamResponse = async (question, requestConversationId, userId, history, aiMessageIndex, modelId) => {
   let reader = null
   let response = null
   
   try {
-    response = await chatStream(question, requestConversationId, userId, history)
+    response = await chatStream(question, requestConversationId, userId, history, modelId)
     
     if (!response.ok) {
       const errorText = await response.text().catch(() => '未知错误')
@@ -474,9 +521,9 @@ const handleStreamResponse = async (question, requestConversationId, userId, his
 }
 
 // 处理非流式响应
-const handleNormalResponse = async (question, requestConversationId, userId, history, aiMessageIndex) => {
+const handleNormalResponse = async (question, requestConversationId, userId, history, aiMessageIndex, modelId) => {
   try {
-    const response = await chat(question, requestConversationId, userId, history)
+    const response = await chat(question, requestConversationId, userId, history, modelId)
     if (chatHistory.value[aiMessageIndex]) {
       chatHistory.value[aiMessageIndex].content = response.answer || '抱歉，未能生成答案。'
       chatHistory.value[aiMessageIndex].isLoading = false
@@ -638,6 +685,7 @@ const highlightCodeBlocks = () => {
     if (chatHistoryRef.value) {
       // 查找所有代码块（包括没有hljs类的）
       const codeBlocks = chatHistoryRef.value.querySelectorAll('pre code')
+      console.debug('找到代码块数量:', codeBlocks.length)
       
       codeBlocks.forEach((block, index) => {
         try {
@@ -671,10 +719,12 @@ const highlightCodeBlocks = () => {
             if (normalizedLang && hljs.getLanguage(normalizedLang)) {
               // 使用指定语言高亮
               highlightedHtml = hljs.highlight(originalText, { language: normalizedLang }).value
+              console.debug(`代码块 ${index} 使用语言 ${normalizedLang} 高亮成功`)
             } else {
               // 自动检测语言
               const result = hljs.highlightAuto(originalText, ['javascript', 'typescript', 'python', 'java', 'go', 'rust', 'cpp', 'c', 'csharp', 'php', 'ruby', 'swift', 'kotlin', 'sql', 'html', 'css', 'json', 'xml', 'yaml', 'bash', 'shell'])
               highlightedHtml = result.value
+              console.debug(`代码块 ${index} 自动检测语言 ${result.language} 高亮成功`)
             }
             
             // 更新HTML并添加类名
@@ -682,6 +732,13 @@ const highlightCodeBlocks = () => {
             block.classList.add('hljs')
             block.dataset.highlighted = 'true'
             block.dataset.originalText = originalText
+            
+            // 检查是否包含高亮标签
+            if (block.innerHTML.includes('class="hljs-')) {
+              console.debug(`代码块 ${index} 高亮标签已应用`)
+            } else {
+              console.warn(`代码块 ${index} 高亮后没有hljs-标签`, block.innerHTML.substring(0, 100))
+            }
           }
         } catch (err) {
           console.error('手动高亮代码块失败', err, block)
@@ -766,7 +823,36 @@ const loadConversationHistory = async (convId) => {
   }
 }
 
+// 加载可用模型列表
+const loadAvailableModels = async () => {
+  try {
+    const models = await getAvailableQAModels()
+    availableModels.value = models || []
+    
+    // 设置默认模型（优先选择标记为默认的模型）
+    if (availableModels.value.length > 0) {
+      const defaultModel = availableModels.value.find(m => m.isDefault)
+      if (defaultModel) {
+        selectedModelId.value = defaultModel.id
+      } else {
+        selectedModelId.value = availableModels.value[0].id
+      }
+    } else {
+      // 如果没有可用模型，显示提示信息
+      console.warn('没有可用的问答模型，请联系管理员配置模型')
+      ElMessage.warning('当前没有可用的问答模型，请联系管理员配置')
+    }
+  } catch (error) {
+    console.error('加载可用模型列表失败', error)
+    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || '未知错误'
+    ElMessage.error(`加载模型列表失败: ${errorMessage}`)
+    // 即使加载失败，也允许用户继续使用（后端会使用默认模型）
+    availableModels.value = []
+  }
+}
+
 onMounted(async () => {
+  loadAvailableModels()
   // 检查是否有继续对话的标记
   const continueConvId = localStorage.getItem('continueConversationId')
   if (continueConvId) {

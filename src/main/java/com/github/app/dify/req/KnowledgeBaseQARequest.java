@@ -28,6 +28,9 @@ public class KnowledgeBaseQARequest {
     @ApiModelProperty("是否流式响应")
     private Boolean stream;
     
+    @ApiModelProperty("问答模型ID（可选，不指定则使用默认模型）")
+    private Long modelId;
+    
     public String getQuestion() {
         return question;
     }
@@ -66,6 +69,14 @@ public class KnowledgeBaseQARequest {
     
     public void setStream(Boolean stream) {
         this.stream = stream;
+    }
+    
+    public Long getModelId() {
+        return modelId;
+    }
+    
+    public void setModelId(Long modelId) {
+        this.modelId = modelId;
     }
     
     /**

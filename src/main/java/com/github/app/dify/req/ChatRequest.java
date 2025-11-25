@@ -28,6 +28,9 @@ public class ChatRequest {
     @ApiModelProperty("是否流式响应")
     private Boolean stream;
     
+    @ApiModelProperty("模型ID（从数据库中选择的问答模型）")
+    private Long modelId;
+    
     public String getQuestion() {
         return question;
     }
@@ -66,6 +69,14 @@ public class ChatRequest {
     
     public void setStream(Boolean stream) {
         this.stream = stream;
+    }
+    
+    public Long getModelId() {
+        return modelId;
+    }
+    
+    public void setModelId(Long modelId) {
+        this.modelId = modelId;
     }
     
     /**

@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 
 /**
  * 自定义EmbeddingModel，适配现有的向量化API
+ * 注意：此类使用默认模型，如需使用特定模型，请使用 EmbeddingModelFactory 创建实例
  */
 @Component
 public class CustomEmbeddingModel implements EmbeddingModel {
@@ -27,7 +28,7 @@ public class CustomEmbeddingModel implements EmbeddingModel {
     @Override
     public Response<Embedding> embed(String text) {
         try {
-            List<Float> embeddingVector = embeddingService.embed(text);
+            List<Float> embeddingVector = embeddingService.embed(text, null);
             Embedding embedding = Embedding.from(convertToFloatArray(embeddingVector));
             return Response.from(embedding);
         } catch (Exception e) {
@@ -49,7 +50,7 @@ public class CustomEmbeddingModel implements EmbeddingModel {
                     .collect(Collectors.toList());
             
             // 使用分批处理以避免响应数据过大导致缓冲区溢出
-            List<List<Float>> embeddingVectors = embeddingService.embedBatchWithChunking(texts);
+            List<List<Float>> embeddingVectors = embeddingService.embedBatchWithChunking(texts, null);
             
             List<Embedding> embeddings = embeddingVectors.stream()
                     .map(vector -> Embedding.from(convertToFloatArray(vector)))

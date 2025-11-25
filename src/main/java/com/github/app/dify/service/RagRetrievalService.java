@@ -28,6 +28,9 @@ public class RagRetrievalService {
     private CustomEmbeddingModel embeddingModel;
     
     @Autowired
+    private EmbeddingService embeddingService;
+    
+    @Autowired
     private VectorStoreService vectorStoreService;
     
     @Autowired
@@ -37,6 +40,13 @@ public class RagRetrievalService {
      * 检索相关文档chunks（使用LangChain4j）
      */
     public List<RetrievalResult> retrieve(Long knowledgeBaseId, String query) {
+        return retrieve(knowledgeBaseId, query, null);
+    }
+    
+    /**
+     * 检索相关文档chunks（使用LangChain4j，指定向量化模型ID）
+     */
+    public List<RetrievalResult> retrieve(Long knowledgeBaseId, String query, Long embeddingModelId) {
         if (query == null || query.trim().isEmpty()) {
             throw new IllegalArgumentException("查询问题不能为空");
         }
@@ -46,8 +56,16 @@ public class RagRetrievalService {
             EmbeddingStore<TextSegment> embeddingStore = QdrantEmbeddingStore.forKnowledgeBase(
                     knowledgeBaseId, vectorStoreService);
             
-            // 2. 将查询文本转换为Embedding
-            Embedding queryEmbedding = embeddingModel.embed(query).content();
+            // 2. 将查询文本转换为Embedding（使用指定的模型）
+            Embedding queryEmbedding;
+            if (embeddingModelId != null) {
+                // 使用指定的模型进行向量化
+                List<Float> embeddingVector = embeddingService.embed(query, embeddingModelId);
+                queryEmbedding = Embedding.from(convertToFloatArray(embeddingVector));
+            } else {
+                // 使用默认模型
+                queryEmbedding = embeddingModel.embed(query).content();
+            }
             
             // 3. 直接使用EmbeddingStore检索，这样可以获取完整的相似度分数
             // 检索更多结果用于调试和过滤
@@ -186,5 +204,16 @@ public class RagRetrievalService {
         public void setChunkIndex(Integer chunkIndex) {
             this.chunkIndex = chunkIndex;
         }
+    }
+    
+    /**
+     * 将List<Float>转换为float[]
+     */
+    private float[] convertToFloatArray(List<Float> floatList) {
+        float[] array = new float[floatList.size()];
+        for (int i = 0; i < floatList.size(); i++) {
+            array[i] = floatList.get(i);
+        }
+        return array;
     }
 }

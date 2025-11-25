@@ -46,13 +46,23 @@
               <div
                 v-for="kb in displayedKnowledgeBases"
                 :key="kb.id"
-                :class="['kb-item', { active: selectedKB?.id === kb.id }]"
-                @click="selectKB(kb)"
+                :class="['kb-item', { active: selectedKB?.id === kb.id, disabled: !isEmbeddingModelEnabled(kb.embeddingModelId) }]"
+                @click="!isEmbeddingModelEnabled(kb.embeddingModelId) ? null : selectKB(kb)"
               >
                 <el-icon class="kb-icon"><Document /></el-icon>
                 <div class="kb-info">
                   <div class="kb-name">{{ kb.name }}</div>
-                  <div class="kb-docs">{{ kb.documentCount }} 个文档</div>
+                  <div class="kb-meta">
+                    <span class="kb-docs">{{ kb.documentCount }} 个文档</span>
+                    <el-tag 
+                      v-if="getEmbeddingModelName(kb.embeddingModelId)" 
+                      size="small"
+                      class="kb-model-tag"
+                      :style="getModelStyle(kb.embeddingModelId)"
+                    >
+                      {{ getEmbeddingModelName(kb.embeddingModelId) }}
+                    </el-tag>
+                  </div>
                 </div>
                 <el-tag
                   v-if="kb.status === 'active'"
@@ -226,6 +236,8 @@ import {
 } from '@element-plus/icons-vue'
 import { getKnowledgeBaseList } from '@/api/knowledgeBase'
 import { knowledgeBaseQA, knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
+import { getModelConfig } from '@/api/model'
+import { getModelStyle } from '@/utils/modelColor'
 import { getConversationMessages, getConversation } from '@/api/chat'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
@@ -320,6 +332,7 @@ marked.setOptions({
 // 知识库数据
 const knowledgeBases = ref([])
 const selectedKB = ref(null)
+const embeddingModels = ref([])
 const question = ref('')
 const sending = ref(false)
 const chatHistory = ref([])
@@ -402,6 +415,41 @@ const selectKB = (kb) => {
   scrollToBottom()
 }
 
+// 加载向量化模型列表（包括禁用的，用于检查状态）
+const loadEmbeddingModels = async () => {
+  try {
+    const response = await getModelConfig()
+    // 加载所有模型（包括禁用的），以便检查状态
+    embeddingModels.value = response.embeddingModels || []
+  } catch (error) {
+    console.error('加载向量化模型列表失败', error)
+  }
+}
+
+// 辅助函数：根据模型ID获取模型名称
+const getEmbeddingModelName = (modelId) => {
+  if (modelId) {
+    const model = embeddingModels.value.find(m => m.id === modelId)
+    return model ? model.name : null
+  } else {
+    // 如果没有指定模型ID，返回默认模型名称
+    const defaultModel = embeddingModels.value.find(m => m.isDefault)
+    return defaultModel ? defaultModel.name : null
+  }
+}
+
+// 检查向量化模型是否启用
+const isEmbeddingModelEnabled = (modelId) => {
+  if (modelId) {
+    const model = embeddingModels.value.find(m => m.id === modelId)
+    return model ? model.enabled : false
+  } else {
+    // 如果没有指定模型ID，检查默认模型是否启用
+    const defaultModel = embeddingModels.value.find(m => m.isDefault)
+    return defaultModel ? defaultModel.enabled : false
+  }
+}
+
 // 加载知识库列表（包括用户自己的和公开的知识库）
 const loadKnowledgeBases = async () => {
   try {
@@ -432,7 +480,8 @@ const loadKnowledgeBases = async () => {
         name: kb.name,
         description: kb.description || '',
         documentCount: kb.documentCount || 0,
-        status: kb.status === 1 ? 'active' : 'inactive'
+        status: kb.status === 1 ? 'active' : 'inactive',
+        embeddingModelId: kb.embeddingModelId || null
       }))
       
       // 重置显示数量
@@ -907,6 +956,8 @@ const loadConversationHistory = async (convId) => {
 onMounted(async () => {
   // 加载知识库列表
   loadKnowledgeBases()
+  // 加载向量化模型列表
+  loadEmbeddingModels()
   
   // 检查是否有继续对话的标记
   const continueConvId = localStorage.getItem('continueConversationId')
@@ -1098,15 +1149,39 @@ html {
 .kb-name {
   font-weight: 500;
   color: #303133;
-  margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.kb-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .kb-docs {
   font-size: 12px;
   color: #909399;
+  line-height: 1.4;
+}
+
+.kb-model-tag {
+  flex-shrink: 0;
+}
+
+.kb-item.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.kb-item.disabled .kb-name,
+.kb-item.disabled .kb-docs {
+  color: #c0c4cc;
 }
 
 .kb-status {

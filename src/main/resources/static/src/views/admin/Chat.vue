@@ -5,6 +5,36 @@
         <div class="card-header">
           <span>智能问答</span>
           <div class="header-actions">
+            <el-select
+              v-model="selectedModelId"
+              placeholder="选择模型"
+              style="width: 200px; margin-right: 10px"
+              size="small"
+              clearable
+              :disabled="sending"
+            >
+              <el-option
+                v-for="model in availableModels"
+                :key="model.id"
+                :label="model.name"
+                :value="model.id"
+              >
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%">
+                  <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0">
+                    <el-tag 
+                      size="small"
+                      :style="getModelStyle(model.id)"
+                      style="flex-shrink: 0"
+                    >
+                      {{ model.name }}
+                    </el-tag>
+                  </div>
+                  <el-tag v-if="model.isDefault" type="primary" size="small" style="margin-left: 8px; flex-shrink: 0">
+                    默认
+                  </el-tag>
+                </div>
+              </el-option>
+            </el-select>
             <el-checkbox v-model="useStream" size="small">流式响应</el-checkbox>
             <el-button type="primary" @click="handleClearHistory">
               <el-icon><Delete /></el-icon>
@@ -89,6 +119,8 @@ import {
   Loading
 } from '@element-plus/icons-vue'
 import { chat, chatStream } from '@/api/chat'
+import { getAvailableQAModels } from '@/api/model'
+import { getModelStyle } from '@/utils/modelColor'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
@@ -199,6 +231,8 @@ const chatHistoryRef = ref(null)
 const conversationId = ref(null)
 const useStream = ref(true) // 默认使用流式响应
 const currentStreamingMessage = ref(null) // 当前正在流式接收的消息索引
+const availableModels = ref([]) // 可用的模型列表
+const selectedModelId = ref(null) // 选中的模型ID
 
 // 获取用户信息
 const getUserInfo = () => {
@@ -265,10 +299,10 @@ const handleSend = async () => {
     
     if (useStream.value) {
       // 流式响应
-      await handleStreamResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex)
+      await handleStreamResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value)
     } else {
       // 非流式响应
-      await handleNormalResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex)
+      await handleNormalResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value)
     }
   } catch (error) {
     console.error('发送消息失败', error)
@@ -287,12 +321,12 @@ const handleSend = async () => {
 }
 
 // 处理流式响应
-const handleStreamResponse = async (question, requestConversationId, userId, history, aiMessageIndex) => {
+const handleStreamResponse = async (question, requestConversationId, userId, history, aiMessageIndex, modelId) => {
   let reader = null
   let response = null
   
   try {
-    response = await chatStream(question, requestConversationId, userId, history)
+    response = await chatStream(question, requestConversationId, userId, history, modelId)
     
     if (!response.ok) {
       const errorText = await response.text().catch(() => '未知错误')
@@ -468,9 +502,9 @@ const handleStreamResponse = async (question, requestConversationId, userId, his
 }
 
 // 处理非流式响应
-const handleNormalResponse = async (question, requestConversationId, userId, history, aiMessageIndex) => {
+const handleNormalResponse = async (question, requestConversationId, userId, history, aiMessageIndex, modelId) => {
   try {
-    const response = await chat(question, requestConversationId, userId, history)
+    const response = await chat(question, requestConversationId, userId, history, modelId)
     if (chatHistory.value[aiMessageIndex]) {
       chatHistory.value[aiMessageIndex].content = response.answer || '抱歉，未能生成答案。'
       chatHistory.value[aiMessageIndex].isLoading = false
@@ -714,7 +748,36 @@ const scrollToBottom = () => {
   })
 }
 
+// 加载可用模型列表
+const loadAvailableModels = async () => {
+  try {
+    const models = await getAvailableQAModels()
+    availableModels.value = models || []
+    
+    // 设置默认模型（优先选择标记为默认的模型）
+    if (availableModels.value.length > 0) {
+      const defaultModel = availableModels.value.find(m => m.isDefault)
+      if (defaultModel) {
+        selectedModelId.value = defaultModel.id
+      } else {
+        selectedModelId.value = availableModels.value[0].id
+      }
+    } else {
+      // 如果没有可用模型，显示提示信息
+      console.warn('没有可用的问答模型，请先在"大模型管理"页面配置模型')
+      ElMessage.warning('当前没有可用的问答模型，请先在"大模型管理"页面配置模型')
+    }
+  } catch (error) {
+    console.error('加载可用模型列表失败', error)
+    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || '未知错误'
+    ElMessage.error(`加载模型列表失败: ${errorMessage}`)
+    // 即使加载失败，也允许用户继续使用（后端会使用默认模型）
+    availableModels.value = []
+  }
+}
+
 onMounted(() => {
+  loadAvailableModels()
   // 页面加载时滚动到底部
   scrollToBottom()
   // 确保代码高亮正常工作

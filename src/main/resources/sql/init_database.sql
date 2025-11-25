@@ -166,6 +166,7 @@ CREATE TABLE "KNOWLEDGE_BASE" (
     creator VARCHAR(64),
     creator_id BIGINT,
     is_public BOOLEAN DEFAULT FALSE,
+    embedding_model_id BIGINT,
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updater VARCHAR(64),
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -181,6 +182,7 @@ COMMENT ON COLUMN "KNOWLEDGE_BASE".status IS '知识库状态：1-启用，0-禁
 COMMENT ON COLUMN "KNOWLEDGE_BASE".creator IS '创建者';
 COMMENT ON COLUMN "KNOWLEDGE_BASE".creator_id IS '创建者ID';
 COMMENT ON COLUMN "KNOWLEDGE_BASE".is_public IS '是否公开：true-公开，false-私有';
+COMMENT ON COLUMN "KNOWLEDGE_BASE".embedding_model_id IS '向量化模型ID（关联EMBEDDING_MODEL表）';
 COMMENT ON COLUMN "KNOWLEDGE_BASE".create_time IS '创建时间';
 COMMENT ON COLUMN "KNOWLEDGE_BASE".updater IS '更新者';
 COMMENT ON COLUMN "KNOWLEDGE_BASE".update_time IS '更新时间';
@@ -276,6 +278,93 @@ CREATE INDEX idx_kb_doc_tenant_id ON "KNOWLEDGE_BASE_DOCUMENT"(tenant_id);
 --     FOREIGN KEY (knowledge_base_id) REFERENCES "KNOWLEDGE_BASE"(id) ON DELETE CASCADE;
 
 -- ============================================
--- 6. 插入默认管理员账户
+-- 6. 创建问答模型表 (QA_MODEL)
+-- ============================================
+DROP TABLE IF EXISTS "QA_MODEL" CASCADE;
+
+CREATE TABLE "QA_MODEL" (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    provider VARCHAR(20) NOT NULL,
+    provider_type VARCHAR(20),
+    api_url VARCHAR(500) NOT NULL,
+    api_key VARCHAR(500),
+    model VARCHAR(200) NOT NULL,
+    use_for VARCHAR(20) NOT NULL,
+    enabled BOOLEAN DEFAULT TRUE,
+    is_default BOOLEAN DEFAULT FALSE,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted INTEGER DEFAULT 0
+);
+
+COMMENT ON TABLE "QA_MODEL" IS '问答模型表';
+COMMENT ON COLUMN "QA_MODEL".id IS '模型编号';
+COMMENT ON COLUMN "QA_MODEL".name IS '模型名称';
+COMMENT ON COLUMN "QA_MODEL".provider IS '提供商类型：openai, vllm, ollama';
+COMMENT ON COLUMN "QA_MODEL".provider_type IS '提供商类型（原始值，用于前端显示）';
+COMMENT ON COLUMN "QA_MODEL".api_url IS 'API 地址';
+COMMENT ON COLUMN "QA_MODEL".api_key IS 'API Key';
+COMMENT ON COLUMN "QA_MODEL".model IS '模型标识';
+COMMENT ON COLUMN "QA_MODEL".use_for IS '使用场景：chat-仅智能问答, rag-仅知识库问答, both-两者都使用';
+COMMENT ON COLUMN "QA_MODEL".enabled IS '是否启用：true-启用, false-禁用';
+COMMENT ON COLUMN "QA_MODEL".is_default IS '是否默认：true-默认, false-非默认';
+COMMENT ON COLUMN "QA_MODEL".create_time IS '创建时间';
+COMMENT ON COLUMN "QA_MODEL".update_time IS '更新时间';
+COMMENT ON COLUMN "QA_MODEL".deleted IS '是否删除：0-未删除，1-已删除';
+
+-- 创建索引
+CREATE INDEX idx_qa_model_provider ON "QA_MODEL"(provider);
+CREATE INDEX idx_qa_model_use_for ON "QA_MODEL"(use_for);
+CREATE INDEX idx_qa_model_enabled ON "QA_MODEL"(enabled);
+CREATE INDEX idx_qa_model_is_default ON "QA_MODEL"(is_default);
+CREATE INDEX idx_qa_model_deleted ON "QA_MODEL"(deleted);
+
+-- ============================================
+-- 7. 创建向量化模型表 (EMBEDDING_MODEL)
+-- ============================================
+DROP TABLE IF EXISTS "EMBEDDING_MODEL" CASCADE;
+
+CREATE TABLE "EMBEDDING_MODEL" (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    provider VARCHAR(20) NOT NULL,
+    provider_type VARCHAR(20),
+    api_url VARCHAR(500) NOT NULL,
+    api_key VARCHAR(500),
+    model VARCHAR(200) NOT NULL,
+    timeout INTEGER DEFAULT 300000,
+    batch_size INTEGER DEFAULT 100,
+    enabled BOOLEAN DEFAULT TRUE,
+    is_default BOOLEAN DEFAULT FALSE,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted INTEGER DEFAULT 0
+);
+
+COMMENT ON TABLE "EMBEDDING_MODEL" IS '向量化模型表';
+COMMENT ON COLUMN "EMBEDDING_MODEL".id IS '模型编号';
+COMMENT ON COLUMN "EMBEDDING_MODEL".name IS '模型名称';
+COMMENT ON COLUMN "EMBEDDING_MODEL".provider IS '提供商类型：openai, vllm, ollama';
+COMMENT ON COLUMN "EMBEDDING_MODEL".provider_type IS '提供商类型（原始值，用于前端显示）';
+COMMENT ON COLUMN "EMBEDDING_MODEL".api_url IS 'API 地址';
+COMMENT ON COLUMN "EMBEDDING_MODEL".api_key IS 'API Key';
+COMMENT ON COLUMN "EMBEDDING_MODEL".model IS '模型标识';
+COMMENT ON COLUMN "EMBEDDING_MODEL".timeout IS '超时时间（毫秒）';
+COMMENT ON COLUMN "EMBEDDING_MODEL".batch_size IS '批处理大小';
+COMMENT ON COLUMN "EMBEDDING_MODEL".enabled IS '是否启用：true-启用, false-禁用';
+COMMENT ON COLUMN "EMBEDDING_MODEL".is_default IS '是否默认：true-默认, false-非默认';
+COMMENT ON COLUMN "EMBEDDING_MODEL".create_time IS '创建时间';
+COMMENT ON COLUMN "EMBEDDING_MODEL".update_time IS '更新时间';
+COMMENT ON COLUMN "EMBEDDING_MODEL".deleted IS '是否删除：0-未删除，1-已删除';
+
+-- 创建索引
+CREATE INDEX idx_embedding_model_provider ON "EMBEDDING_MODEL"(provider);
+CREATE INDEX idx_embedding_model_enabled ON "EMBEDDING_MODEL"(enabled);
+CREATE INDEX idx_embedding_model_is_default ON "EMBEDDING_MODEL"(is_default);
+CREATE INDEX idx_embedding_model_deleted ON "EMBEDDING_MODEL"(deleted);
+
+-- ============================================
+-- 8. 插入默认管理员账户
 -- ============================================
 

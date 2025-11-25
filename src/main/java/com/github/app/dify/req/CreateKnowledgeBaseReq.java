@@ -27,6 +27,9 @@ public class CreateKnowledgeBaseReq {
     @ApiModelProperty("是否公开：true-公开，false-私有，默认为false（私有）")
     private Boolean isPublic;
     
+    @ApiModelProperty("向量化模型ID（可选，如果不指定则使用默认向量化模型）")
+    private Long embeddingModelId;
+    
     @ApiModelProperty("租户编号")
     private Integer tenantId;
     
@@ -61,6 +64,14 @@ public class CreateKnowledgeBaseReq {
     
     public void setIsPublic(Boolean isPublic) {
         this.isPublic = isPublic;
+    }
+    
+    public Long getEmbeddingModelId() {
+        return embeddingModelId;
+    }
+    
+    public void setEmbeddingModelId(Long embeddingModelId) {
+        this.embeddingModelId = embeddingModelId;
     }
     
     public Integer getTenantId() {

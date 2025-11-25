@@ -1,8 +1,8 @@
 package com.github.app.dify.service;
 
-import com.github.app.dify.config.RagConfig;
-import com.github.app.dify.langchain4j.CustomChatLanguageModel;
-import com.github.app.dify.langchain4j.CustomStreamingChatLanguageModel;
+import com.github.app.dify.domain.QAModel;
+import com.github.app.dify.langchain4j.ModelLanguageModelFactory;
+import com.github.app.dify.repository.QAModelRepository;
 import com.github.app.dify.req.ChatRequest;
 import com.github.app.dify.resp.ChatResponse;
 import dev.langchain4j.data.message.AiMessage;
@@ -18,6 +18,7 @@ import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 智能问答服务（直接对话，不使用知识库）
@@ -28,13 +29,10 @@ public class ChatService {
     private static final Logger logger = LoggerFactory.getLogger(ChatService.class);
     
     @Autowired
-    private RagConfig ragConfig;
+    private QAModelRepository qaModelRepository;
     
     @Autowired
-    private CustomChatLanguageModel chatLanguageModel;
-    
-    @Autowired
-    private CustomStreamingChatLanguageModel streamingChatLanguageModel;
+    private ModelLanguageModelFactory modelLanguageModelFactory;
     
     @Autowired
     private ContextCompressionService contextCompressionService;
@@ -47,10 +45,17 @@ public class ChatService {
      */
     public ChatResponse chat(ChatRequest request, Long userId) {
         try {
-            // 检查LLM配置
-            if (ragConfig.getLlmApiUrl() == null || ragConfig.getLlmApiUrl().trim().isEmpty()) {
-                throw new IllegalStateException("LLM API URL未配置，请在application.yml中配置rag.llm-api-url");
+            // 获取模型配置
+            QAModel qaModel = getQAModel(request.getModelId());
+            if (qaModel == null) {
+                throw new IllegalStateException("未找到可用的问答模型，请先配置模型");
             }
+            
+            logger.info("使用问答模型: {} (ID: {})", qaModel.getName(), qaModel.getId());
+            
+            // 创建模型实例
+            ModelLanguageModelFactory.ChatLanguageModel chatLanguageModel = 
+                    modelLanguageModelFactory.createChatLanguageModel(qaModel);
             
             // 构建消息列表（包含历史对话）
             List<ChatMessage> messages = buildMessages(request);
@@ -114,10 +119,17 @@ public class ChatService {
      */
     public Flux<ChatResponse> chatStream(ChatRequest request, Long userId) {
         try {
-            // 检查LLM配置
-            if (ragConfig.getLlmApiUrl() == null || ragConfig.getLlmApiUrl().trim().isEmpty()) {
-                return Flux.error(new IllegalStateException("LLM API URL未配置，请在application.yml中配置rag.llm-api-url"));
+            // 获取模型配置
+            QAModel qaModel = getQAModel(request.getModelId());
+            if (qaModel == null) {
+                return Flux.error(new IllegalStateException("未找到可用的问答模型，请先配置模型"));
             }
+            
+            logger.info("使用问答模型（流式）: {} (ID: {})", qaModel.getName(), qaModel.getId());
+            
+            // 创建流式模型实例
+            ModelLanguageModelFactory.StreamingChatLanguageModel streamingChatLanguageModel = 
+                    modelLanguageModelFactory.createStreamingChatLanguageModel(qaModel);
             
             // 构建消息列表（包含历史对话）
             List<ChatMessage> messages = buildMessages(request);
@@ -332,6 +344,47 @@ public class ChatService {
             kbHistory.add(kbMsg);
         }
         return kbHistory;
+    }
+    
+    /**
+     * 获取问答模型
+     * 如果指定了modelId，则使用指定的模型；否则使用默认模型
+     */
+    private QAModel getQAModel(Long modelId) {
+        if (modelId != null) {
+            // 使用指定的模型
+            Optional<QAModel> optional = qaModelRepository.findById(modelId);
+            if (optional.isPresent()) {
+                QAModel model = optional.get();
+                // 检查模型是否启用且未删除
+                if ((model.getDeleted() == null || model.getDeleted() == 0) 
+                        && model.getEnabled() != null && model.getEnabled()) {
+                    // 检查使用场景
+                    if ("chat".equals(model.getUseFor()) || "both".equals(model.getUseFor())) {
+                        return model;
+                    }
+                }
+            }
+            throw new IllegalStateException("指定的模型不可用或未启用");
+        } else {
+            // 使用默认模型（使用场景为 chat 或 both）
+            Optional<QAModel> defaultModel = qaModelRepository.findDefaultByUseFor("chat");
+            if (defaultModel.isPresent()) {
+                QAModel model = defaultModel.get();
+                if (model.getEnabled() != null && model.getEnabled()) {
+                    return model;
+                }
+            }
+            
+            // 如果没有默认模型，尝试获取第一个启用的模型
+            List<QAModel> enabledModels = qaModelRepository.findByUseFor("chat");
+            if (!enabledModels.isEmpty()) {
+                return enabledModels.get(0);
+            }
+            
+            // 如果数据库中没有模型，返回null
+            return null;
+        }
     }
 }
 

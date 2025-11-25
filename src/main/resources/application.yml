@@ -71,31 +71,12 @@ qdrant:
   api-key: # 可选，Docker部署默认不需要，仅在启用认证时需要
   timeout: 30000
 
-# 向量化配置
-embedding:
-  api-url: https://api.siliconflow.cn/v1/embeddings
-  api-key: sk-ytefhuhdawouqdjzykdydxgfwtuuxpayevtdkfesyepbkquq
-  model: Qwen/Qwen3-Embedding-8B
-  timeout: 300000  # 5分钟超时，支持大文档向量化
-  batch-size: 100
-  # provider: openai  # 提供商类型：openai（默认，兼容 OpenAI API，包括 SiliconFlow、VLLM 等）、ollama
-  # 使用示例：
-  # - OpenAI/SiliconFlow/VLLM（默认）: provider: openai 或省略，api-url 包含完整路径或基础URL
-  # - Ollama: provider: ollama, api-url: http://localhost:11434（不包含路径，会自动添加 /api/embeddings）
-
-# RAG配置
+# RAG配置（仅保留非模型相关配置，模型配置已迁移到数据库）
 rag:
   chunk-size: 500
   chunk-overlap: 50
   top-k: 10  # 增加检索数量，从5增加到10
   similarity-threshold: 0.3  # 降低相似度阈值，从0.7降低到0.3，允许更多相关结果通过
-  llm-api-url: https://api.siliconflow.cn  # 只配置基础URL，路径在代码中指定
-  llm-api-key: sk-ytefhuhdawouqdjzykdydxgfwtuuxpayevtdkfesyepbkquq
-  llm-model: Qwen/Qwen2.5-72B-Instruct  # 问答使用的大模型，根据您的API提供商选择合适的模型
-  # provider: openai  # 提供商类型：openai（默认，兼容 OpenAI API，包括 SiliconFlow、VLLM 等）、ollama
-  # 使用示例：
-  # - OpenAI/SiliconFlow/VLLM（默认）: provider: openai 或省略，llm-api-url 包含完整路径或基础URL
-  # - Ollama: provider: ollama, llm-api-url: http://localhost:11434（不包含路径，会自动添加 /api/chat）
   # 上下文压缩配置（用于连续对话时压缩历史上下文）
   enable-context-compression: true  # 是否启用上下文压缩
   compression-strategy: sliding_window  # 压缩策略：sliding_window（滑动窗口）、summary（总结）、hybrid（混合）
@@ -104,6 +85,5 @@ rag:
   enable-summary: false  # 是否启用总结压缩（需要额外调用LLM，会增加延迟和成本）
 
 # 注意：
-# - LangChain4j 相关的配置已集成到上面的 embedding 和 rag 配置中
-# - CustomEmbeddingModel 使用 embedding.* 配置
+# - 模型配置（LLM和Embedding）已迁移到数据库，请在管理端"大模型管理"页面配置
 # - ConfigurableDocumentSplitter 使用 rag.chunk-size 和 rag.chunk-overlap 配置

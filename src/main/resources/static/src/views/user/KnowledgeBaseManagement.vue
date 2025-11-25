@@ -69,6 +69,18 @@
             </el-tooltip>
           </template>
         </el-table-column>
+        <el-table-column label="向量化模型" width="180" align="center">
+          <template #default="{ row }">
+            <el-tag 
+              v-if="getEmbeddingModelName(row.embeddingModelId)" 
+              size="small"
+              :style="getModelStyle(row.embeddingModelId)"
+            >
+              {{ getEmbeddingModelName(row.embeddingModelId) }}
+            </el-tag>
+            <span v-else style="color: #909399; font-size: 12px;">-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" align="center">
           <template #default="{ row }">
             {{ formatDate(row.createTime) }}
@@ -157,6 +169,42 @@
             </template>
           </el-alert>
         </el-form-item>
+        <el-form-item label="向量化模型" prop="embeddingModelId">
+          <el-select
+            v-model="formData.embeddingModelId"
+            :placeholder="isEdit && hasDocuments ? (getEmbeddingModelName(formData.embeddingModelId) || '默认模型') : '选择向量化模型（不选择则使用默认模型）'"
+            clearable
+            style="width: 100%"
+            :disabled="isEdit && hasDocuments"
+          >
+            <el-option
+              v-for="model in embeddingModels"
+              :key="model.id"
+              :label="model.name"
+              :value="model.id"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: center; width: 100%">
+                <el-tag 
+                  size="small"
+                  :style="getModelStyle(model.id)"
+                  style="flex-shrink: 0"
+                >
+                  {{ model.name }}
+                </el-tag>
+                <el-tag v-if="model.isDefault" type="primary" size="small" style="margin-left: 8px; flex-shrink: 0">
+                  默认
+                </el-tag>
+              </div>
+            </el-option>
+          </el-select>
+          <div v-if="isEdit && hasDocuments" style="font-size: 12px; color: #e6a23c; margin-top: 5px;">
+            <el-icon><Warning /></el-icon>
+            当前使用：<strong>{{ getEmbeddingModelName(formData.embeddingModelId) || '默认模型' }}</strong>。已有文档，无法修改。
+          </div>
+          <div v-else style="font-size: 12px; color: #909399; margin-top: 5px;">
+            用于文档向量化的模型，如果不选择则使用系统默认向量化模型
+          </div>
+        </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="formData.status">
             <el-radio label="active">启用</el-radio>
@@ -179,6 +227,15 @@
       <el-descriptions :column="2" border v-if="currentKB">
         <el-descriptions-item label="ID">{{ currentKB.id }}</el-descriptions-item>
         <el-descriptions-item label="名称">{{ currentKB.name }}</el-descriptions-item>
+        <el-descriptions-item label="向量化模型" :span="2">
+          <el-tag 
+            v-if="getEmbeddingModelName(currentKB.embeddingModelId)" 
+            :style="getModelStyle(currentKB.embeddingModelId)"
+          >
+            {{ getEmbeddingModelName(currentKB.embeddingModelId) }}
+          </el-tag>
+          <span v-else style="color: #909399;">-</span>
+        </el-descriptions-item>
         <el-descriptions-item label="状态" :span="2">
           <el-tag :type="isActive(currentKB.status) ? 'success' : 'info'">
             {{ getStatusText(currentKB.status) }}
@@ -205,7 +262,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Check, Close } from '@element-plus/icons-vue'
+import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Check, Close, Warning } from '@element-plus/icons-vue'
 import { 
   getKnowledgeBaseList, 
   createKnowledgeBase, 
@@ -213,6 +270,8 @@ import {
   deleteKnowledgeBase,
   getKnowledgeBaseDetail
 } from '@/api/knowledgeBase'
+import { getModelConfig } from '@/api/model'
+import { getModelStyle } from '@/utils/modelColor'
 
 const knowledgeBases = ref([])
 const loading = ref(false)
@@ -228,17 +287,48 @@ const currentKB = ref(null)
 const isEdit = ref(false)
 const formRef = ref(null)
 const currentEditId = ref(null)
+const currentEditDocumentCount = ref(0)
+const embeddingModels = ref([])
 
 const formData = ref({
   name: '',
   description: '',
   status: 'active',
-  isPublic: false // 普通用户只能创建私有知识库
+  isPublic: false, // 普通用户只能创建私有知识库
+  embeddingModelId: null
+})
+
+// 计算属性：是否有文档
+const hasDocuments = computed(() => {
+  return currentEditDocumentCount.value > 0
 })
 
 onMounted(() => {
   loadKnowledgeBases()
+  loadEmbeddingModels()
 })
+
+// 加载向量化模型列表
+const loadEmbeddingModels = async () => {
+  try {
+    const response = await getModelConfig()
+    embeddingModels.value = (response.embeddingModels || []).filter(m => m.enabled)
+  } catch (error) {
+    console.error('加载向量化模型列表失败', error)
+  }
+}
+
+// 辅助函数：根据模型ID获取模型名称
+const getEmbeddingModelName = (modelId) => {
+  if (modelId) {
+    const model = embeddingModels.value.find(m => m.id === modelId)
+    return model ? model.name : null
+  } else {
+    // 如果没有指定模型ID，返回默认模型名称
+    const defaultModel = embeddingModels.value.find(m => m.isDefault)
+    return defaultModel ? defaultModel.name : null
+  }
+}
 
 const formRules = {
   name: [
@@ -357,11 +447,13 @@ const handleFilter = () => {
 const handleCreate = () => {
   isEdit.value = false
   currentEditId.value = null
+  currentEditDocumentCount.value = 0
   formData.value = {
     name: '',
     description: '',
     status: 'active',
-    isPublic: false // 普通用户只能创建私有知识库
+    isPublic: false, // 普通用户只能创建私有知识库
+    embeddingModelId: null
   }
   dialogVisible.value = true
 }
@@ -369,11 +461,13 @@ const handleCreate = () => {
 const handleEdit = (row) => {
   isEdit.value = true
   currentEditId.value = row.id
+  currentEditDocumentCount.value = row.documentCount || 0
   formData.value = {
     name: row.name,
     description: row.description || '',
     status: typeof row.status === 'number' ? statusMap[row.status] : row.status,
-    isPublic: false // 普通用户只能创建私有知识库
+    isPublic: false, // 普通用户只能创建私有知识库
+    embeddingModelId: row.embeddingModelId || null
   }
   dialogVisible.value = true
 }
@@ -447,6 +541,11 @@ const handleSubmit = () => {
           description: formData.value.description,
           status: statusMap[formData.value.status],
           isPublic: false // 普通用户只能创建私有知识库
+        }
+        
+        // 添加向量化模型ID（如果选择了）
+        if (formData.value.embeddingModelId) {
+          data.embeddingModelId = formData.value.embeddingModelId
         }
         
         if (isEdit.value) {

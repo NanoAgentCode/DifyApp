@@ -99,6 +99,12 @@ const routes = [
                 name: 'AdminChatHistory',
                 component: () => import('@/views/admin/ChatHistory.vue'),
                 meta: {title: '会话历史', requiresAuth: true, requiresAdmin: true}
+            },
+            {
+                path: 'models',
+                name: 'ModelManagement',
+                component: () => import('@/views/admin/ModelManagement.vue'),
+                meta: {title: '大模型管理', requiresAuth: true, requiresAdmin: true}
             }
         ]
     },

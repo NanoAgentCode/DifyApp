@@ -41,6 +41,9 @@ public class KnowledgeBaseResp {
     @ApiModelProperty("是否公开：true-公开，false-私有")
     private Boolean isPublic;
     
+    @ApiModelProperty("向量化模型ID")
+    private Long embeddingModelId;
+    
     @ApiModelProperty("创建时间")
     private Date createTime;
     
@@ -132,6 +135,14 @@ public class KnowledgeBaseResp {
     
     public void setIsPublic(Boolean isPublic) {
         this.isPublic = isPublic;
+    }
+    
+    public Long getEmbeddingModelId() {
+        return embeddingModelId;
+    }
+    
+    public void setEmbeddingModelId(Long embeddingModelId) {
+        this.embeddingModelId = embeddingModelId;
     }
     
     public Date getCreateTime() {

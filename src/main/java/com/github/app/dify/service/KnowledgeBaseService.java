@@ -125,6 +125,9 @@ public class KnowledgeBaseService {
         if (req.getIsPublic() != null) {
             knowledgeBase.setIsPublic(req.getIsPublic());
         }
+        if (req.getEmbeddingModelId() != null) {
+            knowledgeBase.setEmbeddingModelId(req.getEmbeddingModelId());
+        }
         
         knowledgeBase.setUpdateTime(new Date());
         knowledgeBase = knowledgeBaseRepository.save(knowledgeBase);

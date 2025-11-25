@@ -72,6 +72,13 @@ public class KnowledgeBase implements Serializable {
     private Boolean isPublic;
     
     /**
+     * 向量化模型ID
+     */
+    @ApiModelProperty("向量化模型ID")
+    @Column(name = "embedding_model_id")
+    private Long embeddingModelId;
+    
+    /**
      * 创建时间
      */
     @ApiModelProperty("创建时间")
@@ -159,7 +166,15 @@ public class KnowledgeBase implements Serializable {
     public void setIsPublic(Boolean isPublic) {
         this.isPublic = isPublic;
     }
-
+    
+    public Long getEmbeddingModelId() {
+        return embeddingModelId;
+    }
+    
+    public void setEmbeddingModelId(Long embeddingModelId) {
+        this.embeddingModelId = embeddingModelId;
+    }
+    
     public Date getCreateTime() {
         return createTime;
     }

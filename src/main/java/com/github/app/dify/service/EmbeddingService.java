@@ -1,8 +1,8 @@
 package com.github.app.dify.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.app.dify.config.EmbeddingConfig;
 import com.github.app.dify.config.ProviderType;
+import com.github.app.dify.domain.EmbeddingModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 向量化服务
@@ -27,19 +28,22 @@ public class EmbeddingService {
     private static final Logger logger = LoggerFactory.getLogger(EmbeddingService.class);
     
     @Autowired
-    private EmbeddingConfig embeddingConfig;
+    private ModelConfigService modelConfigService;
     
     @Autowired
     private ObjectMapper objectMapper;
     
-    private WebClient webClient;
+    // 缓存每个模型的WebClient实例
+    private final Map<Long, WebClient> webClientCache = new ConcurrentHashMap<>();
     
     /**
      * 根据 provider 类型构建完整的 API URL
      */
-    private String buildApiUrl() {
-        String apiUrl = embeddingConfig.getApiUrl();
-        ProviderType providerType = ProviderType.fromValue(embeddingConfig.getProvider());
+    private String buildApiUrl(EmbeddingModel model) {
+        String apiUrl = model.getApiUrl();
+        String provider = model.getProviderType() != null ? model.getProviderType() : 
+                         (model.getProvider() != null ? model.getProvider() : "openai");
+        ProviderType providerType = ProviderType.fromValue(provider);
         
         // 如果 URL 已经包含路径（包含 /api/ 或 /v1/），则直接使用
         if (apiUrl.contains("/api/") || apiUrl.contains("/v1/")) {
@@ -51,9 +55,14 @@ public class EmbeddingService {
         return apiUrl.endsWith("/") ? apiUrl + path.substring(1) : apiUrl + path;
     }
     
-    private WebClient getWebClient() {
-        if (webClient == null) {
-            String baseUrl = buildApiUrl();
+    private WebClient getWebClient(Long modelId) {
+        return webClientCache.computeIfAbsent(modelId, id -> {
+            EmbeddingModel model = modelConfigService.getEmbeddingModelById(id);
+            String baseUrl = buildApiUrl(model);
+            String provider = model.getProviderType() != null ? model.getProviderType() : 
+                             (model.getProvider() != null ? model.getProvider() : "openai");
+            ProviderType providerType = ProviderType.fromValue(provider);
+            
             WebClient.Builder builder = WebClient.builder()
                     .baseUrl(baseUrl)
                     .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
@@ -61,57 +70,76 @@ public class EmbeddingService {
                     .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(50 * 1024 * 1024));
             
             // 根据 provider 类型决定是否需要 API Key
-            ProviderType providerType = ProviderType.fromValue(embeddingConfig.getProvider());
-            if (providerType.requiresApiKey() && embeddingConfig.getApiKey() != null && !embeddingConfig.getApiKey().trim().isEmpty()) {
-                builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + embeddingConfig.getApiKey());
+            if (providerType.requiresApiKey() && model.getApiKey() != null && !model.getApiKey().trim().isEmpty()) {
+                builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + model.getApiKey());
             }
             
-            webClient = builder.build();
-            logger.info("EmbeddingService WebClient已创建，Provider: {}, URL: {}, 缓冲区大小: 50MB", 
-                    providerType.getValue(), baseUrl);
-        }
-        return webClient;
+            WebClient client = builder.build();
+            logger.info("EmbeddingService WebClient已创建 - 模型ID: {}, 名称: {}, Provider: {}, URL: {}, 缓冲区大小: 50MB", 
+                    id, model.getName(), providerType.getValue(), baseUrl);
+            return client;
+        });
     }
     
     /**
-     * 向量化单个文本
+     * 向量化单个文本（使用默认模型）
      */
     public List<Float> embed(String text) {
+        return embed(text, null);
+    }
+    
+    /**
+     * 向量化单个文本（使用指定模型）
+     */
+    public List<Float> embed(String text, Long modelId) {
         if (text == null || text.trim().isEmpty()) {
             throw new IllegalArgumentException("文本不能为空");
         }
         
         List<String> texts = new ArrayList<>();
         texts.add(text);
-        List<List<Float>> embeddings = embedBatch(texts);
+        List<List<Float>> embeddings = embedBatch(texts, modelId);
         return embeddings.isEmpty() ? new ArrayList<>() : embeddings.get(0);
     }
     
     /**
-     * 批量向量化
+     * 批量向量化（使用默认模型）
      */
     public List<List<Float>> embedBatch(List<String> texts) {
+        return embedBatch(texts, null);
+    }
+    
+    /**
+     * 批量向量化（使用指定模型）
+     */
+    public List<List<Float>> embedBatch(List<String> texts, Long modelId) {
         if (texts == null || texts.isEmpty()) {
             throw new IllegalArgumentException("文本列表不能为空");
         }
         
         try {
+            // 获取模型配置
+            EmbeddingModel model = modelConfigService.getEmbeddingModelById(modelId);
+            
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("input", texts);
-            if (embeddingConfig.getModel() != null && !embeddingConfig.getModel().trim().isEmpty()) {
-                requestBody.put("model", embeddingConfig.getModel());
+            if (model.getModel() != null && !model.getModel().trim().isEmpty()) {
+                requestBody.put("model", model.getModel());
             }
             
-            String apiUrl = buildApiUrl();
-            logger.debug("调用向量化API - Provider: {}, URL: {}, 文本数量: {}", 
-                    embeddingConfig.getProvider(), apiUrl, texts.size());
+            String apiUrl = buildApiUrl(model);
+            String provider = model.getProviderType() != null ? model.getProviderType() : 
+                             (model.getProvider() != null ? model.getProvider() : "openai");
+            logger.debug("调用向量化API - 模型ID: {}, 名称: {}, Provider: {}, URL: {}, 文本数量: {}", 
+                    model.getId(), model.getName(), provider, apiUrl, texts.size());
             
-            String response = getWebClient()
+            int timeout = model.getTimeout() != null ? model.getTimeout() : 300000;
+            String response = getWebClient(model.getId())
                     .post()
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(String.class)
-                    .timeout(Duration.ofMillis(embeddingConfig.getTimeout()))
+                    .timeout(Duration.ofMillis(timeout))
                     .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
                             .filter(throwable -> {
                                 if (throwable instanceof org.springframework.web.reactive.function.client.WebClientResponseException) {
@@ -150,27 +178,35 @@ public class EmbeddingService {
                 }
             }
             
-            logger.debug("向量化成功 - 文本数量: {}, 向量维度: {}", 
-                    embeddings.size(), 
+            logger.debug("向量化成功 - 模型ID: {}, 文本数量: {}, 向量维度: {}", 
+                    model.getId(), embeddings.size(), 
                     embeddings.isEmpty() ? 0 : embeddings.get(0).size());
             
             return embeddings;
             
         } catch (Exception e) {
-            logger.error("向量化失败", e);
+            logger.error("向量化失败 - 模型ID: {}", modelId, e);
             throw new RuntimeException("向量化失败: " + e.getMessage(), e);
         }
     }
     
     /**
-     * 分批向量化（处理大量文本）
+     * 分批向量化（处理大量文本，使用默认模型）
      */
     public List<List<Float>> embedBatchWithChunking(List<String> texts) {
+        return embedBatchWithChunking(texts, null);
+    }
+    
+    /**
+     * 分批向量化（处理大量文本，使用指定模型）
+     */
+    public List<List<Float>> embedBatchWithChunking(List<String> texts, Long modelId) {
         if (texts == null || texts.isEmpty()) {
             return new ArrayList<>();
         }
         
-        int batchSize = embeddingConfig.getBatchSize();
+        EmbeddingModel model = modelConfigService.getEmbeddingModelById(modelId);
+        int batchSize = model.getBatchSize() != null ? model.getBatchSize() : 100;
         List<List<Float>> allEmbeddings = new ArrayList<>();
         
         for (int i = 0; i < texts.size(); i += batchSize) {
@@ -178,7 +214,7 @@ public class EmbeddingService {
             List<String> batch = texts.subList(i, end);
             
             try {
-                List<List<Float>> batchEmbeddings = embedBatch(batch);
+                List<List<Float>> batchEmbeddings = embedBatch(batch, modelId);
                 allEmbeddings.addAll(batchEmbeddings);
                 
                 // 避免请求过快
@@ -186,7 +222,7 @@ public class EmbeddingService {
                     Thread.sleep(100);
                 }
             } catch (Exception e) {
-                logger.error("批量向量化失败 - 批次: {}-{}", i, end, e);
+                logger.error("批量向量化失败 - 模型ID: {}, 批次: {}-{}", modelId, i, end, e);
                 throw new RuntimeException("批量向量化失败: " + e.getMessage(), e);
             }
         }

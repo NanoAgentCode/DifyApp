@@ -3,7 +3,7 @@ import request from '@/utils/request'
 /**
  * 智能问答（非流式）
  */
-export function chat(question, conversationId, userId, history) {
+export function chat(question, conversationId, userId, history, modelId) {
   return request({
     url: '/api/chat',
     method: 'post',
@@ -12,7 +12,8 @@ export function chat(question, conversationId, userId, history) {
       conversationId,
       userId,
       history,
-      stream: false
+      stream: false,
+      modelId
     }
   })
 }
@@ -20,7 +21,7 @@ export function chat(question, conversationId, userId, history) {
 /**
  * 智能问答（流式）
  */
-export function chatStream(question, conversationId, userId, history) {
+export function chatStream(question, conversationId, userId, history, modelId) {
   // 获取JWT token
   const token = localStorage.getItem('token')
   
@@ -43,7 +44,8 @@ export function chatStream(question, conversationId, userId, history) {
       conversationId,
       userId,
       history,
-      stream: true
+      stream: true,
+      modelId
     })
   })
 }
