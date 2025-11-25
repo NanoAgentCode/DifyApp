@@ -106,6 +106,18 @@
                   <div class="kb-header-desc">{{ selectedKB.description }}</div>
                 </div>
               </div>
+              <!-- 向量化模型禁用提示 -->
+              <el-alert
+                v-if="!isEmbeddingModelEnabled(selectedKB.embeddingModelId)"
+                type="warning"
+                :closable="false"
+                show-icon
+                style="margin-top: 10px;"
+              >
+                <template #title>
+                  <span>该知识库使用的向量化模型"{{ getEmbeddingModelName(selectedKB.embeddingModelId) || '默认向量化模型' }}"已被禁用，无法进行问答。请联系管理员启用该向量化模型。</span>
+                </template>
+              </el-alert>
             </div>
 
             <!-- 对话历史 -->
@@ -184,7 +196,7 @@
                 placeholder="请输入您的问题..."
                 @keydown.ctrl.enter="handleSend"
                 @keydown.enter.exact.prevent="handleSend"
-                :disabled="!selectedKB || sending"
+                :disabled="!selectedKB || sending || !isEmbeddingModelEnabled(selectedKB?.embeddingModelId)"
               />
               <div class="input-actions">
                 <div class="input-tips">
@@ -201,7 +213,7 @@
                   </el-button>
                   <el-button
                     type="primary"
-                    :disabled="!question.trim() || !selectedKB || sending"
+                    :disabled="!question.trim() || !selectedKB || sending || !isEmbeddingModelEnabled(selectedKB?.embeddingModelId)"
                     @click="handleSend"
                     :loading="sending"
                   >
@@ -502,6 +514,13 @@ const loadKnowledgeBases = async () => {
 
 const handleSend = async () => {
   if (!question.value.trim() || !selectedKB.value || sending.value) {
+    return
+  }
+
+  // 检查向量化模型是否启用
+  if (!isEmbeddingModelEnabled(selectedKB.value.embeddingModelId)) {
+    const modelName = getEmbeddingModelName(selectedKB.value.embeddingModelId) || '默认向量化模型'
+    ElMessage.warning(`该知识库使用的向量化模型"${modelName}"已被禁用，无法进行问答。请联系管理员启用该向量化模型。`)
     return
   }
 

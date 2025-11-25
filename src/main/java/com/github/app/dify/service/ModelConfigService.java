@@ -408,6 +408,27 @@ public class ModelConfigService {
             }
             
             QAModel qaModel = optional.get();
+            
+            // 如果禁用的是默认模型，需要取消其默认状态
+            if (!enabled && qaModel.getIsDefault() != null && qaModel.getIsDefault()) {
+                qaModel.setIsDefault(false);
+                // 尝试自动选择另一个启用的模型作为默认（同一使用场景）
+                String useFor = qaModel.getUseFor();
+                List<QAModel> candidates = qaModelRepository.findAllActive().stream()
+                        .filter(m -> !m.getId().equals(modelId) 
+                                && m.getEnabled() != null && m.getEnabled()
+                                && (m.getUseFor().equals(useFor) || "both".equals(m.getUseFor()) || "both".equals(useFor)))
+                        .collect(Collectors.toList());
+                
+                if (!candidates.isEmpty()) {
+                    // 选择第一个启用的模型作为默认
+                    QAModel newDefault = candidates.get(0);
+                    newDefault.setIsDefault(true);
+                    newDefault.setUpdateTime(now);
+                    qaModelRepository.save(newDefault);
+                }
+            }
+            
             qaModel.setEnabled(enabled);
             qaModel.setUpdateTime(now);
             qaModelRepository.save(qaModel);
@@ -418,6 +439,25 @@ public class ModelConfigService {
             }
             
             EmbeddingModel embeddingModel = optional.get();
+            
+            // 如果禁用的是默认模型，需要取消其默认状态
+            if (!enabled && embeddingModel.getIsDefault() != null && embeddingModel.getIsDefault()) {
+                embeddingModel.setIsDefault(false);
+                // 尝试自动选择另一个启用的模型作为默认
+                List<EmbeddingModel> candidates = embeddingModelRepository.findAllActive().stream()
+                        .filter(m -> !m.getId().equals(modelId) 
+                                && m.getEnabled() != null && m.getEnabled())
+                        .collect(Collectors.toList());
+                
+                if (!candidates.isEmpty()) {
+                    // 选择第一个启用的模型作为默认
+                    EmbeddingModel newDefault = candidates.get(0);
+                    newDefault.setIsDefault(true);
+                    newDefault.setUpdateTime(now);
+                    embeddingModelRepository.save(newDefault);
+                }
+            }
+            
             embeddingModel.setEnabled(enabled);
             embeddingModel.setUpdateTime(now);
             embeddingModelRepository.save(embeddingModel);

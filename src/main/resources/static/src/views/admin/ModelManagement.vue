@@ -69,9 +69,13 @@
               </el-table-column>
               <el-table-column label="状态" width="100" align="center">
                 <template #default="{ row }">
-                  <el-tag :type="row.enabled ? 'success' : 'info'">
-                    {{ row.enabled ? '启用' : '禁用' }}
-                  </el-tag>
+                  <el-switch
+                    :model-value="row.enabled"
+                    @change="(val) => handleToggleEnabled(row, val)"
+                    :disabled="row.isDefault"
+                    active-text=""
+                    inactive-text=""
+                  />
                 </template>
               </el-table-column>
               <el-table-column label="默认" width="100" align="center">
@@ -114,16 +118,9 @@
                       <template #dropdown>
                         <el-dropdown-menu>
                           <el-dropdown-item
-                            command="toggleEnabled"
-                            :icon="row.enabled ? SwitchButton : CircleCheck"
-                          >
-                            {{ row.enabled ? '禁用' : '启用' }}
-                          </el-dropdown-item>
-                          <el-dropdown-item
                             command="delete"
                             :disabled="row.isDefault"
                             :icon="Delete"
-                            divided
                           >
                             删除
                           </el-dropdown-item>
@@ -175,9 +172,13 @@
               <el-table-column prop="batchSize" label="批处理大小" width="120" align="center" />
               <el-table-column label="状态" width="100" align="center">
                 <template #default="{ row }">
-                  <el-tag :type="row.enabled ? 'success' : 'info'">
-                    {{ row.enabled ? '启用' : '禁用' }}
-                  </el-tag>
+                  <el-switch
+                    :model-value="row.enabled"
+                    @change="(val) => handleToggleEnabledEmbedding(row, val)"
+                    :disabled="row.isDefault"
+                    active-text=""
+                    inactive-text=""
+                  />
                 </template>
               </el-table-column>
               <el-table-column label="默认" width="100" align="center">
@@ -220,16 +221,9 @@
                       <template #dropdown>
                         <el-dropdown-menu>
                           <el-dropdown-item
-                            command="toggleEnabled"
-                            :icon="row.enabled ? SwitchButton : CircleCheck"
-                          >
-                            {{ row.enabled ? '禁用' : '启用' }}
-                          </el-dropdown-item>
-                          <el-dropdown-item
                             command="delete"
                             :disabled="row.isDefault"
                             :icon="Delete"
-                            divided
                           >
                             删除
                           </el-dropdown-item>
@@ -481,9 +475,7 @@ import {
   Edit,
   Delete,
   More,
-  ArrowDown,
-  SwitchButton,
-  CircleCheck
+  ArrowDown
 } from '@element-plus/icons-vue'
 import { getModelConfig, updateModelConfig, testModelConnection } from '@/api/model'
 import { getModelStyle } from '@/utils/modelColor'
@@ -877,9 +869,12 @@ const handleSetDefault = async (row) => {
 }
 
 // 切换启用状态
-const handleToggleEnabled = async (row) => {
+const handleToggleEnabled = async (row, newEnabled) => {
   try {
-    const newEnabled = !row.enabled
+    // 如果禁用的是默认模型，给出提示
+    if (!newEnabled && row.isDefault) {
+      ElMessage.warning('正在禁用默认模型，系统将自动取消其默认状态')
+    }
     
     await updateModelConfig({
       action: 'toggleEnabled',
@@ -888,29 +883,32 @@ const handleToggleEnabled = async (row) => {
     })
     
     row.enabled = newEnabled
+    
+    // 如果禁用了默认模型，取消其默认状态并刷新列表
+    if (!newEnabled && row.isDefault) {
+      row.isDefault = false
+      // 重新加载模型列表以获取新的默认模型
+      await loadQAModels()
+    }
+    
     ElMessage.success(newEnabled ? '模型已启用' : '模型已禁用')
   } catch (error) {
     ElMessage.error(error.response?.data?.error || error.message || '操作失败')
-    row.enabled = !row.enabled // 恢复原状态
+    // 恢复原状态（newEnabled 是新值，所以恢复就是取反）
+    row.enabled = !newEnabled
   }
 }
 
 // 处理操作命令（问答模型）
 const handleActionCommand = (command, row) => {
-  if (command === 'toggleEnabled') {
-    handleToggleEnabled(row)
-  } else if (command === 'delete') {
+  if (command === 'delete') {
     handleDeleteModel(row)
   }
 }
 
 // 处理操作命令（向量化模型）
 const handleEmbeddingActionCommand = (command, row) => {
-  if (command === 'setDefault') {
-    handleSetDefaultEmbedding(row)
-  } else if (command === 'toggleEnabled') {
-    handleToggleEnabledEmbedding(row)
-  } else if (command === 'delete') {
+  if (command === 'delete') {
     handleDeleteEmbeddingModel(row)
   }
 }
@@ -1075,9 +1073,12 @@ const handleSetDefaultEmbedding = async (row) => {
 }
 
 // 切换向量化模型启用状态
-const handleToggleEnabledEmbedding = async (row) => {
+const handleToggleEnabledEmbedding = async (row, newEnabled) => {
   try {
-    const newEnabled = !row.enabled
+    // 如果禁用的是默认模型，给出提示
+    if (!newEnabled && row.isDefault) {
+      ElMessage.warning('正在禁用默认模型，系统将自动取消其默认状态')
+    }
     
     await updateModelConfig({
       action: 'toggleEnabled',
@@ -1087,10 +1088,19 @@ const handleToggleEnabledEmbedding = async (row) => {
     })
     
     row.enabled = newEnabled
+    
+    // 如果禁用了默认模型，取消其默认状态并刷新列表
+    if (!newEnabled && row.isDefault) {
+      row.isDefault = false
+      // 重新加载模型列表以获取新的默认模型
+      await loadEmbeddingModels()
+    }
+    
     ElMessage.success(newEnabled ? '模型已启用' : '模型已禁用')
   } catch (error) {
     ElMessage.error(error.response?.data?.error || error.message || '操作失败')
-    row.enabled = !row.enabled // 恢复原状态
+    // 恢复原状态（newEnabled 是新值，所以恢复就是取反）
+    row.enabled = !newEnabled
   }
 }
 
