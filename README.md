@@ -10,9 +10,10 @@ DifyApp 是一个集成了 Dify AI 平台的应用管理系统，支持：
 - **AI 应用管理**：创建、编辑、删除和查看 AI 应用
 - **Chat Flow 调用**：支持流式和非流式聊天对话
 - **Workflow 调用**：支持流式和非流式工作流执行
-- **知识库管理**：创建、管理知识库，上传、删除文档
-- **RAG 问答**：基于 LangChain4j 的检索增强生成，支持流式和非流式问答
+- **知识库管理**：创建、管理知识库，上传、删除文档，支持选择向量化模型
+- **RAG 问答**：基于 LangChain4j 的检索增强生成，支持流式和非流式问答，支持选择问答模型
 - **文档向量化**：自动文档解析、分块、向量化存储
+- **大模型管理**：动态管理问答模型和向量化模型，支持多种提供商（OpenAI、Ollama、VLLM 等），支持设置默认模型和启用/禁用状态
 - **对话历史管理**：完整的对话会话管理，支持会话记录、消息历史、继续对话、开启新对话
 - **文件存储**：基于 MinIO 的对象存储
 - **向量存储**：基于 Qdrant 的向量数据库
@@ -53,166 +54,29 @@ DifyApp 是一个集成了 Dify AI 平台的应用管理系统，支持：
 
 ```
 DifyApp/
-├── src/
-│   └── main/
-│       ├── java/
-│       │   └── com/github/app/dify/
-│       │       ├── DifyAppApplication.java                    # 主应用类
-│       │       ├── config/                                     # 配置类
-│       │       │   ├── DatabaseConfig.java                    # 数据库配置
-│       │       │   ├── DataInitializer.java                   # 数据初始化
-│       │       │   ├── DifyConfig.java                        # Dify配置
-│       │       │   ├── EmbeddingConfig.java                   # 向量化配置
-│       │       │   ├── MinioConfig.java                       # MinIO配置
-│       │       │   ├── QdrantConfig.java                      # Qdrant配置
-│       │       │   ├── RagConfig.java                         # RAG配置
-│       │       │   ├── SwaggerConfig.java                     # Swagger配置
-│       │       │   └── WebMvcConfig.java                      # Web MVC配置
-│       │       ├── controller/                                 # 控制器层
-│       │       │   ├── AdminChatHistoryController.java        # 管理员对话历史控制器
-│       │       │   ├── AiAppController.java                   # AI应用控制器
-│       │       │   ├── AuthController.java                    # 认证控制器
-│       │       │   ├── ChatController.java                    # 智能问答控制器
-│       │       │   ├── ChatHistoryController.java             # 用户对话历史控制器
-│       │       │   ├── GlobalExceptionHandler.java            # 全局异常处理
-│       │       │   ├── KnowledgeBaseController.java          # 知识库控制器
-│       │       │   ├── KnowledgeBaseDocumentController.java   # 知识库文档控制器
-│       │       │   └── KnowledgeBaseQAController.java         # 知识库问答控制器
-│       │       ├── domain/                                     # 实体类
-│       │       │   ├── AiApp.java                             # AI应用实体
-│       │       │   ├── AiAppUser.java                         # AI应用用户实体
-│       │       │   ├── ChatConversation.java                  # 对话会话实体
-│       │       │   ├── ChatMessage.java                       # 对话消息实体
-│       │       │   ├── KnowledgeBase.java                     # 知识库实体
-│       │       │   ├── KnowledgeBaseDocument.java             # 知识库文档实体
-│       │       │   ├── User.java                              # 用户实体
-│       │       │   ├── UserAppVisibility.java                # 用户应用可见性实体
-│       │       │   └── UserKnowledgeBaseVisibility.java      # 用户知识库可见性实体
-│       │       ├── interceptor/                                # 拦截器
-│       │       │   └── JwtInterceptor.java                    # JWT拦截器
-│       │       ├── langchain4j/                                # LangChain4j集成
-│       │       │   ├── ConfigurableDocumentSplitter.java     # 可配置文档分割器
-│       │       │   ├── CustomChatLanguageModel.java          # 自定义聊天模型
-│       │       │   ├── CustomEmbeddingModel.java             # 自定义嵌入模型
-│       │       │   ├── CustomStreamingChatLanguageModel.java # 自定义流式聊天模型
-│       │       │   ├── LangChain4jConfig.java                # LangChain4j配置
-│       │       │   ├── QdrantEmbeddingStore.java             # Qdrant嵌入存储
-│       │       │   └── TikaDocumentLoader.java               # Tika文档加载器
-│       │       ├── repository/                                 # 数据访问层
-│       │       │   ├── AiAppRepository.java                   # AI应用仓库
-│       │       │   ├── AiAppUserRepository.java              # AI应用用户仓库
-│       │       │   ├── ChatConversationRepository.java        # 对话会话仓库
-│       │       │   ├── ChatMessageRepository.java             # 对话消息仓库
-│       │       │   ├── KnowledgeBaseRepository.java          # 知识库仓库
-│       │       │   ├── KnowledgeBaseDocumentRepository.java  # 知识库文档仓库
-│       │       │   ├── UserRepository.java                   # 用户仓库
-│       │       │   ├── UserAppVisibilityRepository.java      # 用户应用可见性仓库
-│       │       │   └── UserKnowledgeBaseVisibilityRepository.java # 用户知识库可见性仓库
-│       │       ├── service/                                    # 服务层
-│       │       │   ├── AiAppService.java                     # AI应用服务
-│       │       │   ├── AuthService.java                       # 认证服务
-│       │       │   ├── ChatHistoryService.java                # 对话历史服务
-│       │       │   ├── ChatService.java                       # 智能问答服务
-│       │       │   ├── ChunkService.java                     # 文档分块服务
-│       │       │   ├── DifyApiClient.java                    # Dify API客户端
-│       │       │   ├── DocumentParserService.java            # 文档解析服务
-│       │       │   ├── DocumentVectorizationService.java    # 文档向量化服务
-│       │       │   ├── FileStorageService.java               # 文件存储服务接口
-│       │       │   ├── KnowledgeBaseDocumentService.java     # 知识库文档服务
-│       │       │   ├── KnowledgeBaseQAService.java           # 知识库问答服务
-│       │       │   ├── KnowledgeBaseService.java             # 知识库服务
-│       │       │   ├── MinioFileStorageService.java          # MinIO文件存储服务
-│       │       │   ├── RagRetrievalService.java              # RAG检索服务
-│       │       │   ├── UserAppVisibilityService.java        # 用户应用可见性服务
-│       │       │   ├── UserKnowledgeBaseVisibilityService.java # 用户知识库可见性服务
-│       │       │   └── VectorStoreService.java                # 向量存储服务
-│       │       ├── req/                                       # 请求对象
-│       │       │   ├── ChangePasswordRequest.java            # 修改密码请求
-│       │       │   ├── ChatFlowRequest.java                   # Chat Flow请求
-│       │       │   ├── ChatHistoryRequest.java                # 对话历史查询请求
-│       │       │   ├── CreateAiAppReq.java                    # 创建应用请求
-│       │       │   ├── CreateConversationRequest.java         # 创建会话请求
-│       │       │   ├── CreateKnowledgeBaseReq.java           # 创建知识库请求
-│       │       │   ├── DifyChatRequest.java                  # Dify聊天请求
-│       │       │   ├── DifyWorkflowRequest.java              # Dify工作流请求
-│       │       │   ├── KnowledgeBaseQARequest.java           # 知识库问答请求
-│       │       │   ├── LoginRequest.java                     # 登录请求
-│       │       │   ├── RegisterRequest.java                 # 注册请求
-│       │       │   ├── ResetPasswordRequest.java             # 重置密码请求
-│       │       │   ├── UpdateAiAppReq.java                   # 更新应用请求
-│       │       │   ├── UpdateKnowledgeBaseReq.java          # 更新知识库请求
-│       │       │   └── WorkFlowRequest.java                   # Workflow请求
-│       │       ├── resp/                                       # 响应对象
-│       │       │   ├── AiAppResp.java                         # AI应用响应
-│       │       │   ├── ChatConversationResponse.java          # 对话会话响应
-│       │       │   ├── ChatHistoryStatisticsResponse.java    # 对话历史统计响应
-│       │       │   ├── ChatMessageResponse.java                # 对话消息响应
-│       │       │   ├── ChatResponse.java                      # 智能问答响应
-│       │       │   ├── DifyResponse.java                      # Dify响应
-│       │       │   ├── KnowledgeBaseDocumentResp.java        # 知识库文档响应
-│       │       │   ├── KnowledgeBaseQAResponse.java           # 知识库问答响应
-│       │       │   ├── KnowledgeBaseResp.java                 # 知识库响应
-│       │       │   ├── LoginResponse.java                     # 登录响应
-│       │       │   ├── RegisterResponse.java                 # 注册响应
-│       │       │   ├── UserAppVisibilityResp.java           # 用户应用可见性响应
-│       │       │   ├── UserKnowledgeBaseVisibilityResp.java  # 用户知识库可见性响应
-│       │       │   └── UserResp.java                          # 用户响应
-│       │       └── util/                                       # 工具类
-│       │           └── JwtUtil.java                           # JWT工具类
-│       └── resources/
-│           ├── application.yml                                 # 应用配置文件
-│           ├── sql/                                            # SQL脚本
-│           │   ├── init_database.sql                          # 数据库初始化脚本
-│           │   ├── drop_old_user_table.sql                    # 删除旧用户表脚本
-│           │   └── README_INIT.md                             # 数据库初始化说明
-│           └── static/                                         # 前端静态资源
-│               ├── src/
-│               │   ├── api/                                    # API接口
-│               │   │   ├── aiApp.js                           # AI应用API
-│               │   │   ├── auth.js                            # 认证API
-│               │   │   ├── chat.js                            # 智能问答和对话历史API
-│               │   │   ├── knowledgeBase.js                   # 知识库API
-│               │   │   ├── knowledgeBaseDocument.js           # 知识库文档API
-│               │   │   ├── knowledgeBaseQA.js                 # 知识库问答API
-│               │   │   └── user.js                            # 用户API
-│               │   ├── components/                             # 公共组件
-│               │   │   ├── AppIcon.vue                        # 应用图标组件
-│               │   │   ├── ChangePasswordDialog.vue          # 修改密码对话框
-│               │   │   └── ResetPasswordDialog.vue            # 重置密码对话框
-│               │   ├── layouts/                                # 布局组件
-│               │   │   ├── AdminLayout.vue                    # 管理端布局
-│               │   │   ├── AppLayout.vue                      # 应用端布局
-│               │   │   └── UserLayout.vue                     # 用户端布局
-│               │   ├── router/                                 # 路由配置
-│               │   │   └── index.js                           # 路由定义
-│               │   ├── utils/                                  # 工具函数
-│               │   │   ├── icons.js                           # 图标工具
-│               │   │   ├── request.js                         # HTTP请求工具
-│               │   │   └── themes.js                           # 主题工具
-│               │   ├── views/                                  # 页面组件
-│               │   │   ├── admin/                              # 管理端页面
-│               │   │   │   ├── AppDetail.vue                   # 应用详情
-│               │   │   │   ├── AppForm.vue                     # 应用表单
-│               │   │   │   ├── AppList.vue                    # 应用列表
-│               │   │   │   ├── KnowledgeBaseManagement.vue    # 知识库管理
-│               │   │   │   ├── KnowledgeBaseQA.vue           # 知识库问答
-│               │   │   │   └── UserList.vue                   # 用户列表
-│               │   │   ├── app/                                # 应用端页面
-│               │   │   │   ├── ChatApp.vue                    # 聊天应用
-│               │   │   │   └── WorkflowApp.vue               # 工作流应用
-│               │   │   ├── auth/                               # 认证页面
-│               │   │   │   ├── Login.vue                      # 登录页
-│               │   │   │   └── Register.vue                   # 注册页
-│               │   │   └── user/                              # 用户端页面
-│               │   │       ├── AppList.vue                    # 应用列表
-│               │   │       ├── KnowledgeBaseManagement.vue   # 知识库管理
-│               │   │       └── KnowledgeBaseQA.vue            # 知识库问答
-│               │   ├── App.vue                                # 根组件
-│               │   └── main.js                                # 入口文件
-│               ├── index.html                                 # HTML模板
-│               ├── package.json                               # 前端依赖配置
-│               └── vite.config.js                             # Vite配置
-└── pom.xml                                                     # Maven配置文件
+├── src/main/
+│   ├── java/com/github/app/dify/
+│   │   ├── config/              # 配置类（数据库、MinIO、Qdrant、Swagger等）
+│   │   ├── controller/          # 控制器层（REST API）
+│   │   ├── domain/               # 实体类（User、AiApp、KnowledgeBase、QAModel、EmbeddingModel等）
+│   │   ├── repository/           # 数据访问层（JPA Repository）
+│   │   ├── service/              # 服务层（业务逻辑）
+│   │   ├── langchain4j/          # LangChain4j集成（RAG相关）
+│   │   ├── req/                  # 请求对象（DTO）
+│   │   ├── resp/                 # 响应对象（DTO）
+│   │   └── util/                 # 工具类
+│   └── resources/
+│       ├── application.yml       # 应用配置文件
+│       ├── sql/                  # SQL脚本
+│       └── static/               # 前端静态资源（Vue 3项目）
+│           └── src/
+│               ├── api/          # API接口封装
+│               ├── components/   # 公共组件
+│               ├── layouts/      # 布局组件（管理端/用户端/应用端）
+│               ├── views/        # 页面组件
+│               ├── router/       # 路由配置
+│               └── utils/        # 工具函数
+└── pom.xml                      # Maven配置文件
 ```
 
 ## 环境要求
@@ -706,9 +570,16 @@ Content-Type: application/json
 {
   "name": "我的知识库",
   "description": "知识库描述",
-  "tenantId": 1
+  "tenantId": 1,
+  "embeddingModelId": 1
 }
 ```
+
+**请求参数说明：**
+- `name` (必填): 知识库名称
+- `description` (可选): 知识库描述
+- `tenantId` (可选): 租户ID
+- `embeddingModelId` (可选): 向量化模型ID，不指定则使用默认向量化模型
 
 #### 2. 更新知识库
 
@@ -815,9 +686,15 @@ Content-Type: application/json
 ```json
 {
   "question": "什么是人工智能？",
-  "conversationId": "conversation-123"
+  "conversationId": "conversation-123",
+  "modelId": 1
 }
 ```
+
+**请求参数说明：**
+- `question` (必填): 问题内容
+- `conversationId` (可选): 会话ID，用于连续对话
+- `modelId` (可选): 问答模型ID，不指定则使用默认模型
 
 **响应示例：**
 ```json
@@ -986,6 +863,98 @@ PUT /api/auth/users/{userId}/knowledge-base-visibilities/{knowledgeBaseId}?visib
 Authorization: Bearer {token}
 ```
 
+### 大模型管理 API
+
+#### 1. 获取问答模型列表
+
+```
+GET /api/models/qa
+Authorization: Bearer {token}
+```
+
+#### 2. 获取向量化模型列表
+
+```
+GET /api/models/embedding
+Authorization: Bearer {token}
+```
+
+#### 3. 获取可用的 RAG 问答模型
+
+```
+GET /api/models/qa/available/rag
+Authorization: Bearer {token}
+```
+
+#### 4. 更新模型配置（添加/更新/删除/设置默认/切换启用状态）
+
+```
+POST /api/models/config
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+
+**请求体示例（添加模型）：**
+```json
+{
+  "action": "add",
+  "type": "qa",
+  "model": {
+    "name": "Qwen2.5-72B",
+    "provider": "openai",
+    "apiUrl": "https://api.siliconflow.cn",
+    "apiKey": "your-api-key",
+    "model": "Qwen/Qwen2.5-72B-Instruct",
+    "useFor": "both",
+    "enabled": true
+  }
+}
+```
+
+**请求体示例（设置默认模型）：**
+```json
+{
+  "action": "setDefault",
+  "type": "qa",
+  "modelId": 1,
+  "useFor": "rag"
+}
+```
+
+**请求体示例（切换启用状态）：**
+```json
+{
+  "action": "toggleEnabled",
+  "type": "qa",
+  "modelId": 1,
+  "enabled": true
+}
+```
+
+**操作类型说明：**
+- `action`: 操作类型，可选值：`add`（添加）、`update`（更新）、`delete`（删除）、`setDefault`（设置默认）、`toggleEnabled`（切换启用状态）
+- `type`: 模型类型，可选值：`qa`（问答模型）、`embedding`（向量化模型）
+- `useFor`: 使用场景（仅问答模型），可选值：`chat`（智能问答）、`rag`（知识库问答）、`both`（两者都支持）
+
+#### 5. 测试模型连接
+
+```
+POST /api/models/test
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+
+**请求体：**
+```json
+{
+  "type": "qa",
+  "provider": "openai",
+  "apiUrl": "https://api.siliconflow.cn",
+  "apiKey": "your-api-key",
+  "model": "Qwen/Qwen2.5-72B-Instruct"
+}
+```
+
 ## 功能特性
 
 ### 后端功能
@@ -1005,6 +974,16 @@ Authorization: Bearer {token}
   - 文件上传功能
   - 多租户支持
 
+- ✅ **大模型管理**
+  - 问答模型和向量化模型的动态管理
+  - 支持多种提供商（OpenAI、Ollama、VLLM 等）
+  - 问答模型支持使用场景配置（智能问答、知识库问答、两者都支持）
+  - 支持设置默认模型（按使用场景区分）
+  - 支持启用/禁用模型状态
+  - 自动处理默认模型切换逻辑
+  - 模型连接测试功能
+  - 数据库驱动的动态配置，无需重启应用
+
 - ✅ **知识库管理**
   - 知识库 CRUD 操作
   - 文档上传、删除、下载
@@ -1012,6 +991,7 @@ Authorization: Bearer {token}
   - 文档自动解析（Apache Tika）
   - 文档分块和向量化
   - 向量存储（Qdrant）
+  - 支持为知识库选择向量化模型
 
 - ✅ **RAG 问答**
   - 基于 LangChain4j 的检索增强生成
@@ -1019,6 +999,8 @@ Authorization: Bearer {token}
   - 相似度检索
   - 可配置的检索参数
   - 会话ID管理，支持连续对话
+  - 支持选择问答模型
+  - 向量化模型状态检查和警告提示
 
 - ✅ **对话历史管理**
   - 完整的会话和消息记录
@@ -1051,18 +1033,19 @@ Authorization: Bearer {token}
 - ✅ **管理端界面**
   - 应用列表、创建、编辑、删除
   - 用户管理（审核、禁用、重置密码、角色管理）
+  - 大模型管理（问答模型和向量化模型的配置、默认设置、状态管理）
   - 智能问答
   - 对话历史管理
-  - 知识库管理
-  - 知识库问答
+  - 知识库管理（支持选择向量化模型）
+  - 知识库问答（支持选择问答模型，显示向量化模型状态）
   - 用户权限管理（应用和知识库可见性）
 
 - ✅ **用户端界面**
   - 应用列表（仅显示有权限的应用）
   - 智能问答
   - 对话历史管理
-  - 知识库管理（仅显示有权限的知识库）
-  - 知识库问答
+  - 知识库管理（仅显示有权限的知识库，支持创建和编辑知识库，支持选择向量化模型）
+  - 知识库问答（支持选择问答模型，显示向量化模型状态）
 
 - ✅ **应用端界面**
   - Chat Flow 交互界面
@@ -1079,6 +1062,13 @@ Authorization: Bearer {token}
   - 支持继续对话、开启新对话
   - 支持会话搜索、筛选、排序
   - 响应式设计，自适应布局
+
+- ✅ **UI/UX 增强**
+  - 模型标识动态颜色显示，便于区分不同模型
+  - 单选按钮选择默认模型，直观易用
+  - 开关按钮控制模型启用状态
+  - 模型状态警告提示（向量化模型禁用时提示）
+  - 知识库列表布局优化
 
 ## 配置说明
 
@@ -1119,11 +1109,28 @@ qdrant:
   timeout: 30000
 ```
 
-### 向量化配置
+### 大模型配置
+
+> ⚠️ **重要提示**：系统现已支持通过数据库动态管理大模型配置，无需修改配置文件。以下配置仅作为兼容性保留，建议通过管理端界面配置模型。
+
+#### 通过管理端配置（推荐）
+
+1. 登录管理端
+2. 进入"大模型管理"页面
+3. 在"问答模型"或"向量化模型"标签页中添加、编辑模型
+4. 支持配置：
+   - 模型名称、提供商类型（OpenAI、Ollama、VLLM 等）
+   - API 地址、API Key
+   - 模型标识
+   - 使用场景（仅问答模型：智能问答、知识库问答、两者都支持）
+   - 启用状态
+   - 默认模型设置
+
+#### 配置文件方式（兼容性保留）
 
 > 💡 **提示**：详细的配置模板请参考 `src/main/resources/application-provider-template.yml` 文件，其中包含了所有支持的 provider 类型的完整配置示例。
 
-在 `application.yml` 中配置向量化服务：
+在 `application.yml` 中配置向量化服务（仅作为兼容性保留）：
 
 **默认配置（OpenAI 兼容格式，包括 SiliconFlow、VLLM 等）：**
 
@@ -1163,7 +1170,9 @@ embedding:
 
 ### RAG 配置
 
-在 `application.yml` 中配置 RAG：
+> ⚠️ **重要提示**：RAG 配置现已通过数据库动态管理。以下配置仅作为兼容性保留，建议通过管理端界面配置模型。
+
+在 `application.yml` 中配置 RAG（仅作为兼容性保留）：
 
 **默认配置（OpenAI 兼容格式，包括 SiliconFlow、VLLM 等）：**
 
@@ -1290,9 +1299,22 @@ yarn build
 
 - **KNOWLEDGE_BASE**: 知识库表
   - 存储知识库基本信息
+  - 包含向量化模型ID（embedding_model_id），关联到 EMBEDDING_MODEL 表
 
 - **KNOWLEDGE_BASE_DOCUMENT**: 知识库文档表
   - 存储文档信息、向量化状态等
+
+- **QA_MODEL**: 问答模型表
+  - 存储问答模型配置信息（模型名称、提供商、API地址、API Key、模型标识等）
+  - 支持使用场景配置（chat-仅智能问答、rag-仅知识库问答、both-两者都使用）
+  - 支持启用/禁用状态和默认模型设置
+  - 用于智能问答和知识库问答功能
+
+- **EMBEDDING_MODEL**: 向量化模型表
+  - 存储向量化模型配置信息（模型名称、提供商、API地址、API Key、模型标识等）
+  - 包含超时时间和批处理大小配置
+  - 支持启用/禁用状态和默认模型设置
+  - 用于文档向量化和知识库检索功能
 
 - **CHAT_CONVERSATION**: 对话会话表
   - 存储会话信息（用户ID、应用ID、知识库ID、会话类型、标题等）
