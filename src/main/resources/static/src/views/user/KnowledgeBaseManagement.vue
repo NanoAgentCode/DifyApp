@@ -158,14 +158,15 @@
             placeholder="请输入知识库描述"
           />
         </el-form-item>
-        <el-form-item>
+        <el-form-item label="可见性">
           <el-alert
             type="info"
             :closable="false"
             show-icon
+            style="margin-top: 0;"
           >
             <template #title>
-              <span>普通用户只能创建私有知识库</span>
+              <span>普通用户只能创建私有知识库，只有创建者可以访问</span>
             </template>
           </el-alert>
         </el-form-item>

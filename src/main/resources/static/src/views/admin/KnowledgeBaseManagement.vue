@@ -173,14 +173,16 @@
           />
         </el-form-item>
         <el-form-item label="可见性" prop="isPublic" v-if="isAdmin">
-          <el-radio-group v-model="formData.isPublic">
-            <el-radio :label="true">公开</el-radio>
-            <el-radio :label="false">私有</el-radio>
+          <el-radio-group v-model="formData.isPublic" class="visibility-radio-group">
+            <el-radio :label="true" class="visibility-radio-item">
+              <span class="radio-label">公开</span>
+              <span class="radio-description">公开知识库: 所有用户都可以访问</span>
+            </el-radio>
+            <el-radio :label="false" class="visibility-radio-item">
+              <span class="radio-label">私有</span>
+              <span class="radio-description">私有知识库: 只有创建者可以访问</span>
+            </el-radio>
           </el-radio-group>
-          <div style="font-size: 12px; color: #909399; margin-top: 5px;">
-            公开知识库：所有用户都可以访问<br/>
-            私有知识库：只有创建者可以访问
-          </div>
         </el-form-item>
         <el-form-item v-else>
           <el-alert
@@ -828,6 +830,41 @@ const formatDate = (date) => {
 
 .action-buttons-row .el-button + .el-button {
   margin-left: 0;
+}
+
+/* 可见性单选按钮组样式 */
+.visibility-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.visibility-radio-item {
+  display: flex;
+  align-items: flex-start;
+  height: auto;
+  padding: 8px 0;
+  margin-right: 0;
+}
+
+.visibility-radio-item :deep(.el-radio__label) {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 8px;
+  line-height: 1.5;
+}
+
+.radio-label {
+  font-weight: 500;
+  color: #303133;
+  font-size: 14px;
+}
+
+.radio-description {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.4;
 }
 </style>
 
