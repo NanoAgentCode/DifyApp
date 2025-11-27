@@ -44,7 +44,7 @@
             <span>智能应用</span>
           </el-menu-item>
           <el-menu-item index="/user/kb-qa">
-            <el-icon><ChatLineRound /></el-icon>
+            <el-icon><Document /></el-icon>
             <span>知识库问答</span>
           </el-menu-item>
           <el-menu-item index="/user/knowledge-base">
@@ -75,7 +75,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { User, ArrowDown, List, Folder, ChatLineRound, Fold, Expand, Clock } from '@element-plus/icons-vue'
+import { User, ArrowDown, List, Folder, ChatLineRound, Fold, Expand, Clock, Document } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 
 const route = useRoute()

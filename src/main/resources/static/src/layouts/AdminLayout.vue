@@ -48,7 +48,7 @@
             <span>用户管理</span>
           </el-menu-item>
           <el-menu-item v-if="isAdmin" index="/admin/kb-qa">
-            <el-icon><ChatLineRound /></el-icon>
+            <el-icon><Document /></el-icon>
             <span>知识库问答</span>
           </el-menu-item>
           <el-menu-item v-if="isAdmin" index="/admin/knowledge-base">
@@ -83,7 +83,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { List, User, ArrowDown, Folder, ChatLineRound, Fold, Expand, Clock, Setting } from '@element-plus/icons-vue'
+import { List, User, ArrowDown, Folder, ChatLineRound, Fold, Expand, Clock, Setting, Document } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 
 const route = useRoute()
