@@ -1,6 +1,15 @@
 server:
   port: 8081
 
+# 日志配置
+logging:
+  charset:
+    console: UTF-8
+    file: UTF-8
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+
 spring:
   datasource:
     driver-class-name: org.postgresql.Driver
