@@ -31,3 +31,5 @@ build/
 
 ### VS Code ###
 .vscode/
+/logs/dify-app-error.log
+/logs/dify-app.log
