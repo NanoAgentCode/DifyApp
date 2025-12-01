@@ -9,6 +9,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CachingConfigurerSupport;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.interceptor.CacheErrorHandler;
+import org.springframework.cache.support.NoOpCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
@@ -41,22 +43,29 @@ public class RedisConfig extends CachingConfigurerSupport {
     
     /**
      * Redis连接工厂
+     * 如果Redis连接失败，应用仍能正常启动，但缓存功能将不可用
      */
     @Bean
     public LettuceConnectionFactory redisConnectionFactory() {
-        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
-        config.setHostName(host);
-        config.setPort(port);
-        config.setDatabase(database);
-        if (password != null && !password.isEmpty()) {
-            config.setPassword(password);
+        try {
+            RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
+            config.setHostName(host);
+            config.setPort(port);
+            config.setDatabase(database);
+            if (password != null && !password.isEmpty()) {
+                config.setPassword(password);
+            }
+            
+            LettuceConnectionFactory factory = new LettuceConnectionFactory(config);
+            // Lettuce连接工厂的超时时间通过配置中的timeout设置
+            
+            logger.info("Redis连接配置 - Host: {}, Port: {}, Database: {}, Timeout: {}ms", host, port, database, timeout);
+            return factory;
+        } catch (Exception e) {
+            logger.error("Redis连接工厂初始化失败，应用将继续启动但缓存功能不可用", e);
+            // 返回一个工厂实例，但连接可能失败，后续会在CacheManager中处理
+            return new LettuceConnectionFactory(new RedisStandaloneConfiguration());
         }
-        
-        LettuceConnectionFactory factory = new LettuceConnectionFactory(config);
-        // Lettuce连接工厂的超时时间通过配置中的timeout设置
-        
-        logger.info("Redis连接配置 - Host: {}, Port: {}, Database: {}, Timeout: {}ms", host, port, database, timeout);
-        return factory;
     }
     
     /**
@@ -94,21 +103,43 @@ public class RedisConfig extends CachingConfigurerSupport {
     
     /**
      * 缓存管理器配置
+     * 如果Redis不可用，将使用NoOpCacheManager（不缓存），确保系统仍能正常工作
      */
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        // 配置序列化（解决乱码的问题）
-        RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Duration.ofHours(1)) // 默认缓存过期时间1小时
-                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
-                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
-                        new Jackson2JsonRedisSerializer<>(Object.class)))
-                .disableCachingNullValues(); // 不缓存空值
-        
-        return RedisCacheManager.builder(connectionFactory)
-                .cacheDefaults(config)
-                .transactionAware()
-                .build();
+        try {
+            // 测试Redis连接（延迟测试，避免启动时阻塞）
+            try {
+                connectionFactory.getConnection().ping();
+                logger.info("Redis连接测试成功");
+            } catch (Exception e) {
+                logger.warn("Redis连接测试失败，将在运行时降级: {}", e.getMessage());
+                // 不立即返回NoOpCacheManager，让Spring Cache在运行时处理
+            }
+            
+            // 配置序列化（解决乱码的问题）
+            RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
+                    .entryTtl(Duration.ofHours(1)) // 默认缓存过期时间1小时
+                    .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
+                    .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
+                            new Jackson2JsonRedisSerializer<>(Object.class)))
+                    .disableCachingNullValues(); // 不缓存空值
+            
+            logger.info("Redis缓存管理器初始化完成");
+            return RedisCacheManager.builder(connectionFactory)
+                    .cacheDefaults(config)
+                    .transactionAware()
+                    .build();
+        } catch (Exception e) {
+            logger.error("==========================================");
+            logger.error("Redis缓存管理器初始化失败，缓存功能将被禁用！");
+            logger.error("错误信息: {}", e.getMessage());
+            logger.error("==========================================");
+            logger.warn("应用将继续启动，但缓存功能不可用，所有查询将直接访问数据库");
+            logger.warn("请检查Redis服务是否正在运行，配置是否正确");
+            // 返回NoOpCacheManager，不进行任何缓存操作，确保系统正常运行
+            return new NoOpCacheManager();
+        }
     }
     
     public String getHost() {
@@ -149,6 +180,15 @@ public class RedisConfig extends CachingConfigurerSupport {
     
     public void setTimeout(int timeout) {
         this.timeout = timeout;
+    }
+    
+    /**
+     * 缓存错误处理器
+     * 当缓存操作失败时，记录日志但不抛出异常，确保业务逻辑继续执行
+     */
+    @Override
+    public CacheErrorHandler errorHandler() {
+        return new CustomCacheErrorHandler();
     }
 }
 
