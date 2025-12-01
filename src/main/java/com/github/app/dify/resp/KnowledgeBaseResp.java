@@ -44,6 +44,9 @@ public class KnowledgeBaseResp {
     @ApiModelProperty("向量化模型ID")
     private Long embeddingModelId;
     
+    @ApiModelProperty("Top-K检索数量（如果为null则使用全局配置）")
+    private Integer topK;
+    
     @ApiModelProperty("创建时间")
     private Date createTime;
     
@@ -143,6 +146,14 @@ public class KnowledgeBaseResp {
     
     public void setEmbeddingModelId(Long embeddingModelId) {
         this.embeddingModelId = embeddingModelId;
+    }
+    
+    public Integer getTopK() {
+        return topK;
+    }
+    
+    public void setTopK(Integer topK) {
+        this.topK = topK;
     }
     
     public Date getCreateTime() {

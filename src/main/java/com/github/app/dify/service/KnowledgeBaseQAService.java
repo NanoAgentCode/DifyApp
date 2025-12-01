@@ -82,18 +82,20 @@ public class KnowledgeBaseQAService {
      */
     public KnowledgeBaseQAResponse answer(Long knowledgeBaseId, KnowledgeBaseQARequest request, Long userId) {
         try {
-            // 获取知识库的向量化模型ID
+            // 获取知识库的配置信息（向量化模型ID和topK）
             Long embeddingModelId = null;
+            Integer topK = null;
             try {
                 com.github.app.dify.resp.KnowledgeBaseResp kb = knowledgeBaseService.getKnowledgeBaseById(knowledgeBaseId);
                 embeddingModelId = kb.getEmbeddingModelId();
+                topK = kb.getTopK();
             } catch (Exception e) {
-                logger.warn("获取知识库向量化模型ID失败，使用默认模型 - 知识库ID: {}", knowledgeBaseId, e);
+                logger.warn("获取知识库配置失败，使用默认配置 - 知识库ID: {}", knowledgeBaseId, e);
             }
             
             // 先检索相关文档（用于构建sources）
             List<RagRetrievalService.RetrievalResult> retrievalResults = 
-                    ragRetrievalService.retrieve(knowledgeBaseId, request.getQuestion(), embeddingModelId);
+                    ragRetrievalService.retrieve(knowledgeBaseId, request.getQuestion(), embeddingModelId, topK);
             
             if (retrievalResults.isEmpty()) {
                 KnowledgeBaseQAResponse response = new KnowledgeBaseQAResponse();
@@ -170,18 +172,20 @@ public class KnowledgeBaseQAService {
      */
     public Flux<KnowledgeBaseQAResponse> answerStream(Long knowledgeBaseId, KnowledgeBaseQARequest request, Long userId) {
         try {
-            // 获取知识库的向量化模型ID
+            // 获取知识库的配置信息（向量化模型ID和topK）
             Long embeddingModelId = null;
+            Integer topK = null;
             try {
                 com.github.app.dify.resp.KnowledgeBaseResp kb = knowledgeBaseService.getKnowledgeBaseById(knowledgeBaseId);
                 embeddingModelId = kb.getEmbeddingModelId();
+                topK = kb.getTopK();
             } catch (Exception e) {
-                logger.warn("获取知识库向量化模型ID失败，使用默认模型 - 知识库ID: {}", knowledgeBaseId, e);
+                logger.warn("获取知识库配置失败，使用默认配置 - 知识库ID: {}", knowledgeBaseId, e);
             }
             
             // 先检索相关文档（用于构建sources）
             List<RagRetrievalService.RetrievalResult> retrievalResults = 
-                    ragRetrievalService.retrieve(knowledgeBaseId, request.getQuestion(), embeddingModelId);
+                    ragRetrievalService.retrieve(knowledgeBaseId, request.getQuestion(), embeddingModelId, topK);
             
             if (retrievalResults.isEmpty()) {
                 KnowledgeBaseQAResponse response = new KnowledgeBaseQAResponse();
@@ -260,10 +264,20 @@ public class KnowledgeBaseQAService {
         EmbeddingStore<TextSegment> embeddingStore = QdrantEmbeddingStore.forKnowledgeBase(
                 knowledgeBaseId, vectorStoreService);
         
+        // 获取知识库的topK配置，如果为null则使用全局配置
+        Integer topK = null;
+        try {
+            com.github.app.dify.resp.KnowledgeBaseResp kb = knowledgeBaseService.getKnowledgeBaseById(knowledgeBaseId);
+            topK = kb.getTopK();
+        } catch (Exception e) {
+            logger.debug("获取知识库topK配置失败，使用全局配置 - 知识库ID: {}", knowledgeBaseId);
+        }
+        int effectiveTopK = (topK != null && topK > 0) ? topK : ragConfig.getTopK();
+        
         return EmbeddingStoreContentRetriever.builder()
                 .embeddingStore(embeddingStore)
                 .embeddingModel(embeddingModel)
-                .maxResults(ragConfig.getTopK())
+                .maxResults(effectiveTopK)
                 .minScore(ragConfig.getSimilarityThreshold())
                 .build();
     }
@@ -323,9 +337,18 @@ public class KnowledgeBaseQAService {
             query = ((UserMessage) lastMessage).singleText();
         }
         
+        // 获取知识库的topK配置
+        Integer topK = null;
+        try {
+            com.github.app.dify.resp.KnowledgeBaseResp kb = knowledgeBaseService.getKnowledgeBaseById(knowledgeBaseId);
+            topK = kb.getTopK();
+        } catch (Exception e) {
+            logger.debug("获取知识库topK配置失败，使用全局配置 - 知识库ID: {}", knowledgeBaseId);
+        }
+        
         // 使用RagRetrievalService检索相关内容（它已经处理了ContentRetriever的调用）
         List<RagRetrievalService.RetrievalResult> retrievalResults = 
-                ragRetrievalService.retrieve(knowledgeBaseId, query);
+                ragRetrievalService.retrieve(knowledgeBaseId, query, null, topK);
         
         // 构建包含检索内容的系统消息
         if (!retrievalResults.isEmpty()) {

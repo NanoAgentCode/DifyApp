@@ -167,6 +167,7 @@ CREATE TABLE "KNOWLEDGE_BASE" (
     creator_id BIGINT,
     is_public BOOLEAN DEFAULT FALSE,
     embedding_model_id BIGINT,
+    top_k INTEGER,
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updater VARCHAR(64),
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -183,6 +184,7 @@ COMMENT ON COLUMN "KNOWLEDGE_BASE".creator IS '创建者';
 COMMENT ON COLUMN "KNOWLEDGE_BASE".creator_id IS '创建者ID';
 COMMENT ON COLUMN "KNOWLEDGE_BASE".is_public IS '是否公开：true-公开，false-私有';
 COMMENT ON COLUMN "KNOWLEDGE_BASE".embedding_model_id IS '向量化模型ID（关联EMBEDDING_MODEL表）';
+COMMENT ON COLUMN "KNOWLEDGE_BASE".top_k IS 'Top-K检索数量（每个知识库可单独配置，如果为NULL则使用全局配置）';
 COMMENT ON COLUMN "KNOWLEDGE_BASE".create_time IS '创建时间';
 COMMENT ON COLUMN "KNOWLEDGE_BASE".updater IS '更新者';
 COMMENT ON COLUMN "KNOWLEDGE_BASE".update_time IS '更新时间';

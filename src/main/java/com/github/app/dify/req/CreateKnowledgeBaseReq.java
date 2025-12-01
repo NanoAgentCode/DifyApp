@@ -30,6 +30,9 @@ public class CreateKnowledgeBaseReq {
     @ApiModelProperty("向量化模型ID（可选，如果不指定则使用默认向量化模型）")
     private Long embeddingModelId;
     
+    @ApiModelProperty("Top-K检索数量（可选，如果不指定则使用全局配置）")
+    private Integer topK;
+    
     @ApiModelProperty("租户编号")
     private Integer tenantId;
     
@@ -72,6 +75,14 @@ public class CreateKnowledgeBaseReq {
     
     public void setEmbeddingModelId(Long embeddingModelId) {
         this.embeddingModelId = embeddingModelId;
+    }
+    
+    public Integer getTopK() {
+        return topK;
+    }
+    
+    public void setTopK(Integer topK) {
+        this.topK = topK;
     }
     
     public Integer getTenantId() {

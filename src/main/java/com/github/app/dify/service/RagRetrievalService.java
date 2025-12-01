@@ -40,13 +40,24 @@ public class RagRetrievalService {
      * 检索相关文档chunks（使用LangChain4j）
      */
     public List<RetrievalResult> retrieve(Long knowledgeBaseId, String query) {
-        return retrieve(knowledgeBaseId, query, null);
+        return retrieve(knowledgeBaseId, query, null, null);
     }
     
     /**
      * 检索相关文档chunks（使用LangChain4j，指定向量化模型ID）
      */
     public List<RetrievalResult> retrieve(Long knowledgeBaseId, String query, Long embeddingModelId) {
+        return retrieve(knowledgeBaseId, query, embeddingModelId, null);
+    }
+    
+    /**
+     * 检索相关文档chunks（使用LangChain4j，指定向量化模型ID和topK）
+     * @param knowledgeBaseId 知识库ID
+     * @param query 查询文本
+     * @param embeddingModelId 向量化模型ID（可选，如果为null则使用默认模型）
+     * @param topK Top-K检索数量（可选，如果为null则使用全局配置）
+     */
+    public List<RetrievalResult> retrieve(Long knowledgeBaseId, String query, Long embeddingModelId, Integer topK) {
         if (query == null || query.trim().isEmpty()) {
             throw new IllegalArgumentException("查询问题不能为空");
         }
@@ -67,14 +78,17 @@ public class RagRetrievalService {
                 queryEmbedding = embeddingModel.embed(query).content();
             }
             
-            // 3. 直接使用EmbeddingStore检索，这样可以获取完整的相似度分数
+            // 3. 确定使用的topK值：优先使用知识库配置，否则使用全局配置
+            int effectiveTopK = (topK != null && topK > 0) ? topK : ragConfig.getTopK();
+            
+            // 直接使用EmbeddingStore检索，这样可以获取完整的相似度分数
             // 检索更多结果用于调试和过滤
-            int maxResults = ragConfig.getTopK() * 3; // 检索更多结果
+            int maxResults = effectiveTopK * 3; // 检索更多结果
             List<EmbeddingMatch<TextSegment>> matches = embeddingStore.findRelevant(
                     queryEmbedding, maxResults, 0.0); // 先不设置阈值，获取所有结果
             
-            logger.info("RAG检索原始结果 - 知识库ID: {}, 查询: {}, 原始结果数量: {}, 配置topK: {}, 相似度阈值: {}", 
-                    knowledgeBaseId, query, matches.size(), ragConfig.getTopK(), ragConfig.getSimilarityThreshold());
+            logger.info("RAG检索原始结果 - 知识库ID: {}, 查询: {}, 原始结果数量: {}, 配置topK: {} (知识库配置: {}, 全局配置: {}), 相似度阈值: {}", 
+                    knowledgeBaseId, query, matches.size(), effectiveTopK, topK, ragConfig.getTopK(), ragConfig.getSimilarityThreshold());
             
             // 记录所有结果的分数（用于调试）
             if (!matches.isEmpty()) {
@@ -119,7 +133,7 @@ public class RagRetrievalService {
                         return result;
                     })
                     .filter(r -> r.getScore() >= ragConfig.getSimilarityThreshold()) // 应用相似度阈值过滤
-                    .limit(ragConfig.getTopK()) // 限制返回数量
+                    .limit(effectiveTopK) // 限制返回数量（使用知识库配置或全局配置）
                     .collect(Collectors.toList());
             
             // 记录详细的检索信息

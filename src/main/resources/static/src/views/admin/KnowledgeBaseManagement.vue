@@ -231,6 +231,20 @@
             用于文档向量化的模型，如果不选择则使用系统默认向量化模型
           </div>
         </el-form-item>
+        <el-form-item label="Top-K检索数量" prop="topK">
+          <el-input-number
+            v-model="formData.topK"
+            :min="1"
+            :max="50"
+            :step="1"
+            placeholder="不设置则使用全局配置"
+            style="width: 100%"
+            clearable
+          />
+          <div style="font-size: 12px; color: #909399; margin-top: 5px;">
+            检索时返回的最相关文档片段数量（1-50），如果不设置则使用系统全局配置
+          </div>
+        </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="formData.status">
             <el-radio label="active">启用</el-radio>
@@ -261,6 +275,10 @@
             {{ getEmbeddingModelName(currentKB.embeddingModelId) }}
           </el-tag>
           <span v-else style="color: #909399;">-</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="Top-K检索数量" :span="2">
+          <el-tag v-if="currentKB.topK" type="info">{{ currentKB.topK }}</el-tag>
+          <span v-else style="color: #909399;">使用全局配置</span>
         </el-descriptions-item>
         <el-descriptions-item label="状态" :span="2">
           <el-tag :type="isActive(currentKB.status) ? 'success' : 'info'">
@@ -320,7 +338,8 @@ const formData = ref({
   description: '',
   status: 'active',
   isPublic: false,
-  embeddingModelId: null
+  embeddingModelId: null,
+  topK: null
 })
 
 const embeddingModels = ref([])
@@ -466,7 +485,9 @@ const handleCreate = () => {
     name: '',
     description: '',
     status: 'active',
-    isPublic: false // 默认私有
+    isPublic: false, // 默认私有
+    embeddingModelId: null,
+    topK: null
   }
   dialogVisible.value = true
 }
@@ -480,7 +501,8 @@ const handleEdit = (row) => {
     description: row.description || '',
     status: typeof row.status === 'number' ? statusMap[row.status] : row.status,
     isPublic: row.isPublic !== undefined ? row.isPublic : false,
-    embeddingModelId: row.embeddingModelId || null
+    embeddingModelId: row.embeddingModelId || null,
+    topK: row.topK || null
   }
   dialogVisible.value = true
 }
@@ -565,6 +587,11 @@ const doSubmit = async (force = false) => {
     data.embeddingModelId = formData.value.embeddingModelId
   }
   
+  // 添加topK（如果设置了）
+  if (formData.value.topK !== null && formData.value.topK !== undefined) {
+    data.topK = formData.value.topK
+  }
+  
   if (isEdit.value) {
     await updateKnowledgeBase(currentEditId.value, data)
     ElMessage.success('编辑成功')
@@ -633,7 +660,8 @@ const handleDialogClose = () => {
     description: '',
     status: 'active',
     isPublic: false,
-    embeddingModelId: null
+    embeddingModelId: null,
+    topK: null
   }
   currentEditDocumentCount.value = 0
 }

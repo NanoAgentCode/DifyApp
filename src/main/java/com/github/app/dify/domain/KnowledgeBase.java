@@ -79,6 +79,13 @@ public class KnowledgeBase implements Serializable {
     private Long embeddingModelId;
     
     /**
+     * Top-K检索数量（每个知识库可单独配置，如果为null则使用全局配置）
+     */
+    @ApiModelProperty("Top-K检索数量（每个知识库可单独配置，如果为null则使用全局配置）")
+    @Column(name = "top_k")
+    private Integer topK;
+    
+    /**
      * 创建时间
      */
     @ApiModelProperty("创建时间")
@@ -173,6 +180,14 @@ public class KnowledgeBase implements Serializable {
     
     public void setEmbeddingModelId(Long embeddingModelId) {
         this.embeddingModelId = embeddingModelId;
+    }
+    
+    public Integer getTopK() {
+        return topK;
+    }
+    
+    public void setTopK(Integer topK) {
+        this.topK = topK;
     }
     
     public Date getCreateTime() {

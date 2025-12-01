@@ -128,6 +128,9 @@ public class KnowledgeBaseService {
         if (req.getEmbeddingModelId() != null) {
             knowledgeBase.setEmbeddingModelId(req.getEmbeddingModelId());
         }
+        if (req.getTopK() != null) {
+            knowledgeBase.setTopK(req.getTopK());
+        }
         
         knowledgeBase.setUpdateTime(new Date());
         knowledgeBase = knowledgeBaseRepository.save(knowledgeBase);
