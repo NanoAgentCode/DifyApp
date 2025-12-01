@@ -18,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.util.function.Tuples;
 
 import java.nio.charset.StandardCharsets;
@@ -112,23 +113,38 @@ public class ModelLanguageModelFactory {
                     requestBody.put("stream", true);
                     
                     // 调用流式LLM API
-                    logger.debug("发送流式请求 - URL: {}, RequestBody: {}", client.toString(), requestBody);
+                    logger.info("发送流式请求 - Provider: {}, Model: {}, RequestBody: {}", 
+                            ProviderType.fromValue(qaModel.getProvider()).getValue(), 
+                            qaModel.getModel(), 
+                            requestBody);
                     Flux<String> responseFlux = client.post()
                             .uri("")
                             .accept(MediaType.TEXT_EVENT_STREAM, MediaType.APPLICATION_NDJSON, MediaType.APPLICATION_JSON)
                             .bodyValue(requestBody)
                             .retrieve()
+                            .onStatus(status -> status.isError(), response -> {
+                                logger.error("Ollama API 返回错误状态: {}", response.statusCode());
+                                return response.bodyToMono(String.class)
+                                        .doOnNext(body -> logger.error("错误响应体: {}", body))
+                                        .then(Mono.error(new RuntimeException("Ollama API 错误: " + response.statusCode())));
+                            })
                             .bodyToFlux(DataBuffer.class)
                             .timeout(Duration.ofSeconds(300))
+                            .doOnSubscribe(subscription -> {
+                                logger.info("开始订阅Ollama流式响应");
+                            })
                             .doOnNext(dataBuffer -> {
-                                logger.debug("收到数据块，大小: {} bytes", dataBuffer.readableByteCount());
+                                logger.info("收到数据块，大小: {} bytes", dataBuffer.readableByteCount());
+                            })
+                            .doOnError(error -> {
+                                logger.error("接收Ollama流式响应时发生错误", error);
                             })
                             .map(dataBuffer -> {
                                 byte[] bytes = new byte[dataBuffer.readableByteCount()];
                                 dataBuffer.read(bytes);
                                 DataBufferUtils.release(dataBuffer);
                                 String text = new String(bytes, StandardCharsets.UTF_8);
-                                logger.debug("数据块内容: {}", text.length() > 200 ? text.substring(0, 200) + "..." : text);
+                                logger.info("数据块内容 (前200字符): {}", text.length() > 200 ? text.substring(0, 200) + "..." : text);
                                 return text;
                             })
                             .scan(Tuples.<String, List<String>>of("", new ArrayList<String>()), (state, chunk) -> {
@@ -153,20 +169,35 @@ public class ModelLanguageModelFactory {
                             .flatMap(state -> Flux.fromIterable(state.getT2()))
                             .filter(line -> line != null && !line.trim().isEmpty())
                             .doOnNext(line -> {
-                                logger.debug("处理行: {}", line.length() > 200 ? line.substring(0, 200) + "..." : line);
+                                logger.info("处理行 (前200字符): {}", line.length() > 200 ? line.substring(0, 200) + "..." : line);
+                            })
+                            .doOnComplete(() -> {
+                                logger.info("所有数据块处理完成");
                             })
                             .<String>handle((line, sink) -> {
                                 try {
                                     String chunk = parseStreamChunk(line);
-                                    if (chunk != null && !chunk.isEmpty()) {
-                                        logger.debug("解析出token: {}", chunk.length() > 50 ? chunk.substring(0, 50) + "..." : chunk);
-                                        sink.next(chunk);
+                                    if (chunk != null) {
+                                        // chunk可能为空字符串，这也是有效的（表示没有新token）
+                                        // 但空字符串不应该发送，因为会导致无意义的响应
+                                        if (!chunk.isEmpty()) {
+                                            logger.info("解析出token (前50字符): {}", chunk.length() > 50 ? chunk.substring(0, 50) + "..." : chunk);
+                                            sink.next(chunk);
+                                        } else {
+                                            logger.debug("解析出空token，跳过");
+                                        }
                                     } else {
-                                        logger.debug("解析结果为空，跳过该行");
+                                        logger.debug("解析结果为null，跳过该行: {}", line.substring(0, Math.min(100, line.length())));
                                     }
                                 } catch (Exception e) {
-                                    logger.error("解析流式响应块时发生异常", e);
+                                    logger.error("解析流式响应块时发生异常，行内容: {}", line.substring(0, Math.min(200, line.length())), e);
                                 }
+                            })
+                            .doOnComplete(() -> {
+                                logger.info("Token流处理完成");
+                            })
+                            .doOnError(error -> {
+                                logger.error("Token流处理发生错误", error);
                             });
                     
                     return responseFlux;
@@ -304,14 +335,40 @@ public class ModelLanguageModelFactory {
             
             com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(jsonStr);
             
-            // Ollama格式：{"response":"token","done":false}
+            // Ollama格式：{"message":{"role":"assistant","content":"token"},"done":false}
+            if (root.has("message")) {
+                com.fasterxml.jackson.databind.JsonNode message = root.get("message");
+                if (message.has("content")) {
+                    String content = message.get("content").asText();
+                    boolean done = root.has("done") && root.get("done").asBoolean();
+                    logger.info("Ollama解析 - content: '{}' (长度: {}), done: {}", content, content.length(), done);
+                    // 如果 done 为 true，表示流结束，但最后一个content可能还有内容，应该返回
+                    if (done) {
+                        // 即使done为true，如果content不为空，也应该返回（这是最后一个token）
+                        if (content.isEmpty()) {
+                            logger.debug("Ollama流结束，content为空，返回null");
+                            return null;
+                        } else {
+                            logger.info("Ollama流结束，但还有content: '{}'", content);
+                            return content;
+                        }
+                    }
+                    // content可能为空字符串（某些情况下），空字符串也应该返回，让上层处理
+                    logger.info("Ollama返回content: '{}'", content);
+                    return content;
+                } else {
+                    logger.warn("Ollama message存在但没有content字段: {}", message.toString());
+                }
+            }
+            
+            // Ollama旧格式：{"response":"token","done":false}
             if (root.has("response")) {
                 String response = root.get("response").asText();
                 // 如果 done 为 true，表示流结束，返回 null
                 if (root.has("done") && root.get("done").asBoolean()) {
-                    return null;
+                    return response.isEmpty() ? null : response;
                 }
-                return response;
+                return response.isEmpty() ? null : response;
             }
             
             // OpenAI兼容格式：{"choices":[{"delta":{"content":"token"}}]}
