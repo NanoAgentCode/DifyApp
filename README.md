@@ -17,6 +17,7 @@ DifyApp 是一个集成了 Dify AI 平台的应用管理系统，支持：
 - **对话历史管理**：完整的对话会话管理，支持会话记录、消息历史、继续对话、开启新对话
 - **文件存储**：基于 MinIO 的对象存储
 - **向量存储**：基于 Qdrant 的向量数据库
+- **缓存系统**：基于 Redis 的缓存架构，提升查询性能
 - **多租户支持**：支持多租户应用和知识库管理
 - **权限控制**：用户对应用和知识库的可见性管理
 - **前端界面**：提供管理端、用户端和应用端三个界面
@@ -36,6 +37,8 @@ DifyApp 是一个集成了 Dify AI 平台的应用管理系统，支持：
 - **密码加密**: BCrypt
 - **对象存储**: MinIO 8.5.2
 - **向量数据库**: Qdrant 1.7.0
+- **缓存中间件**: Redis (Spring Data Redis)
+- **缓存框架**: Spring Cache
 - **RAG 框架**: LangChain4j 0.34.0
 - **文档解析**: Apache Tika 2.9.1
 
@@ -56,7 +59,7 @@ DifyApp 是一个集成了 Dify AI 平台的应用管理系统，支持：
 DifyApp/
 ├── src/main/
 │   ├── java/com/github/app/dify/
-│   │   ├── config/              # 配置类（数据库、MinIO、Qdrant、Swagger等）
+│   │   ├── config/              # 配置类（数据库、MinIO、Qdrant、Redis、Swagger等）
 │   │   ├── controller/          # 控制器层（REST API）
 │   │   ├── domain/               # 实体类（User、AiApp、KnowledgeBase、QAModel、EmbeddingModel等）
 │   │   ├── repository/           # 数据访问层（JPA Repository）
@@ -87,6 +90,7 @@ DifyApp/
 - PostgreSQL 15
 - MinIO (对象存储服务)
 - Qdrant (向量数据库)
+- Redis (缓存服务，推荐 6.0+)
 
 ### 可选环境（用于前端开发）
 - Node.js 16+
@@ -160,6 +164,27 @@ docker run -d \
 
 访问 Qdrant 控制台：http://localhost:6333/dashboard
 
+#### 启动 Redis
+
+使用 Docker 启动 Redis：
+
+```bash
+docker run -d \
+  --name redis \
+  -p 6379:6379 \
+  redis:latest
+```
+
+如果需要设置密码：
+
+```bash
+docker run -d \
+  --name redis \
+  -p 6379:6379 \
+  redis:latest \
+  redis-server --requirepass yourpassword
+```
+
 ### 3. 配置应用
 
 编辑 `src/main/resources/application.yml`，根据您的环境修改配置：
@@ -196,6 +221,21 @@ qdrant:
   url: http://localhost:6333
   api-key: # 可选，Docker部署默认不需要
   timeout: 30000
+
+# Redis配置
+spring:
+  redis:
+    host: localhost
+    port: 6379
+    password: # 可选，如果Redis设置了密码，请在此配置
+    database: 0
+    timeout: 3000
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: -1ms
 
 # 向量化配置
 embedding:
@@ -1017,6 +1057,14 @@ Content-Type: application/json
   - 文件上传、下载
   - 大文件支持（单个文件最大 100MB）
 
+- ✅ **缓存系统**
+  - 基于 Redis 的缓存架构
+  - 使用 Spring Cache 注解简化缓存操作
+  - 自动缓存用户信息、模型配置、AI应用信息
+  - 数据更新时自动清除相关缓存
+  - 支持缓存过期策略（默认1小时）
+  - 提供统一的缓存服务工具类
+
 - ✅ **其他功能**
   - 全局异常处理
   - Swagger API 文档
@@ -1108,6 +1156,35 @@ qdrant:
   api-key: # 可选，仅在启用认证时需要
   timeout: 30000
 ```
+
+### Redis 配置
+
+在 `application.yml` 中配置 Redis：
+
+```yaml
+spring:
+  redis:
+    host: localhost
+    port: 6379
+    password: # 可选，如果Redis设置了密码，请在此配置
+    database: 0
+    timeout: 3000
+    lettuce:
+      pool:
+        max-active: 8      # 最大连接数
+        max-idle: 8        # 最大空闲连接数
+        min-idle: 0        # 最小空闲连接数
+        max-wait: -1ms     # 最大等待时间（-1表示无限等待）
+```
+
+**缓存说明**：
+- 系统会自动缓存以下数据：
+  - 用户信息（根据用户ID和用户名）
+  - 模型配置（问答模型、向量化模型）
+  - AI应用信息（根据应用ID和API Key）
+- 缓存默认过期时间为 1 小时
+- 数据更新时会自动清除相关缓存，保证数据一致性
+- 如果 Redis 不可用，系统会自动降级到直接查询数据库
 
 ### 大模型配置
 
@@ -1241,6 +1318,12 @@ dify:
 6. 配置 MinIO 和 Qdrant 的认证
 7. 设置正确的 Dify API Base URL 和文件 URL 前缀
 8. 配置合适的文件上传大小限制
+9. **Redis 配置**：
+   - 设置 Redis 密码以提高安全性
+   - 配置 Redis 持久化（RDB 或 AOF）
+   - 考虑使用 Redis 集群或哨兵模式以提高可用性
+   - 根据实际负载调整连接池参数
+   - 监控 Redis 内存使用情况
 
 ## 开发
 
@@ -1329,6 +1412,44 @@ yarn build
 
 - **USER_KNOWLEDGE_BASE_VISIBILITY**: 用户知识库可见性表
   - 存储用户对知识库的可见性权限
+
+## 缓存架构
+
+### 缓存策略
+
+系统采用 **Cache-Aside 模式**（旁路缓存模式）：
+
+1. **读取数据**：
+   - 先查询 Redis 缓存，如果缓存命中，直接返回
+   - 如果缓存未命中，查询数据库
+   - 将查询结果写入缓存
+
+2. **更新数据**：
+   - 更新数据库
+   - 删除相关缓存（Cache Evict）
+
+### 缓存范围
+
+系统自动缓存以下数据：
+
+- **用户信息**：根据用户ID和用户名缓存
+- **模型配置**：问答模型、向量化模型配置
+- **AI应用信息**：根据应用ID和API Key缓存
+
+### 缓存管理
+
+- **默认过期时间**：1 小时
+- **自动清除**：数据更新时自动清除相关缓存
+- **降级处理**：Redis 不可用时自动降级到直接查询数据库
+
+### 缓存工具类
+
+系统提供了 `CacheService` 工具类，支持：
+- 设置缓存（带过期时间）
+- 获取缓存
+- 删除缓存（支持按前缀批量删除）
+- 判断缓存是否存在
+- 设置过期时间
 
 ## 许可证
 

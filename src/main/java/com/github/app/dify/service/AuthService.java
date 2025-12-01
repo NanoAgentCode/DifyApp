@@ -10,6 +10,8 @@ import com.github.app.dify.util.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -119,6 +121,7 @@ public class AuthService {
      * 管理员审核用户（激活用户）
      */
     @Transactional
+    @CacheEvict(value = "user", key = "#userId")
     public void approveUser(Long userId) {
         Optional<User> optional = userRepository.findById(userId);
         if (!optional.isPresent()) {
@@ -138,6 +141,7 @@ public class AuthService {
      * 注意：管理员账号不能被禁用
      */
     @Transactional
+    @CacheEvict(value = "user", key = "#userId")
     public void disableUser(Long userId) {
         Optional<User> optional = userRepository.findById(userId);
         if (!optional.isPresent()) {
@@ -161,6 +165,7 @@ public class AuthService {
     /**
      * 根据用户ID获取用户信息
      */
+    @Cacheable(value = "user", key = "#userId")
     public User getUserById(Long userId) {
         Optional<User> optional = userRepository.findById(userId);
         if (!optional.isPresent()) {
@@ -172,6 +177,7 @@ public class AuthService {
     /**
      * 根据用户名获取用户信息
      */
+    @Cacheable(value = "user", key = "'username:' + #username")
     public User getUserByUsername(String username) {
         Optional<User> optional = userRepository.findByUsername(username);
         if (!optional.isPresent()) {
@@ -262,6 +268,7 @@ public class AuthService {
      * @param newPassword 新密码
      */
     @Transactional
+    @CacheEvict(value = "user", key = "#userId")
     public void changePassword(Long userId, String oldPassword, String newPassword) {
         Optional<User> optional = userRepository.findById(userId);
         if (!optional.isPresent()) {
@@ -294,6 +301,7 @@ public class AuthService {
      * @param newPassword 新密码
      */
     @Transactional
+    @CacheEvict(value = "user", key = "#userId")
     public void resetPassword(Long userId, String newPassword) {
         Optional<User> optional = userRepository.findById(userId);
         if (!optional.isPresent()) {
@@ -317,6 +325,7 @@ public class AuthService {
      * @param role 新角色：1-管理员，2-普通用户
      */
     @Transactional
+    @CacheEvict(value = "user", key = "#userId")
     public void updateUserRole(Long userId, Integer role) {
         Optional<User> optional = userRepository.findById(userId);
         if (!optional.isPresent()) {

@@ -14,6 +14,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
@@ -46,6 +48,7 @@ public class AiAppService {
      * 创建AI应用
      */
     @Transactional
+    @CacheEvict(value = "aiApp", allEntries = true)
     public AiAppResp createAiApp(CreateAiAppReq req) {
         // 检查API Key是否已存在
         if (aiAppRepository.existsByAppId(req.getAppId())) {
@@ -111,6 +114,7 @@ public class AiAppService {
      * 更新AI应用
      */
     @Transactional
+    @CacheEvict(value = "aiApp", key = "#id")
     public AiAppResp updateAiApp(Long id, UpdateAiAppReq req) {
         Optional<AiApp> optional = aiAppRepository.findById(id);
         if (!optional.isPresent()) {
@@ -175,6 +179,7 @@ public class AiAppService {
     /**
      * 根据ID获取AI应用
      */
+    @Cacheable(value = "aiApp", key = "#id")
     public AiAppResp getAiAppById(Long id) {
         Optional<AiApp> optional = aiAppRepository.findById(id);
         if (!optional.isPresent()) {
@@ -186,6 +191,7 @@ public class AiAppService {
     /**
      * 根据API Key获取AI应用
      */
+    @Cacheable(value = "aiApp", key = "'apikey:' + #apiKey")
     public AiAppResp getAiAppByApiKey(String apiKey) {
         Optional<AiApp> optional = aiAppRepository.findByAppId(apiKey);
         if (!optional.isPresent()) {
@@ -198,6 +204,7 @@ public class AiAppService {
      * 删除AI应用
      */
     @Transactional
+    @CacheEvict(value = "aiApp", key = "#id")
     public void deleteAiApp(Long id) {
         Optional<AiApp> optional = aiAppRepository.findById(id);
         if (!optional.isPresent()) {

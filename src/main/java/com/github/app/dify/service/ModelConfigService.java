@@ -13,6 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +40,7 @@ public class ModelConfigService {
     /**
      * 获取所有模型配置
      */
+    @Cacheable(value = "modelConfig", key = "'all'")
     public ModelConfigResponse getModelConfig() {
         ModelConfigResponse response = new ModelConfigResponse();
         
@@ -71,6 +74,7 @@ public class ModelConfigService {
     /**
      * 获取向量化模型（根据ID，如果为null则返回默认模型）
      */
+    @Cacheable(value = "embeddingModel", key = "#modelId != null ? #modelId : 'default'")
     public EmbeddingModel getEmbeddingModelById(Long modelId) {
         if (modelId != null) {
             Optional<EmbeddingModel> optional = embeddingModelRepository.findById(modelId);
@@ -100,6 +104,7 @@ public class ModelConfigService {
     /**
      * 获取问答模型（根据ID）
      */
+    @Cacheable(value = "qaModel", key = "#modelId")
     public QAModel getQAModelById(Long modelId) {
         Optional<QAModel> optional = qaModelRepository.findById(modelId);
         if (!optional.isPresent()) {
@@ -121,6 +126,7 @@ public class ModelConfigService {
     /**
      * 获取默认的RAG问答模型
      */
+    @Cacheable(value = "qaModel", key = "'default:rag'")
     public QAModel getDefaultQAModelForRAG() {
         // 先尝试获取默认的RAG模型
         Optional<QAModel> defaultRAGModel = qaModelRepository.findDefaultByUseFor("rag");
@@ -152,6 +158,7 @@ public class ModelConfigService {
      * 更新模型配置
      */
     @Transactional
+    @CacheEvict(value = {"modelConfig", "qaModel", "embeddingModel"}, allEntries = true)
     public Object updateModelConfig(ModelConfigRequest request) {
         String action = request.getAction();
         String type = request.getType();
