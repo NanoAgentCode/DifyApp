@@ -113,39 +113,29 @@ public class ModelLanguageModelFactory {
                     requestBody.put("stream", true);
                     
                     // 调用流式LLM API
-                    logger.info("发送流式请求 - Provider: {}, Model: {}, RequestBody: {}", 
-                            ProviderType.fromValue(qaModel.getProvider()).getValue(), 
-                            qaModel.getModel(), 
-                            requestBody);
+                    ProviderType providerType = ProviderType.fromValue(qaModel.getProvider());
+                    logger.info("发送流式请求 - Provider: {}, Model: {}", providerType.getValue(), qaModel.getModel());
                     Flux<String> responseFlux = client.post()
                             .uri("")
                             .accept(MediaType.TEXT_EVENT_STREAM, MediaType.APPLICATION_NDJSON, MediaType.APPLICATION_JSON)
                             .bodyValue(requestBody)
                             .retrieve()
                             .onStatus(status -> status.isError(), response -> {
-                                logger.error("Ollama API 返回错误状态: {}", response.statusCode());
+                                logger.error("LLM API 返回错误状态: {}", response.statusCode());
                                 return response.bodyToMono(String.class)
-                                        .doOnNext(body -> logger.error("错误响应体: {}", body))
-                                        .then(Mono.error(new RuntimeException("Ollama API 错误: " + response.statusCode())));
+                                        .doOnNext(body -> logger.error("错误响应体: {}", body.length() > 500 ? body.substring(0, 500) + "..." : body))
+                                        .then(Mono.error(new RuntimeException("LLM API 错误: " + response.statusCode())));
                             })
                             .bodyToFlux(DataBuffer.class)
                             .timeout(Duration.ofSeconds(300))
-                            .doOnSubscribe(subscription -> {
-                                logger.info("开始订阅Ollama流式响应");
-                            })
-                            .doOnNext(dataBuffer -> {
-                                logger.info("收到数据块，大小: {} bytes", dataBuffer.readableByteCount());
-                            })
                             .doOnError(error -> {
-                                logger.error("接收Ollama流式响应时发生错误", error);
+                                logger.error("接收流式响应时发生错误", error);
                             })
                             .map(dataBuffer -> {
                                 byte[] bytes = new byte[dataBuffer.readableByteCount()];
                                 dataBuffer.read(bytes);
                                 DataBufferUtils.release(dataBuffer);
-                                String text = new String(bytes, StandardCharsets.UTF_8);
-                                logger.info("数据块内容 (前200字符): {}", text.length() > 200 ? text.substring(0, 200) + "..." : text);
-                                return text;
+                                return new String(bytes, StandardCharsets.UTF_8);
                             })
                             .scan(Tuples.<String, List<String>>of("", new ArrayList<String>()), (state, chunk) -> {
                                 String buffer = state.getT1() + chunk;
@@ -168,36 +158,17 @@ public class ModelLanguageModelFactory {
                             })
                             .flatMap(state -> Flux.fromIterable(state.getT2()))
                             .filter(line -> line != null && !line.trim().isEmpty())
-                            .doOnNext(line -> {
-                                logger.info("处理行 (前200字符): {}", line.length() > 200 ? line.substring(0, 200) + "..." : line);
-                            })
-                            .doOnComplete(() -> {
-                                logger.info("所有数据块处理完成");
-                            })
                             .<String>handle((line, sink) -> {
                                 try {
                                     String chunk = parseStreamChunk(line);
-                                    if (chunk != null) {
-                                        // chunk可能为空字符串，这也是有效的（表示没有新token）
-                                        // 但空字符串不应该发送，因为会导致无意义的响应
-                                        if (!chunk.isEmpty()) {
-                                            logger.info("解析出token (前50字符): {}", chunk.length() > 50 ? chunk.substring(0, 50) + "..." : chunk);
-                                            sink.next(chunk);
-                                        } else {
-                                            logger.debug("解析出空token，跳过");
-                                        }
-                                    } else {
-                                        logger.debug("解析结果为null，跳过该行: {}", line.substring(0, Math.min(100, line.length())));
+                                    if (chunk != null && !chunk.isEmpty()) {
+                                        sink.next(chunk);
                                     }
+                                    // 静默跳过空chunk和null，减少日志噪音
                                 } catch (Exception e) {
-                                    logger.error("解析流式响应块时发生异常，行内容: {}", line.substring(0, Math.min(200, line.length())), e);
+                                    logger.warn("解析流式响应块失败，跳过该行: {}", 
+                                            line.length() > 100 ? line.substring(0, 100) + "..." : line, e);
                                 }
-                            })
-                            .doOnComplete(() -> {
-                                logger.info("Token流处理完成");
-                            })
-                            .doOnError(error -> {
-                                logger.error("Token流处理发生错误", error);
                             });
                     
                     return responseFlux;
@@ -269,12 +240,22 @@ public class ModelLanguageModelFactory {
     }
     
     /**
-     * 解析响应
+     * 解析非流式响应
+     * 支持多种格式：
+     * 1. OpenAI格式：{"choices":[{"message":{"content":"answer"}}]}
+     * 2. Ollama格式：{"message":{"content":"answer"}}
+     * 3. 通用格式：{"text":"answer"} 或 {"content":"answer"}
      */
     private String parseResponse(String responseJson) {
+        if (responseJson == null || responseJson.trim().isEmpty()) {
+            logger.warn("响应JSON为空");
+            return "响应为空";
+        }
+        
         try {
             com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(responseJson);
             
+            // OpenAI格式：{"choices":[{"message":{"content":"answer"}}]}
             if (root.has("choices") && root.get("choices").isArray() && root.get("choices").size() > 0) {
                 com.fasterxml.jackson.databind.JsonNode choice = root.get("choices").get(0);
                 if (choice.has("message")) {
@@ -288,6 +269,15 @@ public class ModelLanguageModelFactory {
                 }
             }
             
+            // Ollama格式：{"message":{"content":"answer"}}
+            if (root.has("message")) {
+                com.fasterxml.jackson.databind.JsonNode message = root.get("message");
+                if (message.has("content")) {
+                    return message.get("content").asText();
+                }
+            }
+            
+            // 通用格式
             if (root.has("text")) {
                 return root.get("text").asText();
             }
@@ -296,110 +286,182 @@ public class ModelLanguageModelFactory {
                 return root.get("content").asText();
             }
             
-            logger.warn("无法解析LLM响应，返回原始JSON: {}", responseJson);
+            logger.warn("无法解析LLM响应格式，返回原始JSON（前500字符）: {}", 
+                    responseJson.length() > 500 ? responseJson.substring(0, 500) + "..." : responseJson);
             return responseJson;
             
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            logger.error("解析LLM响应JSON失败: {}", e.getMessage());
+            return "解析响应失败: " + e.getMessage();
         } catch (Exception e) {
-            logger.error("解析LLM响应失败", e);
-            return "解析LLM响应失败: " + e.getMessage();
+            logger.error("解析LLM响应时发生异常", e);
+            return "解析响应失败: " + e.getMessage();
         }
     }
     
     /**
      * 解析流式响应块
-     * 支持两种格式：
+     * 支持多种格式：
      * 1. SSE格式（OpenAI兼容）：data: {...}
-     * 2. 纯JSON行格式（Ollama）：直接是JSON对象
+     * 2. 纯JSON行格式（Ollama）：{"message":{"content":"token"},"done":false}
+     * 3. Ollama旧格式：{"response":"token","done":false}
+     * 4. OpenAI格式：{"choices":[{"delta":{"content":"token"}}]}
      */
     private String parseStreamChunk(String line) {
+        if (line == null || line.trim().isEmpty()) {
+            return null;
+        }
+        
         try {
-            String jsonStr = null;
-            
-            // SSE格式：data: {...}
-            if (line.startsWith("data: ")) {
-                jsonStr = line.substring(6).trim();
-                if (jsonStr.equals("[DONE]")) {
-                    return null;
-                }
-            } else if (line.trim().startsWith("{")) {
-                // 纯JSON行格式（Ollama）：直接是JSON对象
-                jsonStr = line.trim();
-            } else {
-                // 其他格式，跳过
-                return null;
-            }
-            
+            String jsonStr = extractJsonString(line);
             if (jsonStr == null || jsonStr.isEmpty()) {
                 return null;
             }
             
             com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(jsonStr);
             
-            // Ollama格式：{"message":{"role":"assistant","content":"token"},"done":false}
-            if (root.has("message")) {
-                com.fasterxml.jackson.databind.JsonNode message = root.get("message");
-                if (message.has("content")) {
-                    String content = message.get("content").asText();
-                    boolean done = root.has("done") && root.get("done").asBoolean();
-                    logger.info("Ollama解析 - content: '{}' (长度: {}), done: {}", content, content.length(), done);
-                    // 如果 done 为 true，表示流结束，但最后一个content可能还有内容，应该返回
-                    if (done) {
-                        // 即使done为true，如果content不为空，也应该返回（这是最后一个token）
-                        if (content.isEmpty()) {
-                            logger.debug("Ollama流结束，content为空，返回null");
-                            return null;
-                        } else {
-                            logger.info("Ollama流结束，但还有content: '{}'", content);
-                            return content;
-                        }
-                    }
-                    // content可能为空字符串（某些情况下），空字符串也应该返回，让上层处理
-                    logger.info("Ollama返回content: '{}'", content);
-                    return content;
-                } else {
-                    logger.warn("Ollama message存在但没有content字段: {}", message.toString());
-                }
+            // 优先处理Ollama新格式：{"message":{"role":"assistant","content":"token"},"done":false}
+            String content = extractFromOllamaMessage(root);
+            if (content != null) {
+                return content;
             }
             
-            // Ollama旧格式：{"response":"token","done":false}
-            if (root.has("response")) {
-                String response = root.get("response").asText();
-                // 如果 done 为 true，表示流结束，返回 null
-                if (root.has("done") && root.get("done").asBoolean()) {
-                    return response.isEmpty() ? null : response;
-                }
-                return response.isEmpty() ? null : response;
+            // 处理Ollama旧格式：{"response":"token","done":false}
+            content = extractFromOllamaResponse(root);
+            if (content != null) {
+                return content;
             }
             
-            // OpenAI兼容格式：{"choices":[{"delta":{"content":"token"}}]}
-            if (root.has("choices") && root.get("choices").isArray() && root.get("choices").size() > 0) {
-                com.fasterxml.jackson.databind.JsonNode choice = root.get("choices").get(0);
-                if (choice.has("delta")) {
-                    com.fasterxml.jackson.databind.JsonNode delta = choice.get("delta");
-                    if (delta.has("content")) {
-                        return delta.get("content").asText();
-                    }
-                }
-                if (choice.has("text")) {
-                    return choice.get("text").asText();
-                }
+            // 处理OpenAI兼容格式：{"choices":[{"delta":{"content":"token"}}]}
+            content = extractFromOpenAIChoices(root);
+            if (content != null) {
+                return content;
             }
             
-            // 其他可能的格式
-            if (root.has("text")) {
-                return root.get("text").asText();
-            }
+            // 处理其他可能的格式
+            content = extractFromGenericFields(root);
+            return content;
             
-            if (root.has("content")) {
-                return root.get("content").asText();
-            }
-            
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            // JSON解析失败，可能是非JSON行（如空行、注释等），静默跳过
             return null;
-            
         } catch (Exception e) {
-            logger.debug("解析流式响应块失败（可能是非JSON行）: {}", line, e);
+            logger.debug("解析流式响应块时发生异常: {}", e.getMessage());
             return null;
         }
+    }
+    
+    /**
+     * 从行中提取JSON字符串
+     */
+    private String extractJsonString(String line) {
+        String trimmed = line.trim();
+        
+        // SSE格式：data: {...}
+        if (trimmed.startsWith("data: ")) {
+            String jsonStr = trimmed.substring(6).trim();
+            if (jsonStr.equals("[DONE]")) {
+                return null;
+            }
+            return jsonStr;
+        }
+        
+        // 纯JSON行格式：直接是JSON对象
+        if (trimmed.startsWith("{")) {
+            return trimmed;
+        }
+        
+        return null;
+    }
+    
+    /**
+     * 从Ollama message格式中提取content
+     * 格式：{"message":{"role":"assistant","content":"token"},"done":false}
+     */
+    private String extractFromOllamaMessage(com.fasterxml.jackson.databind.JsonNode root) {
+        if (!root.has("message")) {
+            return null;
+        }
+        
+        com.fasterxml.jackson.databind.JsonNode message = root.get("message");
+        if (!message.has("content")) {
+            return null;
+        }
+        
+        String content = message.get("content").asText();
+        boolean done = root.has("done") && root.get("done").asBoolean();
+        
+        // 如果done为true且content为空，表示流结束
+        if (done && content.isEmpty()) {
+            return null;
+        }
+        
+        // 返回content（即使done为true，如果content不为空，也应该返回最后一个token）
+        return content.isEmpty() ? null : content;
+    }
+    
+    /**
+     * 从Ollama旧格式中提取response
+     * 格式：{"response":"token","done":false}
+     */
+    private String extractFromOllamaResponse(com.fasterxml.jackson.databind.JsonNode root) {
+        if (!root.has("response")) {
+            return null;
+        }
+        
+        String response = root.get("response").asText();
+        boolean done = root.has("done") && root.get("done").asBoolean();
+        
+        if (done && response.isEmpty()) {
+            return null;
+        }
+        
+        return response.isEmpty() ? null : response;
+    }
+    
+    /**
+     * 从OpenAI兼容格式中提取content
+     * 格式：{"choices":[{"delta":{"content":"token"}}]}
+     */
+    private String extractFromOpenAIChoices(com.fasterxml.jackson.databind.JsonNode root) {
+        if (!root.has("choices") || !root.get("choices").isArray() || root.get("choices").size() == 0) {
+            return null;
+        }
+        
+        com.fasterxml.jackson.databind.JsonNode choice = root.get("choices").get(0);
+        
+        // 优先从delta中获取content
+        if (choice.has("delta")) {
+            com.fasterxml.jackson.databind.JsonNode delta = choice.get("delta");
+            if (delta.has("content")) {
+                return delta.get("content").asText();
+            }
+        }
+        
+        // 如果没有delta，尝试从text字段获取
+        if (choice.has("text")) {
+            return choice.get("text").asText();
+        }
+        
+        return null;
+    }
+    
+    /**
+     * 从通用字段中提取内容
+     * 支持：text、content等字段
+     */
+    private String extractFromGenericFields(com.fasterxml.jackson.databind.JsonNode root) {
+        if (root.has("text")) {
+            String text = root.get("text").asText();
+            return text.isEmpty() ? null : text;
+        }
+        
+        if (root.has("content")) {
+            String content = root.get("content").asText();
+            return content.isEmpty() ? null : content;
+        }
+        
+        return null;
     }
     
     /**
