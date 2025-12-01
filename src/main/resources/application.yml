@@ -7,8 +7,8 @@ logging:
     console: UTF-8
     file: UTF-8
   pattern:
-    # 控制台使用彩色输出
-    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr([%thread]){blue} %clr(%-5level){highlight} %clr(%logger{50}){cyan} - %msg%n"
+    # 控制台使用彩色输出（使用 %highlight 和 %cyan 等 Logback 标准转换器）
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %highlight(%-5level) %cyan(%logger{50}) - %msg%n"
     # 文件不使用彩色（避免ANSI码污染日志文件）
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
 
