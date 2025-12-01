@@ -112,18 +112,24 @@ public class ModelLanguageModelFactory {
                     requestBody.put("stream", true);
                     
                     // 调用流式LLM API
+                    logger.debug("发送流式请求 - URL: {}, RequestBody: {}", client.toString(), requestBody);
                     Flux<String> responseFlux = client.post()
                             .uri("")
-                            .accept(MediaType.TEXT_EVENT_STREAM)
+                            .accept(MediaType.TEXT_EVENT_STREAM, MediaType.APPLICATION_NDJSON, MediaType.APPLICATION_JSON)
                             .bodyValue(requestBody)
                             .retrieve()
                             .bodyToFlux(DataBuffer.class)
                             .timeout(Duration.ofSeconds(300))
+                            .doOnNext(dataBuffer -> {
+                                logger.debug("收到数据块，大小: {} bytes", dataBuffer.readableByteCount());
+                            })
                             .map(dataBuffer -> {
                                 byte[] bytes = new byte[dataBuffer.readableByteCount()];
                                 dataBuffer.read(bytes);
                                 DataBufferUtils.release(dataBuffer);
-                                return new String(bytes, StandardCharsets.UTF_8);
+                                String text = new String(bytes, StandardCharsets.UTF_8);
+                                logger.debug("数据块内容: {}", text.length() > 200 ? text.substring(0, 200) + "..." : text);
+                                return text;
                             })
                             .scan(Tuples.<String, List<String>>of("", new ArrayList<String>()), (state, chunk) -> {
                                 String buffer = state.getT1() + chunk;
@@ -146,11 +152,17 @@ public class ModelLanguageModelFactory {
                             })
                             .flatMap(state -> Flux.fromIterable(state.getT2()))
                             .filter(line -> line != null && !line.trim().isEmpty())
+                            .doOnNext(line -> {
+                                logger.debug("处理行: {}", line.length() > 200 ? line.substring(0, 200) + "..." : line);
+                            })
                             .<String>handle((line, sink) -> {
                                 try {
                                     String chunk = parseStreamChunk(line);
                                     if (chunk != null && !chunk.isEmpty()) {
+                                        logger.debug("解析出token: {}", chunk.length() > 50 ? chunk.substring(0, 50) + "..." : chunk);
                                         sink.next(chunk);
+                                    } else {
+                                        logger.debug("解析结果为空，跳过该行");
                                     }
                                 } catch (Exception e) {
                                     logger.error("解析流式响应块时发生异常", e);
@@ -264,44 +276,71 @@ public class ModelLanguageModelFactory {
     
     /**
      * 解析流式响应块
+     * 支持两种格式：
+     * 1. SSE格式（OpenAI兼容）：data: {...}
+     * 2. 纯JSON行格式（Ollama）：直接是JSON对象
      */
     private String parseStreamChunk(String line) {
         try {
+            String jsonStr = null;
+            
             // SSE格式：data: {...}
             if (line.startsWith("data: ")) {
-                String jsonStr = line.substring(6).trim();
+                jsonStr = line.substring(6).trim();
                 if (jsonStr.equals("[DONE]")) {
                     return null;
                 }
-                
-                com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(jsonStr);
-                
-                if (root.has("choices") && root.get("choices").isArray() && root.get("choices").size() > 0) {
-                    com.fasterxml.jackson.databind.JsonNode choice = root.get("choices").get(0);
-                    if (choice.has("delta")) {
-                        com.fasterxml.jackson.databind.JsonNode delta = choice.get("delta");
-                        if (delta.has("content")) {
-                            return delta.get("content").asText();
-                        }
+            } else if (line.trim().startsWith("{")) {
+                // 纯JSON行格式（Ollama）：直接是JSON对象
+                jsonStr = line.trim();
+            } else {
+                // 其他格式，跳过
+                return null;
+            }
+            
+            if (jsonStr == null || jsonStr.isEmpty()) {
+                return null;
+            }
+            
+            com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(jsonStr);
+            
+            // Ollama格式：{"response":"token","done":false}
+            if (root.has("response")) {
+                String response = root.get("response").asText();
+                // 如果 done 为 true，表示流结束，返回 null
+                if (root.has("done") && root.get("done").asBoolean()) {
+                    return null;
+                }
+                return response;
+            }
+            
+            // OpenAI兼容格式：{"choices":[{"delta":{"content":"token"}}]}
+            if (root.has("choices") && root.get("choices").isArray() && root.get("choices").size() > 0) {
+                com.fasterxml.jackson.databind.JsonNode choice = root.get("choices").get(0);
+                if (choice.has("delta")) {
+                    com.fasterxml.jackson.databind.JsonNode delta = choice.get("delta");
+                    if (delta.has("content")) {
+                        return delta.get("content").asText();
                     }
-                    if (choice.has("text")) {
-                        return choice.get("text").asText();
-                    }
                 }
-                
-                if (root.has("text")) {
-                    return root.get("text").asText();
+                if (choice.has("text")) {
+                    return choice.get("text").asText();
                 }
-                
-                if (root.has("content")) {
-                    return root.get("content").asText();
-                }
+            }
+            
+            // 其他可能的格式
+            if (root.has("text")) {
+                return root.get("text").asText();
+            }
+            
+            if (root.has("content")) {
+                return root.get("content").asText();
             }
             
             return null;
             
         } catch (Exception e) {
-            logger.error("解析流式响应块失败", e);
+            logger.debug("解析流式响应块失败（可能是非JSON行）: {}", line, e);
             return null;
         }
     }
