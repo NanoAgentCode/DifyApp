@@ -19,6 +19,7 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
@@ -117,12 +118,15 @@ public class RedisConfig extends CachingConfigurerSupport {
                 // 不立即返回NoOpCacheManager，让Spring Cache在运行时处理
             }
             
-            // 配置序列化（解决乱码的问题）
+            // 使用 GenericJackson2JsonRedisSerializer 以支持类型信息
+            // 这样可以正确反序列化为目标类型，而不是 LinkedHashMap
+            GenericJackson2JsonRedisSerializer jsonRedisSerializer = new GenericJackson2JsonRedisSerializer();
+            
+            // 配置序列化（解决乱码和类型转换的问题）
             RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
                     .entryTtl(Duration.ofHours(1)) // 默认缓存过期时间1小时
                     .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
-                    .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
-                            new Jackson2JsonRedisSerializer<>(Object.class)))
+                    .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jsonRedisSerializer))
                     .disableCachingNullValues(); // 不缓存空值
             
             logger.info("Redis缓存管理器初始化完成");
