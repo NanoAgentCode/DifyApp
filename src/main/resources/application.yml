@@ -7,10 +7,17 @@ logging:
     console: UTF-8
     file: UTF-8
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+    # 控制台使用彩色输出
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr([%thread]){blue} %clr(%-5level){highlight} %clr(%logger{50}){cyan} - %msg%n"
+    # 文件不使用彩色（避免ANSI码污染日志文件）
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+
 ---
 spring:
+  # 启用ANSI彩色输出（控制台）
+  output:
+    ansi:
+      enabled: always  # 可选值: always, never, detect（自动检测）
   datasource:
     driver-class-name: org.postgresql.Driver
     url: jdbc:postgresql://localhost:15432/difyapp
@@ -94,6 +101,11 @@ spring:
         max-idle: 8
         min-idle: 0
         max-wait: -1ms
+  # 禁用Redis Repositories自动配置（我们只使用缓存功能，不使用Redis Repository）
+  data:
+    redis:
+      repositories:
+        enabled: false
 
 # RAG配置（仅保留非模型相关配置，模型配置已迁移到数据库）
 rag:

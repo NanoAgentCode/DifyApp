@@ -178,11 +178,7 @@ docker run -d \
 如果需要设置密码：
 
 ```bash
-docker run -d \
-  --name redis \
-  -p 6379:6379 \
-  redis:latest \
-  redis-server --requirepass yourpassword
+docker run -d  --name redis -p 6379:6379 redis:latest   redis-server
 ```
 
 ### 3. 配置应用
