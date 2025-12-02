@@ -94,6 +94,16 @@
             <span v-else style="color: #909399; font-size: 12px;">-</span>
           </template>
         </el-table-column>
+        <el-table-column label="向量存储" width="120" align="center">
+          <template #default="{ row }">
+            <el-tag 
+              :type="row.vectorStoreType === 'faiss' ? 'success' : 'primary'"
+              size="small"
+            >
+              {{ row.vectorStoreType === 'faiss' ? 'FAISS' : 'Qdrant' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" align="center">
           <template #default="{ row }">
             {{ formatDate(row.createTime) }}
@@ -245,6 +255,35 @@
             检索时返回的最相关文档片段数量（1-50），如果不设置则使用系统全局配置
           </div>
         </el-form-item>
+        <el-form-item label="向量存储类型" prop="vectorStoreType">
+          <el-select
+            v-model="formData.vectorStoreType"
+            placeholder="选择向量存储类型（默认：Qdrant）"
+            clearable
+            style="width: 100%"
+            :disabled="isEdit && hasDocuments"
+          >
+            <el-option label="Qdrant（向量数据库）" value="qdrant">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Qdrant（向量数据库）</span>
+                <el-tag type="primary" size="small">默认</el-tag>
+              </div>
+            </el-option>
+            <el-option label="FAISS（本地文件存储）" value="faiss">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>FAISS（本地文件存储）</span>
+                <el-tag type="success" size="small">本地</el-tag>
+              </div>
+            </el-option>
+          </el-select>
+          <div v-if="isEdit && hasDocuments" style="font-size: 12px; color: #e6a23c; margin-top: 5px;">
+            <el-icon><Warning /></el-icon>
+            当前使用：<strong>{{ formData.vectorStoreType === 'faiss' ? 'FAISS' : 'Qdrant' }}</strong>。已有文档，无法修改。
+          </div>
+          <div v-else style="font-size: 12px; color: #909399; margin-top: 5px;">
+            Qdrant：分布式向量数据库，适合生产环境。FAISS：本地文件存储，无需额外服务，适合开发测试。
+          </div>
+        </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="formData.status">
             <el-radio label="active">启用</el-radio>
@@ -279,6 +318,13 @@
         <el-descriptions-item label="Top-K检索数量" :span="2">
           <el-tag v-if="currentKB.topK" type="info">{{ currentKB.topK }}</el-tag>
           <span v-else style="color: #909399;">使用全局配置</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="向量存储类型" :span="2">
+          <el-tag 
+            :type="currentKB.vectorStoreType === 'faiss' ? 'success' : 'primary'"
+          >
+            {{ currentKB.vectorStoreType === 'faiss' ? 'FAISS（本地文件存储）' : 'Qdrant（向量数据库）' }}
+          </el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="状态" :span="2">
           <el-tag :type="isActive(currentKB.status) ? 'success' : 'info'">
@@ -339,7 +385,8 @@ const formData = ref({
   status: 'active',
   isPublic: false,
   embeddingModelId: null,
-  topK: null
+  topK: null,
+  vectorStoreType: 'qdrant'
 })
 
 const embeddingModels = ref([])
@@ -487,7 +534,8 @@ const handleCreate = () => {
     status: 'active',
     isPublic: false, // 默认私有
     embeddingModelId: null,
-    topK: null
+    topK: null,
+    vectorStoreType: 'qdrant'
   }
   dialogVisible.value = true
 }
@@ -502,7 +550,8 @@ const handleEdit = (row) => {
     status: typeof row.status === 'number' ? statusMap[row.status] : row.status,
     isPublic: row.isPublic !== undefined ? row.isPublic : false,
     embeddingModelId: row.embeddingModelId || null,
-    topK: row.topK || null
+    topK: row.topK || null,
+    vectorStoreType: row.vectorStoreType || 'qdrant'
   }
   dialogVisible.value = true
 }
@@ -592,6 +641,11 @@ const doSubmit = async (force = false) => {
     data.topK = formData.value.topK
   }
   
+  // 添加vectorStoreType（如果设置了）
+  if (formData.value.vectorStoreType) {
+    data.vectorStoreType = formData.value.vectorStoreType
+  }
+  
   if (isEdit.value) {
     await updateKnowledgeBase(currentEditId.value, data)
     ElMessage.success('编辑成功')
@@ -661,7 +715,8 @@ const handleDialogClose = () => {
     status: 'active',
     isPublic: false,
     embeddingModelId: null,
-    topK: null
+    topK: null,
+    vectorStoreType: 'qdrant'
   }
   currentEditDocumentCount.value = 0
 }

@@ -33,6 +33,9 @@ public class UpdateKnowledgeBaseReq {
     @ApiModelProperty("Top-K检索数量（可选，如果不指定则使用全局配置）")
     private Integer topK;
     
+    @ApiModelProperty("向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储")
+    private String vectorStoreType;
+    
     // Getters and Setters
     public String getName() {
         return name;
@@ -80,6 +83,14 @@ public class UpdateKnowledgeBaseReq {
     
     public void setTopK(Integer topK) {
         this.topK = topK;
+    }
+    
+    public String getVectorStoreType() {
+        return vectorStoreType;
+    }
+    
+    public void setVectorStoreType(String vectorStoreType) {
+        this.vectorStoreType = vectorStoreType;
     }
 }
 

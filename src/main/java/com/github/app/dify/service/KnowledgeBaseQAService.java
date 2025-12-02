@@ -5,7 +5,7 @@ import com.github.app.dify.domain.QAModel;
 import com.github.app.dify.langchain4j.CustomChatLanguageModel;
 import com.github.app.dify.langchain4j.CustomEmbeddingModel;
 import com.github.app.dify.langchain4j.ModelLanguageModelFactory;
-import com.github.app.dify.langchain4j.QdrantEmbeddingStore;
+import com.github.app.dify.langchain4j.VectorStoreFactory;
 import com.github.app.dify.req.KnowledgeBaseQARequest;
 import com.github.app.dify.resp.KnowledgeBaseQAResponse;
 import dev.langchain4j.data.message.AiMessage;
@@ -59,6 +59,9 @@ public class KnowledgeBaseQAService {
     
     @Autowired
     private VectorStoreService vectorStoreService;
+    
+    @Autowired
+    private VectorStoreFactory vectorStoreFactory;
     
     @Autowired
     private ContextCompressionService contextCompressionService;
@@ -261,8 +264,7 @@ public class KnowledgeBaseQAService {
      * 创建ContentRetriever
      */
     private ContentRetriever createContentRetriever(Long knowledgeBaseId) {
-        EmbeddingStore<TextSegment> embeddingStore = QdrantEmbeddingStore.forKnowledgeBase(
-                knowledgeBaseId, vectorStoreService);
+        EmbeddingStore<TextSegment> embeddingStore = vectorStoreFactory.createEmbeddingStore(knowledgeBaseId);
         
         // 获取知识库的topK配置，如果为null则使用全局配置
         Integer topK = null;

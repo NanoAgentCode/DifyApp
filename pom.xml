@@ -143,6 +143,12 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-pool2</artifactId>
         </dependency>
+        <!-- FAISS向量存储支持（使用纯Java实现） -->
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>31.1-jre</version>
+        </dependency>
     </dependencies>
     <dependencyManagement>
         <dependencies>

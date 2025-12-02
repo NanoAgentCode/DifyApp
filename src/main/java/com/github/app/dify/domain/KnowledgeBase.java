@@ -86,6 +86,13 @@ public class KnowledgeBase implements Serializable {
     private Integer topK;
     
     /**
+     * 向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储
+     */
+    @ApiModelProperty("向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储")
+    @Column(name = "vector_store_type", columnDefinition = "VARCHAR(20)")
+    private String vectorStoreType;
+    
+    /**
      * 创建时间
      */
     @ApiModelProperty("创建时间")
@@ -188,6 +195,14 @@ public class KnowledgeBase implements Serializable {
     
     public void setTopK(Integer topK) {
         this.topK = topK;
+    }
+    
+    public String getVectorStoreType() {
+        return vectorStoreType;
+    }
+    
+    public void setVectorStoreType(String vectorStoreType) {
+        this.vectorStoreType = vectorStoreType;
     }
     
     public Date getCreateTime() {

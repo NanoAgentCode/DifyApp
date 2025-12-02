@@ -2,7 +2,7 @@ package com.github.app.dify.service;
 
 import com.github.app.dify.config.RagConfig;
 import com.github.app.dify.langchain4j.CustomEmbeddingModel;
-import com.github.app.dify.langchain4j.QdrantEmbeddingStore;
+import com.github.app.dify.langchain4j.VectorStoreFactory;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
@@ -32,6 +32,9 @@ public class RagRetrievalService {
     
     @Autowired
     private VectorStoreService vectorStoreService;
+    
+    @Autowired
+    private VectorStoreFactory vectorStoreFactory;
     
     @Autowired
     private RagConfig ragConfig;
@@ -64,8 +67,7 @@ public class RagRetrievalService {
         
         try {
             // 1. 创建知识库专用的EmbeddingStore
-            EmbeddingStore<TextSegment> embeddingStore = QdrantEmbeddingStore.forKnowledgeBase(
-                    knowledgeBaseId, vectorStoreService);
+            EmbeddingStore<TextSegment> embeddingStore = vectorStoreFactory.createEmbeddingStore(knowledgeBaseId);
             
             // 2. 将查询文本转换为Embedding（使用指定的模型）
             Embedding queryEmbedding;

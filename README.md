@@ -16,7 +16,7 @@ DifyApp 是一个集成了 Dify AI 平台的应用管理系统，支持：
 - **大模型管理**：动态管理问答模型和向量化模型，支持多种提供商（OpenAI、Ollama、VLLM 等），支持设置默认模型和启用/禁用状态
 - **对话历史管理**：完整的对话会话管理，支持会话记录、消息历史、继续对话、开启新对话
 - **文件存储**：基于 MinIO 的对象存储
-- **向量存储**：基于 Qdrant 的向量数据库
+- **向量存储**：支持 Qdrant 向量数据库和 FAISS 本地文件存储，可在知识库级别选择
 - **缓存系统**：基于 Redis 的缓存架构，提升查询性能
 - **多租户支持**：支持多租户应用和知识库管理
 - **权限控制**：用户对应用和知识库的可见性管理
@@ -36,7 +36,8 @@ DifyApp 是一个集成了 Dify AI 平台的应用管理系统，支持：
 - **认证**: JWT (JSON Web Token)
 - **密码加密**: BCrypt
 - **对象存储**: MinIO 8.5.2
-- **向量数据库**: Qdrant 1.7.0
+- **向量数据库**: Qdrant 1.7.0（可选）
+- **向量存储**: FAISS（本地文件存储，可选）
 - **缓存中间件**: Redis (Spring Data Redis)
 - **缓存框架**: Spring Cache
 - **RAG 框架**: LangChain4j 0.34.0
@@ -89,8 +90,11 @@ DifyApp/
 - Maven 3.6+
 - PostgreSQL 15
 - MinIO (对象存储服务)
-- Qdrant (向量数据库)
 - Redis (缓存服务，推荐 6.0+)
+
+### 可选环境（向量存储）
+- **Qdrant** (向量数据库，推荐用于生产环境)
+- **FAISS** (本地文件存储，无需额外服务，适合开发测试环境)
 
 ### 可选环境（用于前端开发）
 - Node.js 16+
@@ -150,7 +154,7 @@ docker run -d \
 
 访问 MinIO 控制台：http://localhost:9001
 
-#### 启动 Qdrant
+#### 启动 Qdrant（可选，用于向量存储）
 
 使用 Docker 启动 Qdrant：
 
@@ -163,6 +167,8 @@ docker run -d \
 ```
 
 访问 Qdrant 控制台：http://localhost:6333/dashboard
+
+> **注意**：如果使用 FAISS 作为向量存储，则不需要启动 Qdrant 服务。FAISS 使用本地文件存储，无需额外服务。
 
 #### 启动 Redis
 
@@ -212,11 +218,15 @@ minio:
   secret-key: minioadmin
   bucket-name: knowledge-base
 
-# Qdrant配置
+# Qdrant配置（可选，如果使用Qdrant作为向量存储）
 qdrant:
   url: http://localhost:6333
   api-key: # 可选，Docker部署默认不需要
   timeout: 30000
+
+# FAISS配置（可选，如果使用FAISS作为向量存储）
+faiss:
+  base-path: ./data/faiss  # FAISS索引文件的基础存储路径
 
 # Redis配置
 spring:
@@ -257,7 +267,11 @@ rag:
 #### 方式一：使用 SQL 脚本（推荐用于生产环境）
 
 ```bash
+# 初始化基础表结构
 psql -U postgres -h localhost -p 15432 -d difyapp -f src/main/resources/sql/init_database.sql
+
+# 添加向量存储类型字段（如果使用新版本）
+psql -U postgres -h localhost -p 15432 -d difyapp -f src/main/resources/sql/add_vector_store_type_to_knowledge_base.sql
 ```
 
 #### 方式二：使用 Hibernate 自动创建（推荐用于开发环境）
@@ -611,11 +625,23 @@ Content-Type: application/json
 }
 ```
 
+**请求体：**
+```json
+{
+  "name": "我的知识库",
+  "description": "知识库描述",
+  "tenantId": 1,
+  "embeddingModelId": 1,
+  "vectorStoreType": "qdrant"
+}
+```
+
 **请求参数说明：**
 - `name` (必填): 知识库名称
 - `description` (可选): 知识库描述
 - `tenantId` (可选): 租户ID
 - `embeddingModelId` (可选): 向量化模型ID，不指定则使用默认向量化模型
+- `vectorStoreType` (可选): 向量存储类型，可选值：`qdrant`（默认）、`faiss`。已有文档的知识库无法修改此参数
 
 #### 2. 更新知识库
 
@@ -1026,7 +1052,9 @@ Content-Type: application/json
   - 支持多种文档格式（PDF、Word、TXT、Markdown 等）
   - 文档自动解析（Apache Tika）
   - 文档分块和向量化
-  - 向量存储（Qdrant）
+  - 向量存储：支持 Qdrant 和 FAISS 两种存储方式，可在知识库级别选择
+    - **Qdrant**：分布式向量数据库，适合生产环境，需要独立服务
+    - **FAISS**：本地文件存储，无需额外服务，适合开发测试环境
   - 支持为知识库选择向量化模型
 
 - ✅ **RAG 问答**
@@ -1080,7 +1108,7 @@ Content-Type: application/json
   - 大模型管理（问答模型和向量化模型的配置、默认设置、状态管理）
   - 智能问答
   - 对话历史管理
-  - 知识库管理（支持选择向量化模型）
+  - 知识库管理（支持选择向量化模型和向量存储类型）
   - 知识库问答（支持选择问答模型，显示向量化模型状态）
   - 用户权限管理（应用和知识库可见性）
 
@@ -1088,7 +1116,7 @@ Content-Type: application/json
   - 应用列表（仅显示有权限的应用）
   - 智能问答
   - 对话历史管理
-  - 知识库管理（仅显示有权限的知识库，支持创建和编辑知识库，支持选择向量化模型）
+  - 知识库管理（仅显示有权限的知识库，支持创建和编辑知识库，支持选择向量化模型和向量存储类型）
   - 知识库问答（支持选择问答模型，显示向量化模型状态）
 
 - ✅ **应用端界面**
@@ -1142,9 +1170,9 @@ minio:
   bucket-name: knowledge-base  # 存储桶名称
 ```
 
-### Qdrant 配置
+### Qdrant 配置（可选）
 
-在 `application.yml` 中配置 Qdrant：
+在 `application.yml` 中配置 Qdrant（如果使用 Qdrant 作为向量存储）：
 
 ```yaml
 qdrant:
@@ -1152,6 +1180,26 @@ qdrant:
   api-key: # 可选，仅在启用认证时需要
   timeout: 30000
 ```
+
+### FAISS 配置（可选）
+
+在 `application.yml` 中配置 FAISS（如果使用 FAISS 作为向量存储）：
+
+```yaml
+faiss:
+  base-path: ./data/faiss  # FAISS索引文件的基础存储路径
+```
+
+**FAISS 文件存储说明：**
+- 每个知识库的向量数据存储在独立目录中：`{basePath}/kb_{knowledgeBaseId}/`
+- 元数据文件：`metadata.json`，包含向量数据、文本内容和元信息
+- 默认路径：`./data/faiss`（相对于应用运行目录）
+- 支持自定义路径（可使用绝对路径）
+
+**向量存储类型选择：**
+- 创建知识库时可以选择使用 Qdrant 或 FAISS
+- 已有文档的知识库无法修改向量存储类型
+- 默认使用 Qdrant（向后兼容）
 
 ### Redis 配置
 
@@ -1321,9 +1369,14 @@ dify:
 3. 关闭 SQL 日志输出（设置 `show-sql: false`）
 4. 配置合适的连接池参数
 5. 设置强 JWT 密钥
-6. 配置 MinIO 和 Qdrant 的认证
+6. 配置 MinIO 和 Qdrant 的认证（如果使用 Qdrant）
 7. 设置正确的 Dify API Base URL 和文件 URL 前缀
 8. 配置合适的文件上传大小限制
+9. **向量存储选择**：
+   - 生产环境推荐使用 Qdrant（分布式、高性能）
+   - 开发测试环境可使用 FAISS（无需额外服务）
+   - 如果使用 FAISS，确保存储目录有足够的磁盘空间和写入权限
+   - 定期备份 FAISS 存储目录（`data/faiss`）
 9. **Redis 配置**：
    - 设置 Redis 密码以提高安全性
    - 配置 Redis 持久化（RDB 或 AOF）
@@ -1390,6 +1443,7 @@ yarn build
 - **KNOWLEDGE_BASE**: 知识库表
   - 存储知识库基本信息
   - 包含向量化模型ID（embedding_model_id），关联到 EMBEDDING_MODEL 表
+  - 包含向量存储类型（vector_store_type），可选值：`qdrant`、`faiss`，默认为 `qdrant`
 
 - **KNOWLEDGE_BASE_DOCUMENT**: 知识库文档表
   - 存储文档信息、向量化状态等

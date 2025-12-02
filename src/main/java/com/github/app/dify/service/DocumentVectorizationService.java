@@ -1,10 +1,7 @@
 package com.github.app.dify.service;
 
 import com.github.app.dify.domain.KnowledgeBaseDocument;
-import com.github.app.dify.langchain4j.ConfigurableDocumentSplitter;
-import com.github.app.dify.langchain4j.CustomEmbeddingModel;
-import com.github.app.dify.langchain4j.QdrantEmbeddingStore;
-import com.github.app.dify.langchain4j.TikaDocumentLoader;
+import com.github.app.dify.langchain4j.*;
 import com.github.app.dify.repository.KnowledgeBaseDocumentRepository;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.segment.TextSegment;
@@ -41,6 +38,9 @@ public class DocumentVectorizationService {
     
     @Autowired
     private VectorStoreService vectorStoreService;
+    
+    @Autowired
+    private VectorStoreFactory vectorStoreFactory;
     
     @Autowired
     private KnowledgeBaseDocumentRepository documentRepository;
@@ -127,8 +127,7 @@ public class DocumentVectorizationService {
             
             // 5. 创建知识库专用的EmbeddingStore
             logger.info("创建EmbeddingStore - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
-            EmbeddingStore<TextSegment> embeddingStore = QdrantEmbeddingStore.forKnowledgeBase(
-                    knowledgeBaseId, vectorStoreService);
+            EmbeddingStore<TextSegment> embeddingStore = vectorStoreFactory.createEmbeddingStore(knowledgeBaseId);
             logger.info("EmbeddingStore创建成功 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
             
             // 6. 向量化segments
@@ -387,12 +386,13 @@ public class DocumentVectorizationService {
      */
     public void deleteDocumentVectors(Long knowledgeBaseId, Long documentId) {
         try {
-            EmbeddingStore<TextSegment> embeddingStore = QdrantEmbeddingStore.forKnowledgeBase(
-                    knowledgeBaseId, vectorStoreService);
+            EmbeddingStore<TextSegment> embeddingStore = vectorStoreFactory.createEmbeddingStore(knowledgeBaseId);
             
-            // QdrantEmbeddingStore提供了deleteByDocumentId方法
+            // QdrantEmbeddingStore和FaissEmbeddingStore都提供了deleteByDocumentId方法
             if (embeddingStore instanceof QdrantEmbeddingStore) {
                 ((QdrantEmbeddingStore) embeddingStore).deleteByDocumentId(documentId);
+            } else if (embeddingStore instanceof com.github.app.dify.langchain4j.FaissEmbeddingStore) {
+                ((com.github.app.dify.langchain4j.FaissEmbeddingStore) embeddingStore).deleteByDocumentId(documentId);
             } else {
                 // 回退到原有方法
                 vectorStoreService.deleteDocumentVectors(knowledgeBaseId, documentId);

@@ -86,6 +86,10 @@ qdrant:
   url: http://localhost:6333
   api-key: # 可选，Docker部署默认不需要，仅在启用认证时需要
   timeout: 30000
+
+# FAISS配置
+faiss:
+  base-path: ./data/faiss  # FAISS索引文件的基础存储路径
 ---
 # Redis配置
 spring:

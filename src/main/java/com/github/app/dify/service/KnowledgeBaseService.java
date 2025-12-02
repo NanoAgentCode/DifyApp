@@ -86,7 +86,13 @@ public class KnowledgeBaseService {
             knowledgeBase.setTenantId(1);
         }
         
-        logger.info("创建知识库 - 名称: {}, 创建者: {}, 是否公开: {}", knowledgeBase.getName(), username, knowledgeBase.getIsPublic());
+        // 如果没有设置向量存储类型，使用默认值qdrant
+        if (knowledgeBase.getVectorStoreType() == null || knowledgeBase.getVectorStoreType().trim().isEmpty()) {
+            knowledgeBase.setVectorStoreType("qdrant");
+        }
+        
+        logger.info("创建知识库 - 名称: {}, 创建者: {}, 是否公开: {}, 向量存储类型: {}", 
+                knowledgeBase.getName(), username, knowledgeBase.getIsPublic(), knowledgeBase.getVectorStoreType());
         
         knowledgeBase = knowledgeBaseRepository.save(knowledgeBase);
         
@@ -130,6 +136,12 @@ public class KnowledgeBaseService {
         }
         if (req.getTopK() != null) {
             knowledgeBase.setTopK(req.getTopK());
+        }
+        if (req.getVectorStoreType() != null) {
+            knowledgeBase.setVectorStoreType(req.getVectorStoreType());
+        } else {
+            // 如果没有指定，默认使用qdrant
+            knowledgeBase.setVectorStoreType("qdrant");
         }
         
         knowledgeBase.setUpdateTime(new Date());
