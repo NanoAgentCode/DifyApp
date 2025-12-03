@@ -14,7 +14,6 @@ import io.milvus.param.dml.InsertParam;
 import io.milvus.param.dml.SearchParam;
 import io.milvus.param.index.CreateIndexParam;
 import io.milvus.param.index.DescribeIndexParam;
-import io.milvus.response.DescribeIndexResponse;
 import io.milvus.response.SearchResultsWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -404,28 +403,41 @@ public class MilvusVectorStoreService {
         try {
             MilvusServiceClient client = getMilvusClient(knowledgeBaseId);
             
-            // 检查索引是否存在
-            DescribeIndexParam describeParam = DescribeIndexParam.newBuilder()
-                    .withCollectionName(collectionName)
-                    .withFieldName("vector")
-                    .build();
-            
-            R<DescribeIndexResponse> describeResponse = client.describeIndex(describeParam);
-            if (describeResponse.getStatus() == R.Status.Success.getCode() && 
-                describeResponse.getData() != null && 
-                describeResponse.getData().getIndexDescriptions() != null &&
-                !describeResponse.getData().getIndexDescriptions().isEmpty()) {
-                // 索引已存在
-                logger.debug("Milvus索引已存在 - 集合名: {}", collectionName);
-                return;
+            // 尝试检查索引是否存在
+            try {
+                DescribeIndexParam describeParam = DescribeIndexParam.newBuilder()
+                        .withCollectionName(collectionName)
+                        .build();
+                
+                R<?> describeResponse = client.describeIndex(describeParam);
+                if (describeResponse.getStatus() == R.Status.Success.getCode() && 
+                    describeResponse.getData() != null) {
+                    // 尝试获取索引信息来判断索引是否存在
+                    Object data = describeResponse.getData();
+                    try {
+                        java.lang.reflect.Method getIndexDescriptionsMethod = data.getClass().getMethod("getIndexDescriptions");
+                        Object indexDescriptions = getIndexDescriptionsMethod.invoke(data);
+                        if (indexDescriptions != null && 
+                            (indexDescriptions instanceof List && !((List<?>) indexDescriptions).isEmpty())) {
+                            // 索引已存在
+                            logger.debug("Milvus索引已存在 - 集合名: {}", collectionName);
+                            return;
+                        }
+                    } catch (Exception e) {
+                        // 如果无法判断，继续创建索引
+                        logger.debug("无法判断索引是否存在，尝试创建索引 - 集合名: {}", collectionName);
+                    }
+                }
+            } catch (Exception e) {
+                logger.debug("检查索引失败，尝试创建索引 - 集合名: {}", collectionName);
             }
             
-            // 索引不存在，创建索引
-            logger.info("Milvus索引不存在，开始创建索引 - 集合名: {}", collectionName);
+            // 索引不存在或无法判断，创建索引
+            logger.info("创建Milvus索引 - 集合名: {}", collectionName);
             createIndex(knowledgeBaseId, collectionName);
         } catch (Exception e) {
-            logger.warn("检查Milvus索引失败，尝试创建索引 - 集合名: {}", collectionName, e);
-            // 如果检查失败，尝试直接创建索引
+            logger.warn("确保索引存在失败 - 集合名: {}", collectionName, e);
+            // 如果失败，尝试直接创建索引
             createIndex(knowledgeBaseId, collectionName);
         }
     }
@@ -582,8 +594,15 @@ public class MilvusVectorStoreService {
         try {
             MilvusServiceClient client = getMilvusClient(knowledgeBaseId);
             
-            // 确保集合已加载
+            // 确保集合已加载（搜索前必须加载集合）
             loadCollection(knowledgeBaseId, collectionName);
+            
+            // 等待一小段时间，确保集合加载完成
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
             
             // 构建搜索参数
             List<String> outputFields = Arrays.asList("text", "document_id", "chunk_index");
@@ -601,7 +620,7 @@ public class MilvusVectorStoreService {
                     .withParams(searchParams)
                     .build();
             
-            logger.debug("发送Milvus搜索请求 - 知识库ID: {}, 集合名: {}, 向量维度: {}, topK: {}", 
+            logger.info("发送Milvus搜索请求 - 知识库ID: {}, 集合名: {}, 向量维度: {}, topK: {}", 
                     knowledgeBaseId, collectionName, queryVector.size(), topK);
             
             R<?> response = client.search(searchParam);
@@ -612,33 +631,103 @@ public class MilvusVectorStoreService {
             List<SearchResult> results = new ArrayList<>();
             
             // 获取搜索结果
-            // 注意：由于 Milvus Java SDK 版本差异，这里使用反射来兼容不同版本
             Object data = response.getData();
             if (data != null) {
                 try {
-                    // 尝试获取 Results 字段
+                    // 使用反射获取 getResults() 方法
                     java.lang.reflect.Method getResultsMethod = data.getClass().getMethod("getResults");
-                    Object resultsObj = getResultsMethod.invoke(data);
+                    Object searchResultsData = getResultsMethod.invoke(data);
+
+                    logger.debug("搜索结果数据类型: {}", searchResultsData != null ? searchResultsData.getClass().getName() : "null");
                     
-                    // 使用 SearchResultsWrapper 包装结果
-                    // 注意：SearchResultsWrapper 的构造函数可能因版本而异，这里使用反射创建
-                    SearchResultsWrapper wrapper;
-                    try {
-                        // 尝试使用 SearchResults 参数的构造函数
-                        java.lang.reflect.Constructor<SearchResultsWrapper> constructor = 
-                            SearchResultsWrapper.class.getConstructor(io.milvus.grpc.SearchResults.class);
-                        wrapper = constructor.newInstance((io.milvus.grpc.SearchResults) resultsObj);
-                    } catch (Exception e1) {
-                        // 如果失败，尝试使用 Object 参数的构造函数
-                        try {
-                            java.lang.reflect.Constructor<SearchResultsWrapper> constructor = 
-                                SearchResultsWrapper.class.getConstructor(Object.class);
-                            wrapper = constructor.newInstance(resultsObj);
-                        } catch (Exception e2) {
-                            throw new RuntimeException("无法创建 SearchResultsWrapper，请检查 Milvus Java SDK 版本。错误: " + e2.getMessage(), e2);
+                    // 尝试创建 SearchResultsWrapper
+                    // 由于 SDK 版本差异，尝试多种构造函数
+                    SearchResultsWrapper wrapper = null;
+                    
+                    // 首先尝试查看所有可用的构造函数
+                    java.lang.reflect.Constructor<?>[] constructors = SearchResultsWrapper.class.getConstructors();
+                    logger.debug("SearchResultsWrapper 可用构造函数数量: {}", constructors.length);
+                    for (java.lang.reflect.Constructor<?> ctor : constructors) {
+                        logger.debug("SearchResultsWrapper 构造函数: {}", ctor);
+                    }
+                    
+                    // 尝试使用不同的构造函数
+                    boolean created = false;
+                    if (searchResultsData != null) {
+                        // 首先尝试直接匹配类型
+                        for (java.lang.reflect.Constructor<?> ctor : constructors) {
+                            try {
+                                Class<?>[] paramTypes = ctor.getParameterTypes();
+                                if (paramTypes.length == 1) {
+                                    // 检查参数类型是否匹配
+                                    if (paramTypes[0].isInstance(searchResultsData)) {
+                                        wrapper = (SearchResultsWrapper) ctor.newInstance(searchResultsData);
+                                        logger.debug("成功使用构造函数 {} 创建 SearchResultsWrapper", ctor);
+                                        created = true;
+                                        break;
+                                    }
+                                }
+                            } catch (Exception e) {
+                                logger.debug("尝试构造函数 {} 失败: {}", ctor, e.getMessage());
+                            }
+                        }
+                        
+                        // 如果直接匹配失败，尝试特定类型
+                        if (!created) {
+                            // 尝试 SearchResultData 类型
+                            if (searchResultsData instanceof io.milvus.grpc.SearchResultData) {
+                                try {
+                                    java.lang.reflect.Constructor<SearchResultsWrapper> constructor = 
+                                        SearchResultsWrapper.class.getConstructor(io.milvus.grpc.SearchResultData.class);
+                                    wrapper = constructor.newInstance((io.milvus.grpc.SearchResultData) searchResultsData);
+                                    logger.debug("成功使用 SearchResultData 构造函数创建 SearchResultsWrapper");
+                                    created = true;
+                                } catch (NoSuchMethodException e) {
+                                    logger.debug("SearchResultData 构造函数不存在，尝试其他方式");
+                                } catch (Exception e) {
+                                    logger.debug("使用 SearchResultData 构造函数失败: {}", e.getMessage());
+                                }
+                            }
+                            
+                            // 如果 SearchResultData 构造函数不存在，尝试从 SearchResultData 构建 SearchResults
+                            if (!created && searchResultsData instanceof io.milvus.grpc.SearchResultData) {
+                                try {
+                                    // 尝试使用 SearchResults 构造函数
+                                    java.lang.reflect.Constructor<SearchResultsWrapper> constructor = 
+                                        SearchResultsWrapper.class.getConstructor(io.milvus.grpc.SearchResults.class);
+                                    
+                                    // 尝试从 SearchResultData 获取或构建 SearchResults
+                                    // SearchResultData 可能包含 results 字段，需要提取
+                                    io.milvus.grpc.SearchResultData resultData = (io.milvus.grpc.SearchResultData) searchResultsData;
+                                    
+                                    // 尝试获取 results 字段
+                                    try {
+                                        java.lang.reflect.Method getResultsFromDataMethod = resultData.getClass().getMethod("getResults");
+                                        Object resultsObj = getResultsFromDataMethod.invoke(resultData);
+                                        if (resultsObj instanceof io.milvus.grpc.SearchResults) {
+                                            wrapper = constructor.newInstance((io.milvus.grpc.SearchResults) resultsObj);
+                                            logger.debug("成功从 SearchResultData 提取 SearchResults 并创建 SearchResultsWrapper");
+                                            created = true;
+                                        }
+                                    } catch (Exception e) {
+                                        logger.debug("无法从 SearchResultData 提取 SearchResults: {}", e.getMessage());
+                                    }
+                                } catch (NoSuchMethodException e) {
+                                    logger.debug("SearchResults 构造函数不存在: {}", e.getMessage());
+                                } catch (Exception e) {
+                                    logger.debug("使用 SearchResults 构造函数失败: {}", e.getMessage());
+                                }
+                            }
                         }
                     }
                     
+                    if (!created) {
+                        throw new RuntimeException("无法创建 SearchResultsWrapper。数据类型: " +
+                                (searchResultsData != null ? searchResultsData.getClass().getName() : "null") +
+                                "，可用构造函数: " + Arrays.toString(constructors));
+                    }
+                    
+                    // 使用 wrapper 处理搜索结果
                     int rowCount = wrapper.getIDScore(0).size();
                     for (int i = 0; i < rowCount; i++) {
                         SearchResult result = new SearchResult();
