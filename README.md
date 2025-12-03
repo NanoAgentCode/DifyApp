@@ -36,7 +36,7 @@ DifyApp 是一个集成了 Dify AI 平台的应用管理系统，支持：
 - **认证**: JWT (JSON Web Token)
 - **密码加密**: BCrypt
 - **对象存储**: MinIO 8.5.2
-- **向量数据库**: Qdrant 1.7.0（可选）、Milvus/Milvus Lite（可选）
+- **向量数据库**: Qdrant 1.7.0（可选）、Milvus（可选）
 - **向量存储**: FAISS（本地文件存储，可选）
 - **缓存中间件**: Redis (Spring Data Redis)
 - **缓存框架**: Spring Cache
@@ -96,7 +96,6 @@ DifyApp/
 - **Qdrant** (向量数据库，推荐用于生产环境)
 - **FAISS** (本地文件存储，无需额外服务，适合开发测试环境)
 - **Milvus** (向量数据库，支持大规模向量检索，适合生产环境)
-- **Milvus Lite** (轻量级版本，本地文件存储，与 Milvus 完全兼容，使用相同的配置和 API，适合开发测试环境)
 
 ### 可选环境（用于前端开发）
 - Node.js 16+
@@ -195,18 +194,7 @@ docker run -d \
   milvus run standalone
 ```
 
-**方式三：使用 Python 服务（Milvus Lite，轻量级）**
-
-如果只需要轻量级版本，可以使用 Python 服务：
-
-```bash
-cd milvus
-pip install flask flask-cors pymilvus milvus-lite
-python milvus_lite_service.py
-```
-
 > **注意**：
-> - Milvus 和 Milvus Lite 使用相同的 HTTP API，配置方式完全相同
 > - 如果遇到 Docker 启动错误，请参考 `milvus/README_DOCKER.md`
 > - 详细说明请参考 `milvus/README_DOCKER.md` 文件
 
@@ -681,7 +669,7 @@ Content-Type: application/json
 - `description` (可选): 知识库描述
 - `tenantId` (可选): 租户ID
 - `embeddingModelId` (可选): 向量化模型ID，不指定则使用默认向量化模型
-- `vectorStoreType` (可选): 向量存储类型，可选值：`qdrant`（默认）、`faiss`、`milvus`、`milvus-lite`。已有文档的知识库无法修改此参数
+- `vectorStoreType` (可选): 向量存储类型，可选值：`qdrant`（默认）、`faiss`、`milvus`。已有文档的知识库无法修改此参数
 
 #### 2. 更新知识库
 
@@ -1092,11 +1080,10 @@ Content-Type: application/json
   - 支持多种文档格式（PDF、Word、TXT、Markdown 等）
   - 文档自动解析（Apache Tika）
   - 文档分块和向量化
-  - 向量存储：支持 Qdrant、FAISS、Milvus 和 Milvus Lite 四种存储方式，可在知识库级别选择
+  - 向量存储：支持 Qdrant、FAISS、Milvus 三种存储方式，可在知识库级别选择
     - **Qdrant**：分布式向量数据库，适合生产环境，需要独立服务
     - **FAISS**：本地文件存储，无需额外服务，适合开发测试环境
-    - **Milvus**：分布式向量数据库，适合生产环境，需要独立服务
-    - **Milvus Lite**：轻量级版本，本地文件存储，与 Milvus 完全兼容，使用相同的配置和 API，适合开发测试环境
+    - **Milvus**：分布式向量数据库，适合生产环境，需要独立服务，使用 gRPC 协议
   - 支持为知识库选择向量化模型
 
 - ✅ **RAG 问答**
@@ -1239,14 +1226,13 @@ faiss:
 - 支持自定义路径（可使用绝对路径）
 
 **向量存储类型选择：**
-- 创建知识库时可以选择使用 Qdrant、FAISS、Milvus 或 Milvus Lite
+- 创建知识库时可以选择使用 Qdrant、FAISS、Milvus
 - 已有文档的知识库无法修改向量存储类型
 - 默认使用 Qdrant（向后兼容）
-- **注意**：Milvus Lite 与 Milvus 完全兼容，使用相同的配置和 API
 
 ### Milvus 配置（可选）
 
-在 `application.yml` 中配置 Milvus（如果使用 Milvus 或 Milvus Lite 作为向量存储）：
+在 `application.yml` 中配置 Milvus（如果使用 Milvus 作为向量存储）：
 
 ```yaml
 milvus:
@@ -1256,15 +1242,13 @@ milvus:
 ```
 
 或者在向量数据库管理界面中配置：
-- 类型：`milvus` 或 `milvus-lite`
-- URL：`http://localhost:19530`（Milvus 或 Milvus Lite 服务地址）
-- API Key：可选，Milvus Lite 通常不需要
+- 类型：`milvus`
+- URL：`http://localhost:19530`（Milvus 服务地址）
+- API Key：可选，如果 Milvus 启用了认证
 
-**Milvus 和 Milvus Lite 说明：**
+**Milvus 说明：**
 - **Milvus**：分布式向量数据库，适合生产环境，需要独立服务
-- **Milvus Lite**：轻量级版本，本地文件存储，适合开发测试环境，与 Milvus 完全兼容
-- Milvus Lite 使用与 Milvus 相同的 HTTP REST API，配置方式完全相同
-- 支持通过 HTTP REST API 访问，兼容 Milvus HTTP API
+- 使用 gRPC 协议进行通信
 
 ### Redis 配置
 
@@ -1439,11 +1423,10 @@ dify:
 8. 配置合适的文件上传大小限制
 9. **向量存储选择**：
    - 生产环境推荐使用 Qdrant 或 Milvus（分布式、高性能）
-   - 开发测试环境可使用 FAISS 或 Milvus Lite（无需额外服务）
+   - 开发测试环境可使用 FAISS（无需额外服务）
    - 如果使用 FAISS，确保存储目录有足够的磁盘空间和写入权限
-   - 如果使用 Milvus 或 Milvus Lite，确保服务正常运行并确保存储目录有足够的磁盘空间和写入权限
-   - Milvus Lite 与 Milvus 完全兼容，使用相同的配置和 API
-   - 定期备份向量存储目录（FAISS: `data/faiss`，Milvus/Milvus Lite: 根据服务配置）
+   - 如果使用 Milvus，确保服务正常运行并确保存储目录有足够的磁盘空间和写入权限
+   - 定期备份向量存储目录（FAISS: `data/faiss`，Milvus: 根据服务配置）
 9. **Redis 配置**：
    - 设置 Redis 密码以提高安全性
    - 配置 Redis 持久化（RDB 或 AOF）
@@ -1510,7 +1493,7 @@ yarn build
 - **KNOWLEDGE_BASE**: 知识库表
   - 存储知识库基本信息
   - 包含向量化模型ID（embedding_model_id），关联到 EMBEDDING_MODEL 表
-  - 包含向量存储类型（vector_store_type），可选值：`qdrant`、`faiss`、`milvus`、`milvus-lite`，默认为 `qdrant`
+  - 包含向量存储类型（vector_store_type），可选值：`qdrant`、`faiss`、`milvus`，默认为 `qdrant`
 
 - **KNOWLEDGE_BASE_DOCUMENT**: 知识库文档表
   - 存储文档信息、向量化状态等

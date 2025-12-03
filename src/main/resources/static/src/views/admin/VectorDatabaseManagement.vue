@@ -119,7 +119,6 @@
           <el-select v-model="currentConfig.type" placeholder="请选择数据库类型" style="width: 100%" :disabled="isEdit">
             <el-option label="Qdrant" value="qdrant" />
             <el-option label="Milvus" value="milvus" />
-            <el-option label="Milvus Lite" value="milvus-lite" />
             <el-option label="FAISS" value="faiss" />
           </el-select>
         </el-form-item>
@@ -129,8 +128,8 @@
             v-model="currentConfig.url"
             :placeholder="currentConfig.type === 'faiss' ? '例如: ./data/faiss 或 /path/to/faiss' : '例如: http://localhost:6333 或 http://localhost:19530'"
           />
-          <div v-if="currentConfig.type === 'milvus' || currentConfig.type === 'milvus-lite'" style="font-size: 12px; color: #909399; margin-top: 5px;">
-            提示：Milvus 和 Milvus Lite 使用相同的 HTTP API，配置相同的 URL 格式（例如：http://localhost:19530）
+          <div v-if="currentConfig.type === 'milvus'" style="font-size: 12px; color: #909399; margin-top: 5px;">
+            提示：Milvus 使用 gRPC 协议，配置 URL 格式（例如：http://localhost:19530）
           </div>
         </el-form-item>
 
@@ -139,7 +138,7 @@
             v-model="currentConfig.apiKey"
             type="password"
             show-password
-            placeholder="可选，如果数据库启用了认证，请配置API Key（Milvus Lite 通常不需要）"
+            placeholder="可选，如果数据库启用了认证，请配置API Key"
           />
         </el-form-item>
 
@@ -238,7 +237,6 @@ const getTypeTagType = (type) => {
   const map = {
     qdrant: 'primary',
     milvus: 'warning',
-    'milvus-lite': 'warning',
     faiss: 'success'
   }
   return map[type] || 'info'
@@ -249,7 +247,6 @@ const getTypeLabel = (type) => {
   const map = {
     qdrant: 'Qdrant',
     milvus: 'Milvus',
-    'milvus-lite': 'Milvus Lite',
     faiss: 'FAISS'
   }
   return map[type] || type

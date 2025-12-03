@@ -46,7 +46,7 @@ public class VectorStoreFactory {
         
         if ("faiss".equalsIgnoreCase(vectorStoreType)) {
             return FaissEmbeddingStore.forKnowledgeBase(knowledgeBaseId, faissVectorStoreService);
-        } else if ("milvus".equalsIgnoreCase(vectorStoreType) || "milvus-lite".equalsIgnoreCase(vectorStoreType)) {
+        } else if ("milvus".equalsIgnoreCase(vectorStoreType)) {
             return MilvusEmbeddingStore.forKnowledgeBase(knowledgeBaseId, milvusVectorStoreService);
         } else {
             // 默认使用Qdrant
@@ -57,7 +57,7 @@ public class VectorStoreFactory {
     /**
      * 获取知识库的向量存储类型
      * @param knowledgeBaseId 知识库ID
-     * @return 向量存储类型（qdrant、faiss、milvus或milvus-lite），默认为qdrant
+     * @return 向量存储类型（qdrant、faiss、milvus），默认为qdrant
      */
     private String getVectorStoreType(Long knowledgeBaseId) {
         try {

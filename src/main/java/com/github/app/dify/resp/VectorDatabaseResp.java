@@ -17,7 +17,7 @@ public class VectorDatabaseResp {
     @ApiModelProperty("配置名称")
     private String name;
     
-    @ApiModelProperty("数据库类型：qdrant, milvus, milvus-lite, faiss")
+    @ApiModelProperty("数据库类型：qdrant, milvus, faiss")
     private String type;
     
     @ApiModelProperty("连接地址（URL或路径）")

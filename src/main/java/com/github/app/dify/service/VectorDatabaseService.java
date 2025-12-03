@@ -303,7 +303,7 @@ public class VectorDatabaseService {
         try {
             if ("qdrant".equalsIgnoreCase(type) && qdrantConfig != null) {
                 qdrantConfig.reload();
-            } else if (("milvus".equalsIgnoreCase(type) || "milvus-lite".equalsIgnoreCase(type)) && milvusConfig != null) {
+            } else if ("milvus".equalsIgnoreCase(type) && milvusConfig != null) {
                 milvusConfig.reload();
             } else if ("faiss".equalsIgnoreCase(type) && faissConfig != null) {
                 faissConfig.reload();
@@ -325,8 +325,7 @@ public class VectorDatabaseService {
         try {
             if ("qdrant".equalsIgnoreCase(type)) {
                 testQdrantConnection(url, apiKey, timeout);
-            } else if ("milvus".equalsIgnoreCase(type) || "milvus-lite".equalsIgnoreCase(type)) {
-                // Milvus 和 Milvus Lite 完全兼容，使用相同的连接测试方法
+            } else if ("milvus".equalsIgnoreCase(type)) {
                 testMilvusConnection(url, apiKey, timeout);
             } else if ("faiss".equalsIgnoreCase(type)) {
                 testFaissConnection(url);
@@ -373,7 +372,7 @@ public class VectorDatabaseService {
      * 测试Milvus连接
      */
     private void testMilvusConnection(String url, String apiKey, int timeout) {
-        // 验证 URL 格式（Milvus 和 Milvus Lite 都需要 HTTP API）
+        // 验证 URL 格式（Milvus 使用 gRPC）
         if (url == null || url.trim().isEmpty()) {
             throw new RuntimeException("Milvus URL 不能为空，请配置有效的 HTTP URL（例如：http://localhost:19530）");
         }

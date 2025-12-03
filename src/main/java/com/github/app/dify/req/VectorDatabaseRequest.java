@@ -68,7 +68,7 @@ public class VectorDatabaseRequest {
         @NotBlank(message = "配置名称不能为空")
         private String name;
         
-               @ApiModelProperty("数据库类型：qdrant, milvus, milvus-lite, faiss")
+               @ApiModelProperty("数据库类型：qdrant, milvus, faiss")
         @NotBlank(message = "数据库类型不能为空")
         private String type;
         

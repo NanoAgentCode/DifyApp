@@ -83,11 +83,8 @@ public class MilvusConfig implements CommandLineRunner {
         }
         
         try {
-            // 先尝试查找默认的启用配置（支持milvus和milvus-lite，两者兼容）
+            // 先尝试查找默认的启用配置
             Optional<VectorDatabase> defaultConfig = vectorDatabaseRepository.findDefaultEnabledByType("milvus");
-            if (!defaultConfig.isPresent()) {
-                defaultConfig = vectorDatabaseRepository.findDefaultEnabledByType("milvus-lite");
-            }
             if (defaultConfig.isPresent()) {
                 VectorDatabase config = defaultConfig.get();
                 actualUrl = config.getUrl();
@@ -98,11 +95,8 @@ public class MilvusConfig implements CommandLineRunner {
                 return;
             }
             
-            // 如果没有默认配置，尝试查找第一个启用的配置（支持milvus和milvus-lite，两者兼容）
+            // 如果没有默认配置，尝试查找第一个启用的配置
             List<VectorDatabase> enabledConfigs = vectorDatabaseRepository.findAllEnabledByType("milvus");
-            if (enabledConfigs.isEmpty()) {
-                enabledConfigs = vectorDatabaseRepository.findAllEnabledByType("milvus-lite");
-            }
             if (!enabledConfigs.isEmpty()) {
                 VectorDatabase config = enabledConfigs.get(0);
                 actualUrl = config.getUrl();
@@ -113,11 +107,8 @@ public class MilvusConfig implements CommandLineRunner {
                 return;
             }
             
-            // 如果连启用的配置都没有，尝试查找任何配置（包括未启用的，支持milvus和milvus-lite，两者兼容）
+            // 如果连启用的配置都没有，尝试查找任何配置（包括未启用的）
             List<VectorDatabase> allConfigs = vectorDatabaseRepository.findByType("milvus");
-            if (allConfigs.isEmpty()) {
-                allConfigs = vectorDatabaseRepository.findByType("milvus-lite");
-            }
             if (!allConfigs.isEmpty()) {
                 VectorDatabase config = allConfigs.get(0);
                 actualUrl = config.getUrl();

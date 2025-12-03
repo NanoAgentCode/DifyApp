@@ -11,7 +11,7 @@ import javax.validation.constraints.NotBlank;
 @ApiModel("测试向量数据库连接请求")
 public class TestVectorDatabaseConnectionRequest {
     
-    @ApiModelProperty("数据库类型：qdrant, milvus, milvus-lite, faiss")
+    @ApiModelProperty("数据库类型：qdrant, milvus, faiss")
     @NotBlank(message = "数据库类型不能为空")
     private String type;
     

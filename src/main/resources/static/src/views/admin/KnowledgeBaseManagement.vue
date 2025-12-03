@@ -283,19 +283,13 @@
                 <el-tag type="warning" size="small">分布式</el-tag>
               </div>
             </el-option>
-            <el-option label="Milvus Lite（轻量级）" value="milvus-lite">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Milvus Lite（轻量级）</span>
-                <el-tag type="success" size="small">本地</el-tag>
-              </div>
-            </el-option>
           </el-select>
           <div v-if="isEdit && hasDocuments" style="font-size: 12px; color: #e6a23c; margin-top: 5px;">
             <el-icon><Warning /></el-icon>
             当前使用：<strong>{{ getVectorStoreTypeName(formData.vectorStoreType) }}</strong>。已有文档，无法修改。
           </div>
           <div v-else style="font-size: 12px; color: #909399; margin-top: 5px;">
-            Qdrant：分布式向量数据库，适合生产环境。FAISS：本地文件存储，无需额外服务，适合开发测试。Milvus：开源向量数据库，支持大规模向量检索，需要独立服务器。Milvus Lite：Milvus轻量级版本，本地文件存储，与Milvus使用相同的HTTP API，配置相同的URL格式。
+            Qdrant：分布式向量数据库，适合生产环境。FAISS：本地文件存储，无需额外服务，适合开发测试。Milvus：开源向量数据库，支持大规模向量检索，需要独立服务器，使用 gRPC 协议。
           </div>
         </el-form-item>
         <el-form-item label="状态" prop="status">
@@ -790,7 +784,6 @@ const formatDate = (date) => {
 const getVectorStoreTypeName = (type) => {
   if (type === 'faiss') return 'FAISS'
   if (type === 'milvus') return 'Milvus'
-  if (type === 'milvus-lite') return 'Milvus Lite'
   return 'Qdrant'
 }
 
@@ -798,7 +791,6 @@ const getVectorStoreTypeName = (type) => {
 const getVectorStoreTypeDisplayName = (type) => {
   if (type === 'faiss') return 'FAISS（本地文件存储）'
   if (type === 'milvus') return 'Milvus（向量数据库）'
-  if (type === 'milvus-lite') return 'Milvus Lite（轻量级）'
   return 'Qdrant（向量数据库）'
 }
 
@@ -806,7 +798,6 @@ const getVectorStoreTypeDisplayName = (type) => {
 const getVectorStoreTypeTag = (type) => {
   if (type === 'faiss') return 'success'
   if (type === 'milvus') return 'warning'
-  if (type === 'milvus-lite') return 'success'
   return 'primary'
 }
 

@@ -24,7 +24,6 @@ import java.util.*;
 
 /**
  * Milvus向量存储服务（使用gRPC）
- * 支持Milvus和Milvus Lite
  */
 @Service
 public class MilvusVectorStoreService {
@@ -53,39 +52,18 @@ public class MilvusVectorStoreService {
         // 获取知识库的向量存储类型
         String vectorStoreType = getVectorStoreType(knowledgeBaseId);
         
-        // 获取对应的配置（Milvus 和 Milvus Lite 兼容，使用相同的配置）
+        // 获取对应的配置
         String currentUrl;
         String currentApiKey;
         
-        // Milvus Lite 和 Milvus 完全兼容，优先查找对应类型的配置，如果没有则使用 Milvus 配置
-        if ("milvus-lite".equalsIgnoreCase(vectorStoreType)) {
-            // Milvus Lite：先尝试从数据库获取 milvus-lite 配置
-            VectorDatabase config = getConfigByType("milvus-lite");
-            if (config != null) {
-                currentUrl = config.getUrl();
-                currentApiKey = config.getApiKey();
-            } else {
-                // 如果没有 milvus-lite 配置，尝试使用 milvus 配置（两者兼容）
-                config = getConfigByType("milvus");
-                if (config != null) {
-                    currentUrl = config.getUrl();
-                    currentApiKey = config.getApiKey();
-                } else {
-                    // 如果都没有，使用默认的 MilvusConfig
-                    currentUrl = milvusConfig.getUrl();
-                    currentApiKey = milvusConfig.getApiKey();
-                }
-            }
+        // 使用 MilvusConfig 或数据库中的 milvus 配置
+        VectorDatabase config = getConfigByType("milvus");
+        if (config != null) {
+            currentUrl = config.getUrl();
+            currentApiKey = config.getApiKey();
         } else {
-            // Milvus：使用 MilvusConfig 或数据库中的 milvus 配置
-            VectorDatabase config = getConfigByType("milvus");
-            if (config != null) {
-                currentUrl = config.getUrl();
-                currentApiKey = config.getApiKey();
-            } else {
-                currentUrl = milvusConfig.getUrl();
-                currentApiKey = milvusConfig.getApiKey();
-            }
+            currentUrl = milvusConfig.getUrl();
+            currentApiKey = milvusConfig.getApiKey();
         }
         
         // 解析URL，提取主机和端口
@@ -166,7 +144,7 @@ public class MilvusVectorStoreService {
             return knowledgeBaseRepository.findById(knowledgeBaseId)
                     .map(kb -> {
                         String type = kb.getVectorStoreType();
-                        if (type != null && ("milvus".equalsIgnoreCase(type) || "milvus-lite".equalsIgnoreCase(type))) {
+                        if (type != null && "milvus".equalsIgnoreCase(type)) {
                             return type;
                         }
                         return "milvus"; // 默认
@@ -213,19 +191,7 @@ public class MilvusVectorStoreService {
      * 获取指定知识库的超时时间
      */
     private int getTimeout(Long knowledgeBaseId) {
-        String vectorStoreType = getVectorStoreType(knowledgeBaseId);
-        // Milvus 和 Milvus Lite 兼容，优先查找对应类型的配置
-        VectorDatabase config = null;
-        if ("milvus-lite".equalsIgnoreCase(vectorStoreType)) {
-            config = getConfigByType("milvus-lite");
-            if (config == null) {
-                // 如果没有 milvus-lite 配置，尝试使用 milvus 配置
-                config = getConfigByType("milvus");
-            }
-        } else {
-            config = getConfigByType("milvus");
-        }
-        
+        VectorDatabase config = getConfigByType("milvus");
         if (config != null && config.getTimeout() != null) {
             return config.getTimeout();
         }

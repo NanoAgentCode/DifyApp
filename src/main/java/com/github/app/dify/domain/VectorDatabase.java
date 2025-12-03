@@ -35,7 +35,7 @@ public class VectorDatabase implements Serializable {
     private String name;
     
     /**
-     * 数据库类型：qdrant, milvus, milvus-lite, faiss
+     * 数据库类型：qdrant, milvus, faiss
      */
     @NotBlank(message="[数据库类型]不能为空")
     @Size(max= 20,message="编码长度不能超过20")
