@@ -99,6 +99,7 @@
       :title="conversationDetail.conversation ? conversationDetail.conversation.title : '会话详情'" 
       width="80%"
       :close-on-click-modal="false"
+      :lock-scroll="true"
     >
       <div v-if="conversationDetail.conversation" class="conversation-detail">
         <div class="detail-header">

@@ -47,7 +47,7 @@ public class KnowledgeBaseResp {
     @ApiModelProperty("Top-K检索数量（如果为null则使用全局配置）")
     private Integer topK;
     
-    @ApiModelProperty("向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储")
+    @ApiModelProperty("向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储，milvus-Milvus向量数据库，milvus-lite-Milvus Lite轻量级版本")
     private String vectorStoreType;
     
     @ApiModelProperty("创建时间")

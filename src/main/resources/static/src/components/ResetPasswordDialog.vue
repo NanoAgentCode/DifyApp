@@ -3,6 +3,7 @@
     v-model="visible"
     :title="`重置密码 - ${userInfo?.username || ''}`"
     width="500px"
+    :lock-scroll="true"
     @close="handleClose"
   >
     <el-form

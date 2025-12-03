@@ -86,9 +86,9 @@ public class KnowledgeBase implements Serializable {
     private Integer topK;
     
     /**
-     * 向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储
+     * 向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储，milvus-Milvus向量数据库，milvus-lite-Milvus Lite轻量级版本
      */
-    @ApiModelProperty("向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储")
+    @ApiModelProperty("向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储，milvus-Milvus向量数据库，milvus-lite-Milvus Lite轻量级版本")
     @Column(name = "vector_store_type", columnDefinition = "VARCHAR(20)")
     private String vectorStoreType;
     

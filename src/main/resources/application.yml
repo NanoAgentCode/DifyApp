@@ -87,6 +87,12 @@ qdrant:
   api-key: # 可选，Docker部署默认不需要，仅在启用认证时需要
   timeout: 30000
 
+# Milvus配置
+milvus:
+  url: http://localhost:19530  # Milvus HTTP API地址
+  api-key: # 可选，如果Milvus启用了认证，请配置API Key
+  timeout: 30000
+
 # FAISS配置
 faiss:
   base-path: ./data/faiss  # FAISS索引文件的基础存储路径

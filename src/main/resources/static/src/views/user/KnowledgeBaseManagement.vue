@@ -84,10 +84,10 @@
         <el-table-column label="向量存储" width="120" align="center">
           <template #default="{ row }">
             <el-tag 
-              :type="row.vectorStoreType === 'faiss' ? 'success' : 'primary'"
+              :type="getVectorStoreTypeTag(row.vectorStoreType)"
               size="small"
             >
-              {{ row.vectorStoreType === 'faiss' ? 'FAISS' : 'Qdrant' }}
+              {{ getVectorStoreTypeName(row.vectorStoreType) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -149,6 +149,8 @@
       v-model="dialogVisible"
       :title="dialogTitle"
       width="600px"
+      :close-on-click-modal="false"
+      :lock-scroll="true"
       @close="handleDialogClose"
     >
       <el-form
@@ -250,13 +252,25 @@
                 <el-tag type="success" size="small">本地</el-tag>
               </div>
             </el-option>
+            <el-option label="Milvus（向量数据库）" value="milvus">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Milvus（向量数据库）</span>
+                <el-tag type="warning" size="small">分布式</el-tag>
+              </div>
+            </el-option>
+            <el-option label="Milvus Lite（轻量级）" value="milvus-lite">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Milvus Lite（轻量级）</span>
+                <el-tag type="success" size="small">本地</el-tag>
+              </div>
+            </el-option>
           </el-select>
           <div v-if="isEdit && hasDocuments" style="font-size: 12px; color: #e6a23c; margin-top: 5px;">
             <el-icon><Warning /></el-icon>
-            当前使用：<strong>{{ formData.vectorStoreType === 'faiss' ? 'FAISS' : 'Qdrant' }}</strong>。已有文档，无法修改。
+            当前使用：<strong>{{ getVectorStoreTypeName(formData.vectorStoreType) }}</strong>。已有文档，无法修改。
           </div>
           <div v-else style="font-size: 12px; color: #909399; margin-top: 5px;">
-            Qdrant：分布式向量数据库，适合生产环境。FAISS：本地文件存储，无需额外服务，适合开发测试。
+            Qdrant：分布式向量数据库，适合生产环境。FAISS：本地文件存储，无需额外服务，适合开发测试。Milvus：开源向量数据库，支持大规模向量检索。Milvus Lite：Milvus轻量级版本，本地文件存储，与Milvus使用相同的HTTP API。
           </div>
         </el-form-item>
         <el-form-item label="状态" prop="status">
@@ -277,6 +291,7 @@
       v-model="viewDialogVisible"
       title="知识库详情"
       width="700px"
+      :lock-scroll="true"
     >
       <el-descriptions :column="2" border v-if="currentKB">
         <el-descriptions-item label="ID">{{ currentKB.id }}</el-descriptions-item>
@@ -296,9 +311,9 @@
         </el-descriptions-item>
         <el-descriptions-item label="向量存储类型" :span="2">
           <el-tag 
-            :type="currentKB.vectorStoreType === 'faiss' ? 'success' : 'primary'"
+            :type="getVectorStoreTypeTag(currentKB.vectorStoreType)"
           >
-            {{ currentKB.vectorStoreType === 'faiss' ? 'FAISS（本地文件存储）' : 'Qdrant（向量数据库）' }}
+            {{ getVectorStoreTypeDisplayName(currentKB.vectorStoreType) }}
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="状态" :span="2">
@@ -683,6 +698,30 @@ const formatDate = (date) => {
     minute: '2-digit',
     second: '2-digit'
   })
+}
+
+// 获取向量存储类型名称（简短）
+const getVectorStoreTypeName = (type) => {
+  if (type === 'faiss') return 'FAISS'
+  if (type === 'milvus') return 'Milvus'
+  if (type === 'milvus-lite') return 'Milvus Lite'
+  return 'Qdrant'
+}
+
+// 获取向量存储类型显示名称（完整）
+const getVectorStoreTypeDisplayName = (type) => {
+  if (type === 'faiss') return 'FAISS（本地文件存储）'
+  if (type === 'milvus') return 'Milvus（向量数据库）'
+  if (type === 'milvus-lite') return 'Milvus Lite（轻量级）'
+  return 'Qdrant（向量数据库）'
+}
+
+// 获取向量存储类型标签类型
+const getVectorStoreTypeTag = (type) => {
+  if (type === 'faiss') return 'success'
+  if (type === 'milvus') return 'warning'
+  if (type === 'milvus-lite') return 'success'
+  return 'primary'
 }
 
 </script>

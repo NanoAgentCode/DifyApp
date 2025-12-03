@@ -3,6 +3,7 @@
     v-model="visible"
     title="修改密码"
     width="500px"
+    :lock-scroll="true"
     @close="handleClose"
   >
     <el-form

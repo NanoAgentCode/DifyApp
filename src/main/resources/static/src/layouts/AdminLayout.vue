@@ -63,6 +63,10 @@
             <el-icon><Setting /></el-icon>
             <span>大模型管理</span>
           </el-menu-item>
+          <el-menu-item v-if="isAdmin" index="/admin/vector-databases">
+            <el-icon><Box /></el-icon>
+            <span>数据库管理</span>
+          </el-menu-item>
         </el-menu>
       </el-aside>
       <el-main class="main">
@@ -83,7 +87,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { List, User, ArrowDown, Folder, ChatLineRound, Fold, Expand, Clock, Setting, Document } from '@element-plus/icons-vue'
+import { List, User, ArrowDown, Folder, ChatLineRound, Fold, Expand, Clock, Setting, Document, Box } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 
 const route = useRoute()

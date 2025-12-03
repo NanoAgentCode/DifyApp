@@ -32,18 +32,29 @@ public class VectorStoreService {
     private ObjectMapper objectMapper;
     
     private WebClient webClient;
+    private String lastUrl;
+    private String lastApiKey;
     
     private WebClient getWebClient() {
-        if (webClient == null) {
+        // 检查配置是否发生变化，如果变化则重新创建WebClient
+        String currentUrl = qdrantConfig.getUrl();
+        String currentApiKey = qdrantConfig.getApiKey();
+        
+        if (webClient == null || 
+            !currentUrl.equals(lastUrl) || 
+            (currentApiKey != null ? !currentApiKey.equals(lastApiKey) : lastApiKey != null)) {
             WebClient.Builder builder = WebClient.builder()
-                    .baseUrl(qdrantConfig.getUrl())
+                    .baseUrl(currentUrl)
                     .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
             
-            if (qdrantConfig.getApiKey() != null && !qdrantConfig.getApiKey().trim().isEmpty()) {
-                builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + qdrantConfig.getApiKey());
+            if (currentApiKey != null && !currentApiKey.trim().isEmpty()) {
+                builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + currentApiKey);
             }
             
             webClient = builder.build();
+            lastUrl = currentUrl;
+            lastApiKey = currentApiKey;
+            logger.debug("重新创建Qdrant WebClient - URL: {}", currentUrl);
         }
         return webClient;
     }

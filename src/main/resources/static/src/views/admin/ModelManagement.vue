@@ -245,6 +245,7 @@
       :title="dialogTitle"
       width="600px"
       :close-on-click-modal="false"
+      :lock-scroll="true"
     >
       <el-form
         :model="currentModel"
@@ -347,6 +348,7 @@
       :title="embeddingDialogTitle"
       width="600px"
       :close-on-click-modal="false"
+      :lock-scroll="true"
     >
       <el-form
         :model="currentEmbeddingModel"

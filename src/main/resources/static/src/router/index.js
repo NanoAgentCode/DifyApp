@@ -105,6 +105,12 @@ const routes = [
                 name: 'ModelManagement',
                 component: () => import('@/views/admin/ModelManagement.vue'),
                 meta: {title: '大模型管理', requiresAuth: true, requiresAdmin: true}
+            },
+            {
+                path: 'vector-databases',
+                name: 'VectorDatabaseManagement',
+                component: () => import('@/views/admin/VectorDatabaseManagement.vue'),
+                meta: {title: '数据库管理', requiresAuth: true, requiresAdmin: true}
             }
         ]
     },
