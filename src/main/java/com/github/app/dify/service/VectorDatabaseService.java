@@ -397,27 +397,113 @@ public class VectorDatabaseService {
         
         org.springframework.web.reactive.function.client.WebClient webClient = builder.build();
         
-        String healthResponse = webClient
-                .get()
-                .uri("/healthz")
-                .retrieve()
-                .bodyToMono(String.class)
-                .timeout(java.time.Duration.ofMillis(timeout))
-                .block();
+        // 尝试多个健康检查端点（不同版本的Milvus可能使用不同的端点）
+        // 首先尝试19530端口的端点
+        String[] healthEndpoints = {"/healthz", "/api/v1/health", "/health", "/api/v1/healthz"};
+        String healthResponse = null;
+        Exception lastException = null;
+        String successfulEndpoint = null;
         
-        if (healthResponse == null || healthResponse.trim().isEmpty()) {
-            // 尝试/api/v1/health
-            healthResponse = webClient
-                    .get()
-                    .uri("/api/v1/health")
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .timeout(java.time.Duration.ofMillis(timeout))
-                    .block();
+        for (String endpoint : healthEndpoints) {
+            try {
+                healthResponse = webClient
+                        .get()
+                        .uri(endpoint)
+                        .retrieve()
+                        .bodyToMono(String.class)
+                        .timeout(java.time.Duration.ofMillis(timeout))
+                        .block();
+                
+                // 如果成功获取响应且不为空，则连接成功
+                if (healthResponse != null && !healthResponse.trim().isEmpty()) {
+                    successfulEndpoint = endpoint;
+                    logger.debug("Milvus健康检查成功，使用的端点: {} (URL: {})", endpoint, trimmedUrl);
+                    break;
+                }
+            } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+                // 如果是404错误，继续尝试下一个端点
+                if (e.getStatusCode().value() == 404) {
+                    logger.debug("端点 {} 返回404，尝试下一个端点", endpoint);
+                    lastException = e;
+                    continue;
+                }
+                // 其他HTTP错误，记录并继续尝试
+                logger.debug("端点 {} 返回错误 {}: {}", endpoint, e.getStatusCode(), e.getMessage());
+                lastException = e;
+            } catch (Exception e) {
+                // 其他异常（如超时、网络错误等），记录并继续尝试
+                logger.debug("端点 {} 访问异常: {}", endpoint, e.getMessage());
+                lastException = e;
+            }
         }
         
-        if (healthResponse == null || healthResponse.trim().isEmpty()) {
-            throw new RuntimeException("Milvus健康检查返回空响应");
+        // 如果19530端口的端点都失败，尝试9091端口（metrics端口）的健康检查
+        if (successfulEndpoint == null) {
+            try {
+                // 从URL中提取协议和主机，替换端口为9091
+                java.net.URL urlObj = new java.net.URL(trimmedUrl);
+                String metricsUrl = urlObj.getProtocol() + "://" + urlObj.getHost() + ":9091";
+                logger.debug("19530端口端点都失败，尝试9091端口（metrics端口）的健康检查: {}", metricsUrl);
+                
+                org.springframework.web.reactive.function.client.WebClient.Builder metricsBuilder = 
+                        org.springframework.web.reactive.function.client.WebClient.builder()
+                                .baseUrl(metricsUrl)
+                                .defaultHeader(org.springframework.http.HttpHeaders.CONTENT_TYPE, 
+                                        org.springframework.http.MediaType.APPLICATION_JSON_VALUE);
+                
+                if (apiKey != null && !apiKey.trim().isEmpty()) {
+                    metricsBuilder.defaultHeader(org.springframework.http.HttpHeaders.AUTHORIZATION, "Bearer " + apiKey);
+                }
+                
+                org.springframework.web.reactive.function.client.WebClient metricsWebClient = metricsBuilder.build();
+                
+                try {
+                    healthResponse = metricsWebClient
+                            .get()
+                            .uri("/healthz")
+                            .retrieve()
+                            .bodyToMono(String.class)
+                            .timeout(java.time.Duration.ofMillis(timeout))
+                            .block();
+                    
+                    if (healthResponse != null && !healthResponse.trim().isEmpty()) {
+                        successfulEndpoint = "/healthz";
+                        logger.debug("Milvus健康检查成功，使用的端点: /healthz (URL: {})", metricsUrl);
+                    }
+                } catch (Exception e) {
+                    logger.debug("9091端口健康检查也失败: {}", e.getMessage());
+                    lastException = e;
+                }
+            } catch (Exception e) {
+                logger.debug("无法构建9091端口URL: {}", e.getMessage());
+            }
+        }
+        
+        // 如果找到成功的端点，返回
+        if (successfulEndpoint != null) {
+            return;
+        }
+        
+        // 所有端点都失败
+        if (lastException != null) {
+            if (lastException instanceof org.springframework.web.reactive.function.client.WebClientResponseException) {
+                org.springframework.web.reactive.function.client.WebClientResponseException webEx = 
+                    (org.springframework.web.reactive.function.client.WebClientResponseException) lastException;
+                throw new RuntimeException(
+                    String.format("Milvus连接失败: %d %s。已尝试端点: %s (19530端口) 和 /healthz (9091端口)。请检查Milvus服务是否正在运行，URL是否正确。", 
+                        webEx.getStatusCode().value(), 
+                        webEx.getStatusText(),
+                        String.join(", ", healthEndpoints)));
+            } else {
+                throw new RuntimeException(
+                    String.format("Milvus连接失败: %s。已尝试端点: %s (19530端口) 和 /healthz (9091端口)。请检查Milvus服务是否正在运行，URL是否正确。", 
+                        lastException.getMessage(),
+                        String.join(", ", healthEndpoints)));
+            }
+        } else {
+            throw new RuntimeException(
+                String.format("Milvus健康检查返回空响应。已尝试端点: %s (19530端口) 和 /healthz (9091端口)。请检查Milvus服务是否正在运行。", 
+                    String.join(", ", healthEndpoints)));
         }
     }
     

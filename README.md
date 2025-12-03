@@ -172,6 +172,44 @@ docker run -d \
 
 > **注意**：如果使用 FAISS 作为向量存储，则不需要启动 Qdrant 服务。FAISS 使用本地文件存储，无需额外服务。
 
+#### 启动 Milvus（可选，用于向量存储）
+
+**方式一：使用 docker-compose（推荐）**
+
+```bash
+cd milvus
+docker-compose up -d
+```
+
+这将启动完整的 Milvus 服务（包括 etcd 和 MinIO），服务地址：`http://localhost:19530`
+
+**方式二：使用单个 Docker 命令**
+
+```bash
+docker run -d \
+  --name milvus-standalone \
+  -p 19530:19530 \
+  -p 9091:9091 \
+  -v ./volumes/milvus:/var/lib/milvus \
+  milvusdb/milvus:v2.4.0 \
+  milvus run standalone
+```
+
+**方式三：使用 Python 服务（Milvus Lite，轻量级）**
+
+如果只需要轻量级版本，可以使用 Python 服务：
+
+```bash
+cd milvus
+pip install flask flask-cors pymilvus milvus-lite
+python milvus_lite_service.py
+```
+
+> **注意**：
+> - Milvus 和 Milvus Lite 使用相同的 HTTP API，配置方式完全相同
+> - 如果遇到 Docker 启动错误，请参考 `milvus/README_DOCKER.md`
+> - 详细说明请参考 `milvus/README_DOCKER.md` 文件
+
 #### 启动 Redis
 
 使用 Docker 启动 Redis：

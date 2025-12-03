@@ -197,30 +197,81 @@ public class MilvusConfig implements CommandLineRunner {
             
             WebClient webClient = builder.build();
             
-            // 测试健康检查端点（Milvus使用/healthz端点）
+            // 测试健康检查端点（尝试多个端点，不同版本的Milvus可能使用不同的端点）
             long startTime = System.currentTimeMillis();
+            String[] healthEndpoints = {"/healthz", "/api/v1/health", "/health", "/api/v1/healthz"};
             String healthResponseText = null;
-            try {
-                healthResponseText = webClient
-                        .get()
-                        .uri("/healthz")
-                        .retrieve()
-                        .bodyToMono(String.class)
-                        .timeout(Duration.ofMillis(getTimeout()))
-                        .block();
-            } catch (Exception e) {
-                // 如果/healthz失败，尝试/api/v1/health
-                logger.debug("尝试/healthz端点失败，尝试/api/v1/health: {}", e.getMessage());
+            String successfulEndpoint = null;
+            String successfulBaseUrl = null;
+            
+            // 首先尝试19530端口的端点
+            for (String endpoint : healthEndpoints) {
                 try {
                     healthResponseText = webClient
                             .get()
-                            .uri("/api/v1/health")
+                            .uri(endpoint)
                             .retrieve()
                             .bodyToMono(String.class)
                             .timeout(Duration.ofMillis(getTimeout()))
                             .block();
-                } catch (Exception e2) {
-                    throw e; // 抛出原始异常
+                    
+                    // 如果成功获取响应且不为空，则连接成功
+                    if (healthResponseText != null && !healthResponseText.trim().isEmpty()) {
+                        successfulEndpoint = endpoint;
+                        successfulBaseUrl = finalUrl;
+                        break;
+                    }
+                } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+                    // 如果是404错误，继续尝试下一个端点
+                    if (e.getStatusCode().value() == 404) {
+                        logger.debug("端点 {} 返回404，尝试下一个端点", endpoint);
+                        continue;
+                    }
+                    // 其他HTTP错误，记录并继续尝试
+                    logger.debug("端点 {} 返回错误 {}: {}", endpoint, e.getStatusCode(), e.getMessage());
+                } catch (Exception e) {
+                    // 其他异常（如超时、网络错误等），记录并继续尝试
+                    logger.debug("端点 {} 访问异常: {}", endpoint, e.getMessage());
+                }
+            }
+            
+            // 如果19530端口的端点都失败，尝试9091端口（metrics端口）的健康检查
+            if (successfulEndpoint == null) {
+                try {
+                    // 从URL中提取协议和主机，替换端口为9091
+                    java.net.URL urlObj = new java.net.URL(finalUrl);
+                    String metricsUrl = urlObj.getProtocol() + "://" + urlObj.getHost() + ":9091";
+                    logger.debug("19530端口端点都失败，尝试9091端口（metrics端口）的健康检查: {}", metricsUrl);
+                    
+                    WebClient.Builder metricsBuilder = WebClient.builder()
+                            .baseUrl(metricsUrl)
+                            .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+                    
+                    if (finalApiKey != null && !finalApiKey.trim().isEmpty()) {
+                        metricsBuilder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + finalApiKey);
+                    }
+                    
+                    WebClient metricsWebClient = metricsBuilder.build();
+                    
+                    try {
+                        healthResponseText = metricsWebClient
+                                .get()
+                                .uri("/healthz")
+                                .retrieve()
+                                .bodyToMono(String.class)
+                                .timeout(Duration.ofMillis(getTimeout()))
+                                .block();
+                        
+                        if (healthResponseText != null && !healthResponseText.trim().isEmpty()) {
+                            successfulEndpoint = "/healthz";
+                            successfulBaseUrl = metricsUrl;
+                            logger.debug("Milvus健康检查成功，使用的端点: /healthz (URL: {})", metricsUrl);
+                        }
+                    } catch (Exception e) {
+                        logger.debug("9091端口健康检查也失败: {}", e.getMessage());
+                    }
+                } catch (Exception e) {
+                    logger.debug("无法构建9091端口URL: {}", e.getMessage());
                 }
             }
             
@@ -228,6 +279,9 @@ public class MilvusConfig implements CommandLineRunner {
             
             if (healthResponseText != null && !healthResponseText.trim().isEmpty()) {
                 logger.info("Milvus健康检查成功！");
+                if (successfulEndpoint != null) {
+                    logger.info("使用的健康检查端点: {} (URL: {})", successfulEndpoint, successfulBaseUrl != null ? successfulBaseUrl : finalUrl);
+                }
                 logger.info("响应时间: {} 毫秒", duration);
                 logger.debug("健康检查响应: {}", healthResponseText);
                 

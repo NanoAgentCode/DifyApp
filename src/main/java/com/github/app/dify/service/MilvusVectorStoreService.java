@@ -4,22 +4,27 @@ import com.github.app.dify.config.MilvusConfig;
 import com.github.app.dify.domain.VectorDatabase;
 import com.github.app.dify.repository.KnowledgeBaseRepository;
 import com.github.app.dify.repository.VectorDatabaseRepository;
+import io.milvus.client.MilvusServiceClient;
+import io.milvus.grpc.DataType;
+import io.milvus.param.ConnectParam;
+import io.milvus.param.R;
+import io.milvus.param.collection.*;
+import io.milvus.param.dml.DeleteParam;
+import io.milvus.param.dml.InsertParam;
+import io.milvus.param.dml.SearchParam;
+import io.milvus.param.index.CreateIndexParam;
+import io.milvus.param.index.DescribeIndexParam;
+import io.milvus.response.DescribeIndexResponse;
+import io.milvus.response.SearchResultsWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
-import reactor.core.publisher.Mono;
 
-import java.time.Duration;
 import java.util.*;
 
 /**
- * Milvus向量存储服务（使用HTTP REST API）
+ * Milvus向量存储服务（使用gRPC）
  * 支持Milvus和Milvus Lite
  */
 @Service
@@ -36,15 +41,16 @@ public class MilvusVectorStoreService {
     @Autowired(required = false)
     private KnowledgeBaseRepository knowledgeBaseRepository;
     
-    // 为每个知识库缓存WebClient（因为不同知识库可能使用不同的配置）
-    private final Map<Long, WebClient> webClientCache = new HashMap<>();
-    private final Map<Long, String> lastUrlCache = new HashMap<>();
+    // 为每个知识库缓存Milvus客户端（因为不同知识库可能使用不同的配置）
+    private final Map<Long, MilvusServiceClient> clientCache = new HashMap<>();
+    private final Map<Long, String> lastHostCache = new HashMap<>();
+    private final Map<Long, Integer> lastPortCache = new HashMap<>();
     private final Map<Long, String> lastApiKeyCache = new HashMap<>();
     
     /**
-     * 获取指定知识库的WebClient
+     * 获取指定知识库的Milvus客户端
      */
-    private WebClient getWebClient(Long knowledgeBaseId) {
+    private MilvusServiceClient getMilvusClient(Long knowledgeBaseId) {
         // 获取知识库的向量存储类型
         String vectorStoreType = getVectorStoreType(knowledgeBaseId);
         
@@ -83,40 +89,71 @@ public class MilvusVectorStoreService {
             }
         }
         
-        // 检查URL是否有效
-        if (currentUrl == null || currentUrl.trim().isEmpty()) {
-            logger.warn("Milvus URL为空，使用默认URL: http://localhost:19530");
-            currentUrl = "http://localhost:19530";
-        } else if (!currentUrl.startsWith("http://") && !currentUrl.startsWith("https://")) {
-            // 如果不是HTTP URL，使用默认URL（Milvus 和 Milvus Lite 都需要 HTTP API）
-            logger.warn("Milvus URL配置为文件路径: {}，但需要HTTP URL。使用默认URL: http://localhost:19530", currentUrl);
-            currentUrl = "http://localhost:19530";
+        // 解析URL，提取主机和端口
+        String host = "localhost";
+        int port = 19530;
+        
+        if (currentUrl != null && !currentUrl.trim().isEmpty()) {
+            try {
+                // 支持 http://host:port 或 host:port 格式
+                String urlStr = currentUrl.trim();
+                if (urlStr.startsWith("http://")) {
+                    urlStr = urlStr.substring(7);
+                } else if (urlStr.startsWith("https://")) {
+                    urlStr = urlStr.substring(8);
+                }
+                
+                if (urlStr.contains(":")) {
+                    String[] parts = urlStr.split(":");
+                    host = parts[0];
+                    port = Integer.parseInt(parts[1]);
+                } else {
+                    host = urlStr;
+                }
+            } catch (Exception e) {
+                logger.warn("解析Milvus URL失败: {}, 使用默认值 localhost:19530", currentUrl, e);
+            }
         }
         
         // 检查缓存
-        String lastUrl = lastUrlCache.get(knowledgeBaseId);
+        String lastHost = lastHostCache.get(knowledgeBaseId);
+        Integer lastPort = lastPortCache.get(knowledgeBaseId);
         String lastApiKey = lastApiKeyCache.get(knowledgeBaseId);
-        WebClient webClient = webClientCache.get(knowledgeBaseId);
+        MilvusServiceClient client = clientCache.get(knowledgeBaseId);
         
-        if (webClient == null || 
-            !currentUrl.equals(lastUrl) || 
+        if (client == null || 
+            !host.equals(lastHost) || 
+            port != (lastPort != null ? lastPort : 19530) ||
             (currentApiKey != null ? !currentApiKey.equals(lastApiKey) : lastApiKey != null)) {
-            WebClient.Builder builder = WebClient.builder()
-                    .baseUrl(currentUrl)
-                    .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
             
-            if (currentApiKey != null && !currentApiKey.trim().isEmpty()) {
-                builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + currentApiKey);
+            // 关闭旧的客户端
+            if (client != null) {
+                try {
+                    client.close();
+                } catch (Exception e) {
+                    logger.warn("关闭旧的Milvus客户端失败", e);
+                }
             }
             
-            webClient = builder.build();
-            webClientCache.put(knowledgeBaseId, webClient);
-            lastUrlCache.put(knowledgeBaseId, currentUrl);
+            // 创建新的客户端
+            ConnectParam connectParam = ConnectParam.newBuilder()
+                    .withHost(host)
+                    .withPort(port)
+                    .build();
+            
+            // 注意：Milvus Java SDK 2.3.4 可能不支持用户名/密码认证
+            // 如果需要认证，可能需要使用其他方式或更新 SDK 版本
+            client = new MilvusServiceClient(connectParam);
+            
+            clientCache.put(knowledgeBaseId, client);
+            lastHostCache.put(knowledgeBaseId, host);
+            lastPortCache.put(knowledgeBaseId, port);
             lastApiKeyCache.put(knowledgeBaseId, currentApiKey);
-            logger.debug("为知识库创建Milvus WebClient - 知识库ID: {}, 类型: {}, URL: {}", 
-                    knowledgeBaseId, vectorStoreType, currentUrl);
+            
+            logger.debug("为知识库创建Milvus客户端 - 知识库ID: {}, 类型: {}, 主机: {}, 端口: {}", 
+                    knowledgeBaseId, vectorStoreType, host, port);
         }
-        return webClient;
+        return client;
     }
     
     /**
@@ -225,92 +262,79 @@ public class MilvusVectorStoreService {
      */
     private void createCollection(Long knowledgeBaseId, String collectionName, int vectorSize) {
         try {
-            // Milvus HTTP API创建集合
-            Map<String, Object> createRequest = new HashMap<>();
-            createRequest.put("collection_name", collectionName);
+            MilvusServiceClient client = getMilvusClient(knowledgeBaseId);
             
             // 定义字段
-            List<Map<String, Object>> fields = new ArrayList<>();
+            List<FieldType> fields = new ArrayList<>();
             
             // ID字段
-            Map<String, Object> idField = new HashMap<>();
-            idField.put("field_name", "id");
-            idField.put("data_type", "Int64");
-            idField.put("is_primary", true);
-            idField.put("auto_id", false);
+            FieldType idField = FieldType.newBuilder()
+                    .withName("id")
+                    .withDataType(DataType.Int64)
+                    .withPrimaryKey(true)
+                    .withAutoID(false)
+                    .build();
             fields.add(idField);
             
             // 向量字段
-            Map<String, Object> vectorField = new HashMap<>();
-            vectorField.put("field_name", "vector");
-            vectorField.put("data_type", "FloatVector");
-            Map<String, Object> typeParams = new HashMap<>();
-            typeParams.put("dim", vectorSize);
-            vectorField.put("type_params", typeParams);
+            FieldType vectorField = FieldType.newBuilder()
+                    .withName("vector")
+                    .withDataType(DataType.FloatVector)
+                    .withDimension(vectorSize)
+                    .build();
             fields.add(vectorField);
             
             // document_id字段
-            Map<String, Object> docIdField = new HashMap<>();
-            docIdField.put("field_name", "document_id");
-            docIdField.put("data_type", "Int64");
+            FieldType docIdField = FieldType.newBuilder()
+                    .withName("document_id")
+                    .withDataType(DataType.Int64)
+                    .build();
             fields.add(docIdField);
             
             // chunk_index字段
-            Map<String, Object> chunkIndexField = new HashMap<>();
-            chunkIndexField.put("field_name", "chunk_index");
-            chunkIndexField.put("data_type", "Int32");
+            FieldType chunkIndexField = FieldType.newBuilder()
+                    .withName("chunk_index")
+                    .withDataType(DataType.Int32)
+                    .build();
             fields.add(chunkIndexField);
             
             // text字段
-            Map<String, Object> textField = new HashMap<>();
-            textField.put("field_name", "text");
-            textField.put("data_type", "VarChar");
-            Map<String, Object> textTypeParams = new HashMap<>();
-            textTypeParams.put("max_length", 65535);
-            textField.put("type_params", textTypeParams);
+            FieldType textField = FieldType.newBuilder()
+                    .withName("text")
+                    .withDataType(DataType.VarChar)
+                    .withMaxLength(65535)
+                    .build();
             fields.add(textField);
             
             // knowledge_base_id字段
-            Map<String, Object> kbIdField = new HashMap<>();
-            kbIdField.put("field_name", "knowledge_base_id");
-            kbIdField.put("data_type", "Int64");
+            FieldType kbIdField = FieldType.newBuilder()
+                    .withName("knowledge_base_id")
+                    .withDataType(DataType.Int64)
+                    .build();
             fields.add(kbIdField);
             
-            createRequest.put("fields", fields);
+            // 创建集合
+            CreateCollectionParam.Builder createBuilder = CreateCollectionParam.newBuilder()
+                    .withCollectionName(collectionName)
+                    .withDescription("Knowledge base collection: " + collectionName);
             
-            logger.debug("创建Milvus集合请求 - 集合名: {}, 请求体: {}", collectionName, createRequest);
+            for (FieldType field : fields) {
+                createBuilder.addFieldType(field);
+            }
             
-            getWebClient(knowledgeBaseId)
-                    .post()
-                    .uri("/api/v1/collection")
-                    .bodyValue(createRequest)
-                    .retrieve()
-                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
-                            clientResponse -> {
-                                Mono<String> errorBodyMono = clientResponse.bodyToMono(String.class)
-                                        .defaultIfEmpty("");
-                                
-                                return errorBodyMono.flatMap(errorBody -> {
-                                    String errorMsg = "创建Milvus集合失败: HTTP " + clientResponse.statusCode();
-                                    if (errorBody != null && !errorBody.isEmpty()) {
-                                        errorMsg += " - " + errorBody;
-                                    }
-                                    logger.error("创建Milvus集合失败 - 集合名: {}, HTTP状态: {}, 错误响应: {}", 
-                                            collectionName, clientResponse.statusCode(), errorBody);
-                                    return Mono.<RuntimeException>error(new RuntimeException(errorMsg));
-                                });
-                            })
-                    .bodyToMono(String.class)
-                    .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
-                    .block();
+            CreateCollectionParam createParam = createBuilder.build();
+            
+            logger.debug("创建Milvus集合 - 集合名: {}, 向量维度: {}", collectionName, vectorSize);
+            
+            R<?> response = client.createCollection(createParam);
+            if (response.getStatus() != R.Status.Success.getCode()) {
+                throw new RuntimeException("创建Milvus集合失败: " + response.getMessage());
+            }
             
             logger.info("创建Milvus集合成功 - 集合名: {}, 向量维度: {}", collectionName, vectorSize);
             
-            // 创建索引
-            createIndex(knowledgeBaseId, collectionName);
-            
-            // 加载集合
-            loadCollection(knowledgeBaseId, collectionName);
+            // 注意：索引应该在插入数据后创建，所以这里不创建索引
+            // 集合会在插入数据后自动加载
             
         } catch (Exception e) {
             logger.error("创建Milvus集合失败 - 集合名: {}", collectionName, e);
@@ -323,35 +347,86 @@ public class MilvusVectorStoreService {
      */
     private void createIndex(Long knowledgeBaseId, String collectionName) {
         try {
-            Map<String, Object> indexRequest = new HashMap<>();
-            indexRequest.put("collection_name", collectionName);
-            indexRequest.put("field_name", "vector");
+            MilvusServiceClient client = getMilvusClient(knowledgeBaseId);
+            
+            // 创建索引参数
             Map<String, Object> indexParams = new HashMap<>();
-            indexParams.put("index_type", "IVF_FLAT");
-            indexParams.put("metric_type", "COSINE");
-            Map<String, Object> params = new HashMap<>();
-            params.put("nlist", 1024);
-            indexParams.put("params", params);
-            indexRequest.put("index_params", indexParams);
+            indexParams.put("nlist", 1024);
             
-            getWebClient(knowledgeBaseId)
-                    .post()
-                    .uri("/api/v1/index")
-                    .bodyValue(indexRequest)
-                    .retrieve()
-                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
-                            clientResponse -> {
-                                logger.warn("创建Milvus索引失败，但继续执行 - 集合名: {}, HTTP状态: {}", 
-                                        collectionName, clientResponse.statusCode());
-                                return Mono.empty();
-                            })
-                    .bodyToMono(String.class)
-                    .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
-                    .block();
+            CreateIndexParam indexParam = CreateIndexParam.newBuilder()
+                    .withCollectionName(collectionName)
+                    .withFieldName("vector")
+                    .withIndexType(io.milvus.param.IndexType.IVF_FLAT)
+                    .withMetricType(io.milvus.param.MetricType.COSINE)
+                    .withExtraParam("{\"nlist\":1024}")
+                    .withSyncMode(Boolean.FALSE)
+                    .build();
             
-            logger.info("创建Milvus索引成功 - 集合名: {}", collectionName);
+            R<?> response = client.createIndex(indexParam);
+            if (response.getStatus() != R.Status.Success.getCode()) {
+                logger.warn("创建Milvus索引失败，但继续执行 - 集合名: {}, 错误: {}", 
+                        collectionName, response.getMessage());
+            } else {
+                logger.info("创建Milvus索引成功 - 集合名: {}", collectionName);
+            }
         } catch (Exception e) {
             logger.warn("创建Milvus索引失败，但继续执行 - 集合名: {}", collectionName, e);
+        }
+    }
+    
+    /**
+     * 刷新集合数据
+     */
+    private void flushCollection(Long knowledgeBaseId, String collectionName) {
+        try {
+            MilvusServiceClient client = getMilvusClient(knowledgeBaseId);
+            
+            FlushParam flushParam = FlushParam.newBuilder()
+                    .withCollectionNames(Collections.singletonList(collectionName))
+                    .build();
+            
+            R<?> response = client.flush(flushParam);
+            if (response.getStatus() != R.Status.Success.getCode()) {
+                logger.warn("刷新Milvus集合失败，但继续执行 - 集合名: {}, 错误: {}", 
+                        collectionName, response.getMessage());
+            } else {
+                logger.debug("刷新Milvus集合成功 - 集合名: {}", collectionName);
+            }
+        } catch (Exception e) {
+            logger.warn("刷新Milvus集合失败，但继续执行 - 集合名: {}", collectionName, e);
+        }
+    }
+    
+    /**
+     * 确保索引存在
+     */
+    private void ensureIndexExists(Long knowledgeBaseId, String collectionName) {
+        try {
+            MilvusServiceClient client = getMilvusClient(knowledgeBaseId);
+            
+            // 检查索引是否存在
+            DescribeIndexParam describeParam = DescribeIndexParam.newBuilder()
+                    .withCollectionName(collectionName)
+                    .withFieldName("vector")
+                    .build();
+            
+            R<DescribeIndexResponse> describeResponse = client.describeIndex(describeParam);
+            if (describeResponse.getStatus() == R.Status.Success.getCode() && 
+                describeResponse.getData() != null && 
+                describeResponse.getData().getIndexDescriptions() != null &&
+                !describeResponse.getData().getIndexDescriptions().isEmpty()) {
+                // 索引已存在
+                logger.debug("Milvus索引已存在 - 集合名: {}", collectionName);
+                return;
+            }
+            
+            // 索引不存在，创建索引
+            logger.info("Milvus索引不存在，开始创建索引 - 集合名: {}", collectionName);
+            createIndex(knowledgeBaseId, collectionName);
+        } catch (Exception e) {
+            logger.warn("检查Milvus索引失败，尝试创建索引 - 集合名: {}", collectionName, e);
+            // 如果检查失败，尝试直接创建索引
+            createIndex(knowledgeBaseId, collectionName);
         }
     }
     
@@ -360,25 +435,19 @@ public class MilvusVectorStoreService {
      */
     private void loadCollection(Long knowledgeBaseId, String collectionName) {
         try {
-            Map<String, Object> loadRequest = new HashMap<>();
-            loadRequest.put("collection_name", collectionName);
+            MilvusServiceClient client = getMilvusClient(knowledgeBaseId);
             
-            getWebClient(knowledgeBaseId)
-                    .post()
-                    .uri("/api/v1/collection/load")
-                    .bodyValue(loadRequest)
-                    .retrieve()
-                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
-                            clientResponse -> {
-                                logger.warn("加载Milvus集合失败，但继续执行 - 集合名: {}, HTTP状态: {}", 
-                                        collectionName, clientResponse.statusCode());
-                                return Mono.empty();
-                            })
-                    .bodyToMono(String.class)
-                    .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
-                    .block();
+            LoadCollectionParam loadParam = LoadCollectionParam.newBuilder()
+                    .withCollectionName(collectionName)
+                    .build();
             
-            logger.debug("加载Milvus集合成功 - 集合名: {}", collectionName);
+            R<?> response = client.loadCollection(loadParam);
+            if (response.getStatus() != R.Status.Success.getCode()) {
+                logger.warn("加载Milvus集合失败，但继续执行 - 集合名: {}, 错误: {}", 
+                        collectionName, response.getMessage());
+            } else {
+                logger.debug("加载Milvus集合成功 - 集合名: {}", collectionName);
+            }
         } catch (Exception e) {
             logger.warn("加载Milvus集合失败，但继续执行 - 集合名: {}", collectionName, e);
         }
@@ -389,32 +458,19 @@ public class MilvusVectorStoreService {
      */
     private boolean collectionExists(Long knowledgeBaseId, String collectionName) {
         try {
-            Map<String, Object> response = getWebClient(knowledgeBaseId)
-                    .get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/api/v1/collection")
-                            .queryParam("collection_name", collectionName)
-                            .build())
-                    .retrieve()
-                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
-                            clientResponse -> {
-                                if (clientResponse.statusCode().value() == 404) {
-                                    return Mono.empty();
-                                }
-                                return Mono.error(new RuntimeException(
-                                        "检查集合存在性失败: HTTP " + clientResponse.statusCode()));
-                            })
-                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
-                    .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
-                    .block();
+            MilvusServiceClient client = getMilvusClient(knowledgeBaseId);
             
-            return response != null;
-        } catch (WebClientResponseException e) {
-            if (e.getStatusCode().value() == 404) {
+            HasCollectionParam param = HasCollectionParam.newBuilder()
+                    .withCollectionName(collectionName)
+                    .build();
+            
+            R<Boolean> response = client.hasCollection(param);
+            if (response.getStatus() != R.Status.Success.getCode()) {
+                logger.warn("检查集合存在性失败 - 集合名: {}, 错误: {}", collectionName, response.getMessage());
                 return false;
             }
-            logger.warn("检查集合存在性失败 - 集合名: {}, HTTP状态: {}", collectionName, e.getStatusCode());
-            return false;
+            
+            return response.getData() != null && response.getData();
         } catch (Exception e) {
             logger.warn("检查集合存在性失败 - 集合名: {}", collectionName, e);
             return false;
@@ -437,6 +493,8 @@ public class MilvusVectorStoreService {
         try {
             // 先删除该文档的旧向量
             deleteDocumentVectors(knowledgeBaseId, documentId);
+            
+            MilvusServiceClient client = getMilvusClient(knowledgeBaseId);
             
             // 准备插入数据
             List<Long> ids = new ArrayList<>();
@@ -461,47 +519,40 @@ public class MilvusVectorStoreService {
                 knowledgeBaseIdList.add(knowledgeBaseId);
             }
             
-            // 构建插入请求
-            Map<String, Object> insertRequest = new HashMap<>();
-            insertRequest.put("collection_name", collectionName);
-            Map<String, Object> data = new HashMap<>();
-            data.put("id", ids);
-            data.put("vector", vectorList);
-            data.put("document_id", documentIds);
-            data.put("chunk_index", chunkIndexList);
-            data.put("text", textList);
-            data.put("knowledge_base_id", knowledgeBaseIdList);
-            insertRequest.put("data", data);
+            // 构建插入数据
+            List<InsertParam.Field> fields = new ArrayList<>();
+            fields.add(new InsertParam.Field("id", ids));
+            fields.add(new InsertParam.Field("vector", vectorList));
+            fields.add(new InsertParam.Field("document_id", documentIds));
+            fields.add(new InsertParam.Field("chunk_index", chunkIndexList));
+            fields.add(new InsertParam.Field("text", textList));
+            fields.add(new InsertParam.Field("knowledge_base_id", knowledgeBaseIdList));
+            
+            InsertParam insertParam = InsertParam.newBuilder()
+                    .withCollectionName(collectionName)
+                    .withFields(fields)
+                    .build();
             
             logger.debug("发送Milvus向量插入请求 - 知识库ID: {}, 文档ID: {}, 集合名: {}, 向量数量: {}", 
                     knowledgeBaseId, documentId, collectionName, vectors.size());
             
-            getWebClient(knowledgeBaseId)
-                    .post()
-                    .uri("/api/v1/entities")
-                    .bodyValue(insertRequest)
-                    .retrieve()
-                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
-                            clientResponse -> {
-                                Mono<String> errorBodyMono = clientResponse.bodyToMono(String.class)
-                                        .defaultIfEmpty("");
-                                
-                                return errorBodyMono.flatMap(errorBody -> {
-                                    String errorMsg = "插入Milvus向量失败: HTTP " + clientResponse.statusCode();
-                                    if (errorBody != null && !errorBody.isEmpty()) {
-                                        errorMsg += " - " + errorBody;
-                                    }
-                                    logger.error("插入Milvus向量失败 - 知识库ID: {}, 文档ID: {}, 集合名: {}, HTTP状态: {}, 错误响应: {}", 
-                                            knowledgeBaseId, documentId, collectionName, clientResponse.statusCode(), errorBody);
-                                    return Mono.<RuntimeException>error(new RuntimeException(errorMsg));
-                                });
-                            })
-                    .bodyToMono(String.class)
-                    .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
-                    .block();
+            R<?> response = client.insert(insertParam);
+            if (response.getStatus() != R.Status.Success.getCode()) {
+                throw new RuntimeException("插入Milvus向量失败: " + response.getMessage());
+            }
             
             logger.info("Milvus向量插入完成 - 知识库ID: {}, 文档ID: {}, 向量数量: {}", 
                     knowledgeBaseId, documentId, vectors.size());
+            
+            // 刷新数据，确保数据可以被搜索
+            flushCollection(knowledgeBaseId, collectionName);
+            
+            // 如果集合还没有索引，创建索引
+            // 注意：只有在集合有数据时才能创建索引
+            ensureIndexExists(knowledgeBaseId, collectionName);
+            
+            // 确保集合已加载
+            loadCollection(knowledgeBaseId, collectionName);
             
         } catch (Exception e) {
             logger.error("向量插入失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId, e);
@@ -529,86 +580,107 @@ public class MilvusVectorStoreService {
         }
         
         try {
+            MilvusServiceClient client = getMilvusClient(knowledgeBaseId);
+            
             // 确保集合已加载
             loadCollection(knowledgeBaseId, collectionName);
             
-            // 构建搜索请求
-            Map<String, Object> searchRequest = new HashMap<>();
-            searchRequest.put("collection_name", collectionName);
-            searchRequest.put("vector", queryVector);
-            searchRequest.put("top_k", topK);
-            searchRequest.put("metric_type", "COSINE");
-            searchRequest.put("output_fields", Arrays.asList("text", "document_id", "chunk_index"));
-            Map<String, Object> searchParams = new HashMap<>();
-            searchParams.put("nprobe", 10);
-            searchRequest.put("params", searchParams);
+            // 构建搜索参数
+            List<String> outputFields = Arrays.asList("text", "document_id", "chunk_index");
+            List<List<Float>> searchVectors = Collections.singletonList(queryVector);
+            
+            String searchParams = "{\"nprobe\":10}";
+            
+            SearchParam searchParam = SearchParam.newBuilder()
+                    .withCollectionName(collectionName)
+                    .withMetricType(io.milvus.param.MetricType.COSINE)
+                    .withOutFields(outputFields)
+                    .withTopK(topK)
+                    .withVectors(searchVectors)
+                    .withVectorFieldName("vector")
+                    .withParams(searchParams)
+                    .build();
             
             logger.debug("发送Milvus搜索请求 - 知识库ID: {}, 集合名: {}, 向量维度: {}, topK: {}", 
                     knowledgeBaseId, collectionName, queryVector.size(), topK);
             
-            Map<String, Object> response = getWebClient(knowledgeBaseId)
-                    .post()
-                    .uri("/api/v1/search")
-                    .bodyValue(searchRequest)
-                    .retrieve()
-                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(), 
-                            clientResponse -> {
-                                Mono<String> errorBodyMono = clientResponse.bodyToMono(String.class)
-                                        .defaultIfEmpty("");
-                                
-                                return errorBodyMono.flatMap(errorBody -> {
-                                    String errorMsg = "Milvus搜索失败: HTTP " + clientResponse.statusCode();
-                                    if (errorBody != null && !errorBody.isEmpty()) {
-                                        errorMsg += " - " + errorBody;
-                                    }
-                                    logger.error("Milvus搜索失败 - 知识库ID: {}, 集合名: {}, HTTP状态: {}, 错误响应: {}", 
-                                            knowledgeBaseId, collectionName, clientResponse.statusCode(), errorBody);
-                                    return Mono.<RuntimeException>error(new RuntimeException(errorMsg));
-                                });
-                            })
-                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
-                    .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
-                    .block();
+            R<?> response = client.search(searchParam);
+            if (response.getStatus() != R.Status.Success.getCode()) {
+                throw new RuntimeException("Milvus搜索失败: " + response.getMessage());
+            }
             
             List<SearchResult> results = new ArrayList<>();
             
-            if (response != null && response.containsKey("results")) {
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> resultList = (List<Map<String, Object>>) response.get("results");
-                
-                for (Map<String, Object> item : resultList) {
-                    SearchResult result = new SearchResult();
+            // 获取搜索结果
+            // 注意：由于 Milvus Java SDK 版本差异，这里使用反射来兼容不同版本
+            Object data = response.getData();
+            if (data != null) {
+                try {
+                    // 尝试获取 Results 字段
+                    java.lang.reflect.Method getResultsMethod = data.getClass().getMethod("getResults");
+                    Object resultsObj = getResultsMethod.invoke(data);
                     
-                    // 获取相似度分数
-                    Object scoreObj = item.get("distance");
-                    if (scoreObj instanceof Number) {
-                        // COSINE距离转换为相似度：similarity = 1 - distance
-                        double distance = ((Number) scoreObj).doubleValue();
+                    // 使用 SearchResultsWrapper 包装结果
+                    // 注意：SearchResultsWrapper 的构造函数可能因版本而异，这里使用反射创建
+                    SearchResultsWrapper wrapper;
+                    try {
+                        // 尝试使用 SearchResults 参数的构造函数
+                        java.lang.reflect.Constructor<SearchResultsWrapper> constructor = 
+                            SearchResultsWrapper.class.getConstructor(io.milvus.grpc.SearchResults.class);
+                        wrapper = constructor.newInstance((io.milvus.grpc.SearchResults) resultsObj);
+                    } catch (Exception e1) {
+                        // 如果失败，尝试使用 Object 参数的构造函数
+                        try {
+                            java.lang.reflect.Constructor<SearchResultsWrapper> constructor = 
+                                SearchResultsWrapper.class.getConstructor(Object.class);
+                            wrapper = constructor.newInstance(resultsObj);
+                        } catch (Exception e2) {
+                            throw new RuntimeException("无法创建 SearchResultsWrapper，请检查 Milvus Java SDK 版本。错误: " + e2.getMessage(), e2);
+                        }
+                    }
+                    
+                    int rowCount = wrapper.getIDScore(0).size();
+                    for (int i = 0; i < rowCount; i++) {
+                        SearchResult result = new SearchResult();
+                        
+                        // 获取相似度分数（COSINE距离转换为相似度）
+                        float distance = wrapper.getIDScore(0).get(i).getScore();
                         double score = 1.0 - distance;
                         result.setScore(score);
-                    }
-                    
-                    // 获取字段值
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> entity = (Map<String, Object>) item.get("entity");
-                    if (entity != null) {
-                        Object textObj = entity.get("text");
-                        if (textObj != null) {
-                            result.setText(textObj.toString());
+                        
+                        // 从结果中获取字段值 - 使用正确的 API
+                        try {
+                            List<?> textList = (List<?>) wrapper.getFieldWrapper("text").getFieldData();
+                            if (textList != null && i < textList.size()) {
+                                result.setText(textList.get(i).toString());
+                            }
+                        } catch (Exception e) {
+                            logger.debug("获取text字段失败", e);
                         }
                         
-                        Object docIdObj = entity.get("document_id");
-                        if (docIdObj instanceof Number) {
-                            result.setDocumentId(((Number) docIdObj).longValue());
+                        try {
+                            List<?> docIdList = (List<?>) wrapper.getFieldWrapper("document_id").getFieldData();
+                            if (docIdList != null && i < docIdList.size()) {
+                                result.setDocumentId(((Number) docIdList.get(i)).longValue());
+                            }
+                        } catch (Exception e) {
+                            logger.debug("获取document_id字段失败", e);
                         }
                         
-                        Object chunkIndexObj = entity.get("chunk_index");
-                        if (chunkIndexObj instanceof Number) {
-                            result.setChunkIndex(((Number) chunkIndexObj).intValue());
+                        try {
+                            List<?> chunkIndexList = (List<?>) wrapper.getFieldWrapper("chunk_index").getFieldData();
+                            if (chunkIndexList != null && i < chunkIndexList.size()) {
+                                result.setChunkIndex(((Number) chunkIndexList.get(i)).intValue());
+                            }
+                        } catch (Exception e) {
+                            logger.debug("获取chunk_index字段失败", e);
                         }
+                        
+                        results.add(result);
                     }
-                    
-                    results.add(result);
+                } catch (Exception e) {
+                    logger.error("解析搜索结果失败", e);
+                    throw new RuntimeException("解析搜索结果失败: " + e.getMessage(), e);
                 }
             }
             
@@ -617,18 +689,6 @@ public class MilvusVectorStoreService {
             
             return results;
             
-        } catch (WebClientResponseException e) {
-            logger.error("向量检索失败 - 知识库ID: {}, 集合名: {}, HTTP状态: {}, 响应体: {}", 
-                    knowledgeBaseId, collectionName, e.getStatusCode(), e.getResponseBodyAsString(), e);
-            
-            if (e.getStatusCode().value() == 404) {
-                logger.warn("Milvus集合不存在 - 知识库ID: {}, 集合名: {}, 返回空结果", 
-                        knowledgeBaseId, collectionName);
-                return new ArrayList<>();
-            }
-            
-            throw new RuntimeException("向量检索失败: " + e.getMessage() + 
-                    (e.getResponseBodyAsString() != null ? " - " + e.getResponseBodyAsString() : ""), e);
         } catch (Exception e) {
             logger.error("向量检索失败 - 知识库ID: {}, 集合名: {}", knowledgeBaseId, collectionName, e);
             throw new RuntimeException("向量检索失败: " + e.getMessage(), e);
@@ -649,59 +709,31 @@ public class MilvusVectorStoreService {
         }
         
         try {
-            // 构建删除请求
-            Map<String, Object> deleteRequest = new HashMap<>();
-            deleteRequest.put("collection_name", collectionName);
-            deleteRequest.put("expr", String.format("document_id == %d", documentId));
+            MilvusServiceClient client = getMilvusClient(knowledgeBaseId);
+            
+            // 构建删除表达式
+            String expr = String.format("document_id == %d", documentId);
+            
+            DeleteParam deleteParam = DeleteParam.newBuilder()
+                    .withCollectionName(collectionName)
+                    .withExpr(expr)
+                    .build();
             
             logger.debug("发送删除Milvus向量请求 - 知识库ID: {}, 文档ID: {}, 集合名: {}", 
                     knowledgeBaseId, documentId, collectionName);
             
-            getWebClient(knowledgeBaseId)
-                    .post()
-                    .uri("/api/v1/entities/delete")
-                    .bodyValue(deleteRequest)
-                    .retrieve()
-                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
-                            clientResponse -> {
-                                Mono<String> errorBodyMono = clientResponse.bodyToMono(String.class)
-                                        .defaultIfEmpty("");
-                                
-                                return errorBodyMono.flatMap(errorBody -> {
-                                    String errorMsg = "删除Milvus向量失败: HTTP " + clientResponse.statusCode();
-                                    if (errorBody != null && !errorBody.isEmpty()) {
-                                        errorMsg += " - " + errorBody;
-                                    }
-                                    logger.warn("删除Milvus向量失败 - 知识库ID: {}, 文档ID: {}, 集合名: {}, HTTP状态: {}, 错误响应: {}", 
-                                            knowledgeBaseId, documentId, collectionName, clientResponse.statusCode(), errorBody);
-                                    
-                                    // 如果是400错误，可能是没有匹配的点，这是正常情况
-                                    if (clientResponse.statusCode().value() == 400) {
-                                        return Mono.empty(); // 返回空，不抛出异常
-                                    }
-                                    
-                                    return Mono.<RuntimeException>error(new RuntimeException(errorMsg));
-                                });
-                            })
-                    .bodyToMono(String.class)
-                    .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
-                    .block();
-            
-            logger.info("删除文档向量成功 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
-            
-        } catch (WebClientResponseException e) {
-            if (e.getStatusCode().value() == 400) {
-                logger.warn("删除向量返回400错误（可能是没有匹配的点）- 知识库ID: {}, 文档ID: {}, 集合名: {}", 
-                        knowledgeBaseId, documentId, collectionName);
-                return;
+            R<?> response = client.delete(deleteParam);
+            if (response.getStatus() != R.Status.Success.getCode()) {
+                // 如果是集合不存在或其他错误，记录警告但不抛出异常
+                logger.warn("删除Milvus向量失败 - 知识库ID: {}, 文档ID: {}, 集合名: {}, 错误: {}", 
+                        knowledgeBaseId, documentId, collectionName, response.getMessage());
+            } else {
+                logger.info("删除文档向量成功 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
             }
-            logger.error("删除文档向量失败 - 知识库ID: {}, 文档ID: {}, HTTP状态: {}, 响应: {}", 
-                    knowledgeBaseId, documentId, e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RuntimeException("删除文档向量失败: " + e.getMessage() + 
-                    (e.getResponseBodyAsString() != null ? " - " + e.getResponseBodyAsString() : ""), e);
+            
         } catch (Exception e) {
-            logger.error("删除文档向量失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId, e);
-            throw new RuntimeException("删除文档向量失败: " + e.getMessage(), e);
+            logger.warn("删除文档向量失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId, e);
+            // 删除失败不抛出异常，避免影响其他操作
         }
     }
     
