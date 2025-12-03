@@ -43,25 +43,27 @@
               <p>未找到匹配的知识库</p>
             </div>
             <template v-else>
-              <div
+              <el-tooltip
                 v-for="kb in displayedKnowledgeBases"
                 :key="kb.id"
-                :class="['kb-item', { active: selectedKB?.id === kb.id, disabled: !isEmbeddingModelEnabled(kb.embeddingModelId) }]"
-                @click="!isEmbeddingModelEnabled(kb.embeddingModelId) ? null : selectKB(kb)"
+                :content="getKnowledgeBaseDisabledTip(kb)"
+                placement="right"
+                :disabled="!getKnowledgeBaseDisabledTip(kb)"
+                :teleported="false"
               >
+                <template #default>
+                  <div
+                    :class="['kb-item', { 
+                      active: selectedKB?.id === kb.id, 
+                      disabled: !isKnowledgeBaseActive(kb.status) || !isEmbeddingModelEnabled(kb.embeddingModelId) || !isVectorStoreTypeEnabled(kb.vectorStoreType)
+                    }]"
+                    @click="(!isKnowledgeBaseActive(kb.status) || !isEmbeddingModelEnabled(kb.embeddingModelId) || !isVectorStoreTypeEnabled(kb.vectorStoreType)) ? null : selectKB(kb)"
+                  >
                 <el-icon class="kb-icon"><Document /></el-icon>
                 <div class="kb-info">
                   <div class="kb-name">{{ kb.name }}</div>
                   <div class="kb-meta">
                     <span class="kb-docs">{{ kb.documentCount }} 个文档</span>
-                    <el-tag 
-                      v-if="getEmbeddingModelName(kb.embeddingModelId)" 
-                      size="small"
-                      class="kb-model-tag"
-                      :style="getModelStyle(kb.embeddingModelId)"
-                    >
-                      {{ getEmbeddingModelName(kb.embeddingModelId) }}
-                    </el-tag>
                   </div>
                 </div>
                 <el-tag
@@ -72,7 +74,27 @@
                 >
                   启用
                 </el-tag>
-              </div>
+                <el-tag
+                  v-else-if="kb.status === 'inactive'"
+                  type="danger"
+                  size="small"
+                  class="kb-status"
+                >
+                  禁用
+                </el-tag>
+                <!-- 禁用原因提示图标 -->
+                <el-icon 
+                  v-if="getKnowledgeBaseDisabledTip(kb)"
+                  class="kb-warning-icon"
+                  :title="getKnowledgeBaseDisabledTip(kb)"
+                >
+                  <Warning />
+                </el-icon>
+                <!-- 占位符，确保没有警告图标时也保持相同宽度 -->
+                <span v-else class="kb-warning-placeholder"></span>
+                  </div>
+                </template>
+              </el-tooltip>
               <!-- 加载更多按钮 -->
               <div v-if="hasMoreToLoad" class="load-more-container">
                 <el-button
@@ -113,7 +135,7 @@
                   placeholder="选择问答模型"
                   size="small"
                   style="width: 200px;"
-                  :disabled="sending || !isEmbeddingModelEnabled(selectedKB.embeddingModelId)"
+                  :disabled="sending || !isKnowledgeBaseActive(selectedKB.status) || !isEmbeddingModelEnabled(selectedKB.embeddingModelId) || !isVectorStoreTypeEnabled(selectedKB.vectorStoreType)"
                 >
                   <el-option
                     v-for="model in availableQAModels"
@@ -135,6 +157,30 @@
               >
                 <template #title>
                   <span>该知识库使用的向量化模型"{{ getEmbeddingModelName(selectedKB.embeddingModelId) || '默认向量化模型' }}"已被禁用，无法进行问答。请在管理端大模型管理页面启用该向量化模型。</span>
+                </template>
+              </el-alert>
+              <!-- 向量库禁用提示 -->
+              <el-alert
+                v-if="!isVectorStoreTypeEnabled(selectedKB.vectorStoreType)"
+                type="warning"
+                :closable="false"
+                show-icon
+                style="margin-top: 10px;"
+              >
+                <template #title>
+                  <span>该知识库使用的向量库类型"{{ getVectorStoreTypeName(selectedKB.vectorStoreType) }}"已被禁用，无法进行问答。请在向量库管理中启用该类型的向量库配置。</span>
+                </template>
+              </el-alert>
+              <!-- 知识库禁用提示 -->
+              <el-alert
+                v-if="!isKnowledgeBaseActive(selectedKB.status)"
+                type="warning"
+                :closable="false"
+                show-icon
+                style="margin-top: 10px;"
+              >
+                <template #title>
+                  <span>该知识库已被禁用，无法进行问答。请在知识库管理中启用该知识库。</span>
                 </template>
               </el-alert>
             </div>
@@ -213,7 +259,7 @@
                 placeholder="请输入您的问题..."
                 @keydown.ctrl.enter="handleSend"
                 @keydown.enter.exact.prevent="handleSend"
-                :disabled="!selectedKB || sending"
+                :disabled="!selectedKB || sending || !isKnowledgeBaseActive(selectedKB?.status) || !isEmbeddingModelEnabled(selectedKB?.embeddingModelId) || !isVectorStoreTypeEnabled(selectedKB?.vectorStoreType)"
               />
               <div class="input-actions">
                 <div class="input-tips">
@@ -222,8 +268,8 @@
                 </div>
                 <el-button
                   type="primary"
-                  :disabled="!question.trim() || !selectedKB || sending || !isEmbeddingModelEnabled(selectedKB?.embeddingModelId)"
-                  @click="handleSend"
+                  :disabled="!question.trim() || !selectedKB || sending || !isKnowledgeBaseActive(selectedKB?.status) || !isEmbeddingModelEnabled(selectedKB?.embeddingModelId) || !isVectorStoreTypeEnabled(selectedKB?.vectorStoreType)"
+                    @click="handleSend"
                   :loading="sending"
                 >
                   <el-icon><Promotion /></el-icon>
@@ -251,12 +297,14 @@ import {
   Promotion,
   Loading,
   Star,
-  Search
+  Search,
+  Warning
 } from '@element-plus/icons-vue'
 import { getKnowledgeBaseList } from '@/api/knowledgeBase'
 import { knowledgeBaseQA, knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
 import { getModelConfig, getAvailableQAModelsForRAG } from '@/api/model'
 import { getModelStyle } from '@/utils/modelColor'
+import { getVectorDatabaseList } from '@/api/vectorDatabase'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
@@ -364,6 +412,8 @@ const loadingMore = ref(false) // 加载更多状态
 const searchDebounceTimer = ref(null) // 防抖定时器
 const availableQAModels = ref([]) // 可用的问答模型列表
 const selectedModelId = ref(null) // 选中的问答模型ID
+const vectorDatabases = ref([]) // 向量库配置列表
+const enabledVectorStoreTypes = ref([]) // 启用的向量库类型列表
 
 // 过滤知识库列表
 const filteredKnowledgeBases = computed(() => {
@@ -475,7 +525,8 @@ const loadKnowledgeBases = async () => {
         description: kb.description || '',
         documentCount: kb.documentCount || 0,
         status: kb.status === 1 ? 'active' : 'inactive',
-        embeddingModelId: kb.embeddingModelId || null
+        embeddingModelId: kb.embeddingModelId || null,
+        vectorStoreType: kb.vectorStoreType || 'qdrant'
       }))
       
       // 重置显示数量
@@ -503,6 +554,19 @@ const handleSend = async () => {
   if (!isEmbeddingModelEnabled(selectedKB.value.embeddingModelId)) {
     const modelName = getEmbeddingModelName(selectedKB.value.embeddingModelId) || '默认向量化模型'
     ElMessage.warning(`该知识库使用的向量化模型"${modelName}"已被禁用，无法进行问答。请在管理端大模型管理页面启用该向量化模型。`)
+    return
+  }
+
+  // 检查向量库类型是否启用
+  if (!isVectorStoreTypeEnabled(selectedKB.value.vectorStoreType)) {
+    const vectorStoreName = getVectorStoreTypeName(selectedKB.value.vectorStoreType)
+    ElMessage.warning(`该知识库使用的向量库类型"${vectorStoreName}"已被禁用，无法进行问答。请在向量库管理中启用该类型的向量库配置。`)
+    return
+  }
+
+  // 检查知识库是否启用
+  if (!isKnowledgeBaseActive(selectedKB.value.status)) {
+    ElMessage.warning('该知识库已被禁用，无法进行问答。请在知识库管理中启用该知识库。')
     return
   }
 
@@ -1047,6 +1111,8 @@ onMounted(() => {
   loadEmbeddingModels()
   // 加载问答模型列表
   loadQAModels()
+  // 加载向量库配置列表
+  loadVectorDatabases()
 })
 
 // 加载向量化模型列表（包括禁用的，用于检查状态）
@@ -1082,6 +1148,78 @@ const isEmbeddingModelEnabled = (modelId) => {
     const defaultModel = embeddingModels.value.find(m => m.isDefault)
     return defaultModel ? defaultModel.enabled : false
   }
+}
+
+// 加载向量库配置列表
+const loadVectorDatabases = async () => {
+  try {
+    const response = await getVectorDatabaseList()
+    vectorDatabases.value = response || []
+    
+    // 计算启用的向量库类型
+    const enabledTypes = new Set()
+    vectorDatabases.value.forEach(db => {
+      if (db.enabled && db.type) {
+        enabledTypes.add(db.type.toLowerCase())
+      }
+    })
+    enabledVectorStoreTypes.value = Array.from(enabledTypes)
+  } catch (error) {
+    console.error('加载向量库配置列表失败', error)
+    // 如果加载失败，默认允许所有类型
+    enabledVectorStoreTypes.value = ['qdrant', 'faiss', 'milvus']
+  }
+}
+
+// 检查向量库类型是否启用
+const isVectorStoreTypeEnabled = (type) => {
+  if (!type) return true // 如果没有指定类型，默认允许（向后兼容）
+  return enabledVectorStoreTypes.value.includes(type.toLowerCase())
+}
+
+// 获取向量存储类型名称
+const getVectorStoreTypeName = (type) => {
+  if (type === 'faiss') return 'FAISS'
+  if (type === 'milvus') return 'Milvus'
+  return 'Qdrant'
+}
+
+// 检查知识库是否启用
+const isKnowledgeBaseActive = (status) => {
+  if (typeof status === 'number') {
+    return status === 1
+  }
+  return status === 'active'
+}
+
+// 获取知识库禁用原因提示
+const getKnowledgeBaseDisabledTip = (kb) => {
+  if (!kb) return ''
+  
+  const reasons = []
+  
+  // 检查知识库状态
+  if (!isKnowledgeBaseActive(kb.status)) {
+    reasons.push('知识库已被禁用')
+  }
+  
+  // 检查向量化模型
+  if (!isEmbeddingModelEnabled(kb.embeddingModelId)) {
+    const modelName = getEmbeddingModelName(kb.embeddingModelId) || '默认向量化模型'
+    reasons.push(`向量化模型"${modelName}"已被禁用`)
+  }
+  
+  // 检查向量库类型
+  if (!isVectorStoreTypeEnabled(kb.vectorStoreType)) {
+    const vectorStoreName = getVectorStoreTypeName(kb.vectorStoreType)
+    reasons.push(`向量库类型"${vectorStoreName}"已被禁用`)
+  }
+  
+  if (reasons.length > 0) {
+    return `无法使用：${reasons.join('、')}。请联系管理员处理。`
+  }
+  
+  return ''
 }
 
 // 加载问答模型列表（用于知识库问答）
@@ -1250,12 +1388,14 @@ html {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px;
+  padding: 8px 12px; /* 减少上下padding，收窄高度 */
   background: white;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.3s;
   border: 1px solid transparent;
+  min-height: 48px; /* 减少最小高度 */
+  box-sizing: border-box;
 }
 
 .kb-item:hover {
@@ -1285,8 +1425,8 @@ html {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-bottom: 6px;
-  line-height: 1.4;
+  margin-bottom: 4px; /* 减少底部间距 */
+  line-height: 1.3; /* 减少行高 */
 }
 
 .kb-meta {
@@ -1319,6 +1459,25 @@ html {
 
 .kb-status {
   flex-shrink: 0;
+}
+
+.kb-warning-icon {
+  color: #e6a23c;
+  font-size: 18px;
+  flex-shrink: 0;
+  cursor: help;
+  width: 18px; /* 固定宽度 */
+  height: 18px; /* 固定高度 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kb-warning-placeholder {
+  width: 18px; /* 与警告图标相同的宽度 */
+  height: 18px; /* 与警告图标相同的高度 */
+  flex-shrink: 0;
+  display: inline-block;
 }
 
 .load-more-container {

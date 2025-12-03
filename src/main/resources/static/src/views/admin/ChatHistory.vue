@@ -62,9 +62,9 @@
             {{ row.messageCount }} 轮
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="180">
+        <el-table-column prop="updateTime" label="更新时间" width="180">
           <template #default="{ row }">
-            {{ formatDateTime(row.createTime) }}
+            {{ formatDateTime(row.updateTime) }}
           </template>
         </el-table-column>
         <el-table-column label="操作" width="150" fixed="right">

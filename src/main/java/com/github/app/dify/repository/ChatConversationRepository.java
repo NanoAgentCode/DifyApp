@@ -9,7 +9,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,14 +22,14 @@ public interface ChatConversationRepository extends JpaRepository<ChatConversati
      * 根据用户ID查找会话列表（未删除）
      */
     @Query("SELECT c FROM ChatConversation c WHERE c.userId = :userId " +
-           "AND (c.deleted IS NULL OR c.deleted = 0) ORDER BY c.updateTime DESC")
+           "AND (c.deleted IS NULL OR c.deleted = 0) ORDER BY c.createTime DESC")
     Page<ChatConversation> findByUserId(@Param("userId") Long userId, Pageable pageable);
 
     /**
      * 根据用户ID和会话类型查找会话列表（未删除）
      */
     @Query("SELECT c FROM ChatConversation c WHERE c.userId = :userId AND c.type = :type " +
-           "AND (c.deleted IS NULL OR c.deleted = 0) ORDER BY c.updateTime DESC")
+           "AND (c.deleted IS NULL OR c.deleted = 0) ORDER BY c.createTime DESC")
     Page<ChatConversation> findByUserIdAndType(@Param("userId") Long userId, 
                                                 @Param("type") Integer type, 
                                                 Pageable pageable);
@@ -40,7 +39,7 @@ public interface ChatConversationRepository extends JpaRepository<ChatConversati
      */
     @Query("SELECT c FROM ChatConversation c WHERE c.userId = :userId " +
            "AND (c.deleted IS NULL OR c.deleted = 0) " +
-           "AND (c.title LIKE CONCAT('%', :keyword, '%')) ORDER BY c.updateTime DESC")
+           "AND (c.title LIKE CONCAT('%', :keyword, '%')) ORDER BY c.createTime DESC")
     Page<ChatConversation> searchByUserIdAndKeyword(@Param("userId") Long userId, 
                                                       @Param("keyword") String keyword, 
                                                       Pageable pageable);
@@ -59,7 +58,7 @@ public interface ChatConversationRepository extends JpaRepository<ChatConversati
      */
     @Query("SELECT c FROM ChatConversation c WHERE " +
            "(c.deleted IS NULL OR c.deleted = 0) " +
-           "ORDER BY c.updateTime DESC")
+           "ORDER BY c.createTime DESC")
     Page<ChatConversation> findAllNotDeleted(Pageable pageable);
 
     /**
@@ -79,7 +78,7 @@ public interface ChatConversationRepository extends JpaRepository<ChatConversati
      * 根据用户ID查找所有会话（未删除，不分页）
      */
     @Query("SELECT c FROM ChatConversation c WHERE c.userId = :userId " +
-           "AND (c.deleted IS NULL OR c.deleted = 0) ORDER BY c.updateTime DESC")
+           "AND (c.deleted IS NULL OR c.deleted = 0) ORDER BY c.createTime DESC")
     List<ChatConversation> findAllByUserId(@Param("userId") Long userId);
 }
 

@@ -240,19 +240,31 @@
             style="width: 100%"
             :disabled="isEdit && hasDocuments"
           >
-            <el-option label="Qdrant（向量数据库）" value="qdrant">
+            <el-option 
+              v-if="isVectorStoreTypeEnabled('qdrant')"
+              label="Qdrant（向量数据库）" 
+              value="qdrant"
+            >
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span>Qdrant（向量数据库）</span>
                 <el-tag type="primary" size="small">默认</el-tag>
               </div>
             </el-option>
-            <el-option label="FAISS（本地文件存储）" value="faiss">
+            <el-option 
+              v-if="isVectorStoreTypeEnabled('faiss')"
+              label="FAISS（本地文件存储）" 
+              value="faiss"
+            >
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span>FAISS（本地文件存储）</span>
                 <el-tag type="success" size="small">本地</el-tag>
               </div>
             </el-option>
-            <el-option label="Milvus（向量数据库）" value="milvus">
+            <el-option 
+              v-if="isVectorStoreTypeEnabled('milvus')"
+              label="Milvus（向量数据库）" 
+              value="milvus"
+            >
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span>Milvus（向量数据库）</span>
                 <el-tag type="warning" size="small">分布式</el-tag>
@@ -346,6 +358,7 @@ import {
 } from '@/api/knowledgeBase'
 import { getModelConfig } from '@/api/model'
 import { getModelStyle } from '@/utils/modelColor'
+import { getVectorDatabaseList } from '@/api/vectorDatabase'
 
 const knowledgeBases = ref([])
 const loading = ref(false)
@@ -363,6 +376,8 @@ const formRef = ref(null)
 const currentEditId = ref(null)
 const currentEditDocumentCount = ref(0)
 const embeddingModels = ref([])
+const vectorDatabases = ref([]) // 向量库配置列表
+const enabledVectorStoreTypes = ref([]) // 启用的向量库类型列表
 
 const formData = ref({
   name: '',
@@ -382,6 +397,7 @@ const hasDocuments = computed(() => {
 onMounted(() => {
   loadKnowledgeBases()
   loadEmbeddingModels()
+  loadVectorDatabases()
 })
 
 // 加载向量化模型列表
@@ -392,6 +408,33 @@ const loadEmbeddingModels = async () => {
   } catch (error) {
     console.error('加载向量化模型列表失败', error)
   }
+}
+
+// 加载向量库配置列表
+const loadVectorDatabases = async () => {
+  try {
+    const response = await getVectorDatabaseList()
+    vectorDatabases.value = response || []
+    
+    // 计算启用的向量库类型
+    const enabledTypes = new Set()
+    vectorDatabases.value.forEach(db => {
+      if (db.enabled && db.type) {
+        enabledTypes.add(db.type.toLowerCase())
+      }
+    })
+    enabledVectorStoreTypes.value = Array.from(enabledTypes)
+  } catch (error) {
+    console.error('加载向量库配置列表失败', error)
+    // 如果加载失败，默认允许所有类型
+    enabledVectorStoreTypes.value = ['qdrant', 'faiss', 'milvus']
+  }
+}
+
+// 检查向量库类型是否启用
+const isVectorStoreTypeEnabled = (type) => {
+  if (!type) return true // 如果没有指定类型，默认允许
+  return enabledVectorStoreTypes.value.includes(type.toLowerCase())
 }
 
 // 辅助函数：根据模型ID获取模型名称
