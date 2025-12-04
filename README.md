@@ -11,9 +11,10 @@ DifyApp 是一个集成了 Dify AI 平台的应用管理系统，支持：
 - **Chat Flow 调用**：支持流式和非流式聊天对话
 - **Workflow 调用**：支持流式和非流式工作流执行
 - **知识库管理**：创建、管理知识库，上传、删除文档，支持选择向量化模型
-- **RAG 问答**：基于 LangChain4j 的检索增强生成，支持流式和非流式问答，支持选择问答模型
+- **RAG 问答**：基于 LangChain4j 的检索增强生成，支持流式和非流式问答，支持选择问答模型，支持上下文压缩（连续对话时压缩历史上下文）
 - **文档向量化**：自动文档解析、分块、向量化存储
 - **大模型管理**：动态管理问答模型和向量化模型，支持多种提供商（OpenAI、Ollama、VLLM 等），支持设置默认模型和启用/禁用状态
+- **向量数据库管理**：动态管理向量数据库配置（Qdrant、Milvus、FAISS），支持多实例配置、默认设置、连接测试
 - **对话历史管理**：完整的对话会话管理，支持会话记录、消息历史、继续对话、开启新对话
 - **文件存储**：基于 MinIO 的对象存储
 - **向量存储**：支持 Qdrant 向量数据库和 FAISS 本地文件存储，可在知识库级别选择
@@ -1045,6 +1046,102 @@ Content-Type: application/json
 }
 ```
 
+### 向量数据库管理 API
+
+#### 1. 获取所有向量数据库配置
+
+```
+GET /api/vector-databases
+Authorization: Bearer {token}
+```
+
+#### 2. 按类型获取向量数据库配置
+
+```
+GET /api/vector-databases/type/{type}
+Authorization: Bearer {token}
+```
+
+**路径参数：**
+- `type`: 向量数据库类型，可选值：`qdrant`、`milvus`、`faiss`
+
+#### 3. 更新向量数据库配置（添加/更新/删除/设置默认/切换启用状态）
+
+```
+POST /api/vector-databases/config
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+
+**请求体示例（添加配置）：**
+```json
+{
+  "action": "add",
+  "database": {
+    "type": "qdrant",
+    "name": "Qdrant主实例",
+    "url": "http://localhost:6333",
+    "apiKey": "",
+    "enabled": true
+  }
+}
+```
+
+**请求体示例（添加FAISS配置）：**
+```json
+{
+  "action": "add",
+  "database": {
+    "type": "faiss",
+    "name": "FAISS本地存储",
+    "basePath": "./data/faiss",
+    "enabled": true
+  }
+}
+```
+
+**请求体示例（设置默认配置）：**
+```json
+{
+  "action": "setDefault",
+  "database": {
+    "id": 1
+  }
+}
+```
+
+**请求体示例（切换启用状态）：**
+```json
+{
+  "action": "toggleEnabled",
+  "database": {
+    "id": 1,
+    "enabled": true
+  }
+}
+```
+
+**操作类型说明：**
+- `action`: 操作类型，可选值：`add`（添加）、`update`（更新）、`delete`（删除）、`setDefault`（设置默认）、`toggleEnabled`（切换启用状态）
+- `type`: 向量数据库类型，可选值：`qdrant`、`milvus`、`faiss`
+
+#### 4. 测试向量数据库连接
+
+```
+POST /api/vector-databases/test
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+
+**请求体：**
+```json
+{
+  "type": "qdrant",
+  "url": "http://localhost:6333",
+  "apiKey": ""
+}
+```
+
 ## 功能特性
 
 ### 后端功能
@@ -1094,6 +1191,7 @@ Content-Type: application/json
   - 会话ID管理，支持连续对话
   - 支持选择问答模型
   - 向量化模型状态检查和警告提示
+  - 上下文压缩功能（支持滑动窗口、总结、混合三种策略，自动压缩历史对话上下文）
 
 - ✅ **对话历史管理**
   - 完整的会话和消息记录
@@ -1118,6 +1216,14 @@ Content-Type: application/json
   - 支持缓存过期策略（默认1小时）
   - 提供统一的缓存服务工具类
 
+- ✅ **向量数据库管理**
+  - 动态管理向量数据库配置（Qdrant、Milvus、FAISS）
+  - 支持多实例配置
+  - 支持设置默认向量数据库
+  - 支持启用/禁用向量数据库
+  - 支持连接测试功能
+  - 数据库驱动的动态配置，无需重启应用
+
 - ✅ **其他功能**
   - 全局异常处理
   - Swagger API 文档
@@ -1135,6 +1241,7 @@ Content-Type: application/json
   - 应用列表、创建、编辑、删除
   - 用户管理（审核、禁用、重置密码、角色管理）
   - 大模型管理（问答模型和向量化模型的配置、默认设置、状态管理）
+  - 向量数据库管理（Qdrant、Milvus、FAISS 的配置、默认设置、状态管理、连接测试）
   - 智能问答
   - 对话历史管理
   - 知识库管理（支持选择向量化模型和向量存储类型）
@@ -1201,7 +1308,9 @@ minio:
 
 ### Qdrant 配置（可选）
 
-在 `application.yml` 中配置 Qdrant（如果使用 Qdrant 作为向量存储）：
+> ⚠️ **重要提示**：系统现已支持通过数据库动态管理向量数据库配置，无需修改配置文件。以下配置仅作为兼容性保留，建议通过管理端界面配置向量数据库。
+
+在 `application.yml` 中配置 Qdrant（如果使用 Qdrant 作为向量存储，仅作为兼容性保留）：
 
 ```yaml
 qdrant:
@@ -1210,14 +1319,37 @@ qdrant:
   timeout: 30000
 ```
 
+**通过管理端配置（推荐）：**
+
+1. 登录管理端
+2. 进入"向量数据库管理"页面
+3. 在"Qdrant"标签页中添加、编辑配置
+4. 支持配置：
+   - 配置名称、URL、API Key
+   - 启用状态
+   - 默认配置设置
+   - 连接测试功能
+
 ### FAISS 配置（可选）
 
-在 `application.yml` 中配置 FAISS（如果使用 FAISS 作为向量存储）：
+> ⚠️ **重要提示**：系统现已支持通过数据库动态管理向量数据库配置，无需修改配置文件。以下配置仅作为兼容性保留，建议通过管理端界面配置向量数据库。
+
+在 `application.yml` 中配置 FAISS（如果使用 FAISS 作为向量存储，仅作为兼容性保留）：
 
 ```yaml
 faiss:
   base-path: ./data/faiss  # FAISS索引文件的基础存储路径
 ```
+
+**通过管理端配置（推荐）：**
+
+1. 登录管理端
+2. 进入"向量数据库管理"页面
+3. 在"FAISS"标签页中添加、编辑配置
+4. 支持配置：
+   - 配置名称、存储路径
+   - 启用状态
+   - 默认配置设置
 
 **FAISS 文件存储说明：**
 - 每个知识库的向量数据存储在独立目录中：`{basePath}/kb_{knowledgeBaseId}/`
@@ -1232,19 +1364,27 @@ faiss:
 
 ### Milvus 配置（可选）
 
-在 `application.yml` 中配置 Milvus（如果使用 Milvus 作为向量存储）：
+> ⚠️ **重要提示**：系统现已支持通过数据库动态管理向量数据库配置，无需修改配置文件。以下配置仅作为兼容性保留，建议通过管理端界面配置向量数据库。
+
+在 `application.yml` 中配置 Milvus（如果使用 Milvus 作为向量存储，仅作为兼容性保留）：
 
 ```yaml
 milvus:
-  url: http://localhost:19530
-  api-key: # 可选，如果Milvus启用了认证
+  url: http://localhost:19530  # Milvus HTTP API地址
+  api-key: # 可选，如果Milvus启用了认证，请配置API Key
   timeout: 30000
 ```
 
-或者在向量数据库管理界面中配置：
-- 类型：`milvus`
-- URL：`http://localhost:19530`（Milvus 服务地址）
-- API Key：可选，如果 Milvus 启用了认证
+**通过管理端配置（推荐）：**
+
+1. 登录管理端
+2. 进入"向量数据库管理"页面
+3. 在"Milvus"标签页中添加、编辑配置
+4. 支持配置：
+   - 配置名称、URL、API Key
+   - 启用状态
+   - 默认配置设置
+   - 连接测试功能
 
 **Milvus 说明：**
 - **Milvus**：分布式向量数据库，适合生产环境，需要独立服务
@@ -1350,11 +1490,11 @@ embedding:
 
 ### RAG 配置
 
-> ⚠️ **重要提示**：RAG 配置现已通过数据库动态管理。以下配置仅作为兼容性保留，建议通过管理端界面配置模型。
+> ⚠️ **重要提示**：模型配置（LLM 和 Embedding）现已通过数据库动态管理。以下配置仅作为兼容性保留，建议通过管理端界面配置模型。
 
-在 `application.yml` 中配置 RAG（仅作为兼容性保留）：
+在 `application.yml` 中配置 RAG：
 
-**默认配置（OpenAI 兼容格式，包括 SiliconFlow、VLLM 等）：**
+**基础配置：**
 
 ```yaml
 rag:
@@ -1362,6 +1502,27 @@ rag:
   chunk-overlap: 50             # 分块重叠大小
   top-k: 10                     # 检索数量
   similarity-threshold: 0.3     # 相似度阈值
+  # 上下文压缩配置（用于连续对话时压缩历史上下文）
+  enable-context-compression: true  # 是否启用上下文压缩
+  compression-strategy: sliding_window  # 压缩策略：sliding_window（滑动窗口）、summary（总结）、hybrid（混合）
+  max-history-rounds: 10  # 最大历史对话轮数（滑动窗口策略，每轮包含一问一答）
+  max-history-tokens: 2000  # 最大历史对话token数（用于判断是否需要压缩）
+  enable-summary: false  # 是否启用总结压缩（需要额外调用LLM，会增加延迟和成本）
+```
+
+**上下文压缩说明：**
+
+- **滑动窗口策略（sliding_window）**：只保留最近的 N 轮对话，适合大多数场景，性能开销小
+- **总结策略（summary）**：使用 LLM 总结历史对话，需要额外调用 LLM，会增加延迟和成本
+- **混合策略（hybrid）**：结合滑动窗口和总结，先使用滑动窗口，当超过 token 限制时使用总结
+- **启用条件**：当历史对话的 token 数超过 `max-history-tokens` 时，会自动触发压缩
+
+**模型配置（已迁移到数据库，以下仅作为兼容性保留）：**
+
+**默认配置（OpenAI 兼容格式，包括 SiliconFlow、VLLM 等）：**
+
+```yaml
+rag:
   llm-api-url: https://api.siliconflow.cn  # 或只配置基础URL
   llm-api-key: your-api-key
   llm-model: Qwen/Qwen2.5-72B-Instruct
@@ -1372,10 +1533,6 @@ rag:
 
 ```yaml
 rag:
-  chunk-size: 500
-  chunk-overlap: 50
-  top-k: 10
-  similarity-threshold: 0.3
   llm-api-url: http://localhost:11434  # Ollama 服务地址（不包含路径）
   llm-api-key: # Ollama 不需要 API Key，可留空
   llm-model: qwen2.5:72b  # Ollama 模型名称
@@ -1386,10 +1543,6 @@ rag:
 
 ```yaml
 rag:
-  chunk-size: 500
-  chunk-overlap: 50
-  top-k: 10
-  similarity-threshold: 0.3
   llm-api-url: http://localhost:8000  # VLLM 服务地址（不包含路径）
   llm-api-key: # VLLM 通常不需要 API Key，除非启用了认证
   llm-model: Qwen/Qwen2.5-72B-Instruct
@@ -1523,6 +1676,12 @@ yarn build
 
 - **USER_KNOWLEDGE_BASE_VISIBILITY**: 用户知识库可见性表
   - 存储用户对知识库的可见性权限
+
+- **VECTOR_DATABASE**: 向量数据库配置表
+  - 存储向量数据库配置信息（类型、名称、URL、API Key、存储路径等）
+  - 支持 Qdrant、Milvus、FAISS 三种类型
+  - 支持启用/禁用状态和默认配置设置
+  - 用于知识库向量存储功能
 
 ## 缓存架构
 
