@@ -479,6 +479,20 @@ const loadVectorDatabases = async () => {
       }
     })
     enabledVectorStoreTypes.value = Array.from(enabledTypes)
+    
+    // 查找默认的向量库配置，并设置表单的默认向量存储类型
+    const defaultDb = vectorDatabases.value.find(db => db.isDefault && db.enabled)
+    if (defaultDb && defaultDb.type) {
+      formData.value.vectorStoreType = defaultDb.type.toLowerCase()
+      console.log('设置默认向量存储类型:', defaultDb.type)
+    } else {
+      // 如果没有默认配置，使用第一个启用的配置
+      const firstEnabledDb = vectorDatabases.value.find(db => db.enabled)
+      if (firstEnabledDb && firstEnabledDb.type) {
+        formData.value.vectorStoreType = firstEnabledDb.type.toLowerCase()
+        console.log('使用第一个启用的向量库类型:', firstEnabledDb.type)
+      }
+    }
   } catch (error) {
     console.error('加载向量库配置列表失败', error)
     // 如果加载失败，默认允许所有类型
@@ -781,6 +795,19 @@ const handleSubmit = () => {
 const handleDialogClose = () => {
   formRef.value?.resetFields()
   // 重置表单数据
+  // 查找默认的向量库配置，并设置表单的默认向量存储类型
+  let defaultVectorStoreType = 'qdrant' // 默认值
+  const defaultDb = vectorDatabases.value.find(db => db.isDefault && db.enabled)
+  if (defaultDb && defaultDb.type) {
+    defaultVectorStoreType = defaultDb.type.toLowerCase()
+  } else {
+    // 如果没有默认配置，使用第一个启用的配置
+    const firstEnabledDb = vectorDatabases.value.find(db => db.enabled)
+    if (firstEnabledDb && firstEnabledDb.type) {
+      defaultVectorStoreType = firstEnabledDb.type.toLowerCase()
+    }
+  }
+  
   formData.value = {
     name: '',
     description: '',
@@ -788,7 +815,7 @@ const handleDialogClose = () => {
     isPublic: false,
     embeddingModelId: null,
     topK: null,
-    vectorStoreType: 'qdrant'
+    vectorStoreType: defaultVectorStoreType
   }
   currentEditDocumentCount.value = 0
 }
