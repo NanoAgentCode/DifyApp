@@ -35,6 +35,9 @@ public class KnowledgeBaseService {
     @Autowired
     private com.github.app.dify.service.UserKnowledgeBaseVisibilityService userKnowledgeBaseVisibilityService;
     
+    @Autowired(required = false)
+    private com.github.app.dify.repository.VectorDatabaseRepository vectorDatabaseRepository;
+    
     /**
      * 创建知识库
      * @param req 创建请求
@@ -86,9 +89,11 @@ public class KnowledgeBaseService {
             knowledgeBase.setTenantId(1);
         }
         
-        // 如果没有设置向量存储类型，使用默认值qdrant
+        // 如果没有设置向量存储类型，使用向量库配置中默认选中的向量库类型
         if (knowledgeBase.getVectorStoreType() == null || knowledgeBase.getVectorStoreType().trim().isEmpty()) {
-            knowledgeBase.setVectorStoreType("qdrant");
+            String defaultVectorStoreType = getDefaultVectorStoreType();
+            knowledgeBase.setVectorStoreType(defaultVectorStoreType);
+            logger.info("使用默认向量存储类型 - 类型: {}", defaultVectorStoreType);
         }
         
         logger.info("创建知识库 - 名称: {}, 创建者: {}, 是否公开: {}, 向量存储类型: {}", 
@@ -137,11 +142,13 @@ public class KnowledgeBaseService {
         if (req.getTopK() != null) {
             knowledgeBase.setTopK(req.getTopK());
         }
-        if (req.getVectorStoreType() != null) {
+        if (req.getVectorStoreType() != null && !req.getVectorStoreType().trim().isEmpty()) {
             knowledgeBase.setVectorStoreType(req.getVectorStoreType());
         } else {
-            // 如果没有指定，默认使用qdrant
-            knowledgeBase.setVectorStoreType("qdrant");
+            // 如果没有指定向量存储类型，使用向量库配置中默认选中的向量库类型
+            String defaultVectorStoreType = getDefaultVectorStoreType();
+            knowledgeBase.setVectorStoreType(defaultVectorStoreType);
+            logger.info("更新知识库时使用默认向量存储类型 - 类型: {}", defaultVectorStoreType);
         }
         
         knowledgeBase.setUpdateTime(new Date());
@@ -356,6 +363,48 @@ public class KnowledgeBaseService {
         resp.setFailedDocumentCount(failedCount != null ? failedCount.intValue() : 0);
         
         return resp;
+    }
+    
+    /**
+     * 获取默认向量存储类型
+     * 从向量库配置中查找默认选中的向量库类型
+     * @return 默认向量存储类型，如果没有找到则返回 "qdrant"
+     */
+    private String getDefaultVectorStoreType() {
+        if (vectorDatabaseRepository == null) {
+            logger.debug("VectorDatabaseRepository未注入，使用默认值qdrant");
+            return "qdrant";
+        }
+        
+        try {
+            // 查找所有启用的向量库配置，按类型和默认值排序
+            List<com.github.app.dify.domain.VectorDatabase> enabledConfigs = vectorDatabaseRepository.findAllEnabled();
+            
+            if (enabledConfigs != null && !enabledConfigs.isEmpty()) {
+                // 查找第一个默认的配置（is_default = true）
+                Optional<com.github.app.dify.domain.VectorDatabase> defaultConfig = enabledConfigs.stream()
+                        .filter(config -> config.getIsDefault() != null && config.getIsDefault())
+                        .findFirst();
+                
+                if (defaultConfig.isPresent()) {
+                    String type = defaultConfig.get().getType();
+                    logger.debug("找到默认向量库配置 - 类型: {}, 名称: {}", type, defaultConfig.get().getName());
+                    return type != null ? type : "qdrant";
+                } else {
+                    // 如果没有默认配置，使用第一个启用的配置
+                    String type = enabledConfigs.get(0).getType();
+                    logger.debug("未找到默认向量库配置，使用第一个启用的配置 - 类型: {}, 名称: {}", 
+                            type, enabledConfigs.get(0).getName());
+                    return type != null ? type : "qdrant";
+                }
+            } else {
+                logger.debug("未找到启用的向量库配置，使用默认值qdrant");
+                return "qdrant";
+            }
+        } catch (Exception e) {
+            logger.warn("获取默认向量存储类型失败，使用默认值qdrant", e);
+            return "qdrant";
+        }
     }
 }
 
