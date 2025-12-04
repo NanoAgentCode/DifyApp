@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>数据库管理</span>
+          <span>向量数据库</span>
           <el-button type="primary" @click="handleAdd">
             <el-icon><Plus /></el-icon>
             添加配置
@@ -53,6 +53,7 @@
                 @change="handleSetDefault(row)"
                 :disabled="!row.enabled"
                 style="--el-radio-input-width: 16px; --el-radio-input-height: 16px;"
+                class="hide-radio-label"
               >
                 <template #default></template>
               </el-radio>
@@ -488,6 +489,16 @@ onMounted(() => {
 
 :deep(.default-config-row:hover) {
   background-color: #e0f2fe;
+}
+
+/* 隐藏单选按钮的label文本（id） */
+:deep(.hide-radio-label) {
+  margin-right: 0;
+}
+
+:deep(.hide-radio-label .el-radio__label) {
+  display: none;
+  padding-left: 0;
 }
 </style>
 

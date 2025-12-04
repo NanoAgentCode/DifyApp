@@ -110,7 +110,7 @@ const routes = [
                 path: 'vector-databases',
                 name: 'VectorDatabaseManagement',
                 component: () => import('@/views/admin/VectorDatabaseManagement.vue'),
-                meta: {title: '数据库管理', requiresAuth: true, requiresAdmin: true}
+                meta: {title: '向量数据库', requiresAuth: true, requiresAdmin: true}
             }
         ]
     },

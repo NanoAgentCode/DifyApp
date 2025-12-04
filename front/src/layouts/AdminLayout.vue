@@ -65,7 +65,7 @@
           </el-menu-item>
           <el-menu-item v-if="isAdmin" index="/admin/vector-databases">
             <el-icon><Box /></el-icon>
-            <span>数据库管理</span>
+            <span>向量数据库</span>
           </el-menu-item>
         </el-menu>
       </el-aside>
