@@ -245,9 +245,9 @@ public class VectorDatabaseService {
             throw new RuntimeException("只有启用的配置才能设置为默认");
         }
         
-        // 取消同类型其他配置的默认状态
-        List<VectorDatabase> sameTypeConfigs = vectorDatabaseRepository.findByType(config.getType());
-        for (VectorDatabase c : sameTypeConfigs) {
+        // 取消所有其他配置的默认状态（全局单选，只能有一个默认配置）
+        List<VectorDatabase> allConfigs = vectorDatabaseRepository.findAllActive();
+        for (VectorDatabase c : allConfigs) {
             if (c.getIsDefault() != null && c.getIsDefault() && !c.getId().equals(configId)) {
                 c.setIsDefault(false);
                 c.setUpdateTime(new Date());

@@ -162,7 +162,7 @@
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
-      width="600px"
+      width="700px"
       :close-on-click-modal="false"
       :lock-scroll="true"
       @close="handleDialogClose"
@@ -171,7 +171,8 @@
         ref="formRef"
         :model="formData"
         :rules="formRules"
-        label-width="100px"
+        label-width="120px"
+        label-position="right"
       >
         <el-form-item label="知识库名称" prop="name">
           <el-input v-model="formData.name" placeholder="请输入知识库名称" />
@@ -187,12 +188,16 @@
         <el-form-item label="可见性" prop="isPublic" v-if="isAdmin">
           <el-radio-group v-model="formData.isPublic" class="visibility-radio-group">
             <el-radio :label="true" class="visibility-radio-item">
-              <span class="radio-label">公开</span>
-              <span class="radio-description">所有用户都可以访问</span>
+              <div class="radio-content">
+                <span class="radio-label">公开</span>
+                <span class="radio-description">所有用户都可以访问</span>
+              </div>
             </el-radio>
             <el-radio :label="false" class="visibility-radio-item">
-              <span class="radio-label">私有</span>
-              <span class="radio-description">只有创建者可以访问</span>
+              <div class="radio-content">
+                <span class="radio-label">私有</span>
+                <span class="radio-description">只有创建者可以访问</span>
+              </div>
             </el-radio>
           </el-radio-group>
         </el-form-item>
@@ -235,11 +240,11 @@
               </div>
             </el-option>
           </el-select>
-          <div v-if="isEdit && hasDocuments" style="font-size: 12px; color: #e6a23c; margin-top: 5px;">
+          <div v-if="isEdit && hasDocuments" class="form-item-hint form-item-hint-warning">
             <el-icon><Warning /></el-icon>
-            当前使用：<strong>{{ getEmbeddingModelName(formData.embeddingModelId) || '默认模型' }}</strong>。已有文档，无法修改。
+            <span>当前使用：<strong>{{ getEmbeddingModelName(formData.embeddingModelId) || '默认模型' }}</strong>。已有文档，无法修改。</span>
           </div>
-          <div v-else style="font-size: 12px; color: #909399; margin-top: 5px;">
+          <div v-else class="form-item-hint">
             用于文档向量化的模型，如果不选择则使用系统默认向量化模型
           </div>
         </el-form-item>
@@ -253,14 +258,14 @@
             style="width: 100%"
             clearable
           />
-          <div style="font-size: 12px; color: #909399; margin-top: 5px;">
+          <div class="form-item-hint">
             检索时返回的最相关文档片段数量（1-50），如果不设置则使用系统全局配置
           </div>
         </el-form-item>
         <el-form-item label="向量存储类型" prop="vectorStoreType">
           <el-select
             v-model="formData.vectorStoreType"
-            placeholder="选择向量存储类型（默认：Qdrant）"
+            placeholder="选择向量存储类型"
             clearable
             style="width: 100%"
             :disabled="isEdit && hasDocuments"
@@ -272,7 +277,8 @@
             >
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span>Qdrant（向量数据库）</span>
-                <el-tag type="primary" size="small">默认</el-tag>
+                <el-tag v-if="isDefaultVectorStoreType('qdrant')" type="primary" size="small">推荐</el-tag>
+                <el-tag v-else type="primary" size="small">高性能</el-tag>
               </div>
             </el-option>
             <el-option 
@@ -282,7 +288,8 @@
             >
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span>FAISS（本地文件存储）</span>
-                <el-tag type="success" size="small">本地</el-tag>
+                <el-tag v-if="isDefaultVectorStoreType('faiss')" type="primary" size="small">推荐</el-tag>
+                <el-tag v-else type="success" size="small">本地</el-tag>
               </div>
             </el-option>
             <el-option 
@@ -292,7 +299,8 @@
             >
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span>Milvus（向量数据库）</span>
-                <el-tag type="warning" size="small">分布式</el-tag>
+                <el-tag v-if="isDefaultVectorStoreType('milvus')" type="primary" size="small">推荐</el-tag>
+                <el-tag v-else type="warning" size="small">分布式</el-tag>
               </div>
             </el-option>
             <el-option 
@@ -302,7 +310,8 @@
             >
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span>Chroma（向量数据库）</span>
-                <el-tag type="info" size="small">开源</el-tag>
+                <el-tag v-if="isDefaultVectorStoreType('chroma')" type="primary" size="small">推荐</el-tag>
+                <el-tag v-else type="info" size="small">开源</el-tag>
               </div>
             </el-option>
             <el-option 
@@ -312,16 +321,18 @@
             >
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span>Weaviate（向量数据库）</span>
-                <el-tag type="success" size="small">GraphQL</el-tag>
+                <el-tag v-if="isDefaultVectorStoreType('weaviate')" type="primary" size="small">推荐</el-tag>
+                <el-tag v-else type="success" size="small">GraphQL</el-tag>
               </div>
             </el-option>
           </el-select>
-          <div v-if="isEdit && hasDocuments" style="font-size: 12px; color: #e6a23c; margin-top: 5px;">
+          <div v-if="isEdit && hasDocuments" class="form-item-hint form-item-hint-warning">
             <el-icon><Warning /></el-icon>
-            当前使用：<strong>{{ getVectorStoreTypeName(formData.vectorStoreType) }}</strong>。已有文档，无法修改。
+            <span>当前使用：<strong>{{ getVectorStoreTypeName(formData.vectorStoreType) }}</strong>。已有文档，无法修改。</span>
           </div>
-          <div v-else style="font-size: 12px; color: #909399; margin-top: 5px;">
-            Qdrant：分布式向量数据库，适合生产环境。FAISS：本地文件存储，无需额外服务，适合开发测试。Milvus：开源向量数据库，支持大规模向量检索，需要独立服务器，使用 gRPC 协议。Chroma：开源向量数据库，轻量级，易于部署，支持 HTTP REST API。Weaviate：开源向量数据库，支持 GraphQL 和 REST API，提供强大的语义搜索能力。
+          <div v-else-if="formData.vectorStoreType" class="form-item-hint form-item-description">
+            <span class="description-label">{{ getVectorStoreTypeName(formData.vectorStoreType) }}：</span>
+            <span class="description-text">{{ getVectorStoreTypeDescription(formData.vectorStoreType) }}</span>
           </div>
         </el-form-item>
         <el-form-item label="状态" prop="status">
@@ -392,7 +403,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, ElTooltip } from 'element-plus'
 import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Unlock, Lock, Check, Close, Warning } from '@element-plus/icons-vue'
 import { 
   getKnowledgeBaseList, 
@@ -465,6 +476,32 @@ const loadEmbeddingModels = async () => {
   }
 }
 
+// 获取默认向量存储类型
+const getDefaultVectorStoreType = () => {
+  try {
+    // 确保 vectorDatabases 已初始化
+    if (!vectorDatabases.value || vectorDatabases.value.length === 0) {
+      return 'qdrant'
+    }
+    
+    // 查找默认的向量库配置
+    const defaultDb = vectorDatabases.value.find(db => db.isDefault && db.enabled)
+    if (defaultDb && defaultDb.type) {
+      return defaultDb.type.toLowerCase()
+    }
+    // 如果没有默认配置，使用第一个启用的配置
+    const firstEnabledDb = vectorDatabases.value.find(db => db.enabled)
+    if (firstEnabledDb && firstEnabledDb.type) {
+      return firstEnabledDb.type.toLowerCase()
+    }
+    // 如果都没有，返回默认值
+    return 'qdrant'
+  } catch (error) {
+    console.warn('获取默认向量存储类型时出错', error)
+    return 'qdrant'
+  }
+}
+
 // 加载向量库配置列表
 const loadVectorDatabases = async () => {
   try {
@@ -480,18 +517,11 @@ const loadVectorDatabases = async () => {
     })
     enabledVectorStoreTypes.value = Array.from(enabledTypes)
     
-    // 查找默认的向量库配置，并设置表单的默认向量存储类型
-    const defaultDb = vectorDatabases.value.find(db => db.isDefault && db.enabled)
-    if (defaultDb && defaultDb.type) {
-      formData.value.vectorStoreType = defaultDb.type.toLowerCase()
-      console.log('设置默认向量存储类型:', defaultDb.type)
-    } else {
-      // 如果没有默认配置，使用第一个启用的配置
-      const firstEnabledDb = vectorDatabases.value.find(db => db.enabled)
-      if (firstEnabledDb && firstEnabledDb.type) {
-        formData.value.vectorStoreType = firstEnabledDb.type.toLowerCase()
-        console.log('使用第一个启用的向量库类型:', firstEnabledDb.type)
-      }
+    // 如果表单还没有设置向量存储类型，或者当前是默认值，则更新为默认向量库类型
+    if (!formData.value.vectorStoreType || formData.value.vectorStoreType === 'qdrant') {
+      const defaultType = getDefaultVectorStoreType()
+      formData.value.vectorStoreType = defaultType
+      console.log('设置默认向量存储类型:', defaultType)
     }
   } catch (error) {
     console.error('加载向量库配置列表失败', error)
@@ -504,6 +534,12 @@ const loadVectorDatabases = async () => {
 const isVectorStoreTypeEnabled = (type) => {
   if (!type) return true // 如果没有指定类型，默认允许
   return enabledVectorStoreTypes.value.includes(type.toLowerCase())
+}
+
+// 检查是否为默认向量存储类型
+const isDefaultVectorStoreType = (type) => {
+  const defaultType = getDefaultVectorStoreType()
+  return defaultType && defaultType.toLowerCase() === type.toLowerCase()
 }
 
 const formRules = {
@@ -614,16 +650,29 @@ const handleFilter = () => {
 const handleCreate = () => {
   isEdit.value = false
   currentEditId.value = null
-  formData.value = {
-    name: '',
-    description: '',
-    status: 'active',
-    isPublic: false, // 默认私有
-    embeddingModelId: null,
-    topK: null,
-    vectorStoreType: 'qdrant'
+  try {
+    // 获取默认向量存储类型，如果出错则使用 'qdrant' 作为后备
+    let defaultVectorStoreType = 'qdrant'
+    try {
+      defaultVectorStoreType = getDefaultVectorStoreType()
+    } catch (e) {
+      console.warn('获取默认向量存储类型失败，使用默认值 qdrant', e)
+    }
+    
+    formData.value = {
+      name: '',
+      description: '',
+      status: 'active',
+      isPublic: false, // 默认私有
+      embeddingModelId: null,
+      topK: null,
+      vectorStoreType: defaultVectorStoreType
+    }
+    dialogVisible.value = true
+  } catch (error) {
+    console.error('创建知识库对话框打开失败', error)
+    ElMessage.error('打开创建对话框失败：' + (error.message || '未知错误'))
   }
-  dialogVisible.value = true
 }
 
 const handleEdit = (row) => {
@@ -794,20 +843,7 @@ const handleSubmit = () => {
 
 const handleDialogClose = () => {
   formRef.value?.resetFields()
-  // 重置表单数据
-  // 查找默认的向量库配置，并设置表单的默认向量存储类型
-  let defaultVectorStoreType = 'qdrant' // 默认值
-  const defaultDb = vectorDatabases.value.find(db => db.isDefault && db.enabled)
-  if (defaultDb && defaultDb.type) {
-    defaultVectorStoreType = defaultDb.type.toLowerCase()
-  } else {
-    // 如果没有默认配置，使用第一个启用的配置
-    const firstEnabledDb = vectorDatabases.value.find(db => db.enabled)
-    if (firstEnabledDb && firstEnabledDb.type) {
-      defaultVectorStoreType = firstEnabledDb.type.toLowerCase()
-    }
-  }
-  
+  // 重置表单数据，使用动态获取的默认向量存储类型
   formData.value = {
     name: '',
     description: '',
@@ -815,7 +851,7 @@ const handleDialogClose = () => {
     isPublic: false,
     embeddingModelId: null,
     topK: null,
-    vectorStoreType: defaultVectorStoreType
+    vectorStoreType: getDefaultVectorStoreType()
   }
   currentEditDocumentCount.value = 0
 }
@@ -871,6 +907,19 @@ const formatDate = (date) => {
 }
 
 // 获取向量存储类型名称（简短）
+// 获取向量存储类型描述
+const getVectorStoreTypeDescription = (type) => {
+  if (!type) return ''
+  const descriptions = {
+    'qdrant': '分布式向量数据库，适合生产环境。',
+    'faiss': '本地文件存储，无需额外服务，适合开发测试。',
+    'milvus': '开源向量数据库，支持大规模向量检索，需要独立服务器，使用 gRPC 协议。',
+    'chroma': '开源向量数据库，轻量级，易于部署，支持 HTTP REST API。',
+    'weaviate': '开源向量数据库，支持 GraphQL 和 REST API，提供强大的语义搜索能力。'
+  }
+  return descriptions[type.toLowerCase()] || ''
+}
+
 const getVectorStoreTypeName = (type) => {
   if (type === 'faiss') return 'FAISS'
   if (type === 'milvus') return 'Milvus'
@@ -1052,12 +1101,12 @@ const getVectorStoreTypeTag = (type) => {
   flex: 1;
   display: flex;
   align-items: flex-start;
-  height: auto;
-  padding: 12px;
-  margin-right: 0;
+  padding: 12px 16px;
   border: 1px solid #dcdfe6;
-  border-radius: 4px;
+  border-radius: 6px;
   transition: all 0.3s;
+  margin: 0;
+  min-height: 80px;
 }
 
 .visibility-radio-item:hover {
@@ -1069,24 +1118,77 @@ const getVectorStoreTypeTag = (type) => {
   background-color: #ecf5ff;
 }
 
+.visibility-radio-item :deep(.el-radio__input) {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
 .visibility-radio-item :deep(.el-radio__label) {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-left: 8px;
+  gap: 6px;
+  padding-left: 10px;
   line-height: 1.5;
+  width: 100%;
+  overflow: hidden;
+}
+
+.radio-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
 }
 
 .radio-label {
   font-weight: 500;
   color: #303133;
   font-size: 14px;
+  line-height: 1.4;
+  word-break: break-word;
 }
 
 .radio-description {
   font-size: 12px;
   color: #909399;
-  line-height: 1.4;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.form-item-hint {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+.form-item-hint-warning {
+  color: #e6a23c;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.form-item-hint-warning .el-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.form-item-description {
+  padding: 8px 12px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  border-left: 3px solid #409eff;
+}
+
+.form-item-description .description-label {
+  font-weight: 500;
+  color: #303133;
+}
+
+.form-item-description .description-text {
+  color: #606266;
 }
 </style>
 

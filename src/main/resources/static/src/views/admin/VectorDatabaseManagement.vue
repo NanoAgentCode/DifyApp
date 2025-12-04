@@ -48,7 +48,7 @@
           <el-table-column label="默认" width="100" align="center">
             <template #default="{ row }">
               <el-radio
-                :model-value="getDefaultConfigId(row.type)"
+                v-model="defaultConfigId"
                 :label="row.id"
                 @change="handleSetDefault(row)"
                 :disabled="!row.enabled"
@@ -200,6 +200,7 @@ import {
 const loading = ref(false)
 const saving = ref(false)
 const configList = ref([])
+const defaultConfigId = ref(null) // 用于响应式更新单选按钮状态
 
 // 对话框相关
 const dialogVisible = ref(false)
@@ -232,12 +233,17 @@ const formRules = {
   ]
 }
 
-// 获取默认配置ID（按类型）
+// 获取默认配置ID（按类型）- 保留用于向后兼容
 const getDefaultConfigId = (type) => {
   const defaultConfig = configList.value.find(config => 
     config.type === type && config.isDefault
   )
   return defaultConfig ? defaultConfig.id : null
+}
+
+// 获取全局默认配置ID（所有类型中只有一个默认配置）- 保留用于向后兼容
+const getGlobalDefaultConfigId = () => {
+  return defaultConfigId.value
 }
 
 // 获取数据库类型标签类型
@@ -278,6 +284,9 @@ const loadConfigs = async () => {
       ...config,
       testing: false
     }))
+    // 更新默认配置ID
+    const defaultConfig = configList.value.find(config => config.isDefault)
+    defaultConfigId.value = defaultConfig ? defaultConfig.id : null
   } catch (error) {
     ElMessage.error('加载配置列表失败：' + (error.message || '未知错误'))
   } finally {
@@ -382,16 +391,24 @@ const handleDelete = (row) => {
 
 // 设置默认配置
 const handleSetDefault = async (row) => {
+  // 立即更新本地状态，提供即时反馈
+  const previousDefaultId = defaultConfigId.value
+  defaultConfigId.value = row.id
+  
   try {
     await updateVectorDatabaseConfig({
       action: 'setDefault',
       configId: row.id
     })
     ElMessage.success('设置默认配置成功')
-    loadConfigs()
+    // 重新加载配置列表以确保数据同步
+    await loadConfigs()
   } catch (error) {
+    // 如果失败，恢复之前的状态
+    defaultConfigId.value = previousDefaultId
     ElMessage.error('设置默认配置失败：' + (error.message || '未知错误'))
-    loadConfigs() // 重新加载以恢复状态
+    // 重新加载以恢复状态
+    await loadConfigs()
   }
 }
 
