@@ -43,6 +43,9 @@ public class VectorDatabaseService {
     @Autowired(required = false)
     private FaissConfig faissConfig;
     
+    @Autowired(required = false)
+    private com.github.app.dify.config.WeaviateConfig weaviateConfig;
+    
     
     /**
      * 获取所有向量数据库配置
@@ -308,6 +311,8 @@ public class VectorDatabaseService {
                 milvusConfig.reload();
             } else if ("faiss".equalsIgnoreCase(type) && faissConfig != null) {
                 faissConfig.reload();
+            } else if ("weaviate".equalsIgnoreCase(type) && weaviateConfig != null) {
+                weaviateConfig.reload();
             }
         } catch (Exception e) {
             logger.warn("重新加载{}配置失败: {}", type, e.getMessage());
@@ -332,6 +337,8 @@ public class VectorDatabaseService {
                 testFaissConnection(url);
             } else if ("chroma".equalsIgnoreCase(type)) {
                 testChromaConnection(url, apiKey, timeout);
+            } else if ("weaviate".equalsIgnoreCase(type)) {
+                testWeaviateConnection(url, apiKey, timeout);
             } else {
                 throw new RuntimeException("不支持的数据库类型: " + type);
             }
@@ -623,6 +630,108 @@ public class VectorDatabaseService {
         }
         if (!dir.canWrite()) {
             throw new RuntimeException("FAISS路径不可写: " + path);
+        }
+    }
+    
+    /**
+     * 测试Weaviate连接
+     */
+    private void testWeaviateConnection(String url, String apiKey, int timeout) {
+        org.springframework.web.reactive.function.client.WebClient.Builder builder = 
+                org.springframework.web.reactive.function.client.WebClient.builder()
+                        .baseUrl(url)
+                        .defaultHeader(org.springframework.http.HttpHeaders.CONTENT_TYPE, 
+                                org.springframework.http.MediaType.APPLICATION_JSON_VALUE);
+        
+        if (apiKey != null && !apiKey.trim().isEmpty()) {
+            // Weaviate使用X-API-Key头
+            builder.defaultHeader("X-API-Key", apiKey);
+        }
+        
+        org.springframework.web.reactive.function.client.WebClient webClient = builder.build();
+        
+        // 尝试多个健康检查端点
+        String[] healthEndpoints = {"/v1/meta", "/.well-known/ready", "/v1/.well-known/ready"};
+        String healthResponse = null;
+        String successfulEndpoint = null;
+        Exception lastException = null;
+        
+        for (String endpoint : healthEndpoints) {
+            try {
+                if (endpoint.equals("/v1/meta")) {
+                    // /v1/meta返回JSON
+                    org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>> typeRef = 
+                            new org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>>() {};
+                    java.util.Map<String, Object> metaResponse = webClient
+                            .get()
+                            .uri(endpoint)
+                            .retrieve()
+                            .bodyToMono(typeRef)
+                            .timeout(java.time.Duration.ofMillis(timeout))
+                            .block();
+                    
+                    if (metaResponse != null) {
+                        healthResponse = "OK";
+                        successfulEndpoint = endpoint;
+                        break;
+                    }
+                } else {
+                    // 其他端点返回文本
+                    healthResponse = webClient
+                            .get()
+                            .uri(endpoint)
+                            .retrieve()
+                            .bodyToMono(String.class)
+                            .timeout(java.time.Duration.ofMillis(timeout))
+                            .block();
+                    
+                    if (healthResponse != null && !healthResponse.trim().isEmpty()) {
+                        successfulEndpoint = endpoint;
+                        break;
+                    }
+                }
+            } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+                // 如果是404，继续尝试下一个端点
+                if (e.getStatusCode().value() == 404) {
+                    logger.debug("端点 {} 返回404，尝试下一个端点", endpoint);
+                    lastException = e;
+                    continue;
+                }
+                // 其他HTTP错误，记录并继续尝试
+                logger.debug("端点 {} 返回错误 {}: {}", endpoint, e.getStatusCode(), e.getMessage());
+                lastException = e;
+            } catch (Exception e) {
+                // 其他异常（如超时、网络错误等），记录并继续尝试
+                logger.debug("端点 {} 访问异常: {}", endpoint, e.getMessage());
+                lastException = e;
+            }
+        }
+        
+        // 如果找到成功的端点，返回
+        if (successfulEndpoint != null && healthResponse != null) {
+            return;
+        }
+        
+        // 所有端点都失败
+        if (lastException != null) {
+            if (lastException instanceof org.springframework.web.reactive.function.client.WebClientResponseException) {
+                org.springframework.web.reactive.function.client.WebClientResponseException webEx = 
+                    (org.springframework.web.reactive.function.client.WebClientResponseException) lastException;
+                throw new RuntimeException(
+                    String.format("Weaviate连接失败: %d %s。已尝试端点: %s。请检查Weaviate服务是否正在运行，URL是否正确。", 
+                        webEx.getStatusCode().value(), 
+                        webEx.getStatusText(),
+                        String.join(", ", healthEndpoints)));
+            } else {
+                throw new RuntimeException(
+                    String.format("Weaviate连接失败: %s。已尝试端点: %s。请检查Weaviate服务是否正在运行，URL是否正确。", 
+                        lastException.getMessage(),
+                        String.join(", ", healthEndpoints)));
+            }
+        } else {
+            throw new RuntimeException(
+                String.format("Weaviate健康检查返回空响应。已尝试端点: %s。请检查Weaviate服务是否正在运行。", 
+                    String.join(", ", healthEndpoints)));
         }
     }
     

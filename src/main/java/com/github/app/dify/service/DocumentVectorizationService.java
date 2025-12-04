@@ -388,11 +388,17 @@ public class DocumentVectorizationService {
         try {
             EmbeddingStore<TextSegment> embeddingStore = vectorStoreFactory.createEmbeddingStore(knowledgeBaseId);
             
-            // QdrantEmbeddingStore和FaissEmbeddingStore都提供了deleteByDocumentId方法
+            // 各种EmbeddingStore都提供了deleteByDocumentId方法
             if (embeddingStore instanceof QdrantEmbeddingStore) {
                 ((QdrantEmbeddingStore) embeddingStore).deleteByDocumentId(documentId);
             } else if (embeddingStore instanceof com.github.app.dify.langchain4j.FaissEmbeddingStore) {
                 ((com.github.app.dify.langchain4j.FaissEmbeddingStore) embeddingStore).deleteByDocumentId(documentId);
+            } else if (embeddingStore instanceof com.github.app.dify.langchain4j.MilvusEmbeddingStore) {
+                ((com.github.app.dify.langchain4j.MilvusEmbeddingStore) embeddingStore).deleteByDocumentId(documentId);
+            } else if (embeddingStore instanceof com.github.app.dify.langchain4j.ChromaEmbeddingStore) {
+                ((com.github.app.dify.langchain4j.ChromaEmbeddingStore) embeddingStore).deleteByDocumentId(documentId);
+            } else if (embeddingStore instanceof com.github.app.dify.langchain4j.WeaviateEmbeddingStore) {
+                ((com.github.app.dify.langchain4j.WeaviateEmbeddingStore) embeddingStore).deleteByDocumentId(documentId);
             } else {
                 // 回退到原有方法
                 vectorStoreService.deleteDocumentVectors(knowledgeBaseId, documentId);

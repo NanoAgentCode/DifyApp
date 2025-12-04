@@ -550,7 +550,7 @@ const loadVectorDatabases = async () => {
   } catch (error) {
     console.error('加载向量库配置列表失败', error)
     // 如果加载失败，默认允许所有类型
-    enabledVectorStoreTypes.value = ['qdrant', 'faiss', 'milvus']
+    enabledVectorStoreTypes.value = ['qdrant', 'faiss', 'milvus', 'chroma', 'weaviate']
   }
 }
 
@@ -564,6 +564,8 @@ const isVectorStoreTypeEnabled = (type) => {
 const getVectorStoreTypeName = (type) => {
   if (type === 'faiss') return 'FAISS'
   if (type === 'milvus') return 'Milvus'
+  if (type === 'chroma') return 'Chroma'
+  if (type === 'weaviate') return 'Weaviate'
   return 'Qdrant'
 }
 

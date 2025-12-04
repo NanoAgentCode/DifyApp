@@ -305,13 +305,23 @@
                 <el-tag type="info" size="small">开源</el-tag>
               </div>
             </el-option>
+            <el-option 
+              v-if="isVectorStoreTypeEnabled('weaviate')"
+              label="Weaviate（向量数据库）" 
+              value="weaviate"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Weaviate（向量数据库）</span>
+                <el-tag type="success" size="small">GraphQL</el-tag>
+              </div>
+            </el-option>
           </el-select>
           <div v-if="isEdit && hasDocuments" style="font-size: 12px; color: #e6a23c; margin-top: 5px;">
             <el-icon><Warning /></el-icon>
             当前使用：<strong>{{ getVectorStoreTypeName(formData.vectorStoreType) }}</strong>。已有文档，无法修改。
           </div>
           <div v-else style="font-size: 12px; color: #909399; margin-top: 5px;">
-            Qdrant：分布式向量数据库，适合生产环境。FAISS：本地文件存储，无需额外服务，适合开发测试。Milvus：开源向量数据库，支持大规模向量检索，需要独立服务器，使用 gRPC 协议。Chroma：开源向量数据库，轻量级，易于部署，支持 HTTP REST API。
+            Qdrant：分布式向量数据库，适合生产环境。FAISS：本地文件存储，无需额外服务，适合开发测试。Milvus：开源向量数据库，支持大规模向量检索，需要独立服务器，使用 gRPC 协议。Chroma：开源向量数据库，轻量级，易于部署，支持 HTTP REST API。Weaviate：开源向量数据库，支持 GraphQL 和 REST API，提供强大的语义搜索能力。
           </div>
         </el-form-item>
         <el-form-item label="状态" prop="status">
@@ -472,7 +482,7 @@ const loadVectorDatabases = async () => {
   } catch (error) {
     console.error('加载向量库配置列表失败', error)
     // 如果加载失败，默认允许所有类型
-    enabledVectorStoreTypes.value = ['qdrant', 'faiss', 'milvus', 'chroma']
+    enabledVectorStoreTypes.value = ['qdrant', 'faiss', 'milvus', 'chroma', 'weaviate']
   }
 }
 
@@ -838,6 +848,7 @@ const getVectorStoreTypeName = (type) => {
   if (type === 'faiss') return 'FAISS'
   if (type === 'milvus') return 'Milvus'
   if (type === 'chroma') return 'Chroma'
+  if (type === 'weaviate') return 'Weaviate'
   return 'Qdrant'
 }
 
@@ -846,6 +857,7 @@ const getVectorStoreTypeDisplayName = (type) => {
   if (type === 'faiss') return 'FAISS（本地文件存储）'
   if (type === 'milvus') return 'Milvus（向量数据库）'
   if (type === 'chroma') return 'Chroma（向量数据库）'
+  if (type === 'weaviate') return 'Weaviate（向量数据库）'
   return 'Qdrant（向量数据库）'
 }
 
@@ -854,6 +866,7 @@ const getVectorStoreTypeTag = (type) => {
   if (type === 'faiss') return 'success'
   if (type === 'milvus') return 'warning'
   if (type === 'chroma') return 'info'
+  if (type === 'weaviate') return 'success'
   return 'primary'
 }
 

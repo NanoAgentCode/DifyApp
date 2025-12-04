@@ -121,19 +121,23 @@
             <el-option label="Milvus" value="milvus" />
             <el-option label="FAISS" value="faiss" />
             <el-option label="Chroma" value="chroma" />
+            <el-option label="Weaviate" value="weaviate" />
           </el-select>
         </el-form-item>
 
         <el-form-item :label="currentConfig.type === 'faiss' ? '存储路径' : '连接地址'" prop="url">
           <el-input
             v-model="currentConfig.url"
-            :placeholder="currentConfig.type === 'faiss' ? '例如: ./data/faiss 或 /path/to/faiss' : (currentConfig.type === 'chroma' ? '例如: http://localhost:8000' : '例如: http://localhost:6333 或 http://localhost:19530')"
+            :placeholder="currentConfig.type === 'faiss' ? '例如: ./data/faiss 或 /path/to/faiss' : (currentConfig.type === 'chroma' ? '例如: http://localhost:8000' : (currentConfig.type === 'weaviate' ? '例如: http://localhost:8080' : '例如: http://localhost:6333 或 http://localhost:19530'))"
           />
           <div v-if="currentConfig.type === 'milvus'" style="font-size: 12px; color: #909399; margin-top: 5px;">
             提示：Milvus 使用 gRPC 协议，配置 URL 格式（例如：http://localhost:19530）
           </div>
           <div v-if="currentConfig.type === 'chroma'" style="font-size: 12px; color: #909399; margin-top: 5px;">
             提示：Chroma 使用 HTTP REST API，默认端口为 8000（例如：http://localhost:8000）
+          </div>
+          <div v-if="currentConfig.type === 'weaviate'" style="font-size: 12px; color: #909399; margin-top: 5px;">
+            提示：Weaviate 使用 HTTP REST API 和 GraphQL，默认端口为 8080（例如：http://localhost:8080）
           </div>
         </el-form-item>
 
@@ -242,7 +246,8 @@ const getTypeTagType = (type) => {
     qdrant: 'primary',
     milvus: 'warning',
     faiss: 'success',
-    chroma: 'info'
+    chroma: 'info',
+    weaviate: 'success'
   }
   return map[type] || 'info'
 }
@@ -253,7 +258,8 @@ const getTypeLabel = (type) => {
     qdrant: 'Qdrant',
     milvus: 'Milvus',
     faiss: 'FAISS',
-    chroma: 'Chroma'
+    chroma: 'Chroma',
+    weaviate: 'Weaviate'
   }
   return map[type] || type
 }
