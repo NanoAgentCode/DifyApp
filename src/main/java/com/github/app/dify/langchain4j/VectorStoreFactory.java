@@ -1,6 +1,7 @@
 package com.github.app.dify.langchain4j;
 
 import com.github.app.dify.repository.KnowledgeBaseRepository;
+import com.github.app.dify.service.ChromaVectorStoreService;
 import com.github.app.dify.service.FaissVectorStoreService;
 import com.github.app.dify.service.MilvusVectorStoreService;
 import com.github.app.dify.service.VectorStoreService;
@@ -13,7 +14,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * 向量存储工厂类
- * 根据知识库的vector_store_type配置选择创建Qdrant、FAISS或Milvus EmbeddingStore
+ * 根据知识库的vector_store_type配置选择创建Qdrant、FAISS、Milvus或Chroma EmbeddingStore
  */
 @Component
 public class VectorStoreFactory {
@@ -28,6 +29,9 @@ public class VectorStoreFactory {
     
     @Autowired
     private MilvusVectorStoreService milvusVectorStoreService;
+    
+    @Autowired
+    private ChromaVectorStoreService chromaVectorStoreService;
     
     @Autowired
     private KnowledgeBaseRepository knowledgeBaseRepository;
@@ -48,6 +52,8 @@ public class VectorStoreFactory {
             return FaissEmbeddingStore.forKnowledgeBase(knowledgeBaseId, faissVectorStoreService);
         } else if ("milvus".equalsIgnoreCase(vectorStoreType)) {
             return MilvusEmbeddingStore.forKnowledgeBase(knowledgeBaseId, milvusVectorStoreService);
+        } else if ("chroma".equalsIgnoreCase(vectorStoreType)) {
+            return ChromaEmbeddingStore.forKnowledgeBase(knowledgeBaseId, chromaVectorStoreService);
         } else {
             // 默认使用Qdrant
             return QdrantEmbeddingStore.forKnowledgeBase(knowledgeBaseId, vectorStoreService);
@@ -57,7 +63,7 @@ public class VectorStoreFactory {
     /**
      * 获取知识库的向量存储类型
      * @param knowledgeBaseId 知识库ID
-     * @return 向量存储类型（qdrant、faiss、milvus），默认为qdrant
+     * @return 向量存储类型（qdrant、faiss、milvus、chroma），默认为qdrant
      */
     private String getVectorStoreType(Long knowledgeBaseId) {
         try {

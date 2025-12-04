@@ -21,6 +21,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import reactor.core.publisher.Mono;
 
 /**
  * 向量数据库配置服务
@@ -329,6 +330,8 @@ public class VectorDatabaseService {
                 testMilvusConnection(url, apiKey, timeout);
             } else if ("faiss".equalsIgnoreCase(type)) {
                 testFaissConnection(url);
+            } else if ("chroma".equalsIgnoreCase(type)) {
+                testChromaConnection(url, apiKey, timeout);
             } else {
                 throw new RuntimeException("不支持的数据库类型: " + type);
             }
@@ -502,6 +505,103 @@ public class VectorDatabaseService {
         } else {
             throw new RuntimeException(
                 String.format("Milvus健康检查返回空响应。已尝试端点: %s (19530端口) 和 /healthz (9091端口)。请检查Milvus服务是否正在运行。", 
+                    String.join(", ", healthEndpoints)));
+        }
+    }
+    
+    /**
+     * 测试Chroma连接
+     */
+    private void testChromaConnection(String url, String apiKey, int timeout) {
+        org.springframework.web.reactive.function.client.WebClient.Builder builder = 
+                org.springframework.web.reactive.function.client.WebClient.builder()
+                        .baseUrl(url)
+                        .defaultHeader(org.springframework.http.HttpHeaders.CONTENT_TYPE, 
+                                org.springframework.http.MediaType.APPLICATION_JSON_VALUE);
+        
+        if (apiKey != null && !apiKey.trim().isEmpty()) {
+            builder.defaultHeader(org.springframework.http.HttpHeaders.AUTHORIZATION, "Bearer " + apiKey);
+        }
+        
+        org.springframework.web.reactive.function.client.WebClient webClient = builder.build();
+        
+        // 尝试多个端点，因为不同版本的Chroma可能使用不同的端点
+        String[] healthEndpoints = {"/api/v1/version", "/", "/api/v1/heartbeat"};
+        String healthResponse = null;
+        String successfulEndpoint = null;
+        Exception lastException = null;
+        
+        for (String endpoint : healthEndpoints) {
+            try {
+                healthResponse = webClient
+                        .get()
+                        .uri(endpoint)
+                        .retrieve()
+                        .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                                clientResponse -> {
+                                    // 对于410 Gone，继续尝试下一个端点
+                                    if (clientResponse.statusCode().value() == 410) {
+                                        return Mono.empty();
+                                    }
+                                    return Mono.error(new RuntimeException(
+                                            "Chroma连接失败: HTTP " + clientResponse.statusCode()));
+                                })
+                        .bodyToMono(String.class)
+                        .timeout(java.time.Duration.ofMillis(timeout))
+                        .block();
+                
+                if (healthResponse != null && !healthResponse.trim().isEmpty()) {
+                    successfulEndpoint = endpoint;
+                    break;
+                }
+            } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+                // 如果是410 Gone，继续尝试下一个端点
+                if (e.getStatusCode().value() == 410) {
+                    logger.debug("端点 {} 返回410 Gone（已废弃），尝试下一个端点", endpoint);
+                    lastException = e;
+                    continue;
+                }
+                // 如果是404，继续尝试下一个端点
+                if (e.getStatusCode().value() == 404) {
+                    logger.debug("端点 {} 返回404，尝试下一个端点", endpoint);
+                    lastException = e;
+                    continue;
+                }
+                // 其他HTTP错误，记录并继续尝试
+                logger.debug("端点 {} 返回错误 {}: {}", endpoint, e.getStatusCode(), e.getMessage());
+                lastException = e;
+            } catch (Exception e) {
+                // 其他异常（如超时、网络错误等），记录并继续尝试
+                logger.debug("端点 {} 访问异常: {}", endpoint, e.getMessage());
+                lastException = e;
+            }
+        }
+        
+        // 如果找到成功的端点，返回
+        if (successfulEndpoint != null && healthResponse != null && !healthResponse.trim().isEmpty()) {
+            logger.debug("Chroma连接测试成功，使用的端点: {}", successfulEndpoint);
+            return;
+        }
+        
+        // 所有端点都失败
+        if (lastException != null) {
+            if (lastException instanceof org.springframework.web.reactive.function.client.WebClientResponseException) {
+                org.springframework.web.reactive.function.client.WebClientResponseException webEx = 
+                    (org.springframework.web.reactive.function.client.WebClientResponseException) lastException;
+                throw new RuntimeException(
+                    String.format("Chroma连接失败: %d %s。已尝试端点: %s。请检查Chroma服务是否正在运行，URL是否正确。", 
+                        webEx.getStatusCode().value(), 
+                        webEx.getStatusText(),
+                        String.join(", ", healthEndpoints)));
+            } else {
+                throw new RuntimeException(
+                    String.format("Chroma连接失败: %s。已尝试端点: %s。请检查Chroma服务是否正在运行，URL是否正确。", 
+                        lastException.getMessage(),
+                        String.join(", ", healthEndpoints)));
+            }
+        } else {
+            throw new RuntimeException(
+                String.format("Chroma健康检查返回空响应。已尝试端点: %s。请检查Chroma服务是否正在运行。", 
                     String.join(", ", healthEndpoints)));
         }
     }
