@@ -731,6 +731,7 @@ export default {
   overflow-y: auto;
   min-height: 0;
   padding: 4px;
+  align-items: start;
 }
 
 /* 响应式调整 */
@@ -761,8 +762,7 @@ export default {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 120px;
+  height: 175px;
   overflow: hidden;
 }
 
@@ -816,6 +816,7 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-height: 0;
 }
 
 .conversation-title-wrapper {
@@ -866,6 +867,8 @@ export default {
   padding: 8px 10px;
   border-top: 1px solid #f0f0f0;
   background-color: #fafafa;
+  flex-shrink: 0;
+  margin-top: auto;
 }
 
 .conversation-card-footer .el-button {
