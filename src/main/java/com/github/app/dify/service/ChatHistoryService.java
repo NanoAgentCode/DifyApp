@@ -139,18 +139,43 @@ public class ChatHistoryService {
     
     /**
      * 获取我的会话列表（用户端）
+     * 确保只返回当前用户的会话历史
      */
     public PageResponse<ChatConversationResponse> getMyConversations(Long userId, ChatHistoryRequest request) {
-        Pageable pageable = PageRequest.of(request.getPage() - 1, request.getSize());
-        Page<ChatConversation> page;
+        Pageable pageable = PageRequest.of(request.getPage() - 1, request.getSize(), 
+                Sort.by(Sort.Direction.DESC, "updateTime"));
         
-        if (request.getKeyword() != null && !request.getKeyword().trim().isEmpty()) {
-            page = conversationRepository.searchByUserIdAndKeyword(userId, request.getKeyword(), pageable);
-        } else if (request.getType() != null) {
-            page = conversationRepository.findByUserIdAndType(userId, request.getType(), pageable);
-        } else {
-            page = conversationRepository.findByUserId(userId, pageable);
-        }
+        // 使用Specification动态构建查询，确保始终按userId过滤
+        Specification<ChatConversation> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            
+            // 必须条件：只查询当前用户的会话
+            predicates.add(cb.equal(root.get("userId"), userId));
+            
+            // 未删除的条件
+            Predicate notDeleted = cb.or(
+                cb.isNull(root.get("deleted")),
+                cb.equal(root.get("deleted"), 0)
+            );
+            predicates.add(notDeleted);
+            
+            // 类型筛选
+            if (request.getType() != null) {
+                predicates.add(cb.equal(root.get("type"), request.getType()));
+            }
+            
+            // 关键词搜索
+            if (request.getKeyword() != null && !request.getKeyword().trim().isEmpty()) {
+                predicates.add(cb.like(
+                    cb.lower(root.get("title")),
+                    "%" + request.getKeyword().toLowerCase() + "%"
+                ));
+            }
+            
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        
+        Page<ChatConversation> page = conversationRepository.findAll(spec, pageable);
         
         List<ChatConversationResponse> responses = page.getContent().stream()
                 .map(this::convertToResponse)
@@ -162,6 +187,8 @@ public class ChatHistoryService {
     
     /**
      * 获取所有会话列表（管理员端）
+     * 注意：此方法返回所有用户的会话历史，不限制为特定用户
+     * 如果 request.getUserId() 不为 null，则只返回该用户的会话（用于筛选）
      */
     public PageResponse<ChatConversationResponse> getAllConversations(ChatHistoryRequest request) {
         Pageable pageable = PageRequest.of(request.getPage() - 1, request.getSize(), 
@@ -178,7 +205,7 @@ public class ChatHistoryService {
             );
             predicates.add(notDeleted);
             
-            // 用户ID筛选
+            // 用户ID筛选（可选，如果指定则只返回该用户的会话，否则返回所有用户的会话）
             if (request.getUserId() != null) {
                 predicates.add(cb.equal(root.get("userId"), request.getUserId()));
             }
