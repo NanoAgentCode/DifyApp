@@ -48,28 +48,28 @@
           style="width: 100%"
           :default-sort="{ prop: 'updateTime', order: 'descending' }"
         >
-        <el-table-column type="selection" width="55" />
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="username" label="用户" width="120" />
-        <el-table-column label="类型" width="100">
+        <el-table-column type="selection" width="55" align="center" />
+        <el-table-column prop="id" label="ID" width="80" align="center" />
+        <el-table-column prop="username" label="用户" width="120" align="center" />
+        <el-table-column label="类型" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.type === 1 ? 'primary' : 'success'" size="small">
               {{ row.type === 1 ? '普通聊天' : '知识库问答' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="messageCount" label="对话轮数" width="100">
+        <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip align="left" />
+        <el-table-column prop="messageCount" label="对话轮数" width="100" align="center">
           <template #default="{ row }">
             {{ row.messageCount }} 轮
           </template>
         </el-table-column>
-        <el-table-column prop="updateTime" label="更新时间" width="180">
+        <el-table-column prop="updateTime" label="更新时间" width="180" align="center">
           <template #default="{ row }">
             {{ formatDateTime(row.updateTime) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="150" fixed="right" align="center">
           <template #default="{ row }">
             <el-button text type="primary" size="small" @click="handleView(row)">
               查看
@@ -602,6 +602,22 @@ export default {
 
 :deep(.el-table .el-table__cell) {
   padding: 7px 0;
+}
+
+:deep(.el-table th.el-table__cell) {
+  text-align: center;
+}
+
+:deep(.el-table th.el-table__cell:first-child) {
+  text-align: center;
+}
+
+:deep(.el-table td.el-table__cell) {
+  text-align: center;
+}
+
+:deep(.el-table td.el-table__cell[aria-colindex="5"]) {
+  text-align: left;
 }
 
 .conversation-detail {
