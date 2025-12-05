@@ -355,10 +355,9 @@ public class ChatService {
                 // 不抛出异常，继续执行
             }
         } else {
-            // MCP支持关闭时，只提供基本的年份信息
+            // MCP支持关闭时，只提供基本的年份信息（不告知用户MCP已关闭）
             systemMessageBuilder.append("【当前时间信息】\n");
             systemMessageBuilder.append(String.format("当前年份：%d年\n", currentYear));
-            systemMessageBuilder.append("注意：MCP支持已关闭，时间信息和地理位置信息不可用。\n\n");
         }
         
         // 如果提供了浏览器检索结果，在系统消息中强调要使用检索结果
@@ -367,11 +366,9 @@ public class ChatService {
             systemMessageBuilder.append("\n\n【重要提示】当用户问题中包含网络搜索结果时，你必须：");
             systemMessageBuilder.append("\n1. 优先使用搜索结果中的信息来回答问题");
             systemMessageBuilder.append("\n2. 在回答中明确引用搜索结果中的内容，并标注来源链接");
-            systemMessageBuilder.append("\n3. 【关键】特别注意信息的时效性：如果搜索结果中的信息包含日期，且日期是2023年或更早，必须明确告知用户\"注意：以下信息可能已过期\"");
-            systemMessageBuilder.append("\n4. 【关键】如果所有搜索结果都是过期的（日期是2023年或更早），必须在回答开头明确说明\"搜索结果中的信息可能已过期\"，并建议用户访问相关网站获取最新信息");
-            systemMessageBuilder.append("\n5. 当前年份是").append(currentYear).append("年，请以此判断信息是否过期");
-            systemMessageBuilder.append("\n6. 如果搜索结果与问题相关，必须基于搜索结果来回答，不要仅依赖你的训练数据");
-            systemMessageBuilder.append("\n7. 如果搜索结果与问题不相关，可以结合你的知识来回答，但要说明信息来源");
+            systemMessageBuilder.append("\n3. 当前年份是").append(currentYear).append("年，请根据信息的时效性自行判断是否需要提醒用户信息可能已过期");
+            systemMessageBuilder.append("\n4. 如果搜索结果与问题相关，必须基于搜索结果来回答，不要仅依赖你的训练数据");
+            systemMessageBuilder.append("\n5. 如果搜索结果与问题不相关，可以结合你的知识来回答，但要说明信息来源");
         }
         
         systemMessageBuilder.append("\n\n重要：请使用Markdown格式来组织你的回答，包括：\n" +
@@ -444,10 +441,9 @@ public class ChatService {
                         "\n\n【重要要求】\n" +
                         "1. 必须优先使用上述搜索结果中的信息来回答问题\n" +
                         "2. 如果搜索结果中包含相关信息，必须明确引用并标注来源链接\n" +
-                        "3. 【关键】特别注意信息的时效性：当前年份是" + currentYear + "年，如果搜索结果中的信息包含日期且是2023年或更早，必须在回答开头明确说明\"注意：以下信息可能已过期\"\n" +
-                        "4. 【关键】如果所有搜索结果都是过期的（日期是2023年或更早），必须在回答开头明确说明\"搜索结果中的信息可能已过期，建议访问相关网站获取最新信息\"\n" +
-                        "5. 如果搜索结果与问题不相关，请明确说明\"未在搜索结果中找到相关信息\"，然后可以结合你的知识回答\n" +
-                        "6. 绝对不要声称搜索结果包含信息，如果搜索结果中没有相关内容，请明确说明";
+                        "3. 当前年份是" + currentYear + "年，请根据信息的时效性自行判断是否需要提醒用户信息可能已过期\n" +
+                        "4. 如果搜索结果与问题不相关，请明确说明\"未在搜索结果中找到相关信息\"，然后可以结合你的知识回答\n" +
+                        "5. 绝对不要声称搜索结果包含信息，如果搜索结果中没有相关内容，请明确说明";
             } else {
                 // 如果启用了MCP支持但没有找到结果，明确告知LLM
                 userMessageContent = "【网络搜索提示】已启用MCP支持（浏览器检索功能），但未找到与问题相关的搜索结果。\n\n" +
