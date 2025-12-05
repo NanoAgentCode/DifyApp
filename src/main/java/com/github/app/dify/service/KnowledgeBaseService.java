@@ -280,20 +280,21 @@ public class KnowledgeBaseService {
      * @param tenantId 租户ID
      * @param status 状态
      * @param keyword 关键词
+     * @param vectorStoreType 向量库类型
      * @param userId 用户ID（用于权限过滤，如果为null则不进行权限过滤）
      * @param userRole 用户角色（1-管理员，0-普通用户），如果为null则按普通用户处理
      * @param page 页码（从1开始）
      * @param pageSize 每页大小
      */
     public com.github.app.dify.resp.PageResponse<KnowledgeBaseResp> listKnowledgeBasesWithPagination(
-            Integer tenantId, Integer status, String keyword, Long userId, Integer userRole, 
+            Integer tenantId, Integer status, String keyword, String vectorStoreType, Long userId, Integer userRole, 
             int page, int pageSize) {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
                 page - 1, pageSize, org.springframework.data.domain.Sort.by("createTime").descending());
         
         // 使用分页查询
         org.springframework.data.domain.Page<KnowledgeBase> kbPage = knowledgeBaseRepository.findByFiltersWithPagination(
-                status, keyword != null ? keyword.trim() : null, pageable);
+                status, keyword != null ? keyword.trim() : null, vectorStoreType, pageable);
         
         // 过滤已删除的知识库
         List<KnowledgeBase> knowledgeBases = kbPage.getContent().stream()

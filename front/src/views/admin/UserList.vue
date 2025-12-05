@@ -45,15 +45,16 @@
         </el-select>
       </div>
       
-      <el-table
-        :data="userList"
-        v-loading="loading"
-        style="width: 100%"
-        row-key="id"
-        border
-        stripe
-        fit
-      >
+      <div class="table-wrapper">
+        <el-table
+          :data="userList"
+          v-loading="loading"
+          style="width: 100%"
+          row-key="id"
+          border
+          stripe
+          fit
+        >
         <el-table-column prop="id" label="ID" width="70" align="center" />
         <el-table-column prop="username" label="用户名" min-width="120" show-overflow-tooltip />
         <el-table-column prop="role" label="角色" min-width="120" align="center">
@@ -264,10 +265,11 @@
             </div>
           </template>
         </el-table-column>
-      </el-table>
+        </el-table>
+      </div>
       
       <!-- 分页 -->
-      <div class="pagination">
+      <div class="pagination-fixed">
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
@@ -616,13 +618,52 @@ onMounted(() => {
 
 <style scoped>
 .user-list {
+  padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:deep(.el-card) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: 0;
+}
+
+:deep(.el-card__header) {
+  flex-shrink: 0;
+  padding: 18px 20px;
+}
+
+:deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 20px;
+  min-height: 0;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.search-bar {
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 80px; /* 为固定分页留出空间 */
 }
 
 .app-dropdown-menu {
@@ -791,6 +832,16 @@ onMounted(() => {
   display: flex;
   align-items: center;
   margin-bottom: 20px;
+}
+
+.pagination-fixed {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  background: white;
+  padding: 10px 20px;
+  border-radius: 4px;
 }
 
 .pagination {

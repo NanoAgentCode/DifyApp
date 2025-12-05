@@ -118,6 +118,7 @@ public class KnowledgeBaseController {
             @RequestParam(required = false) Integer tenantId,
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String vectorStoreType,
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer pageSize,
@@ -136,7 +137,7 @@ public class KnowledgeBaseController {
             if (page != null && pageSize != null && page > 0 && pageSize > 0) {
                 com.github.app.dify.resp.PageResponse<KnowledgeBaseResp> pageResponse = 
                         knowledgeBaseService.listKnowledgeBasesWithPagination(
-                                tenantId, status, keyword, userId, userRole, page, pageSize);
+                                tenantId, status, keyword, vectorStoreType, userId, userRole, page, pageSize);
                 return ResponseEntity.ok(pageResponse);
             } else {
                 // 否则返回所有数据（兼容旧接口）

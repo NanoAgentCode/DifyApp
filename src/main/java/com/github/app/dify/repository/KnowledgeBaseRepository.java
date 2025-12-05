@@ -60,9 +60,11 @@ public interface KnowledgeBaseRepository extends JpaRepository<KnowledgeBase, Lo
      */
     @Query("SELECT kb FROM KnowledgeBase kb WHERE (kb.deleted IS NULL OR kb.deleted = 0) " +
            "AND (:status IS NULL OR kb.status = :status) " +
-           "AND (:keyword IS NULL OR kb.name LIKE %:keyword% OR kb.description LIKE %:keyword%)")
+           "AND (:keyword IS NULL OR kb.name LIKE %:keyword% OR kb.description LIKE %:keyword%) " +
+           "AND (:vectorStoreType IS NULL OR kb.vectorStoreType = :vectorStoreType)")
     Page<KnowledgeBase> findByFiltersWithPagination(@Param("status") Integer status,
                                                      @Param("keyword") String keyword,
+                                                     @Param("vectorStoreType") String vectorStoreType,
                                                      Pageable pageable);
 }
 

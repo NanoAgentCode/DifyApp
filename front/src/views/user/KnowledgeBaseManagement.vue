@@ -25,6 +25,20 @@
           </template>
         </el-input>
         <el-select
+          v-model="filterVectorStoreType"
+          placeholder="筛选向量库"
+          clearable
+          style="width: 150px; margin-left: 10px"
+          @change="handleFilter"
+        >
+          <el-option label="全部" value="" />
+          <el-option label="Qdrant" value="qdrant" />
+          <el-option label="FAISS" value="faiss" />
+          <el-option label="Milvus" value="milvus" />
+          <el-option label="Chroma" value="chroma" />
+          <el-option label="Weaviate" value="weaviate" />
+        </el-select>
+        <el-select
           v-model="filterStatus"
           placeholder="筛选状态"
           clearable
@@ -391,6 +405,7 @@ const knowledgeBases = ref([])
 const loading = ref(false)
 const searchKeyword = ref('')
 const filterStatus = ref('')
+const filterVectorStoreType = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 const router = useRouter()
@@ -567,6 +582,13 @@ const filteredKnowledgeBases = computed(() => {
     result = result.filter(kb => {
       const kbStatus = typeof kb.status === 'number' ? statusMap[kb.status] : kb.status
       return kbStatus === filterStatus.value
+    })
+  }
+  
+  // 向量库类型过滤
+  if (filterVectorStoreType.value) {
+    result = result.filter(kb => {
+      return kb.vectorStoreType === filterVectorStoreType.value
     })
   }
   

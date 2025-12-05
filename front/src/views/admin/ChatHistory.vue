@@ -40,16 +40,17 @@
       </div>
 
       <!-- 对话列表 -->
-      <el-table
-        v-loading="loading"
-        :data="conversations"
-        @selection-change="handleSelectionChange"
-        style="width: 100%"
-      >
+      <div class="table-wrapper">
+        <el-table
+          v-loading="loading"
+          :data="conversations"
+          @selection-change="handleSelectionChange"
+          style="width: 100%"
+          :default-sort="{ prop: 'updateTime', order: 'descending' }"
+        >
         <el-table-column type="selection" width="55" />
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="username" label="用户" width="120" />
-        <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
         <el-table-column label="类型" width="100">
           <template #default="{ row }">
             <el-tag :type="row.type === 1 ? 'primary' : 'success'" size="small">
@@ -57,6 +58,7 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
         <el-table-column prop="messageCount" label="对话轮数" width="100">
           <template #default="{ row }">
             {{ row.messageCount }} 轮
@@ -77,20 +79,21 @@
             </el-button>
           </template>
         </el-table-column>
-      </el-table>
+        </el-table>
+      </div>
 
       <!-- 分页 -->
-      <el-pagination
-        v-if="total > 0"
-        v-model:current-page="currentPage"
-        v-model:page-size="pageSize"
-        :total="total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next, jumper"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-        style="margin-top: 20px; justify-content: center"
-      />
+      <div class="pagination-container">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :total="total"
+          :page-sizes="[10, 15, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
     </el-card>
 
     <!-- 会话详情对话框（显示该会话中的所有消息） -->
@@ -257,7 +260,7 @@ export default {
     const selectedType = ref(null)
     const selectedIds = ref([])
     const currentPage = ref(1)
-    const pageSize = ref(20)
+    const pageSize = ref(15)
     const total = ref(0)
     const showConversationDetail = ref(false)
     const conversationDetail = ref({
@@ -275,11 +278,13 @@ export default {
           searchKeyword.value,
           selectedType.value
         )
+        console.log('API响应数据:', response)
         conversations.value = response.content || []
         total.value = response.total || 0
+        console.log('分页信息 - 当前页:', currentPage.value, '每页大小:', pageSize.value, '总数:', total.value, '当前数据量:', conversations.value.length)
       } catch (error) {
         ElMessage.error('加载会话列表失败')
-        console.error(error)
+        console.error('加载会话列表错误:', error)
       } finally {
         loading.value = false
       }
@@ -533,7 +538,33 @@ export default {
 
 <style scoped>
 .admin-chat-history {
+  padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:deep(.el-card) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: 0;
+}
+
+:deep(.el-card__header) {
+  flex-shrink: 0;
+  padding: 18px 20px;
+}
+
+:deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 20px;
+  min-height: 0;
 }
 
 .card-header {
@@ -546,10 +577,31 @@ export default {
   margin-bottom: 20px;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .batch-actions {
   margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+:deep(.el-table .el-table__cell) {
+  padding: 7px 0;
 }
 
 .conversation-detail {
