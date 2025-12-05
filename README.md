@@ -98,6 +98,9 @@ DifyApp/
 - **FAISS** (本地文件存储，无需额外服务，适合开发测试环境)
 - **Milvus** (向量数据库，支持大规模向量检索，适合生产环境)
 
+### 可选环境（MCP 功能）
+- **SearX-NG** (搜索引擎聚合服务，用于浏览器检索功能，默认端口 10086)
+
 ### 可选环境（用于前端开发）
 - Node.js 16+
 - Yarn 或 npm
@@ -216,6 +219,58 @@ docker run -d \
 docker run -d  --name redis -p 6379:6379 redis:latest   redis-server
 ```
 
+#### 启动 SearX-NG（可选，用于 MCP 浏览器检索功能）
+
+使用 Docker 启动 SearX-NG：
+
+```bash
+docker run -d \
+  --name searxng \
+  -p 10086:8080 \
+  -v searxng:/etc/searxng:rw \
+  searxng/searxng:latest
+```
+
+访问 SearX-NG：http://localhost:10086
+
+**重要：SearX-NG 配置修改**
+
+为了支持 MCP 浏览器检索功能，需要修改 SearX-NG 的配置文件。配置文件通常位于容器内的 `/etc/searxng/settings.yml` 或通过环境变量配置。
+
+**方式一：通过配置文件修改（推荐）**
+
+如果使用 Docker 挂载卷，编辑配置文件：
+
+```yaml
+search:
+  formats:
+    - html
+    - json
+    - rss
+    - atom
+
+enable_api: true
+```
+
+**方式二：通过环境变量配置**
+
+在启动 Docker 容器时添加环境变量：
+
+```bash
+docker run -d \
+  --name searxng \
+  -p 10086:8080 \
+  -e SEARXNG_SETTINGS_PATH=/etc/searxng/settings.yml \
+  -v searxng:/etc/searxng:rw \
+  searxng/searxng:latest
+```
+
+然后在配置文件中添加上述配置。
+
+**配置说明：**
+- `search.formats`: 必须包含 `json` 格式，以便 API 调用返回 JSON 格式的搜索结果
+- `enable_api: true`: 启用 API 功能，允许通过 API 调用搜索服务
+
 ### 3. 配置应用
 
 编辑 `src/main/resources/application.yml`，根据您的环境修改配置：
@@ -289,6 +344,29 @@ rag:
   llm-api-url: https://api.siliconflow.cn
   llm-api-key: your-api-key
   llm-model: Qwen/Qwen2.5-72B-Instruct
+
+# MCP (Model Context Protocol) 配置
+mcp:
+  # 浏览器搜索服务配置
+  browser-search:
+    searxng-base-url: http://localhost:10086  # SearX-NG服务地址
+    timeout: 10                               # 请求超时时间（秒）
+    default-max-results: 5                    # 默认最大搜索结果数
+    enable-query-optimization: true           # 是否启用查询优化（自动添加时间限制等）
+    default-engines: "duckduckgo,brave"      # 默认搜索引擎（多个用逗号分隔）
+  # 地理位置服务配置
+  location:
+    enabled: true                              # 是否启用地理位置服务
+    cache-seconds: 3600                       # 地理位置信息缓存时间（秒，默认1小时）
+    timeout: 10                               # 请求超时时间（秒）
+  # 时间服务配置
+  time:
+    default-time-zone: Asia/Shanghai          # 默认时区
+    cache-seconds: 1                          # 时间信息缓存时间（秒，避免频繁获取）
+  # 实时信息检测配置
+  realtime-info-detector:
+    enabled: true                              # 是否启用实时信息检测
+    confidence-threshold: 0.3                 # 检测置信度阈值（0.0-1.0），超过此值才认为是实时信息问题（降低阈值使检测更宽松）
 ```
 
 ### 4. 初始化数据库
@@ -1560,6 +1638,82 @@ dify:
     timeout: 30000
     connect-timeout: 10000
     file-url-prefix: http://your-dify-server:80
+```
+
+### MCP (Model Context Protocol) 配置
+
+MCP 模块提供了浏览器检索、时间信息、地理位置等上下文增强功能。
+
+**浏览器搜索服务配置：**
+
+```yaml
+mcp:
+  browser-search:
+    searxng-base-url: http://localhost:10086  # SearX-NG服务地址
+    timeout: 10                               # 请求超时时间（秒）
+    default-max-results: 5                    # 默认最大搜索结果数
+    enable-query-optimization: true           # 是否启用查询优化
+    default-engines: "duckduckgo,brave"      # 默认搜索引擎（多个用逗号分隔）
+```
+
+**SearX-NG 配置要求：**
+
+为了支持 MCP 浏览器检索功能，SearX-NG 需要修改以下配置。配置文件通常位于容器内的 `/etc/searxng/settings.yml`：
+
+```yaml
+search:
+  formats:
+    - html
+    - json
+    - rss
+    - atom
+
+enable_api: true
+```
+
+**配置说明：**
+- `search.formats`: 必须包含 `json` 格式，以便 API 调用返回 JSON 格式的搜索结果
+- `enable_api: true`: 启用 API 功能，允许通过 API 调用搜索服务
+
+**地理位置服务配置：**
+
+```yaml
+mcp:
+  location:
+    enabled: true                              # 是否启用地理位置服务
+    cache-seconds: 3600                       # 地理位置信息缓存时间（秒）
+    timeout: 10                               # 请求超时时间（秒）
+```
+
+**时间服务配置：**
+
+```yaml
+mcp:
+  time:
+    default-time-zone: Asia/Shanghai          # 默认时区
+    cache-seconds: 1                          # 时间信息缓存时间（秒）
+```
+
+**完整配置示例：**
+
+```yaml
+mcp:
+  browser-search:
+    searxng-base-url: http://localhost:10086
+    timeout: 10
+    default-max-results: 5
+    enable-query-optimization: true
+    default-engines: "duckduckgo,brave"
+  location:
+    enabled: true
+    cache-seconds: 3600
+    timeout: 10
+  time:
+    default-time-zone: Asia/Shanghai
+    cache-seconds: 1
+  realtime-info-detector:
+    enabled: true
+    confidence-threshold: 0.3
 ```
 
 ### 生产环境建议

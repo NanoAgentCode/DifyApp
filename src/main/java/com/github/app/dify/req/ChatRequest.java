@@ -31,6 +31,9 @@ public class ChatRequest {
     @ApiModelProperty("模型ID（从数据库中选择的问答模型）")
     private Long modelId;
     
+    @ApiModelProperty("是否启用浏览器检索（MCP协议）")
+    private Boolean enableBrowserSearch;
+    
     public String getQuestion() {
         return question;
     }
@@ -77,6 +80,14 @@ public class ChatRequest {
     
     public void setModelId(Long modelId) {
         this.modelId = modelId;
+    }
+    
+    public Boolean getEnableBrowserSearch() {
+        return enableBrowserSearch;
+    }
+    
+    public void setEnableBrowserSearch(Boolean enableBrowserSearch) {
+        this.enableBrowserSearch = enableBrowserSearch;
     }
     
     /**

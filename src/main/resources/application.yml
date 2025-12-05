@@ -139,3 +139,29 @@ rag:
 # 注意：
 # - 模型配置（LLM和Embedding）已迁移到数据库，请在管理端"大模型管理"页面配置
 # - ConfigurableDocumentSplitter 使用 rag.chunk-size 和 rag.chunk-overlap 配置
+
+# MCP (Model Context Protocol) 配置
+mcp:
+  # 浏览器搜索服务配置
+  browser-search:
+    searxng-base-url: http://localhost:10086  # SearX-NG服务地址
+    timeout: 10                               # 请求超时时间（秒）
+    default-max-results: 5                    # 默认最大搜索结果数
+    enable-query-optimization: true           # 是否启用查询优化（自动添加时间限制等）
+    # 默认搜索引擎（多个用逗号分隔，例如：google,bing,duckduckgo）
+    # 如果为空，则使用SearX-NG的默认配置
+    # 常用搜索引擎：google, bing, duckduckgo, brave, yandex, baidu, sogou, 360
+    default-engines: "duckduckgo,brave"
+  # 地理位置服务配置
+  location:
+    enabled: true                              # 是否启用地理位置服务
+    cache-seconds: 3600                       # 地理位置信息缓存时间（秒，默认1小时）
+    timeout: 10                               # 请求超时时间（秒）
+  # 时间服务配置
+  time:
+    default-time-zone: Asia/Shanghai          # 默认时区
+    cache-seconds: 1                          # 时间信息缓存时间（秒，避免频繁获取）
+  # 实时信息检测配置
+  realtime-info-detector:
+    enabled: true                              # 是否启用实时信息检测
+    confidence-threshold: 0.3                 # 检测置信度阈值（0.0-1.0），超过此值才认为是实时信息问题（降低阈值使检测更宽松）

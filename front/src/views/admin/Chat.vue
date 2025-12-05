@@ -36,6 +36,7 @@
               </el-option>
             </el-select>
             <el-checkbox v-model="useStream" size="small">流式响应</el-checkbox>
+            <el-checkbox v-model="enableBrowserSearch" size="small">开启MCP支持</el-checkbox>
             <el-button type="primary" @click="handleClearHistory">
               <el-icon><Delete /></el-icon>
               清空历史
@@ -230,6 +231,7 @@ const chatHistory = ref([])
 const chatHistoryRef = ref(null)
 const conversationId = ref(null)
 const useStream = ref(true) // 默认使用流式响应
+const enableBrowserSearch = ref(true) // 默认开启MCP支持
 const currentStreamingMessage = ref(null) // 当前正在流式接收的消息索引
 const availableModels = ref([]) // 可用的模型列表
 const selectedModelId = ref(null) // 选中的模型ID
@@ -299,10 +301,10 @@ const handleSend = async () => {
     
     if (useStream.value) {
       // 流式响应
-      await handleStreamResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value)
+      await handleStreamResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value, enableBrowserSearch.value)
     } else {
       // 非流式响应
-      await handleNormalResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value)
+      await handleNormalResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value, enableBrowserSearch.value)
     }
   } catch (error) {
     console.error('发送消息失败', error)
@@ -321,12 +323,12 @@ const handleSend = async () => {
 }
 
 // 处理流式响应
-const handleStreamResponse = async (question, requestConversationId, userId, history, aiMessageIndex, modelId) => {
+const handleStreamResponse = async (question, requestConversationId, userId, history, aiMessageIndex, modelId, enableBrowserSearch) => {
   let reader = null
   let response = null
   
   try {
-    response = await chatStream(question, requestConversationId, userId, history, modelId)
+    response = await chatStream(question, requestConversationId, userId, history, modelId, enableBrowserSearch)
     
     if (!response.ok) {
       const errorText = await response.text().catch(() => '未知错误')
@@ -502,9 +504,9 @@ const handleStreamResponse = async (question, requestConversationId, userId, his
 }
 
 // 处理非流式响应
-const handleNormalResponse = async (question, requestConversationId, userId, history, aiMessageIndex, modelId) => {
+const handleNormalResponse = async (question, requestConversationId, userId, history, aiMessageIndex, modelId, enableBrowserSearch) => {
   try {
-    const response = await chat(question, requestConversationId, userId, history, modelId)
+    const response = await chat(question, requestConversationId, userId, history, modelId, enableBrowserSearch)
     if (chatHistory.value[aiMessageIndex]) {
       chatHistory.value[aiMessageIndex].content = response.answer || '抱歉，未能生成答案。'
       chatHistory.value[aiMessageIndex].isLoading = false

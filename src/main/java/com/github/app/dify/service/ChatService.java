@@ -2,6 +2,9 @@ package com.github.app.dify.service;
 
 import com.github.app.dify.domain.QAModel;
 import com.github.app.dify.langchain4j.ModelLanguageModelFactory;
+import com.github.app.dify.mcp.McpBrowserSearchService;
+import com.github.app.dify.mcp.McpTimeService;
+import com.github.app.dify.mcp.McpLocationService;
 import com.github.app.dify.repository.QAModelRepository;
 import com.github.app.dify.req.ChatRequest;
 import com.github.app.dify.resp.ChatResponse;
@@ -40,6 +43,15 @@ public class ChatService {
     @Autowired
     private ChatHistoryService chatHistoryService;
     
+    @Autowired
+    private McpBrowserSearchService mcpBrowserSearchService;
+    
+    @Autowired
+    private McpTimeService mcpTimeService;
+    
+    @Autowired
+    private McpLocationService mcpLocationService;
+    
     /**
      * 智能问答（非流式）
      */
@@ -57,8 +69,38 @@ public class ChatService {
             ModelLanguageModelFactory.ChatLanguageModel chatLanguageModel = 
                     modelLanguageModelFactory.createChatLanguageModel(qaModel);
             
+            // 如果启用了MCP支持，直接使用浏览器检索（不再进行检测）
+            String browserSearchContext = "";
+            if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
+                logger.info("MCP支持已开启，直接启用浏览器检索 - 查询: {}", request.getQuestion());
+                try {
+                    List<McpBrowserSearchService.SearchResult> searchResults = 
+                            mcpBrowserSearchService.search(request.getQuestion(), 5);
+                    if (searchResults != null && !searchResults.isEmpty()) {
+                        browserSearchContext = mcpBrowserSearchService.formatSearchResultsForContext(searchResults);
+                        logger.info("浏览器检索完成 - 找到 {} 个结果，检索内容长度: {} 字符", 
+                                searchResults.size(), browserSearchContext.length());
+                        // 记录检索结果详情（仅记录前200字符，避免日志过长）
+                        logger.debug("检索结果预览: {}", 
+                                browserSearchContext.length() > 200 ? 
+                                browserSearchContext.substring(0, 200) + "..." : browserSearchContext);
+                    } else {
+                        logger.warn("浏览器检索未找到结果 - 查询: {}", request.getQuestion());
+                        // 即使没有找到结果，也告知LLM已尝试检索
+                        browserSearchContext = "【网络搜索提示】已启用MCP支持（浏览器检索功能），但未找到与问题相关的搜索结果。\n\n" +
+                                "问题：" + request.getQuestion() + "\n\n" +
+                                "请基于你的知识来回答这个问题。如果问题涉及实时信息或最新动态，请说明需要访问相关网站获取最新信息。";
+                    }
+                } catch (Exception e) {
+                    logger.error("浏览器检索失败，继续使用原始问题 - 查询: {}", request.getQuestion(), e);
+                    // 不抛出异常，继续使用原始问题
+                }
+            } else {
+                logger.info("MCP支持已关闭，跳过浏览器检索");
+            }
+            
             // 构建消息列表（包含历史对话）
-            List<ChatMessage> messages = buildMessages(request);
+            List<ChatMessage> messages = buildMessages(request, browserSearchContext);
             
             // 记录历史对话信息
             if (request.getHistory() != null && !request.getHistory().isEmpty()) {
@@ -131,8 +173,38 @@ public class ChatService {
             ModelLanguageModelFactory.StreamingChatLanguageModel streamingChatLanguageModel = 
                     modelLanguageModelFactory.createStreamingChatLanguageModel(qaModel);
             
+            // 如果启用了MCP支持，直接使用浏览器检索（不再进行检测）
+            String browserSearchContext = "";
+            if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
+                logger.info("MCP支持已开启（流式），直接启用浏览器检索 - 查询: {}", request.getQuestion());
+                try {
+                    List<McpBrowserSearchService.SearchResult> searchResults = 
+                            mcpBrowserSearchService.search(request.getQuestion(), 5);
+                    if (searchResults != null && !searchResults.isEmpty()) {
+                        browserSearchContext = mcpBrowserSearchService.formatSearchResultsForContext(searchResults);
+                        logger.info("浏览器检索完成（流式） - 找到 {} 个结果，检索内容长度: {} 字符", 
+                                searchResults.size(), browserSearchContext.length());
+                        // 记录检索结果详情（仅记录前200字符，避免日志过长）
+                        logger.debug("检索结果预览（流式）: {}", 
+                                browserSearchContext.length() > 200 ? 
+                                browserSearchContext.substring(0, 200) + "..." : browserSearchContext);
+                    } else {
+                        logger.warn("浏览器检索未找到结果（流式） - 查询: {}", request.getQuestion());
+                        // 即使没有找到结果，也告知LLM已尝试检索
+                        browserSearchContext = "【网络搜索提示】已启用MCP支持（浏览器检索功能），但未找到与问题相关的搜索结果。\n\n" +
+                                "问题：" + request.getQuestion() + "\n\n" +
+                                "请基于你的知识来回答这个问题。如果问题涉及实时信息或最新动态，请说明需要访问相关网站获取最新信息。";
+                    }
+                } catch (Exception e) {
+                    logger.error("浏览器检索失败（流式），继续使用原始问题 - 查询: {}", request.getQuestion(), e);
+                    // 不抛出异常，继续使用原始问题
+                }
+            } else {
+                logger.info("MCP支持已关闭（流式），跳过浏览器检索");
+            }
+            
             // 构建消息列表（包含历史对话）
-            List<ChatMessage> messages = buildMessages(request);
+            List<ChatMessage> messages = buildMessages(request, browserSearchContext);
             
             // 应用上下文压缩策略（转换为KnowledgeBaseQARequest格式以复用压缩逻辑）
             com.github.app.dify.req.KnowledgeBaseQARequest kbRequest = convertToKBQARequest(request);
@@ -251,11 +323,58 @@ public class ChatService {
      * 构建消息列表（包含历史对话）
      */
     private List<ChatMessage> buildMessages(ChatRequest request) {
+        return buildMessages(request, "");
+    }
+    
+    /**
+     * 构建消息列表（包含历史对话和浏览器检索结果）
+     */
+    private List<ChatMessage> buildMessages(ChatRequest request, String browserSearchContext) {
         List<ChatMessage> messages = new ArrayList<>();
         
-        // 添加系统消息
-        messages.add(SystemMessage.from("你是一个专业的AI助手，能够回答各种问题，特别擅长编程和技术问题。" +
-                "\n\n重要：请使用Markdown格式来组织你的回答，包括：\n" +
+        // 构建系统消息
+        StringBuilder systemMessageBuilder = new StringBuilder();
+        systemMessageBuilder.append("你是一个专业的AI助手，能够回答各种问题，特别擅长编程和技术问题。\n\n");
+        
+        // 如果启用了MCP支持，添加时间信息和地理位置信息
+        int currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
+        if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
+            // 获取当前时间信息（用于时效性判断）
+            String currentTimeInfo = mcpTimeService.getFormattedTimeInfo();
+            McpTimeService.TimeInfo timeInfo = mcpTimeService.getCurrentTime();
+            currentYear = timeInfo.getYear();
+            systemMessageBuilder.append(currentTimeInfo);
+            
+            // 获取地理位置信息
+            try {
+                String locationInfo = mcpLocationService.getFormattedLocationInfo();
+                systemMessageBuilder.append("\n\n");
+                systemMessageBuilder.append(locationInfo);
+            } catch (Exception e) {
+                logger.warn("获取地理位置信息失败，跳过", e);
+                // 不抛出异常，继续执行
+            }
+        } else {
+            // MCP支持关闭时，只提供基本的年份信息
+            systemMessageBuilder.append("【当前时间信息】\n");
+            systemMessageBuilder.append(String.format("当前年份：%d年\n", currentYear));
+            systemMessageBuilder.append("注意：MCP支持已关闭，时间信息和地理位置信息不可用。\n\n");
+        }
+        
+        // 如果提供了浏览器检索结果，在系统消息中强调要使用检索结果
+        if (browserSearchContext != null && !browserSearchContext.trim().isEmpty()) {
+            
+            systemMessageBuilder.append("\n\n【重要提示】当用户问题中包含网络搜索结果时，你必须：");
+            systemMessageBuilder.append("\n1. 优先使用搜索结果中的信息来回答问题");
+            systemMessageBuilder.append("\n2. 在回答中明确引用搜索结果中的内容，并标注来源链接");
+            systemMessageBuilder.append("\n3. 【关键】特别注意信息的时效性：如果搜索结果中的信息包含日期，且日期是2023年或更早，必须明确告知用户\"注意：以下信息可能已过期\"");
+            systemMessageBuilder.append("\n4. 【关键】如果所有搜索结果都是过期的（日期是2023年或更早），必须在回答开头明确说明\"搜索结果中的信息可能已过期\"，并建议用户访问相关网站获取最新信息");
+            systemMessageBuilder.append("\n5. 当前年份是").append(currentYear).append("年，请以此判断信息是否过期");
+            systemMessageBuilder.append("\n6. 如果搜索结果与问题相关，必须基于搜索结果来回答，不要仅依赖你的训练数据");
+            systemMessageBuilder.append("\n7. 如果搜索结果与问题不相关，可以结合你的知识来回答，但要说明信息来源");
+        }
+        
+        systemMessageBuilder.append("\n\n重要：请使用Markdown格式来组织你的回答，包括：\n" +
                 "- 使用标题（#、##、###）来组织内容结构\n" +
                 "- 使用列表（-、*、1.）来列举要点\n" +
                 "- 使用代码块（```）来展示代码或技术内容\n" +
@@ -296,7 +415,10 @@ public class ChatService {
                 "   [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]\n" +
                 "5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式\n" +
                 "6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等\n" +
-                "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符"));
+                "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符");
+        
+        // 添加系统消息
+        messages.add(SystemMessage.from(systemMessageBuilder.toString()));
         
         // 添加历史对话
         if (request.getHistory() != null && !request.getHistory().isEmpty()) {
@@ -309,8 +431,36 @@ public class ChatService {
             }
         }
         
-        // 添加当前问题
-        messages.add(UserMessage.from(request.getQuestion()));
+        // 构建用户消息：如果有检索结果，将检索结果和问题一起发送
+        String userMessageContent;
+        if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
+            // MCP支持已开启
+            if (browserSearchContext != null && !browserSearchContext.trim().isEmpty()) {
+                // 将检索结果和问题组合在一起，让LLM更容易理解要使用检索结果
+                userMessageContent = browserSearchContext + 
+                        "\n\n---\n\n" +
+                        "基于以上网络搜索结果，请回答以下问题：\n" + 
+                        request.getQuestion() +
+                        "\n\n【重要要求】\n" +
+                        "1. 必须优先使用上述搜索结果中的信息来回答问题\n" +
+                        "2. 如果搜索结果中包含相关信息，必须明确引用并标注来源链接\n" +
+                        "3. 【关键】特别注意信息的时效性：当前年份是" + currentYear + "年，如果搜索结果中的信息包含日期且是2023年或更早，必须在回答开头明确说明\"注意：以下信息可能已过期\"\n" +
+                        "4. 【关键】如果所有搜索结果都是过期的（日期是2023年或更早），必须在回答开头明确说明\"搜索结果中的信息可能已过期，建议访问相关网站获取最新信息\"\n" +
+                        "5. 如果搜索结果与问题不相关，请明确说明\"未在搜索结果中找到相关信息\"，然后可以结合你的知识回答\n" +
+                        "6. 绝对不要声称搜索结果包含信息，如果搜索结果中没有相关内容，请明确说明";
+            } else {
+                // 如果启用了MCP支持但没有找到结果，明确告知LLM
+                userMessageContent = "【网络搜索提示】已启用MCP支持（浏览器检索功能），但未找到与问题相关的搜索结果。\n\n" +
+                        "问题：" + request.getQuestion() + "\n\n" +
+                        "请基于你的知识来回答这个问题。如果问题涉及实时信息或最新动态，请说明需要访问相关网站获取最新信息。";
+            }
+        } else {
+            // MCP支持已关闭，直接使用原始问题
+            userMessageContent = request.getQuestion();
+        }
+        
+        // 添加当前问题（包含检索结果）
+        messages.add(UserMessage.from(userMessageContent));
         
         return messages;
     }
