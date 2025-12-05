@@ -36,7 +36,6 @@
               </el-option>
             </el-select>
             <el-checkbox v-model="useStream" size="small">流式响应</el-checkbox>
-            <el-checkbox v-model="enableBrowserSearch" size="small">开启MCP支持</el-checkbox>
             <el-button type="primary" @click="handleClearHistory">
               <el-icon><Delete /></el-icon>
               清空历史
@@ -102,6 +101,13 @@
                 <el-icon><Plus /></el-icon>
                 开启新对话
               </el-button>
+              <div style="display: flex; align-items: center; gap: 8px; margin-right: 8px;">
+                <span style="font-size: 14px; color: #606266;">联网搜索</span>
+                <el-switch
+                  v-model="enableBrowserSearch"
+                  :disabled="sending"
+                />
+              </div>
               <el-button
                 type="primary"
                 :disabled="!question.trim() || sending"
@@ -243,7 +249,7 @@ const chatHistory = ref([])
 const chatHistoryRef = ref(null)
 const conversationId = ref(null)
 const useStream = ref(true) // 默认使用流式响应
-const enableBrowserSearch = ref(true) // 默认开启MCP支持
+const enableBrowserSearch = ref(false) // 默认关闭联网搜索
 const currentStreamingMessage = ref(null) // 当前正在流式接收的消息索引
 const availableModels = ref([]) // 可用的模型列表
 const selectedModelId = ref(null) // 选中的模型ID
