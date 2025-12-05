@@ -28,24 +28,36 @@ public class McpBrowserSearchService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     // WebClient实例（复用，避免每次创建）
-    private WebClient webClient;
+    // 使用volatile确保多线程环境下的可见性
+    private volatile WebClient webClient;
     
     /**
      * 获取或创建WebClient实例
+     * 使用双重检查锁定模式确保线程安全
      */
     private WebClient getWebClient() {
-        if (webClient == null) {
-            String baseUrl = mcpConfig.getBrowserSearch().getSearxngBaseUrl();
-            webClient = WebClient.builder()
-                    .defaultHeader(HttpHeaders.USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                    .defaultHeader(HttpHeaders.ACCEPT, "application/json, text/html, application/xhtml+xml, */*")
-                    .defaultHeader(HttpHeaders.ACCEPT_LANGUAGE, "zh-CN,zh;q=0.9,en;q=0.8")
-                    .defaultHeader(HttpHeaders.REFERER, baseUrl + "/")
-                    .defaultHeader("X-Requested-With", "XMLHttpRequest")
-                    .build();
-            logger.info("McpBrowserSearchService WebClient已创建 - SearX-NG地址: {}", baseUrl);
+        // 第一次检查（无锁）
+        WebClient result = webClient;
+        if (result == null) {
+            // 同步块，确保只有一个线程能创建实例
+            synchronized (this) {
+                // 第二次检查（有锁），防止其他线程已经创建了实例
+                result = webClient;
+                if (result == null) {
+                    String baseUrl = mcpConfig.getBrowserSearch().getSearxngBaseUrl();
+                    result = WebClient.builder()
+                            .defaultHeader(HttpHeaders.USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                            .defaultHeader(HttpHeaders.ACCEPT, "application/json, text/html, application/xhtml+xml, */*")
+                            .defaultHeader(HttpHeaders.ACCEPT_LANGUAGE, "zh-CN,zh;q=0.9,en;q=0.8")
+                            .defaultHeader(HttpHeaders.REFERER, baseUrl + "/")
+                            .defaultHeader("X-Requested-With", "XMLHttpRequest")
+                            .build();
+                    webClient = result; // 写入volatile变量，确保对其他线程可见
+                    logger.info("McpBrowserSearchService WebClient已创建 - SearX-NG地址: {}", baseUrl);
+                }
+            }
         }
-        return webClient;
+        return result;
     }
     
     /**

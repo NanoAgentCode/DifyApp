@@ -195,13 +195,9 @@ public class McpRealtimeInfoDetector {
         }
         
         // 短问题+疑问词+实体：提高权重
+        // 注意：此条件与下面的条件逻辑相同，已合并以避免重复计算
         if (isShortQuestionWithQuestionWord(question) && containsLikelyEntityName(question)) {
             confidence += 0.3;
-        }
-        
-        // 如果问题包含地名（2-4个中文字符）且包含疑问词，给予基础置信度
-        if (containsLikelyEntityName(question) && isShortQuestionWithQuestionWord(question)) {
-            confidence += 0.2;
         }
         
         // 如果问题长度较短（可能是简单查询），给予基础置信度

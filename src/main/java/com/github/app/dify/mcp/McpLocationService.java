@@ -26,24 +26,36 @@ public class McpLocationService {
     @Autowired
     private ObjectMapper objectMapper;
     
-    // WebClient实例（复用）
-    private WebClient webClient;
+    // WebClient实例（复用，避免每次创建）
+    // 使用volatile确保多线程环境下的可见性
+    private volatile WebClient webClient;
     
     // 缓存地理位置信息
     private CachedLocationInfo cachedLocationInfo;
     
     /**
      * 获取或创建WebClient实例
+     * 使用双重检查锁定模式确保线程安全
      */
     private WebClient getWebClient() {
-        if (webClient == null) {
-            webClient = WebClient.builder()
-                    .defaultHeader(HttpHeaders.USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                    .defaultHeader(HttpHeaders.ACCEPT, "application/json")
-                    .build();
-            logger.info("McpLocationService WebClient已创建");
+        // 第一次检查（无锁）
+        WebClient result = webClient;
+        if (result == null) {
+            // 同步块，确保只有一个线程能创建实例
+            synchronized (this) {
+                // 第二次检查（有锁），防止其他线程已经创建了实例
+                result = webClient;
+                if (result == null) {
+                    result = WebClient.builder()
+                            .defaultHeader(HttpHeaders.USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                            .defaultHeader(HttpHeaders.ACCEPT, "application/json")
+                            .build();
+                    webClient = result; // 写入volatile变量，确保对其他线程可见
+                    logger.info("McpLocationService WebClient已创建");
+                }
+            }
         }
-        return webClient;
+        return result;
     }
     
     /**
