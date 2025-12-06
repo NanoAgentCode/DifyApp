@@ -39,9 +39,26 @@ request.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('userInfo')
-      ElMessage.error('登录已过期，请重新登录')
+      const errorMessage = error.response.data?.error || '登录已过期，请重新登录'
+      ElMessage.error(errorMessage)
       if (router.currentRoute.value.path !== '/login' && router.currentRoute.value.path !== '/register') {
         router.push('/login')
+      }
+      return Promise.reject(error)
+    }
+    // 处理403禁止访问错误（用户被禁用或待审核）
+    if (error.response && error.response.status === 403) {
+      const errorMessage = error.response.data?.error || '访问被拒绝'
+      // 检查是否是用户状态相关的错误
+      if (errorMessage.includes('禁用') || errorMessage.includes('待审核')) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('userInfo')
+        ElMessage.error(errorMessage)
+        if (router.currentRoute.value.path !== '/login' && router.currentRoute.value.path !== '/register') {
+          router.push('/login')
+        }
+      } else {
+        ElMessage.error(errorMessage)
       }
       return Promise.reject(error)
     }

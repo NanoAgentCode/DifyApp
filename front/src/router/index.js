@@ -210,6 +210,35 @@ router.beforeEach((to, from, next) => {
     const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
     const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin)
 
+    // 检查用户状态（如果已登录）
+    if (token && userInfoStr) {
+        try {
+            const userInfo = JSON.parse(userInfoStr)
+            // 检查用户状态：0-待审核，1-已激活，2-已禁用
+            if (userInfo.status === 0) {
+                // 待审核状态，清除登录信息并跳转到登录页
+                localStorage.removeItem('token')
+                localStorage.removeItem('userInfo')
+                ElMessage.warning('账号待审核，请联系管理员')
+                if (to.path !== '/login') {
+                    next('/login')
+                    return
+                }
+            } else if (userInfo.status === 2) {
+                // 已禁用状态，清除登录信息并跳转到登录页
+                localStorage.removeItem('token')
+                localStorage.removeItem('userInfo')
+                ElMessage.error('账号已被禁用，请联系管理员')
+                if (to.path !== '/login') {
+                    next('/login')
+                    return
+                }
+            }
+        } catch (e) {
+            console.error('解析用户信息失败', e)
+        }
+    }
+
     if (requiresAuth && !token) {
         // 需要登录但没有token，跳转到登录页
         ElMessage.warning('请先登录')
@@ -223,6 +252,20 @@ router.beforeEach((to, from, next) => {
         }
         try {
             const userInfo = JSON.parse(userInfoStr)
+            // 检查用户状态
+            if (userInfo.status === 0) {
+                ElMessage.warning('账号待审核，请联系管理员')
+                localStorage.removeItem('token')
+                localStorage.removeItem('userInfo')
+                next('/login')
+                return
+            } else if (userInfo.status === 2) {
+                ElMessage.error('账号已被禁用，请联系管理员')
+                localStorage.removeItem('token')
+                localStorage.removeItem('userInfo')
+                next('/login')
+                return
+            }
             if (userInfo.role !== 1) {
                 ElMessage.error('需要管理员权限')
                 next('/user/chat')
@@ -239,6 +282,13 @@ router.beforeEach((to, from, next) => {
         if (userInfoStr) {
             try {
                 const userInfo = JSON.parse(userInfoStr)
+                // 检查用户状态
+                if (userInfo.status === 0 || userInfo.status === 2) {
+                    localStorage.removeItem('token')
+                    localStorage.removeItem('userInfo')
+                    next()
+                    return
+                }
                 next(userInfo.role === 1 ? '/admin/chat' : '/user/chat')
             } catch (e) {
                 next('/admin/chat')

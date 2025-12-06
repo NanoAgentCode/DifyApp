@@ -1,5 +1,7 @@
 package com.github.app.dify.interceptor;
 
+import com.github.app.dify.domain.User;
+import com.github.app.dify.repository.UserRepository;
 import com.github.app.dify.util.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +12,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Optional;
 
 /**
  * JWT拦截器
@@ -21,6 +24,9 @@ public class JwtInterceptor implements HandlerInterceptor {
     
     @Autowired
     private JwtUtil jwtUtil;
+    
+    @Autowired
+    private UserRepository userRepository;
     
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -45,9 +51,64 @@ public class JwtInterceptor implements HandlerInterceptor {
                 String username = jwtUtil.getUsernameFromToken(token);
                 Integer role = jwtUtil.getRoleFromToken(token);
                 
+                // 检查用户状态
+                Optional<User> userOptional = userRepository.findById(userId);
+                if (!userOptional.isPresent()) {
+                    logger.warn("用户不存在 - 用户ID: {}", userId);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json;charset=UTF-8");
+                    try {
+                        response.getWriter().write("{\"error\":\"用户不存在\",\"code\":401}");
+                    } catch (IOException e) {
+                        logger.error("写入响应失败", e);
+                    }
+                    return false;
+                }
+                
+                User user = userOptional.get();
+                
+                // 检查用户是否已删除
+                if (user.getDeleted() != null && user.getDeleted() == 1) {
+                    logger.warn("用户已被删除 - 用户ID: {}, 用户名: {}", userId, username);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json;charset=UTF-8");
+                    try {
+                        response.getWriter().write("{\"error\":\"用户已被删除\",\"code\":401}");
+                    } catch (IOException e) {
+                        logger.error("写入响应失败", e);
+                    }
+                    return false;
+                }
+                
+                // 检查用户状态：0-待审核，1-已激活，2-已禁用
+                if (user.getStatus() == null || user.getStatus() == 0) {
+                    logger.warn("用户待审核 - 用户ID: {}, 用户名: {}", userId, username);
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType("application/json;charset=UTF-8");
+                    try {
+                        response.getWriter().write("{\"error\":\"账号待审核，请联系管理员\",\"code\":403}");
+                    } catch (IOException e) {
+                        logger.error("写入响应失败", e);
+                    }
+                    return false;
+                }
+                
+                if (user.getStatus() == 2) {
+                    logger.warn("用户已被禁用 - 用户ID: {}, 用户名: {}", userId, username);
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType("application/json;charset=UTF-8");
+                    try {
+                        response.getWriter().write("{\"error\":\"账号已被禁用，请联系管理员\",\"code\":403}");
+                    } catch (IOException e) {
+                        logger.error("写入响应失败", e);
+                    }
+                    return false;
+                }
+                
                 request.setAttribute("userId", userId);
                 request.setAttribute("username", username);
                 request.setAttribute("role", role);
+                request.setAttribute("userStatus", user.getStatus());
                 
                 return true;
             } else {
