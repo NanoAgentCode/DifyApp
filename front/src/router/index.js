@@ -172,12 +172,6 @@ const routes = [
                 name: 'UserChatHistory',
                 component: () => import('@/views/user/ChatHistory.vue'),
                 meta: {title: '会话历史', requiresAuth: true}
-            },
-            {
-                path: 'text2sql',
-                name: 'UserText2Sql',
-                component: () => import('@/views/user/Text2Sql.vue'),
-                meta: {title: 'Text2SQL', requiresAuth: true}
             }
         ]
     },

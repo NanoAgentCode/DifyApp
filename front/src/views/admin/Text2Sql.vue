@@ -2,7 +2,7 @@
   <div class="text2sql-container">
     <el-row :gutter="20" class="text2sql-row">
       <!-- 左侧：查询表单 -->
-      <el-col :span="8" class="left-panel">
+      <el-col :span="10" class="left-panel">
         <el-card class="query-card">
           <template #header>
             <span>Text2SQL 查询</span>
@@ -50,17 +50,17 @@
               />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="handleQuery" :loading="querying" style="width: 100%">执行查询</el-button>
-            </el-form-item>
-            <el-form-item>
-              <el-button @click="handleClear" style="width: 100%">清空</el-button>
+              <div class="button-group">
+                <el-button type="primary" @click="handleQuery" :loading="querying">执行查询</el-button>
+                <el-button @click="handleClear">清空</el-button>
+              </div>
             </el-form-item>
           </el-form>
         </el-card>
       </el-col>
 
       <!-- 右侧：查询结果 -->
-      <el-col :span="16" class="right-panel">
+      <el-col :span="14" class="right-panel">
         <el-card class="result-card" v-if="result">
           <template #header>
             <div class="result-header">
@@ -249,6 +249,7 @@ const getTypeName = (type) => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  padding-right: 40px;
 }
 
 .query-card {
@@ -305,6 +306,16 @@ const getTypeName = (type) => {
 }
 
 .table-display :deep(.el-table) {
+  flex: 1;
+}
+
+.button-group {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.button-group .el-button {
   flex: 1;
 }
 </style>

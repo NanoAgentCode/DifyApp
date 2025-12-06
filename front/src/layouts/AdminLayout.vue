@@ -35,30 +35,25 @@
           router
           class="menu"
         >
-          <el-menu-item index="/admin/chat">
-            <el-icon><ChatLineRound /></el-icon>
-            <span>智能问答</span>
-          </el-menu-item>
+          <!-- 核心功能 -->
           <el-menu-item index="/admin/apps">
             <el-icon><List /></el-icon>
             <span>应用列表</span>
           </el-menu-item>
-          <el-menu-item v-if="isAdmin" index="/admin/users">
-            <el-icon><User /></el-icon>
-            <span>用户管理</span>
+          <el-menu-item index="/admin/chat">
+            <el-icon><ChatLineRound /></el-icon>
+            <span>智能问答</span>
+          </el-menu-item>
+          <!-- 知识库相关 -->
+          <el-menu-item v-if="isAdmin" index="/admin/knowledge-base">
+            <el-icon><Folder /></el-icon>
+            <span>知识库管理</span>
           </el-menu-item>
           <el-menu-item v-if="isAdmin" index="/admin/kb-qa">
             <el-icon><Document /></el-icon>
             <span>知识库问答</span>
           </el-menu-item>
-          <el-menu-item v-if="isAdmin" index="/admin/knowledge-base">
-            <el-icon><Folder /></el-icon>
-            <span>知识库管理</span>
-          </el-menu-item>
-          <el-menu-item v-if="isAdmin" index="/admin/chat-history">
-            <el-icon><Clock /></el-icon>
-            <span>会话历史</span>
-          </el-menu-item>
+          <!-- 系统管理 -->
           <el-menu-item v-if="isAdmin" index="/admin/models">
             <el-icon><Setting /></el-icon>
             <span>大模型管理</span>
@@ -71,9 +66,20 @@
             <el-icon><Connection /></el-icon>
             <span>数据源管理</span>
           </el-menu-item>
+          <!-- 工具 -->
           <el-menu-item v-if="isAdmin" index="/admin/text2sql">
             <el-icon><Search /></el-icon>
             <span>Text2SQL</span>
+          </el-menu-item>
+          <!-- 记录查看 -->
+          <el-menu-item v-if="isAdmin" index="/admin/chat-history">
+            <el-icon><Clock /></el-icon>
+            <span>会话历史</span>
+          </el-menu-item>
+          <!-- 用户管理 -->
+          <el-menu-item v-if="isAdmin" index="/admin/users">
+            <el-icon><User /></el-icon>
+            <span>用户管理</span>
           </el-menu-item>
         </el-menu>
       </el-aside>
