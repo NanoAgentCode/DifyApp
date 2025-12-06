@@ -131,6 +131,7 @@ public class VectorDatabaseService {
         config.setExtraConfig(info.getExtraConfig());
         config.setEnabled(info.getEnabled() != null ? info.getEnabled() : true);
         config.setIsDefault(false); // 新添加的配置默认不是默认配置
+        config.setAllowCreateKnowledgeBase(info.getAllowCreateKnowledgeBase() != null ? info.getAllowCreateKnowledgeBase() : true); // 默认允许新建知识库
         config.setDescription(info.getDescription());
         config.setCreateTime(new Date());
         config.setUpdateTime(new Date());
@@ -195,6 +196,9 @@ public class VectorDatabaseService {
         }
         if (info.getDescription() != null) {
             config.setDescription(info.getDescription());
+        }
+        if (info.getAllowCreateKnowledgeBase() != null) {
+            config.setAllowCreateKnowledgeBase(info.getAllowCreateKnowledgeBase());
         }
         config.setUpdateTime(new Date());
         

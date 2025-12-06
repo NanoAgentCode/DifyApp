@@ -45,6 +45,16 @@
               />
             </template>
           </el-table-column>
+          <el-table-column label="新建知识库" width="150" align="center">
+            <template #default="{ row }">
+              <el-switch
+                :model-value="row.allowCreateKnowledgeBase !== false"
+                @change="(val) => handleToggleAllowCreateKnowledgeBase(row, val)"
+                active-text=""
+                inactive-text=""
+              />
+            </template>
+          </el-table-column>
           <el-table-column label="默认" width="100" align="center">
             <template #default="{ row }">
               <el-radio
@@ -69,7 +79,7 @@
                   :loading="row.testing"
                 >
                   <el-icon><Link /></el-icon>
-                  测试连接
+                  测试
                 </el-button>
                 <el-button
                   size="small"
@@ -174,6 +184,16 @@
         <el-form-item label="是否启用" prop="enabled">
           <el-switch v-model="currentConfig.enabled" />
         </el-form-item>
+        <el-form-item label="新建知识库">
+          <el-switch
+            v-model="currentConfig.allowCreateKnowledgeBase"
+            active-text="允许"
+            inactive-text="禁止"
+          />
+          <div style="font-size: 12px; color: #909399; margin-top: 5px;">
+            控制是否允许使用该向量库创建新知识库。如果设置为不允许，创建知识库时该向量库将不会出现在下拉菜单中。
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -216,7 +236,8 @@ const currentConfig = reactive({
   apiKey: '',
   timeout: 30000,
   description: '',
-  enabled: true
+  enabled: true,
+  allowCreateKnowledgeBase: true // 默认允许新建知识库
 })
 
 const formRules = {
@@ -307,6 +328,7 @@ const handleAdd = () => {
   currentConfig.timeout = 30000
   currentConfig.description = ''
   currentConfig.enabled = true
+  currentConfig.allowCreateKnowledgeBase = true // 默认允许新建知识库
   dialogVisible.value = true
 }
 
@@ -322,6 +344,7 @@ const handleEdit = (row) => {
   currentConfig.timeout = row.timeout || 30000
   currentConfig.description = row.description || ''
   currentConfig.enabled = row.enabled !== false
+  currentConfig.allowCreateKnowledgeBase = row.allowCreateKnowledgeBase !== undefined ? row.allowCreateKnowledgeBase : true
   dialogVisible.value = true
 }
 
@@ -346,7 +369,8 @@ const handleSave = async () => {
         apiKey: currentConfig.apiKey || null,
         timeout: currentConfig.timeout || (currentConfig.type === 'faiss' ? null : 30000),
         description: currentConfig.description || null,
-        enabled: currentConfig.enabled
+        enabled: currentConfig.enabled,
+        allowCreateKnowledgeBase: currentConfig.allowCreateKnowledgeBase !== undefined ? currentConfig.allowCreateKnowledgeBase : true
       }
     }
     
@@ -422,6 +446,32 @@ const handleToggleEnabled = async (row, enabled) => {
       enabled: enabled
     })
     ElMessage.success(enabled ? '已启用' : '已禁用')
+    loadConfigs()
+  } catch (error) {
+    ElMessage.error('切换状态失败：' + (error.message || '未知错误'))
+    loadConfigs() // 重新加载以恢复状态
+  }
+}
+
+// 切换允许新建知识库状态
+const handleToggleAllowCreateKnowledgeBase = async (row, allowCreate) => {
+  try {
+    await updateVectorDatabaseConfig({
+      action: 'update',
+      configId: row.id,
+      database: {
+        id: row.id,
+        name: row.name,
+        type: row.type,
+        url: row.url,
+        apiKey: row.apiKey || null,
+        timeout: row.timeout || null,
+        description: row.description || null,
+        enabled: row.enabled,
+        allowCreateKnowledgeBase: allowCreate
+      }
+    })
+    ElMessage.success(allowCreate ? '已允许新建知识库' : '已禁止新建知识库')
     loadConfigs()
   } catch (error) {
     ElMessage.error('切换状态失败：' + (error.message || '未知错误'))

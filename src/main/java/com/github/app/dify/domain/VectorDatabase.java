@@ -94,6 +94,13 @@ public class VectorDatabase implements Serializable {
     private Boolean isDefault;
     
     /**
+     * 是否允许新建知识库：true-允许, false-不允许，默认为true
+     */
+    @ApiModelProperty("是否允许新建知识库：true-允许, false-不允许，默认为true")
+    @Column(name = "allow_create_knowledge_base")
+    private Boolean allowCreateKnowledgeBase;
+    
+    /**
      * 描述
      */
     @Size(max= 500,message="编码长度不能超过500")
@@ -195,7 +202,15 @@ public class VectorDatabase implements Serializable {
     public void setIsDefault(Boolean isDefault) {
         this.isDefault = isDefault;
     }
-
+    
+    public Boolean getAllowCreateKnowledgeBase() {
+        return allowCreateKnowledgeBase;
+    }
+    
+    public void setAllowCreateKnowledgeBase(Boolean allowCreateKnowledgeBase) {
+        this.allowCreateKnowledgeBase = allowCreateKnowledgeBase;
+    }
+    
     public String getDescription() {
         return description;
     }

@@ -258,7 +258,7 @@
             popper-class="vector-store-select-dropdown"
           >
               <el-option
-                v-for="db in vectorDatabases.filter(db => db.enabled)"
+                v-for="db in vectorDatabases.filter(db => db.enabled && (db.allowCreateKnowledgeBase !== false))"
                 :key="db.id"
                 :label="db.name"
                 :value="`${db.type}_${db.id}`"
@@ -436,12 +436,12 @@ const getDefaultVectorStoreType = () => {
     }
     
     // 查找默认的向量库配置
-    const defaultDb = vectorDatabases.value.find(db => db.isDefault && db.enabled)
+    const defaultDb = vectorDatabases.value.find(db => db.isDefault && db.enabled && (db.allowCreateKnowledgeBase !== false))
     if (defaultDb && defaultDb.type) {
       return defaultDb.type.toLowerCase()
     }
-    // 如果没有默认配置，使用第一个启用的配置
-    const firstEnabledDb = vectorDatabases.value.find(db => db.enabled)
+    // 如果没有默认配置，使用第一个启用的且允许新建知识库的配置
+    const firstEnabledDb = vectorDatabases.value.find(db => db.enabled && (db.allowCreateKnowledgeBase !== false))
     if (firstEnabledDb && firstEnabledDb.type) {
       return firstEnabledDb.type.toLowerCase()
     }
@@ -682,12 +682,12 @@ const handleCreate = () => {
     let defaultVectorStoreValue = 'qdrant'
     if (vectorDatabases.value && vectorDatabases.value.length > 0) {
       // 查找默认实例（isDefault=true 且 enabled=true）
-      const defaultDb = vectorDatabases.value.find(db => db.isDefault && db.enabled)
+      const defaultDb = vectorDatabases.value.find(db => db.isDefault && db.enabled && (db.allowCreateKnowledgeBase !== false))
       if (defaultDb) {
         defaultVectorStoreValue = `${defaultDb.type}_${defaultDb.id}`
       } else {
-        // 如果没有默认实例，使用第一个启用的实例
-        const firstDb = vectorDatabases.value.find(db => db.enabled)
+        // 如果没有默认实例，使用第一个启用的且允许新建知识库的实例
+        const firstDb = vectorDatabases.value.find(db => db.enabled && (db.allowCreateKnowledgeBase !== false))
         if (firstDb) {
           defaultVectorStoreValue = `${firstDb.type}_${firstDb.id}`
         } else {

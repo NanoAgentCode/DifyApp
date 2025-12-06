@@ -38,6 +38,9 @@ public class VectorDatabaseResp {
     @ApiModelProperty("是否默认")
     private Boolean isDefault;
     
+    @ApiModelProperty("是否允许新建知识库：true-允许, false-不允许")
+    private Boolean allowCreateKnowledgeBase;
+    
     @ApiModelProperty("描述")
     private String description;
     
@@ -118,7 +121,15 @@ public class VectorDatabaseResp {
     public void setIsDefault(Boolean isDefault) {
         this.isDefault = isDefault;
     }
-
+    
+    public Boolean getAllowCreateKnowledgeBase() {
+        return allowCreateKnowledgeBase;
+    }
+    
+    public void setAllowCreateKnowledgeBase(Boolean allowCreateKnowledgeBase) {
+        this.allowCreateKnowledgeBase = allowCreateKnowledgeBase;
+    }
+    
     public String getDescription() {
         return description;
     }
