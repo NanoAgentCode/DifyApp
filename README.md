@@ -23,6 +23,7 @@ DifyApp 是一个集成了 Dify AI 平台的应用管理系统，支持：
 - **权限控制**：用户对应用和知识库的可见性管理
 - **数据源管理**：支持多种数据库类型（PostgreSQL、MySQL、Oracle、MongoDB），动态管理数据源配置
 - **Text2SQL**：基于大语言模型的自然语言转SQL查询功能，支持智能SQL生成、类型转换修复、列验证和统计查询
+- **MCP (Model Context Protocol)**：提供浏览器检索、时间信息、地理位置等上下文增强功能，支持实时信息检测
 - **前端界面**：提供管理端、用户端和应用端三个界面
 
 ## 技术栈
@@ -61,29 +62,43 @@ DifyApp 是一个集成了 Dify AI 平台的应用管理系统，支持：
 
 ```
 DifyApp/
+├── front/                        # 前端项目（Vue 3）
+│   ├── src/
+│   │   ├── api/                  # API接口封装
+│   │   ├── components/            # 公共组件
+│   │   ├── layouts/               # 布局组件（管理端/用户端/应用端）
+│   │   ├── views/                 # 页面组件
+│   │   ├── router/                # 路由配置
+│   │   ├── utils/                 # 工具函数
+│   │   ├── App.vue                # 根组件
+│   │   └── main.js                # 入口文件
+│   ├── public/                   # 静态资源
+│   ├── index.html                # HTML模板
+│   ├── package.json              # 前端依赖配置
+│   ├── vite.config.js            # Vite配置
+│   └── README.md                 # 前端说明文档
 ├── src/main/
 │   ├── java/com/github/app/dify/
-│   │   ├── config/              # 配置类（数据库、MinIO、Qdrant、Redis、Swagger等）
-│   │   ├── controller/          # 控制器层（REST API）
-│   │   ├── domain/               # 实体类（User、AiApp、KnowledgeBase、QAModel、EmbeddingModel等）
-│   │   ├── repository/           # 数据访问层（JPA Repository）
-│   │   ├── service/              # 服务层（业务逻辑）
-│   │   ├── langchain4j/          # LangChain4j集成（RAG相关）
-│   │   ├── req/                  # 请求对象（DTO）
-│   │   ├── resp/                 # 响应对象（DTO）
-│   │   └── util/                 # 工具类
+│   │   ├── config/               # 配置类（数据库、MinIO、Qdrant、Redis、Swagger等）
+│   │   ├── controller/           # 控制器层（REST API）
+│   │   ├── domain/                # 实体类（User、AiApp、KnowledgeBase、QAModel、EmbeddingModel等）
+│   │   ├── repository/            # 数据访问层（JPA Repository）
+│   │   ├── service/               # 服务层（业务逻辑）
+│   │   ├── langchain4j/           # LangChain4j集成（RAG相关）
+│   │   ├── mcp/                   # MCP模块（Model Context Protocol）
+│   │   ├── req/                   # 请求对象（DTO）
+│   │   ├── resp/                  # 响应对象（DTO）
+│   │   └── util/                  # 工具类
 │   └── resources/
-│       ├── application.yml       # 应用配置文件
-│       ├── sql/                  # SQL脚本
-│       └── static/               # 前端静态资源（Vue 3项目）
-│           └── src/
-│               ├── api/          # API接口封装
-│               ├── components/   # 公共组件
-│               ├── layouts/      # 布局组件（管理端/用户端/应用端）
-│               ├── views/        # 页面组件
-│               ├── router/       # 路由配置
-│               └── utils/        # 工具函数
-└── pom.xml                      # Maven配置文件
+│       ├── application.yml        # 应用配置文件
+│       ├── sql/                   # SQL脚本
+│       └── provider-template.yml  # 模型提供商配置模板
+├── doc/                          # 项目文档
+│   ├── 概要设计报告.md
+│   ├── 用户端用户手册.md
+│   ├── 管理端用户手册.md
+│   └── 详细设计报告目录.md
+└── pom.xml                       # Maven配置文件
 ```
 
 ## 环境要求
@@ -421,7 +436,7 @@ java -jar target/DifyApp-0.0.1-SNAPSHOT.jar
 如果需要单独开发前端：
 
 ```bash
-cd src/main/resources/static
+cd front
 yarn install
 yarn dev
 ```
@@ -432,7 +447,9 @@ yarn dev
 
 - **后端 API**: http://localhost:8081
 - **Swagger API 文档**: http://localhost:8081/swagger-ui.html
-- **前端应用**: http://localhost:8081 (生产环境) 或 http://localhost:3000 (开发环境)
+- **前端应用**: 
+  - 开发环境：http://localhost:3000（需要先启动前端开发服务器，见步骤7）
+  - 生产环境：需要将前端构建产物集成到后端静态资源中，然后访问 http://localhost:8081
 
 ## API 文档
 
@@ -1521,6 +1538,12 @@ Content-Type: application/json
   - 支持指定表查询和全表查询
   - 支持选择不同的问答模型进行SQL生成
 
+- ✅ **MCP (Model Context Protocol) 功能**
+  - 浏览器检索服务：基于 SearX-NG 的网络搜索功能，支持查询优化和时效性检查
+  - 时间服务：获取当前时间信息，支持自定义时区和格式化输出
+  - 地理位置服务：基于 IP 地址获取地理位置信息，支持缓存机制
+  - 实时信息检测：智能检测问题是否涉及实时信息，提供置信度评分
+
 - ✅ **其他功能**
   - 全局异常处理
   - Swagger API 文档
@@ -1983,11 +2006,11 @@ mvn clean package
 ### 前端构建
 
 ```bash
-cd src/main/resources/static
+cd front
 yarn build
 ```
 
-构建产物在 `dist` 目录，会自动集成到后端静态资源中。
+构建产物在 `front/dist` 目录。如需集成到后端，需要将构建产物复制到后端的静态资源目录。
 
 ## 错误处理
 
