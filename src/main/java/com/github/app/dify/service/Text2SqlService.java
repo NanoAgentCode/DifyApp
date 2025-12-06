@@ -90,28 +90,58 @@ public class Text2SqlService {
     }
     
     /**
-     * 获取表结构信息
+     * 获取表结构信息（包含表关联关系）
      */
     private String getSchemaInfo(DataSource dataSource, List<String> tableNames) {
         try {
+            List<String> targetTables;
             if (tableNames != null && !tableNames.isEmpty()) {
-                // 只获取指定表的结构
-                StringBuilder schemaBuilder = new StringBuilder();
-                for (String tableName : tableNames) {
-                    String schema = schemaService.getTableSchema(dataSource, tableName, false);
-                    schemaBuilder.append(schema).append("\n");
-                }
-                return schemaBuilder.toString();
+                targetTables = tableNames;
             } else {
-                // 获取所有表的结构
-                List<String> allTables = schemaService.getTableList(dataSource);
-                StringBuilder schemaBuilder = new StringBuilder();
-                for (String tableName : allTables) {
-                    String schema = schemaService.getTableSchema(dataSource, tableName, false);
-                    schemaBuilder.append(schema).append("\n");
-                }
-                return schemaBuilder.toString();
+                targetTables = schemaService.getTableList(dataSource);
             }
+            
+            // 获取所有表的结构
+            List<Map<String, Object>> tableSchemas = new ArrayList<>();
+            Map<String, List<Map<String, Object>>> tableRelations = new HashMap<>();
+            
+            for (String tableName : targetTables) {
+                String schemaJson = schemaService.getTableSchema(dataSource, tableName, false);
+                Map<String, Object> schema = objectMapper.readValue(schemaJson, Map.class);
+                tableSchemas.add(schema);
+                
+                // 提取外键关联关系
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> foreignKeys = (List<Map<String, Object>>) schema.get("foreignKeys");
+                if (foreignKeys != null && !foreignKeys.isEmpty()) {
+                    tableRelations.put(tableName, foreignKeys);
+                }
+            }
+            
+            // 构建包含关联关系的schema信息
+            StringBuilder schemaBuilder = new StringBuilder();
+            schemaBuilder.append("表结构信息：\n");
+            for (Map<String, Object> schema : tableSchemas) {
+                schemaBuilder.append(objectMapper.writeValueAsString(schema)).append("\n");
+            }
+            
+            // 添加表关联关系说明
+            if (!tableRelations.isEmpty()) {
+                schemaBuilder.append("\n表关联关系：\n");
+                for (Map.Entry<String, List<Map<String, Object>>> entry : tableRelations.entrySet()) {
+                    String tableName = entry.getKey();
+                    List<Map<String, Object>> fks = entry.getValue();
+                    for (Map<String, Object> fk : fks) {
+                        schemaBuilder.append(String.format("- %s.%s -> %s.%s\n",
+                            tableName,
+                            fk.get("columnName"),
+                            fk.get("pkTableName"),
+                            fk.get("pkColumnName")));
+                    }
+                }
+            }
+            
+            return schemaBuilder.toString();
         } catch (Exception e) {
             logger.error("获取表结构信息失败", e);
             throw new RuntimeException("获取表结构信息失败: " + e.getMessage(), e);
@@ -188,6 +218,17 @@ public class Text2SqlService {
         sb.append("6. 如果表结构信息中没有某个列，说明该列不存在或不可用，绝对不要使用它\n");
         sb.append("7. 支持统计查询：可以使用COUNT、SUM、AVG、MAX、MIN等聚合函数进行统计分析\n");
         sb.append("8. 统计函数示例：COUNT(*)统计记录数，SUM(column)求和，AVG(column)求平均值，MAX(column)求最大值，MIN(column)求最小值\n");
+        sb.append("9. 支持多表关联查询：当问题涉及多个表时，必须使用JOIN进行关联\n");
+        sb.append("10. JOIN语法：\n");
+        sb.append("    - INNER JOIN：内连接，只返回两表都匹配的记录\n");
+        sb.append("    - LEFT JOIN：左连接，返回左表所有记录和右表匹配的记录\n");
+        sb.append("    - RIGHT JOIN：右连接，返回右表所有记录和左表匹配的记录\n");
+        sb.append("    - 关联条件：使用ON关键字，例如：ON table1.column = table2.column\n");
+        sb.append("11. 多表关联示例：\n");
+        sb.append("    SELECT t1.col1, t2.col2 FROM table1 t1 INNER JOIN table2 t2 ON t1.id = t2.table1_id\n");
+        sb.append("12. 当查询涉及多个表时，必须根据表关联关系正确使用JOIN，关联关系信息会在表结构信息中提供\n");
+        sb.append("13. 如果表结构信息中提供了外键关联关系（格式：table1.column -> table2.column），请使用这些关系进行JOIN\n");
+        sb.append("14. 多表查询时，列名必须使用表别名或表名作为前缀，避免列名冲突，例如：table1.name 或 t1.name\n");
         
         // PostgreSQL 特殊要求
         if ("postgresql".equalsIgnoreCase(databaseType)) {
@@ -249,6 +290,15 @@ public class Text2SqlService {
         sb.append("- 不要使用表结构信息中未提供的列（如tenant_id、deleted、create_time、update_time等系统列）\n");
         sb.append("- 如果表结构信息中没有某个列，说明该列不存在，绝对不要使用它\n");
         sb.append("\n");
+        sb.append("多表关联查询说明：\n");
+        sb.append("- 当问题涉及多个表的数据时，必须使用JOIN进行表关联\n");
+        sb.append("- 表关联关系信息在表结构信息中提供，格式为：table1.column -> table2.column\n");
+        sb.append("- 使用JOIN时，必须正确设置ON条件，例如：ON table1.foreign_key = table2.primary_key\n");
+        sb.append("- 多表查询时，列名必须使用表别名或表名作为前缀，例如：table1.name 或 t1.name\n");
+        sb.append("- 推荐使用表别名（AS关键字或空格）简化SQL，例如：FROM users u INNER JOIN orders o ON u.id = o.user_id\n");
+        sb.append("- 支持多个表的关联，例如：table1 JOIN table2 ON ... JOIN table3 ON ...\n");
+        sb.append("- 如果问题需要关联多个表，请使用INNER JOIN、LEFT JOIN或RIGHT JOIN，根据业务逻辑选择合适的JOIN类型\n");
+        sb.append("\n");
         sb.append("统计查询支持：\n");
         sb.append("- COUNT(*) 或 COUNT(column)：统计记录数或非空值数量\n");
         sb.append("- SUM(column)：对数值列求和\n");
@@ -257,11 +307,12 @@ public class Text2SqlService {
         sb.append("- MIN(column)：获取最小值\n");
         sb.append("- 可以使用 GROUP BY 进行分组统计\n");
         sb.append("- 可以使用 HAVING 对分组结果进行过滤\n");
+        sb.append("- 多表关联时，聚合函数可以使用表别名，例如：COUNT(t1.id)、SUM(t2.amount)\n");
         sb.append("\n");
         sb.append("用户问题：\n");
         sb.append(question);
         sb.append("\n");
-        sb.append("请根据以上信息生成SQL查询语句（注意数据类型匹配，只使用表结构信息中提供的列，支持统计查询）：");
+        sb.append("请根据以上信息生成SQL查询语句（注意数据类型匹配，只使用表结构信息中提供的列，支持多表关联查询和统计查询）：");
         return sb.toString();
     }
     

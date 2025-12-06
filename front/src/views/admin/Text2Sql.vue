@@ -21,18 +21,30 @@
                 </el-option>
               </el-select>
             </el-form-item>
-            <el-form-item label="选择表（可选）">
-              <el-select v-model="queryForm.tableNames" multiple placeholder="不选择则使用所有表" style="width: 100%">
-                <el-option
-                  v-for="table in tables"
-                  :key="table"
-                  :label="table"
-                  :value="table"
-                />
-              </el-select>
+            <el-form-item label="选择表">
+              <div style="display: flex; gap: 8px; width: 100%;">
+                <el-select v-model="queryForm.tableNames" multiple placeholder="不选择则使用所有表（可选）" style="flex: 1; min-width: 0;">
+                  <el-option
+                    v-for="table in tables"
+                    :key="table"
+                    :label="table"
+                    :value="table"
+                  />
+                </el-select>
+                <el-button 
+                  v-if="queryForm.tableNames && queryForm.tableNames.length > 0"
+                  @click="showTableSchema"
+                  type="info"
+                  size="default"
+                  title="查看表结构"
+                  style="flex-shrink: 0;"
+                >
+                  查看结构
+                </el-button>
+              </div>
             </el-form-item>
-            <el-form-item label="选择模型（可选）">
-              <el-select v-model="queryForm.modelId" placeholder="使用默认模型" clearable style="width: 100%">
+            <el-form-item label="选择模型">
+              <el-select v-model="queryForm.modelId" placeholder="使用默认模型（可选）" clearable style="width: 100%">
                 <el-option
                   v-for="model in models"
                   :key="model.id"
@@ -46,7 +58,7 @@
                 v-model="queryForm.question"
                 type="textarea"
                 :rows="8"
-                placeholder="例如：查询所有用户的信息"
+                :placeholder="'例如：查询所有用户的信息\n多表关联示例：查询订单及其用户信息\n统计查询示例：统计每个用户的订单数量'"
               />
             </el-form-item>
             <el-form-item>
@@ -104,6 +116,55 @@
         <el-empty v-else description="请在左侧输入查询问题并执行查询" />
       </el-col>
     </el-row>
+
+    <!-- 表结构查看对话框 -->
+    <el-dialog v-model="schemaDialogVisible" title="表结构信息" width="70%" :close-on-click-modal="false">
+      <div v-loading="schemaLoading">
+        <div v-for="(schema, index) in tableSchemas" :key="index" style="margin-bottom: 20px;">
+          <el-card>
+            <template #header>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong>{{ schema.tableName || schema.collectionName }}</strong>
+                <el-tag v-if="schema.primaryKeys && schema.primaryKeys.length > 0" type="success" size="small">
+                  主键: {{ schema.primaryKeys.map(pk => pk.columnName).join(', ') }}
+                </el-tag>
+              </div>
+            </template>
+            <div>
+              <div v-if="schema.columns || schema.fields">
+                <h4 style="margin-top: 0;">列信息：</h4>
+                <el-table :data="schema.columns || schema.fields" border size="small" max-height="300">
+                  <el-table-column prop="name" label="列名" width="200" />
+                  <el-table-column prop="type" label="数据类型" width="150" />
+                  <el-table-column prop="size" label="长度" width="100" v-if="schema.columns" />
+                  <el-table-column prop="nullable" label="可空" width="80" v-if="schema.columns">
+                    <template #default="{ row }">
+                      <el-tag :type="row.nullable ? 'info' : 'warning'" size="small">
+                        {{ row.nullable ? '是' : '否' }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+              <div v-if="schema.foreignKeys && schema.foreignKeys.length > 0" style="margin-top: 15px;">
+                <h4>外键关联：</h4>
+                <el-table :data="schema.foreignKeys" border size="small">
+                  <el-table-column prop="columnName" label="外键列" width="150" />
+                  <el-table-column label="关联关系" width="300">
+                    <template #default="{ row }">
+                      <span>{{ schema.tableName }}.{{ row.columnName }} → {{ row.pkTableName }}.{{ row.pkColumnName }}</span>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+            </div>
+          </el-card>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="schemaDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -111,7 +172,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getDataSourceList } from '@/api/dataSource'
-import { getTableList, executeText2SqlQuery } from '@/api/text2sql'
+import { getTableList, executeText2SqlQuery, getTableSchema } from '@/api/text2sql'
 import { getModelConfig } from '@/api/model'
 
 const dataSources = ref([])
@@ -125,6 +186,9 @@ const queryForm = ref({
 })
 const querying = ref(false)
 const result = ref(null)
+const schemaDialogVisible = ref(false)
+const schemaLoading = ref(false)
+const tableSchemas = ref([])
 
 onMounted(() => {
   loadDataSources()
@@ -222,6 +286,37 @@ const getTypeName = (type) => {
     mongodb: 'MongoDB'
   }
   return typeMap[type] || type
+}
+
+const showTableSchema = async () => {
+  if (!queryForm.value.dataSourceId || !queryForm.value.tableNames || queryForm.value.tableNames.length === 0) {
+    ElMessage.warning('请先选择数据源和表')
+    return
+  }
+  
+  schemaDialogVisible.value = true
+  schemaLoading.value = true
+  tableSchemas.value = []
+  
+  try {
+    const schemas = []
+    for (const tableName of queryForm.value.tableNames) {
+      try {
+        const schemaJson = await getTableSchema(queryForm.value.dataSourceId, tableName, false)
+        const schema = typeof schemaJson === 'string' ? JSON.parse(schemaJson) : schemaJson
+        schemas.push(schema)
+      } catch (error) {
+        console.error(`获取表 ${tableName} 的结构失败:`, error)
+        ElMessage.error(`获取表 ${tableName} 的结构失败`)
+      }
+    }
+    tableSchemas.value = schemas
+  } catch (error) {
+    ElMessage.error('获取表结构失败')
+    console.error('获取表结构失败:', error)
+  } finally {
+    schemaLoading.value = false
+  }
 }
 </script>
 
