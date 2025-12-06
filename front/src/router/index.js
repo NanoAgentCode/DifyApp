@@ -111,6 +111,18 @@ const routes = [
                 name: 'VectorDatabaseManagement',
                 component: () => import('@/views/admin/VectorDatabaseManagement.vue'),
                 meta: {title: '向量数据库', requiresAuth: true, requiresAdmin: true}
+            },
+            {
+                path: 'data-sources',
+                name: 'DataSourceManagement',
+                component: () => import('@/views/admin/DataSourceManagement.vue'),
+                meta: {title: '数据源管理', requiresAuth: true, requiresAdmin: true}
+            },
+            {
+                path: 'text2sql',
+                name: 'Text2Sql',
+                component: () => import('@/views/admin/Text2Sql.vue'),
+                meta: {title: 'Text2SQL', requiresAuth: true, requiresAdmin: true}
             }
         ]
     },
@@ -160,6 +172,12 @@ const routes = [
                 name: 'UserChatHistory',
                 component: () => import('@/views/user/ChatHistory.vue'),
                 meta: {title: '会话历史', requiresAuth: true}
+            },
+            {
+                path: 'text2sql',
+                name: 'UserText2Sql',
+                component: () => import('@/views/user/Text2Sql.vue'),
+                meta: {title: 'Text2SQL', requiresAuth: true}
             }
         ]
     },
