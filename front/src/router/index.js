@@ -21,7 +21,7 @@ const routes = [
             if (userInfoStr) {
                 try {
                     const userInfo = JSON.parse(userInfoStr)
-                    return userInfo.role === 1 ? '/admin/apps' : '/user/apps'
+                    return userInfo.role === 1 ? '/admin/chat' : '/user/chat'
                 } catch (e) {
                     return '/login'
                 }
@@ -33,6 +33,7 @@ const routes = [
         path: '/admin',
         component: () => import('@/layouts/AdminLayout.vue'),
         meta: {requiresAuth: true},
+        redirect: '/admin/chat',
         children: [
             {
                 path: 'chat',
@@ -122,7 +123,7 @@ const routes = [
                 path: 'text2sql',
                 name: 'Text2Sql',
                 component: () => import('@/views/admin/Text2Sql.vue'),
-                meta: {title: 'Text2SQL', requiresAuth: true, requiresAdmin: true}
+                meta: {title: 'SQL 生成', requiresAuth: true, requiresAdmin: true}
             }
         ]
     },
@@ -130,6 +131,7 @@ const routes = [
         path: '/user',
         component: () => import('@/layouts/UserLayout.vue'),
         meta: {requiresAuth: true},
+        redirect: '/user/chat',
         children: [
             {
                 path: 'chat',
@@ -223,7 +225,7 @@ router.beforeEach((to, from, next) => {
             const userInfo = JSON.parse(userInfoStr)
             if (userInfo.role !== 1) {
                 ElMessage.error('需要管理员权限')
-                next('/user/apps')
+                next('/user/chat')
                 return
             }
         } catch (e) {
@@ -237,12 +239,12 @@ router.beforeEach((to, from, next) => {
         if (userInfoStr) {
             try {
                 const userInfo = JSON.parse(userInfoStr)
-                next(userInfo.role === 1 ? '/admin/apps' : '/user/apps')
+                next(userInfo.role === 1 ? '/admin/chat' : '/user/chat')
             } catch (e) {
-                next('/admin/apps')
+                next('/admin/chat')
             }
         } else {
-            next('/admin/apps')
+            next('/admin/chat')
         }
     } else {
         next()

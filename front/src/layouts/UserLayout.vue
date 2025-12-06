@@ -39,10 +39,6 @@
             <el-icon><ChatLineRound /></el-icon>
             <span>智能问答</span>
           </el-menu-item>
-          <el-menu-item index="/user/apps">
-            <el-icon><List /></el-icon>
-            <span>智能应用</span>
-          </el-menu-item>
           <el-menu-item index="/user/kb-qa">
             <el-icon><Document /></el-icon>
             <span>知识库问答</span>
@@ -50,6 +46,10 @@
           <el-menu-item index="/user/knowledge-base">
             <el-icon><Folder /></el-icon>
             <span>知识库管理</span>
+          </el-menu-item>
+          <el-menu-item index="/user/apps">
+            <el-icon><List /></el-icon>
+            <span>智能应用</span>
           </el-menu-item>
           <el-menu-item index="/user/chat-history">
             <el-icon><Clock /></el-icon>
@@ -81,6 +81,10 @@ import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 const route = useRoute()
 const router = useRouter()
 const activeMenu = computed(() => {
+  // 如果当前路径是 /user，默认选中智能问答
+  if (route.path === '/user' || route.path === '/user/') {
+    return '/user/chat'
+  }
   return route.path
 })
 const userInfo = ref(null)

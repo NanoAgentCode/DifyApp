@@ -5,7 +5,7 @@
       <el-col :span="10" class="left-panel">
         <el-card class="query-card">
           <template #header>
-            <span>Text2SQL 查询</span>
+            <span>SQL 生成</span>
           </template>
 
           <el-form :model="queryForm" label-width="100px">
