@@ -95,13 +95,13 @@
             <span v-else style="color: #909399; font-size: 12px;">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="向量存储" width="120" align="center">
+        <el-table-column label="向量存储" width="180" align="center">
           <template #default="{ row }">
             <el-tag 
               :type="getVectorStoreTypeTag(row.vectorStoreType)"
               size="small"
             >
-              {{ getVectorStoreTypeName(row.vectorStoreType) }}
+              {{ getVectorStoreInstanceName(row.vectorStoreType) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -247,77 +247,52 @@
             检索时返回的最相关文档片段数量（1-50），如果不设置则使用系统全局配置
           </div>
         </el-form-item>
-        <el-form-item label="向量存储类型" prop="vectorStoreType">
+        <el-form-item label="向量存储" prop="vectorStoreType">
           <el-select
             v-model="formData.vectorStoreType"
-            placeholder="选择向量存储类型"
+            placeholder="选择向量存储实例"
             clearable
             style="width: 100%"
             :disabled="isEdit && hasDocuments"
+            filterable
+            popper-class="vector-store-select-dropdown"
           >
-            <el-option 
-              v-if="isVectorStoreTypeEnabled('qdrant')"
-              label="Qdrant（向量数据库）" 
-              value="qdrant"
-            >
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Qdrant（向量数据库）</span>
-                <el-tag v-if="isDefaultVectorStoreType('qdrant')" type="primary" size="small">推荐</el-tag>
-                <el-tag v-else type="primary" size="small">高性能</el-tag>
-              </div>
-            </el-option>
-            <el-option 
-              v-if="isVectorStoreTypeEnabled('faiss')"
-              label="FAISS（本地文件存储）" 
-              value="faiss"
-            >
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>FAISS（本地文件存储）</span>
-                <el-tag v-if="isDefaultVectorStoreType('faiss')" type="primary" size="small">推荐</el-tag>
-                <el-tag v-else type="success" size="small">本地</el-tag>
-              </div>
-            </el-option>
-            <el-option 
-              v-if="isVectorStoreTypeEnabled('milvus')"
-              label="Milvus（向量数据库）" 
-              value="milvus"
-            >
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Milvus（向量数据库）</span>
-                <el-tag v-if="isDefaultVectorStoreType('milvus')" type="primary" size="small">推荐</el-tag>
-                <el-tag v-else type="warning" size="small">分布式</el-tag>
-              </div>
-            </el-option>
-            <el-option 
-              v-if="isVectorStoreTypeEnabled('chroma')"
-              label="Chroma（向量数据库）" 
-              value="chroma"
-            >
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Chroma（向量数据库）</span>
-                <el-tag v-if="isDefaultVectorStoreType('chroma')" type="primary" size="small">推荐</el-tag>
-                <el-tag v-else type="info" size="small">开源</el-tag>
-              </div>
-            </el-option>
-            <el-option 
-              v-if="isVectorStoreTypeEnabled('weaviate')"
-              label="Weaviate（向量数据库）" 
-              value="weaviate"
-            >
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Weaviate（向量数据库）</span>
-                <el-tag v-if="isDefaultVectorStoreType('weaviate')" type="primary" size="small">推荐</el-tag>
-                <el-tag v-else type="success" size="small">GraphQL</el-tag>
-              </div>
-            </el-option>
+              <el-option
+                v-for="db in vectorDatabases.filter(db => db.enabled)"
+                :key="db.id"
+                :label="db.name"
+                :value="`${db.type}_${db.id}`"
+              >
+                <div style="display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 4px 0;">
+                  <!-- 第一行：实例名称和标签 -->
+                  <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+                      <span style="font-weight: 600; font-size: 14px; color: #303133; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ db.name }}</span>
+                      <el-tag v-if="db.isDefault" type="primary" size="small" style="flex-shrink: 0;">默认</el-tag>
+                      <span style="font-size: 12px; color: #909399; flex-shrink: 0;">{{ getVectorDatabaseDocumentCount(db) }} 个文档</span>
+                    </div>
+                    <el-tag :type="getVectorStoreTypeTag(db.type)" size="small" style="flex-shrink: 0;">
+                      {{ getVectorStoreTypeName(db.type) }}
+                    </el-tag>
+                  </div>
+                  <!-- 第二行：URL地址 -->
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <el-icon style="font-size: 12px; color: #909399;"><Link /></el-icon>
+                    <span style="font-size: 12px; color: #909399; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">{{ db.url || '未配置URL' }}</span>
+                  </div>
+                </div>
+              </el-option>
           </el-select>
           <div v-if="isEdit && hasDocuments" class="form-item-hint form-item-hint-warning">
             <el-icon><Warning /></el-icon>
             <span>当前使用：<strong>{{ getVectorStoreTypeName(formData.vectorStoreType) }}</strong>。已有文档，无法修改。</span>
           </div>
           <div v-else-if="formData.vectorStoreType" class="form-item-hint form-item-description">
-            <span class="description-label">{{ getVectorStoreTypeName(formData.vectorStoreType) }}：</span>
-            <span class="description-text">{{ getVectorStoreTypeDescription(formData.vectorStoreType) }}</span>
+            <span class="description-label">{{ getVectorStoreTypeNameFromValue(formData.vectorStoreType) }}：</span>
+            <span class="description-text">{{ getVectorStoreTypeDescriptionFromValue(formData.vectorStoreType) }}</span>
+          </div>
+          <div v-else class="form-item-hint form-item-description">
+            <span>请选择向量存储实例。将显示所有启用的向量库配置。</span>
           </div>
         </el-form-item>
         <el-form-item label="状态" prop="status">
@@ -389,7 +364,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, ElTooltip } from 'element-plus'
-import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Check, Close, Warning } from '@element-plus/icons-vue'
+import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Check, Close, Warning, Link } from '@element-plus/icons-vue'
 import { 
   getKnowledgeBaseList, 
   createKnowledgeBase, 
@@ -494,10 +469,25 @@ const loadVectorDatabases = async () => {
     enabledVectorStoreTypes.value = Array.from(enabledTypes)
     
     // 如果表单还没有设置向量存储类型，或者当前是默认值，则更新为默认向量库类型
-    if (!formData.value.vectorStoreType || formData.value.vectorStoreType === 'qdrant') {
+    if (!formData.value.vectorStoreType || formData.value.vectorStoreType === 'qdrant' || !formData.value.vectorStoreType.includes('_')) {
       const defaultType = getDefaultVectorStoreType()
-      formData.value.vectorStoreType = defaultType
-      console.log('设置默认向量存储类型:', defaultType)
+      // 查找默认实例，转换为 type_id 格式
+      const defaultDb = vectorDatabases.value.find(db => 
+        db.type === defaultType && db.isDefault && db.enabled
+      )
+      if (defaultDb) {
+        formData.value.vectorStoreType = `${defaultDb.type}_${defaultDb.id}`
+      } else {
+        const firstDb = vectorDatabases.value.find(db => 
+          db.type === defaultType && db.enabled
+        )
+        if (firstDb) {
+          formData.value.vectorStoreType = `${firstDb.type}_${firstDb.id}`
+        } else {
+          formData.value.vectorStoreType = defaultType
+        }
+      }
+      console.log('设置默认向量存储类型:', formData.value.vectorStoreType)
     }
   } catch (error) {
     console.error('加载向量库配置列表失败', error)
@@ -510,6 +500,38 @@ const loadVectorDatabases = async () => {
 const isVectorStoreTypeEnabled = (type) => {
   if (!type) return true // 如果没有指定类型，默认允许
   return enabledVectorStoreTypes.value.includes(type.toLowerCase())
+}
+
+// 获取指定类型的所有启用的向量库实例
+const getEnabledVectorDatabasesByType = (type) => {
+  if (!vectorDatabases.value || vectorDatabases.value.length === 0) {
+    return []
+  }
+  return vectorDatabases.value.filter(db => 
+    db.type && db.type.toLowerCase() === type.toLowerCase() && db.enabled
+  )
+}
+
+// 从 type_id 格式中提取类型
+const extractTypeFromValue = (value) => {
+  if (!value) return ''
+  if (value.includes('_')) {
+    const parts = value.split('_')
+    return parts.slice(0, -1).join('_')
+  }
+  return value
+}
+
+// 从 value 获取类型名称（支持 type_id 格式）
+const getVectorStoreTypeNameFromValue = (value) => {
+  const type = extractTypeFromValue(value)
+  return getVectorStoreTypeName(type)
+}
+
+// 从 value 获取类型描述（支持 type_id 格式）
+const getVectorStoreTypeDescriptionFromValue = (value) => {
+  const type = extractTypeFromValue(value)
+  return getVectorStoreTypeDescription(type)
 }
 
 // 检查是否为默认向量存储类型
@@ -656,12 +678,36 @@ const handleCreate = () => {
   currentEditId.value = null
   currentEditDocumentCount.value = 0
   try {
-    // 获取默认向量存储类型，如果出错则使用 'qdrant' 作为后备
-    let defaultVectorStoreType = 'qdrant'
-    try {
-      defaultVectorStoreType = getDefaultVectorStoreType()
-    } catch (e) {
-      console.warn('获取默认向量存储类型失败，使用默认值 qdrant', e)
+    // 获取默认向量存储实例，优先选择 isDefault=true 的实例
+    let defaultVectorStoreValue = 'qdrant'
+    if (vectorDatabases.value && vectorDatabases.value.length > 0) {
+      // 查找默认实例（isDefault=true 且 enabled=true）
+      const defaultDb = vectorDatabases.value.find(db => db.isDefault && db.enabled)
+      if (defaultDb) {
+        defaultVectorStoreValue = `${defaultDb.type}_${defaultDb.id}`
+      } else {
+        // 如果没有默认实例，使用第一个启用的实例
+        const firstDb = vectorDatabases.value.find(db => db.enabled)
+        if (firstDb) {
+          defaultVectorStoreValue = `${firstDb.type}_${firstDb.id}`
+        } else {
+          // 如果都没有启用的实例，使用默认类型
+          try {
+            const defaultType = getDefaultVectorStoreType()
+            defaultVectorStoreValue = defaultType
+          } catch (e) {
+            console.warn('获取默认向量存储类型失败，使用默认值 qdrant', e)
+          }
+        }
+      }
+    } else {
+      // 如果向量库列表还未加载，使用默认类型
+      try {
+        const defaultType = getDefaultVectorStoreType()
+        defaultVectorStoreValue = defaultType
+      } catch (e) {
+        console.warn('获取默认向量存储类型失败，使用默认值 qdrant', e)
+      }
     }
     
     formData.value = {
@@ -671,7 +717,7 @@ const handleCreate = () => {
       isPublic: false, // 普通用户只能创建私有知识库
       embeddingModelId: null,
       topK: null,
-      vectorStoreType: defaultVectorStoreType
+      vectorStoreType: defaultVectorStoreValue
     }
     dialogVisible.value = true
   } catch (error) {
@@ -684,6 +730,47 @@ const handleEdit = (row) => {
   isEdit.value = true
   currentEditId.value = row.id
   currentEditDocumentCount.value = row.documentCount || 0
+  // 根据 vectorDatabaseId 或 vectorStoreType 转换为 type_id 格式
+  let vectorStoreTypeValue = 'qdrant'
+  if (row.vectorDatabaseId && vectorDatabases.value && vectorDatabases.value.length > 0) {
+    // 优先使用 vectorDatabaseId 查找对应的实例
+    const db = vectorDatabases.value.find(db => db.id === row.vectorDatabaseId && db.enabled)
+    if (db) {
+      vectorStoreTypeValue = `${db.type}_${db.id}`
+    } else {
+      // 如果找不到对应的实例，使用类型查找默认实例
+      const type = row.vectorStoreType || 'qdrant'
+      const defaultDb = vectorDatabases.value.find(db => 
+        db.type === type && db.isDefault && db.enabled
+      )
+      if (defaultDb) {
+        vectorStoreTypeValue = `${defaultDb.type}_${defaultDb.id}`
+      } else {
+        const firstDb = vectorDatabases.value.find(db => 
+          db.type === type && db.enabled
+        )
+        if (firstDb) {
+          vectorStoreTypeValue = `${firstDb.type}_${firstDb.id}`
+        }
+      }
+    }
+  } else if (row.vectorStoreType && vectorDatabases.value && vectorDatabases.value.length > 0) {
+    // 兼容旧数据：如果没有 vectorDatabaseId，使用类型查找
+    const type = row.vectorStoreType
+    const defaultDb = vectorDatabases.value.find(db => 
+      db.type === type && db.isDefault && db.enabled
+    )
+    if (defaultDb) {
+      vectorStoreTypeValue = `${defaultDb.type}_${defaultDb.id}`
+    } else {
+      const firstDb = vectorDatabases.value.find(db => 
+        db.type === type && db.enabled
+      )
+      if (firstDb) {
+        vectorStoreTypeValue = `${firstDb.type}_${firstDb.id}`
+      }
+    }
+  }
   formData.value = {
     name: row.name,
     description: row.description || '',
@@ -691,7 +778,7 @@ const handleEdit = (row) => {
     isPublic: false, // 普通用户只能创建私有知识库
     embeddingModelId: row.embeddingModelId || null,
     topK: row.topK || null,
-    vectorStoreType: row.vectorStoreType || 'qdrant'
+    vectorStoreType: vectorStoreTypeValue
   }
   dialogVisible.value = true
 }
@@ -777,9 +864,29 @@ const handleSubmit = () => {
           data.topK = formData.value.topK
         }
         
-        // 添加vectorStoreType（如果设置了）
+        // 添加vectorStoreType和vectorDatabaseId（如果设置了）
+        // 如果value是 type_id 格式，提取type和ID
         if (formData.value.vectorStoreType) {
-          data.vectorStoreType = formData.value.vectorStoreType
+          const vectorStoreValue = formData.value.vectorStoreType
+          // 检查是否是 type_id 格式
+          if (vectorStoreValue.includes('_')) {
+            const parts = vectorStoreValue.split('_')
+            // 提取类型部分（除了最后一个下划线后的ID）
+            const type = parts.slice(0, -1).join('_')
+            // 提取ID部分（最后一个下划线后的数字）
+            const idStr = parts[parts.length - 1]
+            const id = parseInt(idStr, 10)
+            if (!isNaN(id)) {
+              data.vectorDatabaseId = id
+              data.vectorStoreType = type
+            } else {
+              // 如果ID解析失败，只设置类型
+              data.vectorStoreType = type
+            }
+          } else {
+            // 兼容旧格式（只有类型）
+            data.vectorStoreType = vectorStoreValue
+          }
         }
         
         if (isEdit.value) {
@@ -869,6 +976,31 @@ const getVectorStoreTypeDisplayName = (type) => {
   return 'Qdrant（向量数据库）'
 }
 
+// 根据类型获取向量库实例名称
+const getVectorStoreInstanceName = (type) => {
+  if (!type) return '-'
+  if (!vectorDatabases.value || vectorDatabases.value.length === 0) {
+    // 如果还没有加载向量库列表，返回类型名称作为后备
+    return getVectorStoreTypeName(type)
+  }
+  // 查找该类型的默认实例
+  const defaultDb = vectorDatabases.value.find(db => 
+    db.type === type && db.isDefault && db.enabled
+  )
+  if (defaultDb) {
+    return defaultDb.name
+  }
+  // 如果没有默认实例，使用第一个启用的实例
+  const firstDb = vectorDatabases.value.find(db => 
+    db.type === type && db.enabled
+  )
+  if (firstDb) {
+    return firstDb.name
+  }
+  // 如果找不到实例，返回类型名称作为后备
+  return getVectorStoreTypeName(type)
+}
+
 // 获取向量存储类型标签类型
 const getVectorStoreTypeTag = (type) => {
   if (type === 'faiss') return 'success'
@@ -878,9 +1010,52 @@ const getVectorStoreTypeTag = (type) => {
   return 'primary'
 }
 
+// 获取向量库实例的文档数量
+const getVectorDatabaseDocumentCount = (db) => {
+  if (!knowledgeBases.value || knowledgeBases.value.length === 0) {
+    return 0
+  }
+  // 根据向量库实例ID精确统计文档数量
+  let totalCount = 0
+  knowledgeBases.value.forEach(kb => {
+    // 优先使用 vectorDatabaseId 进行精确匹配
+    if (kb.vectorDatabaseId === db.id) {
+      totalCount += (kb.documentCount || 0)
+    } else if (!kb.vectorDatabaseId && kb.vectorStoreType === db.type) {
+      // 兼容旧数据：如果没有 vectorDatabaseId，则按类型匹配
+      totalCount += (kb.documentCount || 0)
+    }
+  })
+  return totalCount
+}
+
 </script>
 
 <style scoped>
+/* 向量存储下拉菜单样式 */
+:deep(.vector-store-select-dropdown) {
+  min-width: 550px !important;
+  max-width: none !important;
+}
+
+:deep(.vector-store-select-dropdown .el-select-dropdown__item) {
+  padding: 8px 20px 8px 20px !important;
+  height: auto;
+  min-height: 48px;
+  overflow: visible !important;
+}
+
+:deep(.vector-store-select-dropdown .el-select-dropdown__item > span) {
+  overflow: visible !important;
+  width: 100% !important;
+  display: block !important;
+}
+
+:deep(.vector-store-select-dropdown .el-select-dropdown__item .el-tag) {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+
 .knowledge-base-management {
   padding: 0;
 }

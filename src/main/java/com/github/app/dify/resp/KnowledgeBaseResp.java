@@ -50,6 +50,9 @@ public class KnowledgeBaseResp {
     @ApiModelProperty("向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储，milvus-Milvus向量数据库")
     private String vectorStoreType;
     
+    @ApiModelProperty("向量库实例ID（关联VECTOR_DATABASE表的id）")
+    private Long vectorDatabaseId;
+    
     @ApiModelProperty("创建时间")
     private Date createTime;
     
@@ -165,6 +168,14 @@ public class KnowledgeBaseResp {
     
     public void setVectorStoreType(String vectorStoreType) {
         this.vectorStoreType = vectorStoreType;
+    }
+    
+    public Long getVectorDatabaseId() {
+        return vectorDatabaseId;
+    }
+    
+    public void setVectorDatabaseId(Long vectorDatabaseId) {
+        this.vectorDatabaseId = vectorDatabaseId;
     }
     
     public Date getCreateTime() {

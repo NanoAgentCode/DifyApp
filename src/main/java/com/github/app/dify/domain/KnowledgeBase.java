@@ -93,6 +93,13 @@ public class KnowledgeBase implements Serializable {
     private String vectorStoreType;
     
     /**
+     * 向量库实例ID（关联VECTOR_DATABASE表的id）
+     */
+    @ApiModelProperty("向量库实例ID（关联VECTOR_DATABASE表的id）")
+    @Column(name = "vector_database_id")
+    private Long vectorDatabaseId;
+    
+    /**
      * 创建时间
      */
     @ApiModelProperty("创建时间")
@@ -203,6 +210,14 @@ public class KnowledgeBase implements Serializable {
     
     public void setVectorStoreType(String vectorStoreType) {
         this.vectorStoreType = vectorStoreType;
+    }
+    
+    public Long getVectorDatabaseId() {
+        return vectorDatabaseId;
+    }
+    
+    public void setVectorDatabaseId(Long vectorDatabaseId) {
+        this.vectorDatabaseId = vectorDatabaseId;
     }
     
     public Date getCreateTime() {

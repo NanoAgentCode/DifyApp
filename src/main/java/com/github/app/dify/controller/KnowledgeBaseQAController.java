@@ -46,11 +46,20 @@ public class KnowledgeBaseQAController {
         try {
             logger.info("接收到知识库问答请求 - 知识库ID: {}, 问题: {}", kbId, request.getQuestion());
             Long userId = (Long) httpRequest.getAttribute("userId");
-            KnowledgeBaseQAResponse response = knowledgeBaseQAService.answer(kbId, request, userId);
+            Integer userRole = (Integer) httpRequest.getAttribute("role");
+            KnowledgeBaseQAResponse response = knowledgeBaseQAService.answer(kbId, request, userId, userRole);
             return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            logger.warn("知识库问答权限验证失败 - 知识库ID: {}, 用户ID: {}, 错误: {}", 
+                    kbId, httpRequest.getAttribute("userId"), e.getMessage());
+            KnowledgeBaseQAResponse errorResponse = new KnowledgeBaseQAResponse();
+            errorResponse.setAnswer("错误: " + e.getMessage());
+            return ResponseEntity.status(403).body(errorResponse);
         } catch (Exception e) {
             logger.error("知识库问答失败 - 知识库ID: {}", kbId, e);
-            return ResponseEntity.badRequest().build();
+            KnowledgeBaseQAResponse errorResponse = new KnowledgeBaseQAResponse();
+            errorResponse.setAnswer("知识库问答失败: " + e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
         }
     }
     
@@ -66,7 +75,8 @@ public class KnowledgeBaseQAController {
         try {
             logger.info("接收到知识库问答请求（流式） - 知识库ID: {}, 问题: {}", kbId, request.getQuestion());
             Long userId = (Long) httpRequest.getAttribute("userId");
-            Flux<KnowledgeBaseQAResponse> responseFlux = knowledgeBaseQAService.answerStream(kbId, request, userId);
+            Integer userRole = (Integer) httpRequest.getAttribute("role");
+            Flux<KnowledgeBaseQAResponse> responseFlux = knowledgeBaseQAService.answerStream(kbId, request, userId, userRole);
             
             // 转换为SSE格式
             return responseFlux

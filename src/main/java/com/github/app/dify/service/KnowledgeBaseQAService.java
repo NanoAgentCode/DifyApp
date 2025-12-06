@@ -69,6 +69,9 @@ public class KnowledgeBaseQAService {
     @Autowired
     private ChatHistoryService chatHistoryService;
     
+    @Autowired
+    private com.github.app.dify.service.UserKnowledgeBaseVisibilityService userKnowledgeBaseVisibilityService;
+    
     // 缓存每个知识库的RAG服务实例
     private final Map<Long, RagService> ragServiceCache = new ConcurrentHashMap<>();
     
@@ -83,8 +86,11 @@ public class KnowledgeBaseQAService {
     /**
      * 问答（非流式）
      */
-    public KnowledgeBaseQAResponse answer(Long knowledgeBaseId, KnowledgeBaseQARequest request, Long userId) {
+    public KnowledgeBaseQAResponse answer(Long knowledgeBaseId, KnowledgeBaseQARequest request, Long userId, Integer userRole) {
         try {
+            // 验证用户权限：检查用户是否有权限访问该知识库
+            validateKnowledgeBaseAccess(knowledgeBaseId, userId, userRole);
+            
             // 获取知识库的配置信息（向量化模型ID和topK）
             Long embeddingModelId = null;
             Integer topK = null;
@@ -173,8 +179,11 @@ public class KnowledgeBaseQAService {
     /**
      * 问答（流式）
      */
-    public Flux<KnowledgeBaseQAResponse> answerStream(Long knowledgeBaseId, KnowledgeBaseQARequest request, Long userId) {
+    public Flux<KnowledgeBaseQAResponse> answerStream(Long knowledgeBaseId, KnowledgeBaseQARequest request, Long userId, Integer userRole) {
         try {
+            // 验证用户权限：检查用户是否有权限访问该知识库
+            validateKnowledgeBaseAccess(knowledgeBaseId, userId, userRole);
+            
             // 获取知识库的配置信息（向量化模型ID和topK）
             Long embeddingModelId = null;
             Integer topK = null;
@@ -563,6 +572,62 @@ public class KnowledgeBaseQAService {
                     errorResponse.setFinished(true);
                     return Flux.just(errorResponse);
                 });
+    }
+    
+    /**
+     * 验证用户是否有权限访问知识库
+     * @param knowledgeBaseId 知识库ID
+     * @param userId 用户ID
+     * @param userRole 用户角色（1-管理员，0-普通用户），如果为null则按普通用户处理
+     * @throws RuntimeException 如果用户没有权限访问该知识库
+     */
+    private void validateKnowledgeBaseAccess(Long knowledgeBaseId, Long userId, Integer userRole) {
+        if (userId == null) {
+            throw new RuntimeException("用户未登录，无法访问知识库");
+        }
+        
+        // 获取知识库信息
+        com.github.app.dify.resp.KnowledgeBaseResp kb;
+        try {
+            kb = knowledgeBaseService.getKnowledgeBaseById(knowledgeBaseId);
+        } catch (Exception e) {
+            logger.error("获取知识库信息失败 - 知识库ID: {}", knowledgeBaseId, e);
+            throw new RuntimeException("知识库不存在或已删除");
+        }
+        
+        // 检查知识库是否启用
+        if (kb.getStatus() == null || kb.getStatus() != 1) {
+            throw new RuntimeException("知识库已被禁用，无法进行问答");
+        }
+        
+        // 权限检查：管理员可以看到所有知识库（但仍需检查用户可见性设置）
+        if (userRole != null && userRole == 1) {
+            // 管理员还需要检查用户可见性设置（如果设置了的话）
+            if (!userKnowledgeBaseVisibilityService.hasAccess(userId, knowledgeBaseId)) {
+                throw new RuntimeException("您没有权限访问该知识库");
+            }
+            logger.debug("管理员权限验证通过 - 用户ID: {}, 知识库ID: {}", userId, knowledgeBaseId);
+            return;
+        }
+        
+        // 普通用户权限检查
+        boolean isPublic = Boolean.TRUE.equals(kb.getIsPublic());
+        boolean isOwner = userId.equals(kb.getCreatorId());
+        
+        // 普通用户只能访问：
+        // 1. 公开的知识库（is_public = true）
+        // 2. 自己创建的私有知识库（creator_id = userId AND is_public = false）
+        if (isPublic || isOwner) {
+            // 还需要检查用户可见性设置（如果设置了的话）
+            if (!userKnowledgeBaseVisibilityService.hasAccess(userId, knowledgeBaseId)) {
+                throw new RuntimeException("您没有权限访问该知识库");
+            }
+            logger.debug("普通用户权限验证通过 - 用户ID: {}, 知识库ID: {}, 是否公开: {}, 是否创建者: {}", 
+                    userId, knowledgeBaseId, isPublic, isOwner);
+        } else {
+            // 私有知识库且不是创建者，直接拒绝
+            throw new RuntimeException("您没有权限访问该私有知识库");
+        }
     }
 }
 

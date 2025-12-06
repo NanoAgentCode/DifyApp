@@ -36,6 +36,9 @@ public class CreateKnowledgeBaseReq {
     @ApiModelProperty("向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储，milvus-Milvus向量数据库（默认为qdrant）")
     private String vectorStoreType;
     
+    @ApiModelProperty("向量库实例ID（关联VECTOR_DATABASE表的id，可选，如果指定则使用该实例，否则使用默认实例）")
+    private Long vectorDatabaseId;
+    
     @ApiModelProperty("租户编号")
     private Integer tenantId;
     
@@ -94,6 +97,14 @@ public class CreateKnowledgeBaseReq {
     
     public void setVectorStoreType(String vectorStoreType) {
         this.vectorStoreType = vectorStoreType;
+    }
+    
+    public Long getVectorDatabaseId() {
+        return vectorDatabaseId;
+    }
+    
+    public void setVectorDatabaseId(Long vectorDatabaseId) {
+        this.vectorDatabaseId = vectorDatabaseId;
     }
     
     public Integer getTenantId() {
