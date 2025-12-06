@@ -1010,14 +1010,32 @@ const getVectorStoreTypeTag = (type) => {
   return 'primary'
 }
 
-// 获取向量库实例的文档数量
+// 获取向量库实例的文档数量（只统计当前用户的文档）
 const getVectorDatabaseDocumentCount = (db) => {
   if (!knowledgeBases.value || knowledgeBases.value.length === 0) {
     return 0
   }
-  // 根据向量库实例ID精确统计文档数量
+  
+  // 获取当前用户ID
+  const userInfoStr = localStorage.getItem('userInfo')
+  let currentUserId = null
+  if (userInfoStr) {
+    try {
+      const userInfo = JSON.parse(userInfoStr)
+      currentUserId = userInfo.userId
+    } catch (e) {
+      console.error('解析用户信息失败', e)
+    }
+  }
+  
+  // 根据向量库实例ID精确统计文档数量（只统计当前用户的知识库）
   let totalCount = 0
   knowledgeBases.value.forEach(kb => {
+    // 只统计当前用户创建的知识库
+    if (currentUserId && kb.creatorId !== currentUserId) {
+      return // 跳过其他用户的知识库
+    }
+    
     // 优先使用 vectorDatabaseId 进行精确匹配
     if (kb.vectorDatabaseId === db.id) {
       totalCount += (kb.documentCount || 0)
