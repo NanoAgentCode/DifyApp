@@ -73,47 +73,51 @@
 
       <!-- 右侧：查询结果 -->
       <el-col :span="14" class="right-panel">
-        <el-card class="result-card" v-if="result">
+        <el-card class="result-card">
           <template #header>
             <div class="result-header">
               <span>查询结果</span>
-              <el-tag type="success" size="small">共 {{ result.rowCount || 0 }} 条记录</el-tag>
+              <el-tag v-if="result" type="success" size="small">共 {{ result.rowCount || 0 }} 条记录</el-tag>
             </div>
           </template>
-          <div class="sql-display">
-            <div class="sql-label">
-              <strong>生成的SQL：</strong>
-              <el-button
-                text
-                type="primary"
-                size="small"
-                @click="copySql"
-                style="margin-left: 10px"
-              >
-                复制
-              </el-button>
-            </div>
-            <el-input
-              v-model="result.sql"
-              type="textarea"
-              :rows="4"
-              readonly
-              class="sql-textarea"
-            />
-          </div>
-          <div class="table-display">
-            <el-table :data="result.rows" border stripe max-height="500" v-loading="querying">
-              <el-table-column
-                v-for="column in result.columns"
-                :key="column"
-                :prop="column"
-                :label="column"
-                show-overflow-tooltip
+          <div v-if="result">
+            <div class="sql-display">
+              <div class="sql-label">
+                <strong>生成的SQL：</strong>
+                <el-button
+                  text
+                  type="primary"
+                  size="small"
+                  @click="copySql"
+                  style="margin-left: 10px"
+                >
+                  复制
+                </el-button>
+              </div>
+              <el-input
+                v-model="result.sql"
+                type="textarea"
+                :rows="4"
+                readonly
+                class="sql-textarea"
               />
-            </el-table>
+            </div>
+            <div class="table-display">
+              <el-table :data="result.rows" border stripe max-height="500" v-loading="querying">
+                <el-table-column
+                  v-for="column in result.columns"
+                  :key="column"
+                  :prop="column"
+                  :label="column"
+                  show-overflow-tooltip
+                />
+              </el-table>
+            </div>
+          </div>
+          <div v-else class="empty-state">
+            <el-empty description="请在左侧输入查询问题并执行查询" />
           </div>
         </el-card>
-        <el-empty v-else description="请在左侧输入查询问题并执行查询" />
       </el-col>
     </el-row>
 
@@ -412,6 +416,13 @@ const showTableSchema = async () => {
 
 .button-group .el-button {
   flex: 1;
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
 }
 </style>
 

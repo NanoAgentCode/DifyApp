@@ -69,6 +69,17 @@ export function testDataSourceConnection(id) {
 }
 
 /**
+ * 测试数据源连接配置（用于创建/编辑时测试，不需要ID）
+ */
+export function testDataSourceConnectionConfig(data) {
+  return request({
+    url: '/api/data-sources/test-config',
+    method: 'post',
+    data
+  })
+}
+
+/**
  * 刷新表结构
  */
 export function refreshSchema(id, tableName = null) {

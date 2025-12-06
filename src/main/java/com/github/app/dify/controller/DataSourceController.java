@@ -165,6 +165,71 @@ public class DataSourceController {
     }
     
     /**
+     * 测试数据源连接配置（用于创建/编辑时测试，不需要ID）
+     */
+    @ApiOperation("测试数据源连接配置")
+    @PostMapping("/test-config")
+    public ResponseEntity<Map<String, Object>> testConnectionConfig(@RequestBody Map<String, Object> requestMap) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            // 从请求中提取字段，不进行严格验证（测试连接不需要name等字段）
+            CreateDataSourceReq req = new CreateDataSourceReq();
+            if (requestMap.containsKey("type")) {
+                req.setType((String) requestMap.get("type"));
+            }
+            if (requestMap.containsKey("host")) {
+                req.setHost((String) requestMap.get("host"));
+            }
+            if (requestMap.containsKey("port")) {
+                Object portObj = requestMap.get("port");
+                if (portObj != null) {
+                    if (portObj instanceof Integer) {
+                        req.setPort((Integer) portObj);
+                    } else if (portObj instanceof Number) {
+                        req.setPort(((Number) portObj).intValue());
+                    }
+                }
+            }
+            if (requestMap.containsKey("database")) {
+                req.setDatabase((String) requestMap.get("database"));
+            }
+            if (requestMap.containsKey("username")) {
+                req.setUsername((String) requestMap.get("username"));
+            }
+            if (requestMap.containsKey("password")) {
+                req.setPassword((String) requestMap.get("password"));
+            }
+            
+            // 验证必要字段
+            if (req.getType() == null || req.getType().trim().isEmpty()) {
+                result.put("success", false);
+                result.put("message", "数据库类型不能为空");
+                return ResponseEntity.badRequest().body(result);
+            }
+            if (req.getHost() == null || req.getHost().trim().isEmpty()) {
+                result.put("success", false);
+                result.put("message", "主机地址不能为空");
+                return ResponseEntity.badRequest().body(result);
+            }
+            if (req.getPort() == null) {
+                result.put("success", false);
+                result.put("message", "端口不能为空");
+                return ResponseEntity.badRequest().body(result);
+            }
+            
+            boolean success = dataSourceService.testConnectionConfig(req);
+            result.put("success", success);
+            result.put("message", success ? "连接成功" : "连接失败");
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("测试连接配置失败", e);
+            result.put("success", false);
+            result.put("message", "测试连接失败: " + e.getMessage());
+            return ResponseEntity.badRequest().body(result);
+        }
+    }
+    
+    /**
      * 刷新表结构
      */
     @ApiOperation("刷新表结构")

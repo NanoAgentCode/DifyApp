@@ -735,7 +735,8 @@ public class Text2SqlService {
             "ORDER", "BY", "GROUP", "HAVING", "AS", "COUNT", "SUM", "AVG", "MAX", "MIN",
             "DISTINCT", "CASE", "WHEN", "THEN", "ELSE", "END", "CAST", "JOIN", "INNER",
             "LEFT", "RIGHT", "FULL", "ON", "UNION", "ALL", "EXISTS", "BETWEEN", "IF",
-            "CONCAT", "SUBSTRING", "UPPER", "LOWER", "TRIM", "LENGTH", "ROUND", "ABS"
+            "CONCAT", "SUBSTRING", "UPPER", "LOWER", "TRIM", "LENGTH", "ROUND", "ABS",
+            "TRUE", "FALSE"  // 布尔值字面量
         ));
         
         // 提取表名（FROM子句中的）
@@ -899,6 +900,11 @@ public class Text2SqlService {
             
             // 跳过数字
             if (match.matches("^\\d+(\\.\\d+)?$")) {
+                continue;
+            }
+            
+            // 跳过布尔值字面量（TRUE、FALSE）
+            if (upperMatch.equals("TRUE") || upperMatch.equals("FALSE")) {
                 continue;
             }
             

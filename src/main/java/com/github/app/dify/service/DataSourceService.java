@@ -311,6 +311,26 @@ public class DataSourceService {
     }
     
     /**
+     * 测试数据源连接配置（用于创建/编辑时测试）
+     */
+    public boolean testConnectionConfig(com.github.app.dify.req.CreateDataSourceReq req) {
+        // 创建一个临时的DataSource对象用于测试
+        DataSource tempDataSource = new DataSource();
+        tempDataSource.setType(req.getType());
+        tempDataSource.setHost(req.getHost());
+        tempDataSource.setPort(req.getPort());
+        // 处理可能为null的字段
+        tempDataSource.setDatabase(req.getDatabase() != null && !req.getDatabase().trim().isEmpty() ? req.getDatabase().trim() : null);
+        tempDataSource.setUsername(req.getUsername() != null && !req.getUsername().trim().isEmpty() ? req.getUsername().trim() : null);
+        // 密码不需要加密，因为这是临时测试，DatabaseConnectionService会处理
+        // 如果密码为null或空，设置为空字符串（某些数据库允许空密码）
+        tempDataSource.setPassword(req.getPassword() != null ? req.getPassword() : "");
+        
+        // 传入false表示密码未加密
+        return connectionService.testConnection(tempDataSource, false);
+    }
+    
+    /**
      * 转换为响应对象
      */
     private DataSourceResp convertToResp(DataSource dataSource) {

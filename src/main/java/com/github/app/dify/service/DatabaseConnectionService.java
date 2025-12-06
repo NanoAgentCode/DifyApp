@@ -210,6 +210,16 @@ public class DatabaseConnectionService {
      * @return 是否连接成功
      */
     public boolean testConnection(DataSource dataSource) {
+        return testConnection(dataSource, true);
+    }
+    
+    /**
+     * 测试数据库连接
+     * @param dataSource 数据源配置
+     * @param passwordEncrypted 密码是否已加密
+     * @return 是否连接成功
+     */
+    public boolean testConnection(DataSource dataSource, boolean passwordEncrypted) {
         if (dataSource == null) {
             return false;
         }
@@ -218,12 +228,12 @@ public class DatabaseConnectionService {
             DatabaseDriverManager.DatabaseType dbType = DatabaseDriverManager.DatabaseType.fromString(dataSource.getType());
             
             if (dbType == DatabaseDriverManager.DatabaseType.MONGODB) {
-                return testMongoConnection(dataSource);
+                return testMongoConnection(dataSource, passwordEncrypted);
             } else {
-                return testJdbcConnection(dataSource, dbType);
+                return testJdbcConnection(dataSource, dbType, passwordEncrypted);
             }
         } catch (Exception e) {
-            logger.error("测试数据库连接失败 - 数据源ID: {}", dataSource.getId(), e);
+            logger.error("测试数据库连接失败 - 数据源ID: {}", dataSource.getId() != null ? dataSource.getId() : "临时", e);
             return false;
         }
     }
@@ -231,14 +241,32 @@ public class DatabaseConnectionService {
     /**
      * 测试 JDBC 连接
      */
-    private boolean testJdbcConnection(DataSource dataSource, DatabaseDriverManager.DatabaseType dbType) {
-        String password = passwordEncryptionUtil.decrypt(dataSource.getPassword());
+    private boolean testJdbcConnection(DataSource dataSource, DatabaseDriverManager.DatabaseType dbType, boolean passwordEncrypted) {
+        String password;
+        if (passwordEncrypted) {
+            // 如果密码已加密，尝试解密
+            if (dataSource.getPassword() != null && !dataSource.getPassword().isEmpty()) {
+                try {
+                    password = passwordEncryptionUtil.decrypt(dataSource.getPassword());
+                } catch (Exception e) {
+                    logger.warn("解密密码失败，使用原始密码", e);
+                    password = dataSource.getPassword();
+                }
+            } else {
+                password = "";
+            }
+        } else {
+            // 密码未加密，直接使用
+            password = dataSource.getPassword() != null ? dataSource.getPassword() : "";
+        }
+        
+        String username = dataSource.getUsername() != null ? dataSource.getUsername() : "";
         String url = driverManager.buildJdbcUrl(dbType, dataSource.getHost(), dataSource.getPort(), dataSource.getDatabase());
         
-        try (Connection connection = driverManager.createConnection(dbType, url, dataSource.getUsername(), password)) {
+        try (Connection connection = driverManager.createConnection(dbType, url, username, password)) {
             return connection != null && !connection.isClosed();
         } catch (SQLException e) {
-            logger.error("JDBC 连接测试失败", e);
+            logger.error("JDBC 连接测试失败 - 类型: {}, 主机: {}, 端口: {}", dbType, dataSource.getHost(), dataSource.getPort(), e);
             return false;
         }
     }
@@ -246,9 +274,9 @@ public class DatabaseConnectionService {
     /**
      * 测试 MongoDB 连接
      */
-    private boolean testMongoConnection(DataSource dataSource) {
+    private boolean testMongoConnection(DataSource dataSource, boolean passwordEncrypted) {
         try {
-            MongoDatabase database = getMongoDatabase(dataSource);
+            MongoDatabase database = getMongoDatabaseForTest(dataSource, passwordEncrypted);
             // 执行一个简单的操作来测试连接
             database.listCollectionNames().first();
             return true;
@@ -256,6 +284,36 @@ public class DatabaseConnectionService {
             logger.error("MongoDB 连接测试失败", e);
             return false;
         }
+    }
+    
+    /**
+     * 获取MongoDB数据库（用于测试，支持未加密密码）
+     */
+    private MongoDatabase getMongoDatabaseForTest(DataSource dataSource, boolean passwordEncrypted) {
+        if (dataSource == null) {
+            throw new IllegalArgumentException("数据源不能为空");
+        }
+        
+        DatabaseDriverManager.DatabaseType dbType = DatabaseDriverManager.DatabaseType.fromString(dataSource.getType());
+        if (dbType != DatabaseDriverManager.DatabaseType.MONGODB) {
+            throw new IllegalArgumentException("数据源类型不是 MongoDB");
+        }
+        
+        String password;
+        if (passwordEncrypted) {
+            password = passwordEncryptionUtil.decrypt(dataSource.getPassword());
+        } else {
+            password = dataSource.getPassword();
+        }
+        
+        String connectionString = buildMongoConnectionString(dataSource, password);
+        
+        MongoClient client = MongoClients.create(connectionString);
+        String databaseName = dataSource.getDatabase();
+        if (databaseName == null || databaseName.isEmpty()) {
+            databaseName = "admin"; // 默认数据库
+        }
+        return client.getDatabase(databaseName);
     }
     
     /**

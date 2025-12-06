@@ -130,8 +130,15 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <el-button @click="handleTestConnectionInDialog" :loading="testingConnection" type="info">
+            测试连接
+          </el-button>
+          <div>
+            <el-button @click="dialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="handleSubmit">确定</el-button>
+          </div>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -146,7 +153,8 @@ import {
   createDataSource,
   updateDataSource,
   deleteDataSource,
-  testDataSourceConnection
+  testDataSourceConnection,
+  testDataSourceConnectionConfig
 } from '@/api/dataSource'
 
 const dataSources = ref([])
@@ -158,6 +166,7 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const formRef = ref(null)
 const currentEditId = ref(null)
+const testingConnection = ref(false)
 
 const formData = ref({
   name: '',
@@ -300,6 +309,73 @@ const handleTestConnection = async (id) => {
   } catch (error) {
     ElMessage.error(error.message || '测试连接失败')
   }
+}
+
+const handleTestConnectionInDialog = async () => {
+  if (!formRef.value) return
+  
+  // 编辑时，如果有ID，直接使用ID测试（使用已有的密码）
+  if (isEdit.value && currentEditId.value) {
+    testingConnection.value = true
+    try {
+      const response = await testDataSourceConnection(currentEditId.value)
+      if (response.success) {
+        ElMessage.success('连接成功')
+      } else {
+        ElMessage.error(response.message || '连接失败')
+      }
+    } catch (error) {
+      ElMessage.error(error.response?.data?.message || error.message || '测试连接失败')
+    } finally {
+      testingConnection.value = false
+    }
+    return
+  }
+  
+  // 创建时，先保存数据源，然后使用ID测试
+  // 先验证表单
+  await formRef.value.validate(async (valid) => {
+    if (!valid) {
+      ElMessage.warning('请先填写完整的信息')
+      return
+    }
+    
+    testingConnection.value = true
+    try {
+      // 先创建数据源
+      const createdDataSource = await createDataSource(formData.value)
+      const newId = createdDataSource.id
+      
+      if (!newId) {
+        ElMessage.error('创建数据源失败，无法测试连接')
+        return
+      }
+      
+      // 使用创建后的ID测试连接
+      const response = await testDataSourceConnection(newId)
+      
+      if (response.success) {
+        ElMessage.success('连接成功')
+        // 测试成功后，刷新列表，但保持对话框打开，让用户决定是否继续
+        await loadDataSources()
+        // 更新当前编辑ID，这样用户点击确定时就是更新而不是创建
+        currentEditId.value = newId
+        isEdit.value = true
+      } else {
+        ElMessage.error(response.message || '连接失败')
+        // 连接失败，删除刚创建的数据源
+        try {
+          await deleteDataSource(newId)
+        } catch (deleteError) {
+          console.error('删除测试数据源失败:', deleteError)
+        }
+      }
+    } catch (error) {
+      ElMessage.error(error.response?.data?.error || error.response?.data?.message || error.message || '测试连接失败')
+    } finally {
+      testingConnection.value = false
+    }
+  })
 }
 
 const getTypeName = (type) => {
