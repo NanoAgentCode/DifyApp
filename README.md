@@ -21,6 +21,8 @@ DifyApp 是一个集成了 Dify AI 平台的应用管理系统，支持：
 - **缓存系统**：基于 Redis 的缓存架构，提升查询性能
 - **多租户支持**：支持多租户应用和知识库管理
 - **权限控制**：用户对应用和知识库的可见性管理
+- **数据源管理**：支持多种数据库类型（PostgreSQL、MySQL、Oracle、MongoDB），动态管理数据源配置
+- **Text2SQL**：基于大语言模型的自然语言转SQL查询功能，支持智能SQL生成、类型转换修复、列验证和统计查询
 - **前端界面**：提供管理端、用户端和应用端三个界面
 
 ## 技术栈
@@ -125,7 +127,9 @@ docker run -d \
   -p 15432:5432 \
   -e POSTGRES_PASSWORD=123456 \
   -e POSTGRES_DB=postgres \
+  -v pgvector-data:/var/lib/postgresql/data \
   --name pgvector \
+  --restart unless-stopped \
   ankane/pgvector:latest
 ```
 
@@ -1124,6 +1128,199 @@ Content-Type: application/json
 }
 ```
 
+### 数据源管理 API
+
+#### 1. 创建数据源
+
+```
+POST /api/data-sources
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+
+**请求体：**
+```json
+{
+  "name": "我的数据源",
+  "description": "数据源描述",
+  "type": "postgresql",
+  "host": "localhost",
+  "port": 5432,
+  "database": "mydb",
+  "username": "postgres",
+  "password": "password",
+  "status": 1,
+  "isPublic": true
+}
+```
+
+**请求参数说明：**
+- `name` (必填): 数据源名称
+- `description` (可选): 数据源描述
+- `type` (必填): 数据库类型，可选值：`postgresql`、`mysql`、`oracle`、`mongodb`
+- `host` (必填): 数据库主机地址
+- `port` (必填): 数据库端口
+- `database` (必填): 数据库名称
+- `username` (必填): 数据库用户名
+- `password` (必填): 数据库密码
+- `status` (可选): 状态，1-启用，0-禁用，默认1
+- `isPublic` (可选): 是否公开，true-公开，false-私有，默认false
+
+#### 2. 更新数据源
+
+```
+PUT /api/data-sources/{id}
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+
+#### 3. 获取数据源详情
+
+```
+GET /api/data-sources/{id}
+Authorization: Bearer {token}
+```
+
+#### 4. 删除数据源
+
+```
+DELETE /api/data-sources/{id}
+Authorization: Bearer {token}
+```
+
+#### 5. 获取数据源列表
+
+```
+GET /api/data-sources?tenantId=1&status=1&keyword=搜索关键词&type=postgresql&userId=1
+Authorization: Bearer {token}
+```
+
+**查询参数：**
+- `tenantId` (可选): 租户ID
+- `status` (可选): 状态（1-启用，0-禁用）
+- `keyword` (可选): 搜索关键词（名称或描述）
+- `type` (可选): 数据库类型
+- `userId` (可选): 用户ID（用于权限过滤）
+
+#### 6. 测试数据源连接
+
+```
+POST /api/data-sources/{id}/test
+Authorization: Bearer {token}
+```
+
+**响应示例：**
+```json
+{
+  "success": true,
+  "message": "连接成功"
+}
+```
+
+#### 7. 刷新表结构
+
+```
+POST /api/data-sources/{id}/refresh-schema?tableName=table_name
+Authorization: Bearer {token}
+```
+
+**查询参数：**
+- `tableName` (可选): 表名，如果不指定则刷新所有表
+
+### Text2SQL API
+
+#### 1. 执行Text2SQL查询
+
+```
+POST /api/text2sql/execute
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+
+**请求体：**
+```json
+{
+  "dataSourceId": 1,
+  "question": "统计总共有多少条记录",
+  "modelId": 1,
+  "tableNames": ["users", "orders"]
+}
+```
+
+**请求参数说明：**
+- `dataSourceId` (必填): 数据源ID
+- `question` (必填): 用户问题（自然语言）
+- `modelId` (可选): 问答模型ID，不指定则使用默认模型
+- `tableNames` (可选): 表名列表，如果指定则只使用这些表的结构
+
+**响应示例：**
+```json
+{
+  "sql": "SELECT COUNT(*) AS count FROM users",
+  "columns": ["count"],
+  "rows": [
+    {
+      "count": 100
+    }
+  ],
+  "rowCount": 1
+}
+```
+
+#### 2. 获取表列表
+
+```
+GET /api/text2sql/{dataSourceId}/tables
+Authorization: Bearer {token}
+```
+
+**响应示例：**
+```json
+["users", "orders", "products"]
+```
+
+#### 3. 获取表结构
+
+```
+GET /api/text2sql/{dataSourceId}/tables/{tableName}/schema?forceRefresh=false
+Authorization: Bearer {token}
+```
+
+**查询参数：**
+- `forceRefresh` (可选): 是否强制刷新，默认false（使用缓存）
+
+**响应示例：**
+```json
+{
+  "tableName": "users",
+  "databaseType": "postgresql",
+  "columns": [
+    {
+      "name": "id",
+      "type": "bigint",
+      "size": 20,
+      "nullable": false,
+      "defaultValue": null
+    },
+    {
+      "name": "username",
+      "type": "varchar",
+      "size": 255,
+      "nullable": false,
+      "defaultValue": null
+    }
+  ],
+  "primaryKeys": [
+    {
+      "columnName": "id",
+      "keySeq": 1,
+      "pkName": "users_pkey"
+    }
+  ],
+  "foreignKeys": []
+}
+```
+
 ### 向量数据库管理 API
 
 #### 1. 获取所有向量数据库配置
@@ -1302,6 +1499,28 @@ Content-Type: application/json
   - 支持连接测试功能
   - 数据库驱动的动态配置，无需重启应用
 
+- ✅ **数据源管理**
+  - 支持多种数据库类型（PostgreSQL、MySQL、Oracle、MongoDB）
+  - 数据源CRUD操作（创建、编辑、删除、查看）
+  - 数据源连接测试
+  - 表结构自动获取和缓存
+  - 表结构刷新功能
+  - 数据源权限管理（公开/私有、用户可见性控制）
+  - 多租户支持
+
+- ✅ **Text2SQL（自然语言转SQL）**
+  - 基于大语言模型的智能SQL生成
+  - 支持多种数据库类型（PostgreSQL、MySQL、Oracle）
+  - 自动表结构解析和列类型识别
+  - PostgreSQL类型转换自动修复（bigint、integer等数字类型与字符串比较时自动添加CAST）
+  - SQL列验证（执行前验证列是否存在，避免运行时错误）
+  - 系统列自动过滤（tenant_id、deleted、status、create_time等系统列不暴露给用户）
+  - 统计查询支持（COUNT、SUM、AVG、MAX、MIN等聚合函数）
+  - 支持分组统计（GROUP BY）和分组过滤（HAVING）
+  - SQL安全检查（只允许SELECT查询，禁止危险操作）
+  - 支持指定表查询和全表查询
+  - 支持选择不同的问答模型进行SQL生成
+
 - ✅ **其他功能**
   - 全局异常处理
   - Swagger API 文档
@@ -1320,10 +1539,12 @@ Content-Type: application/json
   - 用户管理（审核、禁用、重置密码、角色管理）
   - 大模型管理（问答模型和向量化模型的配置、默认设置、状态管理）
   - 向量数据库管理（Qdrant、Milvus、FAISS 的配置、默认设置、状态管理、连接测试）
+  - 数据源管理（数据源CRUD、连接测试、表结构管理）
   - 智能问答
   - 对话历史管理
   - 知识库管理（支持选择向量化模型和向量存储类型）
   - 知识库问答（支持选择问答模型，显示向量化模型状态）
+  - Text2SQL（自然语言转SQL查询，支持统计查询）
   - 用户权限管理（应用和知识库可见性）
 
 - ✅ **用户端界面**
@@ -1332,6 +1553,7 @@ Content-Type: application/json
   - 对话历史管理
   - 知识库管理（仅显示有权限的知识库，支持创建和编辑知识库，支持选择向量化模型和向量存储类型）
   - 知识库问答（支持选择问答模型，显示向量化模型状态）
+  - Text2SQL（自然语言转SQL查询，支持统计查询）
 
 - ✅ **应用端界面**
   - Chat Flow 交互界面
@@ -1836,6 +2058,22 @@ yarn build
   - 支持 Qdrant、Milvus、FAISS 三种类型
   - 支持启用/禁用状态和默认配置设置
   - 用于知识库向量存储功能
+
+- **DATA_SOURCE**: 数据源表
+  - 存储数据源配置信息（名称、类型、主机、端口、数据库、用户名、密码等）
+  - 支持 PostgreSQL、MySQL、Oracle、MongoDB 四种类型
+  - 支持启用/禁用状态
+  - 支持公开/私有设置
+  - 包含创建者ID和租户ID
+
+- **TABLE_SCHEMA_CACHE**: 表结构缓存表
+  - 缓存数据源的表结构信息（JSON格式）
+  - 提升表结构查询性能
+  - 支持强制刷新
+
+- **USER_DATA_SOURCE_VISIBILITY**: 用户数据源可见性表
+  - 存储用户对数据源的可见性权限
+  - 支持管理员为用户设置数据源访问权限
 
 ## 缓存架构
 

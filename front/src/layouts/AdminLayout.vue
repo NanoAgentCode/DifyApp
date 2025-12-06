@@ -67,6 +67,14 @@
             <el-icon><Box /></el-icon>
             <span>向量数据库</span>
           </el-menu-item>
+          <el-menu-item v-if="isAdmin" index="/admin/data-sources">
+            <el-icon><Connection /></el-icon>
+            <span>数据源管理</span>
+          </el-menu-item>
+          <el-menu-item v-if="isAdmin" index="/admin/text2sql">
+            <el-icon><Search /></el-icon>
+            <span>Text2SQL</span>
+          </el-menu-item>
         </el-menu>
       </el-aside>
       <el-main class="main">
@@ -87,7 +95,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { List, User, ArrowDown, Folder, ChatLineRound, Fold, Expand, Clock, Setting, Document, Box } from '@element-plus/icons-vue'
+import { List, User, ArrowDown, Folder, ChatLineRound, Fold, Expand, Clock, Setting, Document, Box, Connection, Search } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 
 const route = useRoute()

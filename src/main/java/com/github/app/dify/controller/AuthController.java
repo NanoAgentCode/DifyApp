@@ -272,5 +272,73 @@ public class AuthController {
             throw e;
         }
     }
+    
+    @Autowired(required = false)
+    private com.github.app.dify.service.UserDataSourceVisibilityService userDataSourceVisibilityService;
+    
+    /**
+     * 获取用户的数据源可见性列表
+     */
+    @ApiOperation("获取用户的数据源可见性列表")
+    @GetMapping("/users/{userId}/data-source-visibilities")
+    public ResponseEntity<?> getUserDataSourceVisibilities(@PathVariable Long userId) {
+        try {
+            if (userDataSourceVisibilityService == null) {
+                return ResponseEntity.ok(new java.util.ArrayList<>());
+            }
+            List<com.github.app.dify.resp.UserDataSourceVisibilityResp> resp = 
+                    userDataSourceVisibilityService.getUserDataSourceVisibilities(userId);
+            return ResponseEntity.ok(resp);
+        } catch (Exception e) {
+            logger.error("获取用户数据源可见性列表失败", e);
+            throw e;
+        }
+    }
+    
+    /**
+     * 更新用户对数据源的可见性
+     */
+    @ApiOperation("更新用户对数据源的可见性")
+    @PutMapping("/users/{userId}/data-source-visibilities/{dataSourceId}")
+    public ResponseEntity<Void> updateUserDataSourceVisibility(
+            @PathVariable Long userId,
+            @PathVariable Long dataSourceId,
+            @RequestParam Boolean visible) {
+        try {
+            if (userDataSourceVisibilityService == null) {
+                return ResponseEntity.ok().build();
+            }
+            userDataSourceVisibilityService.updateUserDataSourceVisibility(userId, dataSourceId, visible);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            logger.error("更新用户数据源可见性失败", e);
+            throw e;
+        }
+    }
+    
+    /**
+     * 批量更新用户对数据源的可见性
+     */
+    @ApiOperation("批量更新用户对数据源的可见性")
+    @PutMapping("/users/{userId}/data-source-visibilities/batch")
+    public ResponseEntity<Void> batchUpdateUserDataSourceVisibility(
+            @PathVariable Long userId,
+            @RequestBody java.util.Map<String, Object> request) {
+        try {
+            if (userDataSourceVisibilityService == null) {
+                return ResponseEntity.ok().build();
+            }
+            @SuppressWarnings("unchecked")
+            List<Long> dataSourceIds = (List<Long>) request.get("dataSourceIds");
+            Boolean visible = (Boolean) request.get("visible");
+            if (dataSourceIds != null && visible != null) {
+                userDataSourceVisibilityService.batchUpdateUserDataSourceVisibility(userId, dataSourceIds, visible);
+            }
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            logger.error("批量更新用户数据源可见性失败", e);
+            throw e;
+        }
+    }
 }
 
