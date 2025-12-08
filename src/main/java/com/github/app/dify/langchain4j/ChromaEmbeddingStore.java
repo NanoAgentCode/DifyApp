@@ -7,9 +7,6 @@ import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -17,8 +14,8 @@ import java.util.stream.Collectors;
 /**
  * Chroma EmbeddingStore实现，适配Chroma存储
  * 支持按知识库ID隔离存储（每个知识库一个集合）
+ * 注意：此类通过工厂方法创建，不使用Spring管理
  */
-@Component
 public class ChromaEmbeddingStore implements EmbeddingStore<TextSegment> {
     
     private static final Logger logger = LoggerFactory.getLogger(ChromaEmbeddingStore.class);
