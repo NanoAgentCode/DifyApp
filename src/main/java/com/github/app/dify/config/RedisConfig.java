@@ -30,7 +30,7 @@ import java.time.Duration;
  */
 @Configuration
 @EnableCaching
-@ConfigurationProperties(prefix = "spring.redis")
+@ConfigurationProperties(prefix = "spring.data.redis")
 public class RedisConfig implements CachingConfigurer {
     
     private static final Logger logger = LoggerFactory.getLogger(RedisConfig.class);

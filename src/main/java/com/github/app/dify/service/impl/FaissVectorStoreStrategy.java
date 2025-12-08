@@ -4,9 +4,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.config.FaissConfig;
 import com.github.app.dify.service.VectorStoreStrategy;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -111,7 +108,7 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
                 int chunkIndex = i < chunkIndices.size() ? chunkIndices.get(i) : i;
                 
                 String vectorId = generateVectorId(knowledgeBaseId, documentId, chunkIndex);
-                VectorEntry entry = new VectorEntry(vectorId, vector, text, documentId, chunkIndex, knowledgeBaseId);
+                VectorEntry entry = new VectorEntry(vectorId, vector, text, documentId, Integer.valueOf(chunkIndex));
                 index.addVector(entry);
             }
             
@@ -356,16 +353,40 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
     /**
      * 向量条目
      */
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
     private static class VectorEntry {
         private String vectorId;
         private List<Float> vector;
         private String text;
         private Long documentId;
         private Integer chunkIndex;
-        private Long knowledgeBaseId;
+        
+        public VectorEntry(String vectorId, List<Float> vector, String text, Long documentId, Integer chunkIndex) {
+            this.vectorId = vectorId;
+            this.vector = vector;
+            this.text = text;
+            this.documentId = documentId;
+            this.chunkIndex = chunkIndex;
+        }
+        
+        public String getVectorId() {
+            return vectorId;
+        }
+        
+        public List<Float> getVector() {
+            return vector;
+        }
+        
+        public String getText() {
+            return text;
+        }
+        
+        public Long getDocumentId() {
+            return documentId;
+        }
+        
+        public Integer getChunkIndex() {
+            return chunkIndex;
+        }
     }
     
     /**

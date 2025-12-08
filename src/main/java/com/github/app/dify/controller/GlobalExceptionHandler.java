@@ -9,6 +9,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import java.util.HashMap;
 import java.util.Map;
 /**
@@ -18,6 +20,40 @@ import java.util.Map;
 public class GlobalExceptionHandler {
     
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(IllegalArgumentException e) {
+        logger.error("参数绑定异常", e);
+        Map<String, Object> response = new HashMap<>();
+        String errorMessage = e.getMessage();
+        if (errorMessage != null && errorMessage.contains("Name for argument")) {
+            errorMessage = "参数绑定失败：请确保所有请求参数都有正确的注解（@RequestParam、@PathVariable等）。如果问题持续，请重新编译项目。";
+        }
+        response.put("error", errorMessage);
+        response.put("code", HttpStatus.BAD_REQUEST.value());
+        response.put("type", "IllegalArgumentException");
+        return ResponseEntity.badRequest().body(response);
+    }
+    
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingServletRequestParameterException(MissingServletRequestParameterException e) {
+        logger.error("缺少请求参数", e);
+        Map<String, Object> response = new HashMap<>();
+        response.put("error", "缺少必需的请求参数: " + e.getParameterName());
+        response.put("code", HttpStatus.BAD_REQUEST.value());
+        response.put("type", "MissingServletRequestParameterException");
+        return ResponseEntity.badRequest().body(response);
+    }
+    
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException e) {
+        logger.error("参数类型不匹配", e);
+        Map<String, Object> response = new HashMap<>();
+        response.put("error", "参数类型不匹配: " + e.getName() + " 应该是 " + (e.getRequiredType() != null ? e.getRequiredType().getSimpleName() : "未知类型"));
+        response.put("code", HttpStatus.BAD_REQUEST.value());
+        response.put("type", "MethodArgumentTypeMismatchException");
+        return ResponseEntity.badRequest().body(response);
+    }
     
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException e) {

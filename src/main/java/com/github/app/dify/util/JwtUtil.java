@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,7 +24,7 @@ public class JwtUtil {
     /**
      * JWT密钥（从配置文件读取，如果没有则使用默认值）
      */
-    @Value("${jwt.secret:dify-app-secret-key-2024}")
+    @Value("${jwt.secret:dify-app-secret-key-2024-this-is-a-very-long-secret-key-for-security}")
     private String secret;
     
     /**
@@ -31,6 +32,37 @@ public class JwtUtil {
      */
     @Value("${jwt.expiration:604800000}")
     private Long expiration;
+    
+    /**
+     * 获取安全的密钥（确保至少256位）
+     * 如果密钥长度不够，使用SHA-256哈希后取32字节
+     */
+    private SecretKey getSecretKey() {
+        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        
+        // 如果密钥长度已经 >= 32 字节（256位），直接使用
+        if (keyBytes.length >= 32) {
+            // 如果长度正好是32字节，直接使用
+            if (keyBytes.length == 32) {
+                return Keys.hmacShaKeyFor(keyBytes);
+            }
+            // 如果长度 > 32字节，截取前32字节
+            byte[] truncatedKey = new byte[32];
+            System.arraycopy(keyBytes, 0, truncatedKey, 0, 32);
+            return Keys.hmacShaKeyFor(truncatedKey);
+        }
+        
+        // 如果密钥长度 < 32字节，使用SHA-256哈希生成32字节的密钥
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashedKey = digest.digest(keyBytes);
+            return Keys.hmacShaKeyFor(hashedKey);
+        } catch (Exception e) {
+            logger.error("生成JWT密钥失败", e);
+            // 如果哈希失败，使用默认的安全密钥生成方法（使用新的API）
+            return Jwts.SIG.HS256.key().build();
+        }
+    }
     
     /**
      * 生成JWT Token
@@ -48,7 +80,7 @@ public class JwtUtil {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
         
-        SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        SecretKey key = getSecretKey();
         return Jwts.builder()
                 .claims(claims)
                 .subject(username)
@@ -65,7 +97,7 @@ public class JwtUtil {
      */
     public Claims getClaimsFromToken(String token) {
         try {
-            SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+            SecretKey key = getSecretKey();
             return Jwts.parser()
                     .verifyWith(key)
                     .build()

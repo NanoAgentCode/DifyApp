@@ -1,7 +1,6 @@
 package com.github.app.dify.langchain4j;
 
 import dev.langchain4j.data.document.DocumentSplitter;
-import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -13,21 +12,10 @@ import org.springframework.context.annotation.Configuration;
 public class LangChain4jConfig {
     
     @Autowired
-    private CustomEmbeddingModel customEmbeddingModel;
-    
-    @Autowired
     private ConfigurableDocumentSplitter configurableDocumentSplitter;
     
     @Autowired
     private VectorStoreFactory vectorStoreFactory;
-    
-    /**
-     * EmbeddingModel Bean
-     */
-    @Bean
-    public EmbeddingModel embeddingModel() {
-        return customEmbeddingModel;
-    }
     
     /**
      * DocumentSplitter Bean
