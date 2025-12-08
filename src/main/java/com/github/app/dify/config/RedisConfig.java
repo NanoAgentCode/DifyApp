@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
+import lombok.Getter;
+import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -28,6 +30,8 @@ import java.time.Duration;
 /**
  * Redis配置类
  */
+@Setter
+@Getter
 @Configuration
 @EnableCaching
 @ConfigurationProperties(prefix = "spring.data.redis")
@@ -143,47 +147,7 @@ public class RedisConfig implements CachingConfigurer {
             return new NoOpCacheManager();
         }
     }
-    
-    public String getHost() {
-        return host;
-    }
-    
-    public void setHost(String host) {
-        this.host = host;
-    }
-    
-    public int getPort() {
-        return port;
-    }
-    
-    public void setPort(int port) {
-        this.port = port;
-    }
-    
-    public String getPassword() {
-        return password;
-    }
-    
-    public void setPassword(String password) {
-        this.password = password;
-    }
-    
-    public int getDatabase() {
-        return database;
-    }
-    
-    public void setDatabase(int database) {
-        this.database = database;
-    }
-    
-    public int getTimeout() {
-        return timeout;
-    }
-    
-    public void setTimeout(int timeout) {
-        this.timeout = timeout;
-    }
-    
+
     /**
      * 缓存错误处理器
      * 当缓存操作失败时，记录日志但不抛出异常，确保业务逻辑继续执行
