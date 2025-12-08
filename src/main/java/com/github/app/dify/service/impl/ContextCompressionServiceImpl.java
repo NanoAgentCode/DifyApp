@@ -1,8 +1,10 @@
 package com.github.app.dify.service.impl;
 
 import com.github.app.dify.config.RagConfig;
-import com.github.app.dify.langchain4j.CustomChatLanguageModel;
+import com.github.app.dify.domain.QAModel;
+import com.github.app.dify.langchain4j.ModelLanguageModelFactory;
 import com.github.app.dify.req.KnowledgeBaseQARequest;
+import com.github.app.dify.service.ModelConfigService;
 import com.github.app.dify.service.ContextCompressionService;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
@@ -30,7 +32,10 @@ public class ContextCompressionServiceImpl implements ContextCompressionService 
     private RagConfig ragConfig;
     
     @Autowired
-    private CustomChatLanguageModel chatLanguageModel;
+    private ModelLanguageModelFactory modelLanguageModelFactory;
+    
+    @Autowired
+    private ModelConfigService modelConfigService;
     
     /**
      * 压缩历史对话消息
@@ -154,6 +159,10 @@ public class ContextCompressionServiceImpl implements ContextCompressionService 
             summaryMessages.add(SystemMessage.from("你是一个专业的对话总结助手，能够准确总结对话历史的关键信息。"));
             summaryMessages.add(UserMessage.from(summaryPrompt));
             
+            // 使用默认的RAG模型进行总结
+            QAModel qaModel = modelConfigService.getDefaultQAModelForRAG();
+            ModelLanguageModelFactory.ChatLanguageModel chatLanguageModel = 
+                    modelLanguageModelFactory.createChatLanguageModel(qaModel);
             Response<AiMessage> response = chatLanguageModel.generate(summaryMessages);
             String summary = response.content().text();
             

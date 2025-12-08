@@ -88,7 +88,7 @@ public class ConfigurableDocumentSplitter implements DocumentSplitter {
                 
                 // 保留原始文档的metadata
                 if (document.metadata() != null) {
-                    document.metadata().asMap().forEach((key, value) -> {
+                    document.metadata().toMap().forEach((key, value) -> {
                         segment.metadata().put(key, value != null ? value.toString() : "");
                     });
                 }

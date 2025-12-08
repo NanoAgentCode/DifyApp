@@ -2,7 +2,6 @@ package com.github.app.dify.service.impl;
 
 import com.github.app.dify.config.RagConfig;
 import com.github.app.dify.domain.QAModel;
-import com.github.app.dify.langchain4j.CustomChatLanguageModel;
 import com.github.app.dify.langchain4j.CustomEmbeddingModel;
 import com.github.app.dify.langchain4j.ModelLanguageModelFactory;
 import com.github.app.dify.langchain4j.VectorStoreFactory;
@@ -23,7 +22,6 @@ import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.output.Response;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
-import dev.langchain4j.service.AiServices;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +30,6 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -51,9 +48,6 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     
     @Autowired
     private CustomEmbeddingModel embeddingModel;
-    
-    @Autowired
-    private CustomChatLanguageModel chatLanguageModel;
     
     @Autowired
     private KnowledgeBaseService knowledgeBaseService;
@@ -78,17 +72,6 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     
     @Autowired
     private com.github.app.dify.service.UserKnowledgeBaseVisibilityService userKnowledgeBaseVisibilityService;
-    
-    // 缓存每个知识库的RAG服务实例
-    private final Map<Long, RagService> ragServiceCache = new ConcurrentHashMap<>();
-    
-    /**
-     * RAG服务接口（非流式）
-     */
-    interface RagService {
-        @dev.langchain4j.service.UserMessage("{{question}}")
-        String answer(@dev.langchain4j.service.UserMessage String question);
-    }
     
     /**
      * 问答（非流式）
@@ -243,42 +226,6 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     }
     
     /**
-     * 获取或创建RAG服务实例
-     */
-    private RagService getOrCreateRagService(Long knowledgeBaseId) {
-        return ragServiceCache.computeIfAbsent(knowledgeBaseId, kbId -> {
-            // 创建知识库专用的ContentRetriever
-            ContentRetriever contentRetriever = createContentRetriever(kbId);
-            
-            // 创建RAG服务
-            return AiServices.builder(RagService.class)
-                    .chatLanguageModel(chatLanguageModel)
-                    .contentRetriever(contentRetriever)
-                    .systemMessageProvider(chatMemoryId -> 
-                            "你是一个专业的AI助手，基于提供的知识库内容回答问题。" +
-                            "如果知识库中没有相关信息，请明确说明无法回答。" +
-                            "\n\n重要：请使用Markdown格式来组织你的回答，包括：\n" +
-                            "- 使用标题（#、##、###）来组织内容结构\n" +
-                            "- 使用列表（-、*、1.）来列举要点\n" +
-                            "- 使用代码块（```）来展示代码或技术内容\n" +
-                            "- 使用**粗体**和*斜体*来强调重要信息\n" +
-                            "- 使用表格来展示结构化数据\n" +
-                            "- 确保代码块包含正确的语言标识符\n" +
-                            "\n【关键要求】数学公式格式（必须严格遵守）：\n" +
-                            "1. 所有数学公式必须使用LaTeX格式编写，不要使用占位符或省略公式内容\n" +
-                            "2. 行内公式使用 $...$ 格式，例如：$E = mc^2$ 或 $\\phi = \\frac{1+\\sqrt{5}}{2}$\n" +
-                            "3. 块级公式使用 $$...$$ 格式，例如：\n" +
-                            "   $$F(n) = \\frac{1}{\\sqrt{5}} \\left( \\left( \\frac{1 + \\sqrt{5}}{2} \\right)^n - \\left( \\frac{1 - \\sqrt{5}}{2} \\right)^n \\right)$$\n" +
-                            "4. 也可以使用 [...] 格式表示块级公式，例如：\n" +
-                            "   [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]\n" +
-                            "5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式\n" +
-                            "6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等\n" +
-                            "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符")
-                    .build();
-        });
-    }
-    
-    /**
      * 创建ContentRetriever
      */
     private ContentRetriever createContentRetriever(Long knowledgeBaseId) {
@@ -400,6 +347,26 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                     "6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等\n" +
                     "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符"));
         }
+        
+        // 获取问答模型（优先使用请求中的modelId，否则使用默认的RAG模型）
+        Long modelId = request.getModelId();
+        QAModel qaModel;
+        try {
+            if (modelId != null) {
+                // 使用指定的模型
+                qaModel = modelConfigService.getQAModelById(modelId);
+            } else {
+                // 使用默认的RAG模型
+                qaModel = modelConfigService.getDefaultQAModelForRAG();
+            }
+        } catch (Exception e) {
+            logger.error("获取问答模型失败，使用默认模型 - 知识库ID: {}, modelId: {}", knowledgeBaseId, modelId, e);
+            qaModel = modelConfigService.getDefaultQAModelForRAG();
+        }
+        
+        // 创建模型实例
+        ModelLanguageModelFactory.ChatLanguageModel chatLanguageModel = 
+                modelLanguageModelFactory.createChatLanguageModel(qaModel);
         
         // 调用LLM生成答案
         Response<AiMessage> response = chatLanguageModel.generate(messages);
