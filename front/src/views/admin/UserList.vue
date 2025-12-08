@@ -206,74 +206,6 @@
             </el-dropdown>
           </template>
         </el-table-column>
-        <el-table-column label="数据源管理" min-width="130" align="center">
-          <template #default="{ row }">
-            <el-dropdown 
-              trigger="click" 
-              placement="auto-start"
-              :popper-options="{ strategy: 'fixed', modifiers: [{ name: 'preventOverflow', options: { boundary: 'viewport', padding: 10 } }] }"
-              @visible-change="handleDsDropdownVisibleChange(row, $event)"
-            >
-              <el-button type="warning" size="small" :loading="row.loadingDs" plain>
-                数据源管理
-                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-              </el-button>
-              <template #dropdown>
-                <div class="app-dropdown-menu">
-                  <div class="app-dropdown-header">
-                    <span class="header-title">数据源可见性管理</span>
-                    <span class="header-count">
-                      {{ getDsVisibleCount(row.dsVisibilities) }}/{{ row.dsVisibilities?.length || 0 }}
-                    </span>
-                  </div>
-                  <div v-if="row.role === 1" class="admin-tip">
-                    <el-icon><InfoFilled /></el-icon>
-                    <span>管理员拥有所有数据源的访问权限，不可修改</span>
-                  </div>
-                  <div v-loading="row.loadingDs" class="app-dropdown-content">
-                    <div
-                      v-for="ds in getPaginatedDs(row)"
-                      :key="ds.dataSourceId"
-                      class="app-dropdown-item"
-                    >
-                      <div class="app-info">
-                        <span class="app-name" :title="ds.dataSourceName">{{ ds.dataSourceName }}</span>
-                        <el-tag 
-                          :type="getDsTypeTag(ds.dataSourceType)" 
-                          size="small"
-                          class="app-type-tag"
-                        >
-                          {{ getDsTypeName(ds.dataSourceType) }}
-                        </el-tag>
-                      </div>
-                      <el-switch
-                        v-model="ds.visible"
-                        size="small"
-                        :disabled="row.role === 1"
-                        @change="handleDsVisibilityChange(row.id, ds.dataSourceId, ds.visible)"
-                      />
-                    </div>
-                    <div 
-                      v-if="!row.loadingDs && (!row.dsVisibilities || row.dsVisibilities.length === 0)" 
-                      class="app-empty"
-                    >
-                      <span>暂无数据源</span>
-                    </div>
-                  </div>
-                  <div v-if="row.dsVisibilities && row.dsVisibilities.length > 10" class="app-dropdown-pagination">
-                    <el-pagination
-                      v-model:current-page="row.dsPage"
-                      :page-size="10"
-                      :total="row.dsVisibilities.length"
-                      layout="prev, pager, next"
-                      small
-                    />
-                  </div>
-                </div>
-              </template>
-            </el-dropdown>
-          </template>
-        </el-table-column>
         <el-table-column prop="status" label="状态" min-width="100" align="center">
           <template #default="scope">
             <el-tooltip :content="getStatusText(scope.row.status)" placement="top">
@@ -363,7 +295,6 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, InfoFilled, Search, Check, Close, Clock } from '@element-plus/icons-vue'
 import { getUserList, approveUser, disableUser, getUserAppVisibilities, updateUserAppVisibility, getUserKnowledgeBaseVisibilities, updateUserKnowledgeBaseVisibility, updateUserRole } from '@/api/user'
-import { getUserDataSourceVisibilities, updateUserDataSourceVisibility } from '@/api/dataSource'
 import ResetPasswordDialog from '@/components/ResetPasswordDialog.vue'
 
 const loading = ref(false)
@@ -414,9 +345,6 @@ const loadUsers = async () => {
       user.kbVisibilities = []
       user.loadingKbs = false
       user.kbPage = 1 // 初始化知识库分页
-      user.dsVisibilities = []
-      user.loadingDs = false
-      user.dsPage = 1 // 初始化数据源分页
     })
   } catch (error) {
     ElMessage.error(error.response?.data?.error || error.message || '获取用户列表失败')
@@ -526,82 +454,9 @@ const loadUserKnowledgeBaseVisibilities = async (user) => {
     }
   }
 
-const handleDsDropdownVisibleChange = async (user, visible) => {
-  if (visible) {
-    user.dsPage = 1
-  }
-  if (visible && (!user.dsVisibilities || user.dsVisibilities.length === 0)) {
-    await loadUserDataSourceVisibilities(user)
-  }
-}
-
-const loadUserDataSourceVisibilities = async (user) => {
-  user.loadingDs = true
-  try {
-    const data = await getUserDataSourceVisibilities(user.id)
-    user.dsVisibilities = data || []
-  } catch (error) {
-    ElMessage.error(error.response?.data?.error || error.message || '获取数据源列表失败')
-    user.dsVisibilities = []
-  } finally {
-    user.loadingDs = false
-  }
-}
-
-const handleDsVisibilityChange = async (userId, dataSourceId, visible) => {
-  const user = userList.value.find(u => u.id === userId)
-  if (user && user.role === 1) {
-    ElMessage.warning('管理员拥有所有数据源的访问权限，不可修改')
-    if (user.dsVisibilities) {
-      const ds = user.dsVisibilities.find(d => d.dataSourceId === dataSourceId)
-      if (ds) {
-        ds.visible = !visible
-      }
-    }
-    return
-  }
-  
-  try {
-    await updateUserDataSourceVisibility(userId, dataSourceId, visible)
-    ElMessage.success(visible ? '数据源已设为可见' : '数据源已设为不可见')
-  } catch (error) {
-    ElMessage.error(error.response?.data?.error || error.message || '更新失败')
-    if (user && user.dsVisibilities) {
-      const ds = user.dsVisibilities.find(d => d.dataSourceId === dataSourceId)
-      if (ds) {
-        ds.visible = !visible
-      }
-    }
-  }
-}
-
-const getDsVisibleCount = (dsVisibilities) => {
-  if (!dsVisibilities || dsVisibilities.length === 0) return 0
-  return dsVisibilities.filter(ds => ds.visible).length
-}
-
-const getPaginatedDs = (row) => {
-  if (!row.dsVisibilities || row.dsVisibilities.length === 0) return []
-  const page = row.dsPage || 1
-  const pageSize = 10
-  const start = (page - 1) * pageSize
-  const end = start + pageSize
-  return row.dsVisibilities.slice(start, end)
-}
-
-const getDsTypeName = (type) => {
-  const typeMap = {
-    postgresql: 'PostgreSQL',
-    mysql: 'MySQL',
-    oracle: 'Oracle',
-    mongodb: 'MongoDB'
-  }
-  return typeMap[type] || type
-}
-
-const getDsTypeTag = (type) => {
+const getKbTypeTag = (type) => {
   const tagMap = {
-    postgresql: 'primary',
+    'knowledge-base': 'primary',
     mysql: 'success',
     oracle: 'warning',
     mongodb: 'info'

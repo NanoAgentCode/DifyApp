@@ -76,7 +76,7 @@ jwt:
 
 # MinIO配置
 minio:
-  endpoint: http://localhost:9000
+  endpoint: http://10.11.24.201:9000
   access-key: minioadmin
   secret-key: minioadmin
   bucket-name: knowledge-base

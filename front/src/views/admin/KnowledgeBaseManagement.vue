@@ -114,7 +114,7 @@
               :type="getVectorStoreTypeTag(row.vectorStoreType)"
               size="small"
             >
-              {{ getVectorStoreInstanceName(row.vectorStoreType) }}
+              {{ getVectorStoreInstanceName(row) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -1039,12 +1039,27 @@ const getVectorStoreTypeDisplayName = (type) => {
 }
 
 // 根据类型获取向量库实例名称
-const getVectorStoreInstanceName = (type) => {
-  if (!type) return '-'
+const getVectorStoreInstanceName = (row) => {
+  if (!row) return '-'
   if (!vectorDatabases.value || vectorDatabases.value.length === 0) {
     // 如果还没有加载向量库列表，返回类型名称作为后备
-    return getVectorStoreTypeName(type)
+    return getVectorStoreTypeName(row.vectorStoreType)
   }
+  
+  // 优先使用 vectorDatabaseId 进行精确匹配
+  if (row.vectorDatabaseId) {
+    const db = vectorDatabases.value.find(db => 
+      db.id === row.vectorDatabaseId && db.enabled
+    )
+    if (db) {
+      return db.name
+    }
+  }
+  
+  // 兼容旧数据：如果没有 vectorDatabaseId，则按类型查找
+  const type = row.vectorStoreType
+  if (!type) return '-'
+  
   // 查找该类型的默认实例
   const defaultDb = vectorDatabases.value.find(db => 
     db.type === type && db.isDefault && db.enabled
