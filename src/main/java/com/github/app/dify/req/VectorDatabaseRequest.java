@@ -1,27 +1,24 @@
 package com.github.app.dify.req;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
-import javax.validation.constraints.NotBlank;
-
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 /**
  * 向量数据库配置请求
  */
-@ApiModel("向量数据库配置请求")
+@Schema(description = "向量数据库配置请求")
 public class VectorDatabaseRequest {
     
-    @ApiModelProperty("操作类型：add-添加, update-更新, delete-删除, setDefault-设置默认, toggleEnabled-切换启用状态")
+    @Schema(description = "操作类型：add-添加, update-更新, delete-删除, setDefault-设置默认, toggleEnabled-切换启用状态")
     @NotBlank(message = "操作类型不能为空")
     private String action;
     
-    @ApiModelProperty("配置ID（更新、删除、设置默认、切换状态时需要）")
+    @Schema(description = "配置ID（更新、删除、设置默认、切换状态时需要）")
     private Long configId;
     
-    @ApiModelProperty("配置信息（添加、更新时需要）")
+    @Schema(description = "配置信息（添加、更新时需要）")
     private DatabaseInfo database;
     
-    @ApiModelProperty("启用状态（切换状态时需要）")
+    @Schema(description = "启用状态（切换状态时需要）")
     private Boolean enabled;
 
     public String getAction() {
@@ -59,39 +56,39 @@ public class VectorDatabaseRequest {
     /**
      * 数据库配置信息
      */
-    @ApiModel("数据库配置信息")
+    @Schema(description = "数据库配置信息")
     public static class DatabaseInfo {
-        @ApiModelProperty("配置ID（更新时需要）")
+        @Schema(description = "配置ID（更新时需要）")
         private Long id;
         
-        @ApiModelProperty("配置名称")
+        @Schema(description = "配置名称")
         @NotBlank(message = "配置名称不能为空")
         private String name;
         
-               @ApiModelProperty("数据库类型：qdrant, milvus, faiss")
+               @Schema(description = "数据库类型：qdrant, milvus, faiss")
         @NotBlank(message = "数据库类型不能为空")
         private String type;
         
-        @ApiModelProperty("连接地址（URL或路径）")
+        @Schema(description = "连接地址（URL或路径）")
         @NotBlank(message = "连接地址不能为空")
         private String url;
         
-        @ApiModelProperty("API Key（可选）")
+        @Schema(description = "API Key（可选）")
         private String apiKey;
         
-        @ApiModelProperty("超时时间（毫秒）")
+        @Schema(description = "超时时间（毫秒）")
         private Integer timeout;
         
-        @ApiModelProperty("额外配置（JSON格式）")
+        @Schema(description = "额外配置（JSON格式）")
         private String extraConfig;
         
-        @ApiModelProperty("是否启用")
+        @Schema(description = "是否启用")
         private Boolean enabled;
         
-        @ApiModelProperty("是否允许新建知识库：true-允许, false-不允许，默认为true")
+        @Schema(description = "是否允许新建知识库：true-允许, false-不允许，默认为true")
         private Boolean allowCreateKnowledgeBase;
         
-        @ApiModelProperty("描述")
+        @Schema(description = "描述")
         private String description;
 
         public Long getId() {
@@ -175,4 +172,3 @@ public class VectorDatabaseRequest {
         }
     }
 }
-

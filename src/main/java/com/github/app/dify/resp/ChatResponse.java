@@ -1,21 +1,19 @@
 package com.github.app.dify.resp;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * 智能问答响应
  */
-@ApiModel("智能问答响应")
+@Schema(description = "智能问答响应")
 public class ChatResponse {
     
-    @ApiModelProperty("答案")
+    @Schema(description = "答案")
     private String answer;
     
-    @ApiModelProperty("是否完成（流式响应时使用）")
+    @Schema(description = "是否完成（流式响应时使用）")
     private Boolean finished;
     
-    @ApiModelProperty("会话ID")
+    @Schema(description = "会话ID")
     private Long conversationId;
     
     public String getAnswer() {
@@ -42,4 +40,3 @@ public class ChatResponse {
         this.conversationId = conversationId;
     }
 }
-

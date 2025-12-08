@@ -13,14 +13,12 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.util.retry.Retry;
-
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
 /**
  * 向量化服务
  */
@@ -241,4 +239,3 @@ public class EmbeddingServiceImpl implements EmbeddingService {
         return allEmbeddings;
     }
 }
-

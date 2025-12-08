@@ -4,22 +4,20 @@ import com.github.app.dify.req.TestVectorDatabaseConnectionRequest;
 import com.github.app.dify.req.VectorDatabaseRequest;
 import com.github.app.dify.resp.VectorDatabaseResp;
 import com.github.app.dify.service.VectorDatabaseService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import java.util.List;
-
 /**
  * 向量数据库配置控制器
  */
-@Api(tags = "向量数据库配置管理")
+@Tag(name = "向量数据库配置管理")
 @RestController
 @RequestMapping("/api/vector-databases")
 public class VectorDatabaseController {
@@ -32,7 +30,7 @@ public class VectorDatabaseController {
     /**
      * 获取所有向量数据库配置
      */
-    @ApiOperation("获取所有向量数据库配置")
+    @Operation(summary = "获取所有向量数据库配置")
     @GetMapping
     public ResponseEntity<List<VectorDatabaseResp>> getAllConfigs(HttpServletRequest request) {
         try {
@@ -47,7 +45,7 @@ public class VectorDatabaseController {
     /**
      * 根据类型获取配置列表
      */
-    @ApiOperation("根据类型获取配置列表")
+    @Operation(summary = "根据类型获取配置列表")
     @GetMapping("/type/{type}")
     public ResponseEntity<List<VectorDatabaseResp>> getConfigsByType(
             @PathVariable String type,
@@ -64,7 +62,7 @@ public class VectorDatabaseController {
     /**
      * 更新配置
      */
-    @ApiOperation("更新向量数据库配置")
+    @Operation(summary = "更新向量数据库配置")
     @PutMapping
     public ResponseEntity<?> updateConfig(
             @Valid @RequestBody VectorDatabaseRequest request,
@@ -84,7 +82,7 @@ public class VectorDatabaseController {
     /**
      * 测试连接
      */
-    @ApiOperation("测试向量数据库连接")
+    @Operation(summary = "测试向量数据库连接")
     @PostMapping("/test")
     public ResponseEntity<?> testConnection(
             @Valid @RequestBody TestVectorDatabaseConnectionRequest request,
@@ -98,4 +96,3 @@ public class VectorDatabaseController {
         }
     }
 }
-

@@ -1,9 +1,7 @@
 package com.github.app.dify.service;
 
 import com.github.app.dify.resp.UserAppVisibilityResp;
-
 import java.util.List;
-
 /**
  * 用户应用可见性服务接口
  */

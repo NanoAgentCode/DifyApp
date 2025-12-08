@@ -15,10 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.List;
-
 /**
  * 上下文压缩服务
  * 用于在连续对话时压缩历史上下文，避免超过token限制
@@ -267,4 +265,3 @@ public class ContextCompressionServiceImpl implements ContextCompressionService 
         return needs;
     }
 }
-

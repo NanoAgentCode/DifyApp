@@ -4,21 +4,19 @@ import com.github.app.dify.req.ModelConfigRequest;
 import com.github.app.dify.req.TestModelConnectionRequest;
 import com.github.app.dify.resp.ModelConfigResponse;
 import com.github.app.dify.service.ModelConfigService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.validation.Valid;
-
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 /**
  * 模型配置控制器
  */
-@Api(tags = "模型配置管理")
+@Tag(name = "模型配置管理")
 @RestController
 @RequestMapping("/api/models")
 public class ModelConfigController {
@@ -31,7 +29,7 @@ public class ModelConfigController {
     /**
      * 获取模型配置
      */
-    @ApiOperation("获取模型配置")
+    @Operation(summary = "获取模型配置")
     @GetMapping("/config")
     public ResponseEntity<ModelConfigResponse> getModelConfig(HttpServletRequest request) {
         try {
@@ -46,7 +44,7 @@ public class ModelConfigController {
     /**
      * 更新模型配置
      */
-    @ApiOperation("更新模型配置")
+    @Operation(summary = "更新模型配置")
     @PutMapping("/config")
     public ResponseEntity<?> updateModelConfig(
             @Valid @RequestBody ModelConfigRequest request,
@@ -66,7 +64,7 @@ public class ModelConfigController {
     /**
      * 测试模型连接
      */
-    @ApiOperation("测试模型连接")
+    @Operation(summary = "测试模型连接")
     @PostMapping("/test")
     public ResponseEntity<?> testModelConnection(
             @Valid @RequestBody TestModelConnectionRequest request,
@@ -83,7 +81,7 @@ public class ModelConfigController {
     /**
      * 获取可用的问答模型列表（用于智能问答）
      */
-    @ApiOperation("获取可用的问答模型列表")
+    @Operation(summary = "获取可用的问答模型列表")
     @GetMapping("/qa/available")
     public ResponseEntity<?> getAvailableQAModels(HttpServletRequest request) {
         try {
@@ -97,7 +95,7 @@ public class ModelConfigController {
     /**
      * 获取可用的问答模型列表（用于知识库问答）
      */
-    @ApiOperation("获取可用的问答模型列表（用于知识库问答）")
+    @Operation(summary = "获取可用的问答模型列表（用于知识库问答）")
     @GetMapping("/qa/available/rag")
     public ResponseEntity<?> getAvailableQAModelsForRAG(HttpServletRequest request) {
         try {
@@ -108,4 +106,3 @@ public class ModelConfigController {
         }
     }
 }
-

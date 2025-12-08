@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.config.FaissConfig;
 import com.github.app.dify.service.VectorStoreStrategy;
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,14 +11,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-
 /**
  * FAISS向量存储服务
  * 使用基于文件的向量存储，支持向量插入、检索和删除
@@ -392,4 +389,3 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
         }
     }
 }
-

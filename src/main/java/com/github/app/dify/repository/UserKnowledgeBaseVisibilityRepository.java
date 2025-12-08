@@ -3,10 +3,8 @@ package com.github.app.dify.repository;
 import com.github.app.dify.domain.UserKnowledgeBaseVisibility;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
-
 /**
  * 用户知识库可见性Repository
  */
@@ -48,4 +46,3 @@ public interface UserKnowledgeBaseVisibilityRepository extends JpaRepository<Use
      */
     void deleteByKnowledgeBaseId(Long knowledgeBaseId);
 }
-

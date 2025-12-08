@@ -1,9 +1,8 @@
 package com.github.app.dify.domain;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.io.Serializable;
 import java.util.Date;
-
 /**
  * 用户知识库可见性表
  * @TableName USER_KNOWLEDGE_BASE_VISIBILITY
@@ -100,4 +99,3 @@ public class UserKnowledgeBaseVisibility implements Serializable {
         this.updateTime = updateTime;
     }
 }
-

@@ -12,22 +12,20 @@ import com.github.app.dify.service.AuthService;
 import com.github.app.dify.service.UserAppVisibilityService;
 import com.github.app.dify.service.UserKnowledgeBaseVisibilityService;
 import com.github.app.dify.util.JwtUtil;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
-
 /**
  * 认证控制器
  */
-@Api(tags = "用户认证")
+@Tag(name = "用户认证")
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -49,7 +47,7 @@ public class AuthController {
     /**
      * 用户注册
      */
-    @ApiOperation("用户注册")
+    @Operation(summary = "用户注册")
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(@Validated @RequestBody RegisterRequest request) {
         try {
@@ -64,7 +62,7 @@ public class AuthController {
     /**
      * 用户登录
      */
-    @ApiOperation("用户登录")
+    @Operation(summary = "用户登录")
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Validated @RequestBody LoginRequest request) {
         try {
@@ -79,7 +77,7 @@ public class AuthController {
     /**
      * 管理员审核用户（激活用户）
      */
-    @ApiOperation("管理员审核用户（激活用户）")
+    @Operation(summary = "管理员审核用户（激活用户）")
     @PostMapping("/approve/{userId}")
     public ResponseEntity<Void> approveUser(@PathVariable Long userId) {
         try {
@@ -94,7 +92,7 @@ public class AuthController {
     /**
      * 管理员禁用用户
      */
-    @ApiOperation("管理员禁用用户")
+    @Operation(summary = "管理员禁用用户")
     @PostMapping("/disable/{userId}")
     public ResponseEntity<Void> disableUser(@PathVariable Long userId) {
         try {
@@ -109,7 +107,7 @@ public class AuthController {
     /**
      * 获取所有用户列表（管理员使用）
      */
-    @ApiOperation("获取所有用户列表（管理员使用）")
+    @Operation(summary = "获取所有用户列表（管理员使用）")
     @GetMapping("/users")
     public ResponseEntity<?> getAllUsers(
             @RequestParam(required = false) String keyword,
@@ -137,7 +135,7 @@ public class AuthController {
     /**
      * 修改密码
      */
-    @ApiOperation("修改密码")
+    @Operation(summary = "修改密码")
     @PostMapping("/change-password")
     public ResponseEntity<Void> changePassword(
             @Validated @RequestBody ChangePasswordRequest request,
@@ -174,7 +172,7 @@ public class AuthController {
     /**
      * 管理员重置用户密码
      */
-    @ApiOperation("管理员重置用户密码")
+    @Operation(summary = "管理员重置用户密码")
     @PostMapping("/reset-password/{userId}")
     public ResponseEntity<Void> resetPassword(
             @PathVariable Long userId,
@@ -191,7 +189,7 @@ public class AuthController {
     /**
      * 获取用户的应用可见性列表
      */
-    @ApiOperation("获取用户的应用可见性列表")
+    @Operation(summary = "获取用户的应用可见性列表")
     @GetMapping("/users/{userId}/app-visibilities")
     public ResponseEntity<java.util.List<UserAppVisibilityResp>> getUserAppVisibilities(@PathVariable Long userId) {
         try {
@@ -206,7 +204,7 @@ public class AuthController {
     /**
      * 更新用户对应用的可见性
      */
-    @ApiOperation("更新用户对应用的可见性")
+    @Operation(summary = "更新用户对应用的可见性")
     @PutMapping("/users/{userId}/app-visibilities/{appId}")
     public ResponseEntity<Void> updateUserAppVisibility(
             @PathVariable Long userId,
@@ -224,7 +222,7 @@ public class AuthController {
     /**
      * 更新用户角色
      */
-    @ApiOperation("更新用户角色")
+    @Operation(summary = "更新用户角色")
     @PutMapping("/users/{userId}/role")
     public ResponseEntity<Void> updateUserRole(
             @PathVariable Long userId,
@@ -241,7 +239,7 @@ public class AuthController {
     /**
      * 获取用户的知识库可见性列表
      */
-    @ApiOperation("获取用户的知识库可见性列表")
+    @Operation(summary = "获取用户的知识库可见性列表")
     @GetMapping("/users/{userId}/knowledge-base-visibilities")
     public ResponseEntity<List<UserKnowledgeBaseVisibilityResp>> getUserKnowledgeBaseVisibilities(
             @PathVariable Long userId) {
@@ -258,7 +256,7 @@ public class AuthController {
     /**
      * 更新用户对知识库的可见性
      */
-    @ApiOperation("更新用户对知识库的可见性")
+    @Operation(summary = "更新用户对知识库的可见性")
     @PutMapping("/users/{userId}/knowledge-base-visibilities/{knowledgeBaseId}")
     public ResponseEntity<Void> updateUserKnowledgeBaseVisibility(
             @PathVariable Long userId,
@@ -279,7 +277,7 @@ public class AuthController {
     /**
      * 获取用户的数据源可见性列表
      */
-    @ApiOperation("获取用户的数据源可见性列表")
+    @Operation(summary = "获取用户的数据源可见性列表")
     @GetMapping("/users/{userId}/data-source-visibilities")
     public ResponseEntity<?> getUserDataSourceVisibilities(@PathVariable Long userId) {
         try {
@@ -298,7 +296,7 @@ public class AuthController {
     /**
      * 更新用户对数据源的可见性
      */
-    @ApiOperation("更新用户对数据源的可见性")
+    @Operation(summary = "更新用户对数据源的可见性")
     @PutMapping("/users/{userId}/data-source-visibilities/{dataSourceId}")
     public ResponseEntity<Void> updateUserDataSourceVisibility(
             @PathVariable Long userId,
@@ -319,7 +317,7 @@ public class AuthController {
     /**
      * 批量更新用户对数据源的可见性
      */
-    @ApiOperation("批量更新用户对数据源的可见性")
+    @Operation(summary = "批量更新用户对数据源的可见性")
     @PutMapping("/users/{userId}/data-source-visibilities/batch")
     public ResponseEntity<Void> batchUpdateUserDataSourceVisibility(
             @PathVariable Long userId,
@@ -341,4 +339,3 @@ public class AuthController {
         }
     }
 }
-

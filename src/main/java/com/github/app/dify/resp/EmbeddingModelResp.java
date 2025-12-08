@@ -1,53 +1,50 @@
 package com.github.app.dify.resp;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Date;
-
 /**
  * 向量化模型响应
  */
-@ApiModel("向量化模型响应")
+@Schema(description = "向量化模型响应")
 public class EmbeddingModelResp {
     
-    @ApiModelProperty("模型编号")
+    @Schema(description = "模型编号")
     private Long id;
     
-    @ApiModelProperty("模型名称")
+    @Schema(description = "模型名称")
     private String name;
     
-    @ApiModelProperty("提供商类型")
+    @Schema(description = "提供商类型")
     private String provider;
     
-    @ApiModelProperty("提供商类型（原始值）")
+    @Schema(description = "提供商类型（原始值）")
     private String providerType;
     
-    @ApiModelProperty("API 地址")
+    @Schema(description = "API 地址")
     private String apiUrl;
     
-    @ApiModelProperty("API Key")
+    @Schema(description = "API Key")
     private String apiKey;
     
-    @ApiModelProperty("模型标识")
+    @Schema(description = "模型标识")
     private String model;
     
-    @ApiModelProperty("超时时间（毫秒）")
+    @Schema(description = "超时时间（毫秒）")
     private Integer timeout;
     
-    @ApiModelProperty("批处理大小")
+    @Schema(description = "批处理大小")
     private Integer batchSize;
     
-    @ApiModelProperty("是否启用")
+    @Schema(description = "是否启用")
     private Boolean enabled;
     
-    @ApiModelProperty("是否默认")
+    @Schema(description = "是否默认")
     private Boolean isDefault;
     
-    @ApiModelProperty("创建时间")
+    @Schema(description = "创建时间")
     private Date createTime;
     
-    @ApiModelProperty("更新时间")
+    @Schema(description = "更新时间")
     private Date updateTime;
 
     public Long getId() {
@@ -154,4 +151,3 @@ public class EmbeddingModelResp {
         this.updateTime = updateTime;
     }
 }
-

@@ -2,8 +2,8 @@ package com.github.app.dify.controller;
 
 import com.github.app.dify.resp.KnowledgeBaseDocumentResp;
 import com.github.app.dify.service.KnowledgeBaseDocumentService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,14 +13,12 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.io.InputStream;
 import java.util.List;
-
 /**
  * 知识库文档控制器
  */
-@Api(tags = "知识库文档管理")
+@Tag(name = "知识库文档管理")
 @RestController
 @RequestMapping("/api/knowledge-bases/{kbId}/documents")
 public class KnowledgeBaseDocumentController {
@@ -36,7 +34,7 @@ public class KnowledgeBaseDocumentController {
     /**
      * 上传文档
      */
-    @ApiOperation("上传文档")
+    @Operation(summary = "上传文档")
     @PostMapping("/upload")
     public ResponseEntity<KnowledgeBaseDocumentResp> uploadDocument(
             @PathVariable Long kbId,
@@ -72,7 +70,7 @@ public class KnowledgeBaseDocumentController {
     /**
      * 删除文档
      */
-    @ApiOperation("删除文档")
+    @Operation(summary = "删除文档")
     @DeleteMapping("/{docId}")
     public ResponseEntity<Void> deleteDocument(@PathVariable Long kbId, @PathVariable Long docId) {
         try {
@@ -87,7 +85,7 @@ public class KnowledgeBaseDocumentController {
     /**
      * 获取文档列表
      */
-    @ApiOperation("获取文档列表")
+    @Operation(summary = "获取文档列表")
     @GetMapping
     public ResponseEntity<List<KnowledgeBaseDocumentResp>> listDocuments(@PathVariable Long kbId) {
         try {
@@ -102,7 +100,7 @@ public class KnowledgeBaseDocumentController {
     /**
      * 获取文档详情
      */
-    @ApiOperation("获取文档详情")
+    @Operation(summary = "获取文档详情")
     @GetMapping("/{docId}")
     public ResponseEntity<KnowledgeBaseDocumentResp> getDocumentById(
             @PathVariable Long kbId, 
@@ -119,7 +117,7 @@ public class KnowledgeBaseDocumentController {
     /**
      * 下载文档
      */
-    @ApiOperation("下载文档")
+    @Operation(summary = "下载文档")
     @GetMapping("/{docId}/download")
     public ResponseEntity<InputStreamResource> downloadDocument(
             @PathVariable Long kbId, 
@@ -149,7 +147,7 @@ public class KnowledgeBaseDocumentController {
     /**
      * 重新向量化文档
      */
-    @ApiOperation("重新向量化文档")
+    @Operation(summary = "重新向量化文档")
     @PostMapping("/{docId}/reindex")
     public ResponseEntity<Void> reindexDocument(
             @PathVariable Long kbId,
@@ -195,4 +193,3 @@ public class KnowledgeBaseDocumentController {
         }
     }
 }
-

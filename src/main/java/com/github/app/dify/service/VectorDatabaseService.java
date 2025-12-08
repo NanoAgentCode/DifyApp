@@ -4,9 +4,7 @@ import com.github.app.dify.domain.VectorDatabase;
 import com.github.app.dify.req.TestVectorDatabaseConnectionRequest;
 import com.github.app.dify.req.VectorDatabaseRequest;
 import com.github.app.dify.resp.VectorDatabaseResp;
-
 import java.util.List;
-
 /**
  * 向量数据库配置服务接口
  */

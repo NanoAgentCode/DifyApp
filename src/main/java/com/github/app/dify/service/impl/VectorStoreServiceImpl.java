@@ -7,11 +7,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
 /**
  * 向量存储服务实现
  * 作为策略模式的上下文，根据知识库配置选择合适的向量存储策略
@@ -125,4 +123,3 @@ public class VectorStoreServiceImpl implements VectorStoreService {
         return "kb_" + knowledgeBaseId;
     }
 }
-

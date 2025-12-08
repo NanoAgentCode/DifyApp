@@ -3,7 +3,6 @@ package com.github.app.dify.service;
 import com.github.app.dify.req.KnowledgeBaseQARequest;
 import com.github.app.dify.resp.KnowledgeBaseQAResponse;
 import reactor.core.publisher.Flux;
-
 /**
  * 知识库问答服务接口（使用LangChain4j RAG）
  */

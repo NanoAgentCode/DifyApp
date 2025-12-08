@@ -1,65 +1,62 @@
 package com.github.app.dify.req;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
-
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 /**
  * 创建AI应用请求
  */
-@ApiModel("创建AI应用请求")
+@Schema(description = "创建AI应用请求")
 public class CreateAiAppReq {
     
     @NotBlank(message = "应用名称不能为空")
     @Size(max = 100, message = "应用名称长度不能超过100")
-    @ApiModelProperty(value = "应用名称", required = true)
+    @Schema(description = "应用名称")
     private String name;
     
     @Size(max = 500, message = "应用描述长度不能超过500")
-    @ApiModelProperty("应用描述")
+    @Schema(description = "应用描述")
     private String description;
     
     @NotNull(message = "应用类型不能为空")
-    @ApiModelProperty(value = "应用类型：1-chatFlow，2-workflow", required = true)
+    @Schema(description = "应用类型：1-chatFlow，2-workflow")
     private Integer type;
     
     @NotBlank(message = "Dify API Key不能为空")
     @Size(max = 255, message = "API Key长度不能超过255")
-    @ApiModelProperty(value = "Dify API Key", required = true)
+    @Schema(description = "Dify API Key")
     private String appId;
     
     @Size(max = 500, message = "API Base URL长度不能超过500")
-    @ApiModelProperty("Dify API Base URL")
+    @Schema(description = "Dify API Base URL")
     private String apiBaseUrl;
     
-    @ApiModelProperty("是否支持流式响应")
+    @Schema(description = "是否支持流式响应")
     private Boolean streamEnabled;
     
-    @ApiModelProperty("是否需要上传文件")
+    @Schema(description = "是否需要上传文件")
     private Boolean fileUploadEnabled;
     
-    @ApiModelProperty("是否显示文本输入框")
+    @Schema(description = "是否显示文本输入框")
     private Boolean inputEnabled;
     
     @Size(max = 255, message = "应用图标长度不能超过255")
-    @ApiModelProperty("应用图标")
+    @Schema(description = "应用图标")
     private String icon;
     
-    @ApiModelProperty("排序")
+    @Schema(description = "排序")
     private Integer sort;
     
     @Size(max = 64, message = "主题色长度不能超过64")
-    @ApiModelProperty("主题色")
+    @Schema(description = "主题色")
     private String themeColor;
     
-    @ApiModelProperty("应用配置JSON")
+    @Schema(description = "应用配置JSON")
     private String inputs;
     
     @NotNull(message = "租户编号不能为空")
-    @ApiModelProperty(value = "租户编号", required = true)
+    @Schema(description = "租户编号")
     private Integer tenantId;
     
     // Getters and Setters
@@ -167,4 +164,3 @@ public class CreateAiAppReq {
         this.tenantId = tenantId;
     }
 }
-

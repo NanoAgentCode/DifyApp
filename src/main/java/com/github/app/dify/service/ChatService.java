@@ -3,7 +3,6 @@ package com.github.app.dify.service;
 import com.github.app.dify.req.ChatRequest;
 import com.github.app.dify.resp.ChatResponse;
 import reactor.core.publisher.Flux;
-
 /**
  * 智能问答服务接口（直接对话，不使用知识库）
  */

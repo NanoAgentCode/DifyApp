@@ -5,24 +5,22 @@ import com.github.app.dify.req.UpdateDataSourceReq;
 import com.github.app.dify.resp.DataSourceResp;
 import com.github.app.dify.service.DataSourceService;
 import com.github.app.dify.service.DatabaseSchemaService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 /**
  * 数据源控制器
  */
-@Api(tags = "数据源管理")
+@Tag(name = "数据源管理")
 @RestController
 @RequestMapping("/api/data-sources")
 public class DataSourceController {
@@ -38,7 +36,7 @@ public class DataSourceController {
     /**
      * 创建数据源
      */
-    @ApiOperation("创建数据源")
+    @Operation(summary = "创建数据源")
     @PostMapping
     public ResponseEntity<?> createDataSource(
             @Validated @RequestBody CreateDataSourceReq req,
@@ -69,7 +67,7 @@ public class DataSourceController {
     /**
      * 更新数据源
      */
-    @ApiOperation("更新数据源")
+    @Operation(summary = "更新数据源")
     @PutMapping("/{id}")
     public ResponseEntity<DataSourceResp> updateDataSource(
             @PathVariable Long id,
@@ -86,7 +84,7 @@ public class DataSourceController {
     /**
      * 根据ID获取数据源
      */
-    @ApiOperation("根据ID获取数据源")
+    @Operation(summary = "根据ID获取数据源")
     @GetMapping("/{id}")
     public ResponseEntity<DataSourceResp> getDataSourceById(@PathVariable Long id) {
         try {
@@ -101,7 +99,7 @@ public class DataSourceController {
     /**
      * 删除数据源
      */
-    @ApiOperation("删除数据源")
+    @Operation(summary = "删除数据源")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteDataSource(@PathVariable Long id) {
         try {
@@ -116,7 +114,7 @@ public class DataSourceController {
     /**
      * 获取数据源列表
      */
-    @ApiOperation("获取数据源列表")
+    @Operation(summary = "获取数据源列表")
     @GetMapping
     public ResponseEntity<?> listDataSources(
             @RequestParam(required = false) Integer tenantId,
@@ -147,7 +145,7 @@ public class DataSourceController {
     /**
      * 测试数据源连接
      */
-    @ApiOperation("测试数据源连接")
+    @Operation(summary = "测试数据源连接")
     @PostMapping("/{id}/test")
     public ResponseEntity<Map<String, Object>> testConnection(@PathVariable Long id) {
         Map<String, Object> result = new HashMap<>();
@@ -167,7 +165,7 @@ public class DataSourceController {
     /**
      * 测试数据源连接配置（用于创建/编辑时测试，不需要ID）
      */
-    @ApiOperation("测试数据源连接配置")
+    @Operation(summary = "测试数据源连接配置")
     @PostMapping("/test-config")
     public ResponseEntity<Map<String, Object>> testConnectionConfig(@RequestBody Map<String, Object> requestMap) {
         Map<String, Object> result = new HashMap<>();
@@ -232,7 +230,7 @@ public class DataSourceController {
     /**
      * 刷新表结构
      */
-    @ApiOperation("刷新表结构")
+    @Operation(summary = "刷新表结构")
     @PostMapping("/{id}/refresh-schema")
     public ResponseEntity<Map<String, Object>> refreshSchema(
             @PathVariable Long id,
@@ -252,4 +250,3 @@ public class DataSourceController {
         }
     }
 }
-

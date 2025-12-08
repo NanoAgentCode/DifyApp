@@ -1,27 +1,25 @@
 package com.github.app.dify.resp;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * 用户知识库可见性响应
  */
-@ApiModel("用户知识库可见性响应")
+@Schema(description = "用户知识库可见性响应")
 public class UserKnowledgeBaseVisibilityResp {
     
-    @ApiModelProperty("知识库ID")
+    @Schema(description = "知识库ID")
     private Long knowledgeBaseId;
     
-    @ApiModelProperty("知识库名称")
+    @Schema(description = "知识库名称")
     private String knowledgeBaseName;
     
-    @ApiModelProperty("知识库描述")
+    @Schema(description = "知识库描述")
     private String knowledgeBaseDescription;
     
-    @ApiModelProperty("知识库状态：1-启用，0-禁用")
+    @Schema(description = "知识库状态：1-启用，0-禁用")
     private Integer knowledgeBaseStatus;
     
-    @ApiModelProperty("是否可见")
+    @Schema(description = "是否可见")
     private Boolean visible;
     
     // Getters and Setters
@@ -65,4 +63,3 @@ public class UserKnowledgeBaseVisibilityResp {
         this.visible = visible;
     }
 }
-

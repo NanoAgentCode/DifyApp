@@ -1,9 +1,8 @@
 package com.github.app.dify.domain;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.io.Serializable;
 import java.util.Date;
-
 /**
  * 表结构缓存表
  * @TableName TABLE_SCHEMA_CACHE
@@ -114,4 +113,3 @@ public class TableSchemaCache implements Serializable {
         this.updateTime = updateTime;
     }
 }
-

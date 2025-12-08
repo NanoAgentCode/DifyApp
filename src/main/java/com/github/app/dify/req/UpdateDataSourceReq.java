@@ -1,51 +1,48 @@
 package com.github.app.dify.req;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
-import javax.validation.constraints.Size;
-
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Size;
 /**
  * 更新数据源请求
  */
-@ApiModel("更新数据源请求")
+@Schema(description = "更新数据源请求")
 public class UpdateDataSourceReq {
     
     @Size(max = 100, message = "数据源名称长度不能超过100")
-    @ApiModelProperty("数据源名称")
+    @Schema(description = "数据源名称")
     private String name;
     
     @Size(max = 500, message = "数据源描述长度不能超过500")
-    @ApiModelProperty("数据源描述")
+    @Schema(description = "数据源描述")
     private String description;
     
     @Size(max = 20, message = "数据库类型长度不能超过20")
-    @ApiModelProperty("数据库类型：postgresql, mysql, oracle, mongodb")
+    @Schema(description = "数据库类型：postgresql, mysql, oracle, mongodb")
     private String type;
     
     @Size(max = 255, message = "主机地址长度不能超过255")
-    @ApiModelProperty("主机地址")
+    @Schema(description = "主机地址")
     private String host;
     
-    @ApiModelProperty("端口号")
+    @Schema(description = "端口号")
     private Integer port;
     
     @Size(max = 100, message = "数据库名称长度不能超过100")
-    @ApiModelProperty("数据库名称")
+    @Schema(description = "数据库名称")
     private String database;
     
     @Size(max = 100, message = "用户名长度不能超过100")
-    @ApiModelProperty("用户名")
+    @Schema(description = "用户名")
     private String username;
     
     @Size(max = 500, message = "密码长度不能超过500")
-    @ApiModelProperty("密码（如果为空则不更新）")
+    @Schema(description = "密码（如果为空则不更新）")
     private String password;
     
-    @ApiModelProperty("数据源状态：1-启用，0-禁用")
+    @Schema(description = "数据源状态：1-启用，0-禁用")
     private Integer status;
     
-    @ApiModelProperty("是否公开：true-公开，false-私有")
+    @Schema(description = "是否公开：true-公开，false-私有")
     private Boolean isPublic;
     
     // Getters and Setters
@@ -129,4 +126,3 @@ public class UpdateDataSourceReq {
         this.isPublic = isPublic;
     }
 }
-

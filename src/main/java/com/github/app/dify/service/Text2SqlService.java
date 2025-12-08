@@ -1,7 +1,6 @@
 package com.github.app.dify.service;
 
 import java.util.List;
-
 /**
  * Text2SQL 服务接口
  * 使用 LangChain4j 实现自然语言到 SQL 的转换

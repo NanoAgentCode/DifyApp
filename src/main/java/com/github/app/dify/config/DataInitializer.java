@@ -8,9 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
-
 import java.util.Date;
-
 /**
  * 数据初始化器
  * 在应用启动时创建默认管理员账户（如果不存在）
@@ -49,4 +47,3 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 }
-

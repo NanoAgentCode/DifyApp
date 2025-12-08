@@ -16,13 +16,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import javax.persistence.criteria.Predicate;
-
+import jakarta.persistence.criteria.Predicate;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
-
 /**
  * 会话历史管理服务
  * 会话（Conversation）：一个完整的对话会话，包含多轮问答
@@ -546,4 +543,3 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         return response;
     }
 }
-

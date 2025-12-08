@@ -1,33 +1,30 @@
 package com.github.app.dify.resp;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import java.util.Map;
-
 /**
  * 统计响应
  */
-@ApiModel("统计响应")
+@Schema(description = "统计响应")
 public class ChatHistoryStatisticsResponse {
     
-    @ApiModelProperty("总对话数")
+    @Schema(description = "总对话数")
     private Long totalConversations;
     
-    @ApiModelProperty("总消息数")
+    @Schema(description = "总消息数")
     private Long totalMessages;
     
-    @ApiModelProperty("用户对话数排行")
+    @Schema(description = "用户对话数排行")
     private List<UserConversationRank> userConversationRanks;
     
-    @ApiModelProperty("热门问题统计")
+    @Schema(description = "热门问题统计")
     private List<PopularQuestion> popularQuestions;
     
-    @ApiModelProperty("对话类型分布")
+    @Schema(description = "对话类型分布")
     private Map<String, Long> typeDistribution;
     
-    @ApiModelProperty("时间趋势（按天统计）")
+    @Schema(description = "时间趋势（按天统计）")
     private List<DailyStatistics> dailyStatistics;
 
     public Long getTotalConversations() {
@@ -81,15 +78,15 @@ public class ChatHistoryStatisticsResponse {
     /**
      * 用户对话数排行
      */
-    @ApiModel("用户对话数排行")
+    @Schema(description = "用户对话数排行")
     public static class UserConversationRank {
-        @ApiModelProperty("用户ID")
+        @Schema(description = "用户ID")
         private Long userId;
         
-        @ApiModelProperty("用户名")
+        @Schema(description = "用户名")
         private String username;
         
-        @ApiModelProperty("对话数")
+        @Schema(description = "对话数")
         private Long conversationCount;
 
         public Long getUserId() {
@@ -120,12 +117,12 @@ public class ChatHistoryStatisticsResponse {
     /**
      * 热门问题
      */
-    @ApiModel("热门问题")
+    @Schema(description = "热门问题")
     public static class PopularQuestion {
-        @ApiModelProperty("问题内容")
+        @Schema(description = "问题内容")
         private String question;
         
-        @ApiModelProperty("出现次数")
+        @Schema(description = "出现次数")
         private Long count;
 
         public String getQuestion() {
@@ -148,15 +145,15 @@ public class ChatHistoryStatisticsResponse {
     /**
      * 每日统计
      */
-    @ApiModel("每日统计")
+    @Schema(description = "每日统计")
     public static class DailyStatistics {
-        @ApiModelProperty("日期")
+        @Schema(description = "日期")
         private String date;
         
-        @ApiModelProperty("对话数")
+        @Schema(description = "对话数")
         private Long conversationCount;
         
-        @ApiModelProperty("消息数")
+        @Schema(description = "消息数")
         private Long messageCount;
 
         public String getDate() {
@@ -184,4 +181,3 @@ public class ChatHistoryStatisticsResponse {
         }
     }
 }
-

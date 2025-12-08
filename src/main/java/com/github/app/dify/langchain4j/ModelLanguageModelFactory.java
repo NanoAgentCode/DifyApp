@@ -20,14 +20,12 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuples;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 /**
  * 模型语言模型工厂，根据模型配置动态创建模型实例
  */
@@ -495,4 +493,3 @@ public class ModelLanguageModelFactory {
         Flux<String> generateStream(List<ChatMessage> messages);
     }
 }
-

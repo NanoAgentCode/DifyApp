@@ -1,20 +1,17 @@
 package com.github.app.dify.resp;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
-
 /**
  * 模型配置响应
  */
-@ApiModel("模型配置响应")
+@Schema(description = "模型配置响应")
 public class ModelConfigResponse {
     
-    @ApiModelProperty("问答模型列表")
+    @Schema(description = "问答模型列表")
     private List<QAModelResp> qaModels;
     
-    @ApiModelProperty("向量化模型列表")
+    @Schema(description = "向量化模型列表")
     private List<EmbeddingModelResp> embeddingModels;
 
     public List<QAModelResp> getQaModels() {
@@ -33,4 +30,3 @@ public class ModelConfigResponse {
         this.embeddingModels = embeddingModels;
     }
 }
-

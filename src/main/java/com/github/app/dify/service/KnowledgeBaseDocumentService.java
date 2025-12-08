@@ -2,10 +2,8 @@ package com.github.app.dify.service;
 
 import com.github.app.dify.resp.KnowledgeBaseDocumentResp;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.io.InputStream;
 import java.util.List;
-
 /**
  * 知识库文档服务接口
  */

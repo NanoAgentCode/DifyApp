@@ -4,9 +4,7 @@ import com.github.app.dify.req.CreateKnowledgeBaseReq;
 import com.github.app.dify.req.UpdateKnowledgeBaseReq;
 import com.github.app.dify.resp.KnowledgeBaseResp;
 import com.github.app.dify.resp.PageResponse;
-
 import java.util.List;
-
 /**
  * 知识库服务接口
  */

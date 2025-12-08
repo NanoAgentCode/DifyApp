@@ -1,13 +1,12 @@
 package com.github.app.dify.domain;
 
-import javax.persistence.*;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Size;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 import java.util.Date;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.validator.constraints.Length;
-
 /**
  * 数据源表
  * @TableName DATA_SOURCE
@@ -21,7 +20,7 @@ public class DataSource implements Serializable {
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @ApiModelProperty("数据源编号")
+    @Schema(description = "数据源编号")
     private Long id;
     
     /**
@@ -29,7 +28,7 @@ public class DataSource implements Serializable {
      */
     @NotBlank(message="[数据源名称]不能为空")
     @Size(max= 100,message="编码长度不能超过100")
-    @ApiModelProperty("数据源名称")
+    @Schema(description = "数据源名称")
     @Length(max= 100,message="编码长度不能超过100")
     @Column(name = "name", columnDefinition = "VARCHAR(100)")
     private String name;
@@ -38,7 +37,7 @@ public class DataSource implements Serializable {
      * 数据源描述
      */
     @Size(max= 500,message="编码长度不能超过500")
-    @ApiModelProperty("数据源描述")
+    @Schema(description = "数据源描述")
     @Length(max= 500,message="编码长度不能超过500")
     @Column(name = "description", columnDefinition = "VARCHAR(500)")
     private String description;
@@ -48,7 +47,7 @@ public class DataSource implements Serializable {
      */
     @NotBlank(message="[数据库类型]不能为空")
     @Size(max= 20,message="编码长度不能超过20")
-    @ApiModelProperty("数据库类型：postgresql, mysql, oracle, mongodb")
+    @Schema(description = "数据库类型：postgresql, mysql, oracle, mongodb")
     @Length(max= 20,message="编码长度不能超过20")
     @Column(name = "type", columnDefinition = "VARCHAR(20)")
     private String type;
@@ -58,7 +57,7 @@ public class DataSource implements Serializable {
      */
     @NotBlank(message="[主机地址]不能为空")
     @Size(max= 255,message="编码长度不能超过255")
-    @ApiModelProperty("主机地址")
+    @Schema(description = "主机地址")
     @Length(max= 255,message="编码长度不能超过255")
     @Column(name = "host", columnDefinition = "VARCHAR(255)")
     private String host;
@@ -66,7 +65,7 @@ public class DataSource implements Serializable {
     /**
      * 端口号
      */
-    @ApiModelProperty("端口号")
+    @Schema(description = "端口号")
     @Column(name = "port")
     private Integer port;
     
@@ -74,7 +73,7 @@ public class DataSource implements Serializable {
      * 数据库名称
      */
     @Size(max= 100,message="编码长度不能超过100")
-    @ApiModelProperty("数据库名称")
+    @Schema(description = "数据库名称")
     @Length(max= 100,message="编码长度不能超过100")
     @Column(name = "database", columnDefinition = "VARCHAR(100)")
     private String database;
@@ -83,7 +82,7 @@ public class DataSource implements Serializable {
      * 用户名
      */
     @Size(max= 100,message="编码长度不能超过100")
-    @ApiModelProperty("用户名")
+    @Schema(description = "用户名")
     @Length(max= 100,message="编码长度不能超过100")
     @Column(name = "username", columnDefinition = "VARCHAR(100)")
     private String username;
@@ -92,7 +91,7 @@ public class DataSource implements Serializable {
      * 密码（加密存储）
      */
     @Size(max= 500,message="编码长度不能超过500")
-    @ApiModelProperty("密码（加密存储）")
+    @Schema(description = "密码（加密存储）")
     @Length(max= 500,message="编码长度不能超过500")
     @Column(name = "password", columnDefinition = "VARCHAR(500)")
     private String password;
@@ -100,61 +99,61 @@ public class DataSource implements Serializable {
     /**
      * 数据源状态：1-启用，0-禁用
      */
-    @ApiModelProperty("数据源状态：1-启用，0-禁用")
+    @Schema(description = "数据源状态：1-启用，0-禁用")
     private Integer status;
     
     /**
      * 创建者
      */
     @Size(max= 64,message="编码长度不能超过64")
-    @ApiModelProperty("创建者")
+    @Schema(description = "创建者")
     @Length(max= 64,message="编码长度不能超过64")
     private String creator;
     
     /**
      * 创建者ID
      */
-    @ApiModelProperty("创建者ID")
+    @Schema(description = "创建者ID")
     @Column(name = "creator_id")
     private Long creatorId;
     
     /**
      * 是否公开：true-公开，false-私有
      */
-    @ApiModelProperty("是否公开：true-公开，false-私有")
+    @Schema(description = "是否公开：true-公开，false-私有")
     @Column(name = "is_public")
     private Boolean isPublic;
     
     /**
      * 创建时间
      */
-    @ApiModelProperty("创建时间")
+    @Schema(description = "创建时间")
     private Date createTime;
     
     /**
      * 更新者
      */
     @Size(max= 64,message="编码长度不能超过64")
-    @ApiModelProperty("更新者")
+    @Schema(description = "更新者")
     @Length(max= 64,message="编码长度不能超过64")
     private String updater;
     
     /**
      * 更新时间
      */
-    @ApiModelProperty("更新时间")
+    @Schema(description = "更新时间")
     private Date updateTime;
     
     /**
      * 是否删除：0-未删除，1-已删除
      */
-    @ApiModelProperty("是否删除：0-未删除，1-已删除")
+    @Schema(description = "是否删除：0-未删除，1-已删除")
     private Integer deleted;
     
     /**
      * 租户编号
      */
-    @ApiModelProperty("租户编号")
+    @Schema(description = "租户编号")
     private Integer tenantId;
 
     // Getters and Setters
@@ -302,4 +301,3 @@ public class DataSource implements Serializable {
         this.tenantId = tenantId;
     }
 }
-

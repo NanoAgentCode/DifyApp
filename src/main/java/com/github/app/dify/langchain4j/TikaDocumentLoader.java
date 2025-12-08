@@ -7,9 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.io.InputStream;
-
 /**
  * 使用Apache Tika的文档加载器
  */
@@ -63,4 +61,3 @@ public class TikaDocumentLoader {
         }
     }
 }
-

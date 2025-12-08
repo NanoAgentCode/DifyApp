@@ -1,7 +1,6 @@
 package com.github.app.dify.service;
 
 import org.springframework.web.multipart.MultipartFile;
-
 /**
  * 文档向量化服务接口
  */

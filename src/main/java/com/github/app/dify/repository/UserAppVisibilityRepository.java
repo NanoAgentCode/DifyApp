@@ -3,10 +3,8 @@ package com.github.app.dify.repository;
 import com.github.app.dify.domain.UserAppVisibility;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
-
 /**
  * 用户应用可见性Repository
  */
@@ -48,4 +46,3 @@ public interface UserAppVisibilityRepository extends JpaRepository<UserAppVisibi
      */
     void deleteByAppId(Long appId);
 }
-

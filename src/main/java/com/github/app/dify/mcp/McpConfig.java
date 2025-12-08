@@ -2,7 +2,6 @@ package com.github.app.dify.mcp;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
-
 /**
  * MCP模块配置类
  * 统一管理所有MCP服务的配置
@@ -240,4 +239,3 @@ public class McpConfig {
         }
     }
 }
-

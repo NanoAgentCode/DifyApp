@@ -6,11 +6,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
-
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-
 @Configuration
 public class DatabaseConfig implements CommandLineRunner {
     
@@ -56,4 +54,3 @@ public class DatabaseConfig implements CommandLineRunner {
         }
     }
 }
-

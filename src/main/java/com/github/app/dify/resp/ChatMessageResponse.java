@@ -1,32 +1,29 @@
 package com.github.app.dify.resp;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Date;
-
 /**
  * 消息详情响应（会话中的单条消息）
  */
-@ApiModel("消息详情响应")
+@Schema(description = "消息详情响应")
 public class ChatMessageResponse {
     
-    @ApiModelProperty("消息ID")
+    @Schema(description = "消息ID")
     private Long id;
     
-    @ApiModelProperty("会话ID")
+    @Schema(description = "会话ID")
     private Long conversationId;
     
-    @ApiModelProperty("角色（user/assistant）")
+    @Schema(description = "角色（user/assistant）")
     private String role;
     
-    @ApiModelProperty("消息内容")
+    @Schema(description = "消息内容")
     private String content;
     
-    @ApiModelProperty("消息顺序")
+    @Schema(description = "消息顺序")
     private Integer sequence;
     
-    @ApiModelProperty("创建时间")
+    @Schema(description = "创建时间")
     private Date createTime;
 
     public Long getId() {
@@ -77,4 +74,3 @@ public class ChatMessageResponse {
         this.createTime = createTime;
     }
 }
-

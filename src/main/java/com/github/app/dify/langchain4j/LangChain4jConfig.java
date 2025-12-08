@@ -6,7 +6,6 @@ import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
 /**
  * LangChain4j配置类
  */
@@ -47,4 +46,3 @@ public class LangChain4jConfig {
         return vectorStoreFactory.createEmbeddingStore(knowledgeBaseId);
     }
 }
-

@@ -9,10 +9,8 @@ import com.github.app.dify.resp.DifyResponse;
 import com.github.app.dify.resp.PageResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-
 import java.util.List;
 import java.util.Map;
-
 /**
  * AI应用服务接口
  */

@@ -1,7 +1,6 @@
 package com.github.app.dify.resp;
 
 import java.util.List;
-
 /**
  * 分页响应
  */
@@ -63,4 +62,3 @@ public class PageResponse<T> {
         this.totalPages = totalPages;
     }
 }
-

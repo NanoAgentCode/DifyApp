@@ -4,12 +4,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-
 /**
  * 密码加密工具类（用于数据源密码加密）
  * 使用 AES 加密，支持加密和解密
@@ -106,4 +104,3 @@ public class PasswordEncryptionUtil {
         return result;
     }
 }
-

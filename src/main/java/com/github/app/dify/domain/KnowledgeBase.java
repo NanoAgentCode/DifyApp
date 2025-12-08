@@ -1,13 +1,12 @@
 package com.github.app.dify.domain;
 
-import javax.persistence.*;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Size;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 import java.util.Date;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.validator.constraints.Length;
-
 /**
  * 知识库表
  * @TableName KNOWLEDGE_BASE
@@ -21,7 +20,7 @@ public class KnowledgeBase implements Serializable {
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @ApiModelProperty("知识库编号")
+    @Schema(description = "知识库编号")
     private Long id;
     
     /**
@@ -29,7 +28,7 @@ public class KnowledgeBase implements Serializable {
      */
     @NotBlank(message="[知识库名称]不能为空")
     @Size(max= 100,message="编码长度不能超过100")
-    @ApiModelProperty("知识库名称")
+    @Schema(description = "知识库名称")
     @Length(max= 100,message="编码长度不能超过100")
     @Column(name = "name", columnDefinition = "VARCHAR(100)")
     private String name;
@@ -38,7 +37,7 @@ public class KnowledgeBase implements Serializable {
      * 知识库描述
      */
     @Size(max= 500,message="编码长度不能超过500")
-    @ApiModelProperty("知识库描述")
+    @Schema(description = "知识库描述")
     @Length(max= 500,message="编码长度不能超过500")
     @Column(name = "description", columnDefinition = "VARCHAR(500)")
     private String description;
@@ -46,89 +45,89 @@ public class KnowledgeBase implements Serializable {
     /**
      * 知识库状态：1-启用，0-禁用
      */
-    @ApiModelProperty("知识库状态：1-启用，0-禁用")
+    @Schema(description = "知识库状态：1-启用，0-禁用")
     private Integer status;
     
     /**
      * 创建者
      */
     @Size(max= 64,message="编码长度不能超过64")
-    @ApiModelProperty("创建者")
+    @Schema(description = "创建者")
     @Length(max= 64,message="编码长度不能超过64")
     private String creator;
     
     /**
      * 创建者ID
      */
-    @ApiModelProperty("创建者ID")
+    @Schema(description = "创建者ID")
     @Column(name = "creator_id")
     private Long creatorId;
     
     /**
      * 是否公开：true-公开，false-私有
      */
-    @ApiModelProperty("是否公开：true-公开，false-私有")
+    @Schema(description = "是否公开：true-公开，false-私有")
     @Column(name = "is_public")
     private Boolean isPublic;
     
     /**
      * 向量化模型ID
      */
-    @ApiModelProperty("向量化模型ID")
+    @Schema(description = "向量化模型ID")
     @Column(name = "embedding_model_id")
     private Long embeddingModelId;
     
     /**
      * Top-K检索数量（每个知识库可单独配置，如果为null则使用全局配置）
      */
-    @ApiModelProperty("Top-K检索数量（每个知识库可单独配置，如果为null则使用全局配置）")
+    @Schema(description = "Top-K检索数量（每个知识库可单独配置，如果为null则使用全局配置）")
     @Column(name = "top_k")
     private Integer topK;
     
     /**
      * 向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储，milvus-Milvus向量数据库
      */
-    @ApiModelProperty("向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储，milvus-Milvus向量数据库")
+    @Schema(description = "向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储，milvus-Milvus向量数据库")
     @Column(name = "vector_store_type", columnDefinition = "VARCHAR(20)")
     private String vectorStoreType;
     
     /**
      * 向量库实例ID（关联VECTOR_DATABASE表的id）
      */
-    @ApiModelProperty("向量库实例ID（关联VECTOR_DATABASE表的id）")
+    @Schema(description = "向量库实例ID（关联VECTOR_DATABASE表的id）")
     @Column(name = "vector_database_id")
     private Long vectorDatabaseId;
     
     /**
      * 创建时间
      */
-    @ApiModelProperty("创建时间")
+    @Schema(description = "创建时间")
     private Date createTime;
     
     /**
      * 更新者
      */
     @Size(max= 64,message="编码长度不能超过64")
-    @ApiModelProperty("更新者")
+    @Schema(description = "更新者")
     @Length(max= 64,message="编码长度不能超过64")
     private String updater;
     
     /**
      * 更新时间
      */
-    @ApiModelProperty("更新时间")
+    @Schema(description = "更新时间")
     private Date updateTime;
     
     /**
      * 是否删除：0-未删除，1-已删除
      */
-    @ApiModelProperty("是否删除：0-未删除，1-已删除")
+    @Schema(description = "是否删除：0-未删除，1-已删除")
     private Integer deleted;
     
     /**
      * 租户编号
      */
-    @ApiModelProperty("租户编号")
+    @Schema(description = "租户编号")
     private Integer tenantId;
 
     // Getters and Setters
@@ -260,4 +259,3 @@ public class KnowledgeBase implements Serializable {
         this.tenantId = tenantId;
     }
 }
-

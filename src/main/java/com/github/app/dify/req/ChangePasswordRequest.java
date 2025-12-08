@@ -1,24 +1,21 @@
 package com.github.app.dify.req;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Size;
-
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 /**
  * 修改密码请求
  */
-@ApiModel("修改密码请求")
+@Schema(description = "修改密码请求")
 public class ChangePasswordRequest {
     
     @NotBlank(message = "原密码不能为空")
-    @ApiModelProperty(value = "原密码", required = true)
+    @Schema(description = "原密码")
     private String oldPassword;
     
     @NotBlank(message = "新密码不能为空")
     @Size(min = 6, max = 255, message = "新密码长度必须在6-255之间")
-    @ApiModelProperty(value = "新密码", required = true)
+    @Schema(description = "新密码")
     private String newPassword;
     
     // Getters and Setters
@@ -38,4 +35,3 @@ public class ChangePasswordRequest {
         this.newPassword = newPassword;
     }
 }
-

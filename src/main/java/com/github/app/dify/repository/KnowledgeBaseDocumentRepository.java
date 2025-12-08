@@ -5,9 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
 import java.util.List;
-
 /**
  * 知识库文档Repository
  */
@@ -42,4 +40,3 @@ public interface KnowledgeBaseDocumentRepository extends JpaRepository<Knowledge
     @Query("SELECT COUNT(d) FROM KnowledgeBaseDocument d WHERE d.knowledgeBaseId = :knowledgeBaseId AND (d.deleted IS NULL OR d.deleted = 0) AND d.vectorizedStatus = 3")
     Long countFailedDocumentsByKnowledgeBaseId(@Param("knowledgeBaseId") Long knowledgeBaseId);
 }
-

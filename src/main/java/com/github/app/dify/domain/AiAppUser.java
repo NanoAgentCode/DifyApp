@@ -1,16 +1,13 @@
 package com.github.app.dify.domain;
 
-import javax.persistence.*;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Size;
-import javax.validation.constraints.NotNull;
-
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
-
 import java.util.Date;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.validator.constraints.Length;
-
 /**
 * AI 应用与用户关联表
 * @TableName AI_APP_USER
@@ -25,80 +22,80 @@ public class AiAppUser implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @NotNull(message="[关联编号]不能为空")
-    @ApiModelProperty("关联编号")
+    @Schema(description = "关联编号")
     private Long id;
     /**
     * 应用编号
     */
     @NotNull(message="[应用编号]不能为空")
-    @ApiModelProperty("应用编号")
+    @Schema(description = "应用编号")
     private Long appId;
     /**
     * 用户编号
     */
     @NotBlank(message="[用户编号]不能为空")
     @Size(max= 50,message="编码长度不能超过50")
-    @ApiModelProperty("用户编号")
+    @Schema(description = "用户编号")
     @Length(max= 50,message="编码长度不能超过50")
     private String userId;
     /**
     * 用户名称
     */
     @Size(max= 100,message="编码长度不能超过100")
-    @ApiModelProperty("用户名称")
+    @Schema(description = "用户名称")
     @Length(max= 100,message="编码长度不能超过100")
     private String userName;
     /**
     * 角色类型：1-普通用户，2-管理员，3-超级管理员
     */
-    @ApiModelProperty("角色类型：1-普通用户，2-管理员，3-超级管理员")
+    @Schema(description = "角色类型：1-普通用户，2-管理员，3-超级管理员")
     private Integer roleType;
     /**
     * 状态：0-禁用，1-启用
     */
-    @ApiModelProperty("状态：0-禁用，1-启用")
+    @Schema(description = "状态：0-禁用，1-启用")
     private Integer status;
     /**
     * 权限配置JSON
     */
     @Size(max= 1000,message="编码长度不能超过1000")
-    @ApiModelProperty("权限配置JSON")
+    @Schema(description = "权限配置JSON")
     @Length(max= 1000,message="编码长度不能超过1000")
     private String permissions;
     /**
     * 创建者
     */
     @Size(max= 64,message="编码长度不能超过64")
-    @ApiModelProperty("创建者")
+    @Schema(description = "创建者")
     @Length(max= 64,message="编码长度不能超过64")
     private String creator;
     /**
     * 创建时间
     */
-    @ApiModelProperty("创建时间")
+    @Schema(description = "创建时间")
     private Date createTime;
     /**
     * 更新者
     */
     @Size(max= 64,message="编码长度不能超过64")
-    @ApiModelProperty("更新者")
+    @Schema(description = "更新者")
     @Length(max= 64,message="编码长度不能超过64")
     private String updater;
     /**
     * 更新时间
     */
-    @ApiModelProperty("更新时间")
+    @Schema(description = "更新时间")
     private Date updateTime;
     /**
     * 是否删除
     */
-    @ApiModelProperty("是否删除")
+    @Schema(description = "是否删除")
     private Integer deleted;
     /**
     * 租户编号
     */
     @NotNull(message="[租户编号]不能为空")
-    @ApiModelProperty("租户编号")
+    @Schema(description = "租户编号")
     private Integer tenantId;
 
     /**

@@ -8,9 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-
 import java.time.Duration;
-
 /**
  * MCP地理位置服务
  * 提供当前地理位置信息，帮助LLM了解用户的地理上下文
@@ -322,4 +320,3 @@ public class McpLocationService {
         }
     }
 }
-

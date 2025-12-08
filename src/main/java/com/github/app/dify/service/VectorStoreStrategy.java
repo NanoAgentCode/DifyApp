@@ -1,7 +1,6 @@
 package com.github.app.dify.service;
 
 import java.util.List;
-
 /**
  * 向量存储策略接口
  * 定义不同向量数据库的统一操作接口
@@ -90,4 +89,3 @@ public interface VectorStoreStrategy {
         }
     }
 }
-

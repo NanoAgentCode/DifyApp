@@ -1,16 +1,13 @@
 package com.github.app.dify.domain;
 
-import javax.persistence.*;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Size;
-import javax.validation.constraints.NotNull;
-
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
-
 import java.util.Date;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.validator.constraints.Length;
-
 /**
 * AI 微应用表
 * @TableName AI_APP
@@ -24,93 +21,93 @@ public class AiApp implements Serializable {
     */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @ApiModelProperty("应用编号")
+    @Schema(description = "应用编号")
     private Long id;
     /**
     * 应用名称
     */
     @NotBlank(message="[应用名称]不能为空")
     @Size(max= 100,message="编码长度不能超过100")
-    @ApiModelProperty("应用名称")
+    @Schema(description = "应用名称")
     @Length(max= 100,message="编码长度不能超过100")
     private String name;
     /**
     * 应用描述
     */
     @Size(max= 500,message="编码长度不能超过500")
-    @ApiModelProperty("应用描述")
+    @Schema(description = "应用描述")
     @Length(max= 500,message="编码长度不能超过500")
     private String description;
     /**
     * 应用类型：1-chatFlow，2-workflow
     */
     @NotNull(message="[应用类型]不能为空")
-    @ApiModelProperty("应用类型：1-chatFlow，2-workflow")
+    @Schema(description = "应用类型：1-chatFlow，2-workflow")
     @Column(name = "type")
     private Integer type;
     /**
     * 应用状态
     */
-    @ApiModelProperty("应用状态")
+    @Schema(description = "应用状态")
     private Integer status;
     /**
     * 应用配置
     */
-    @ApiModelProperty("应用配置")
+    @Schema(description = "应用配置")
     @Column(name = "inputs", columnDefinition = "text")
     private String inputs;
     /**
     * 应用图标
     */
     @Size(max= 255,message="编码长度不能超过255")
-    @ApiModelProperty("应用图标")
+    @Schema(description = "应用图标")
     @Length(max= 255,message="编码长度不能超过255")
     private String icon;
     /**
     * 排序
     */
-    @ApiModelProperty("排序")
+    @Schema(description = "排序")
     private Integer sort;
     /**
     * 创建者
     */
     @Size(max= 64,message="编码长度不能超过64")
-    @ApiModelProperty("创建者")
+    @Schema(description = "创建者")
     @Length(max= 64,message="编码长度不能超过64")
     private String creator;
     /**
     * 创建时间
     */
-    @ApiModelProperty("创建时间")
+    @Schema(description = "创建时间")
     private Date createTime;
     /**
     * 更新者
     */
     @Size(max= 64,message="编码长度不能超过64")
-    @ApiModelProperty("更新者")
+    @Schema(description = "更新者")
     @Length(max= 64,message="编码长度不能超过64")
     private String updater;
     /**
     * 更新时间
     */
-    @ApiModelProperty("更新时间")
+    @Schema(description = "更新时间")
     private Date updateTime;
     /**
     * 是否删除
     */
-    @ApiModelProperty("是否删除")
+    @Schema(description = "是否删除")
     private Integer deleted;
     /**
     * 租户编号
     */
     @NotNull(message="[租户编号]不能为空")
-    @ApiModelProperty("租户编号")
+    @Schema(description = "租户编号")
     private Integer tenantId;
     /**
     * Dify API_KEY，需要唯一
     */
     @Size(max= 255,message="编码长度不能超过255")
-    @ApiModelProperty("Dify API_KEY，需要唯一")
+    @Schema(description = "Dify API_KEY，需要唯一")
     @Length(max= 255,message="编码长度不能超过255")
     @Column(name = "app_id", unique = true)
     private String appId;
@@ -119,7 +116,7 @@ public class AiApp implements Serializable {
     * Dify API Base URL
     */
     @Size(max= 500,message="编码长度不能超过500")
-    @ApiModelProperty("Dify API Base URL")
+    @Schema(description = "Dify API Base URL")
     @Length(max= 500,message="编码长度不能超过500")
     @Column(name = "api_base_url")
     private String apiBaseUrl;
@@ -127,21 +124,21 @@ public class AiApp implements Serializable {
     /**
     * 是否支持流式响应
     */
-    @ApiModelProperty("是否支持流式响应")
+    @Schema(description = "是否支持流式响应")
     @Column(name = "stream_enabled")
     private Boolean streamEnabled;
     
     /**
     * 是否需要上传文件
     */
-    @ApiModelProperty("是否需要上传文件")
+    @Schema(description = "是否需要上传文件")
     @Column(name = "file_upload_enabled")
     private Boolean fileUploadEnabled;
     
     /**
     * 是否显示文本输入框
     */
-    @ApiModelProperty("是否显示文本输入框")
+    @Schema(description = "是否显示文本输入框")
     @Column(name = "input_enabled")
     private Boolean inputEnabled;
     
@@ -149,7 +146,7 @@ public class AiApp implements Serializable {
     * 主题色
     */
     @Size(max= 64,message="编码长度不能超过64")
-    @ApiModelProperty("主题色")
+    @Schema(description = "主题色")
     @Length(max= 64,message="编码长度不能超过64")
     private String themeColor;
 

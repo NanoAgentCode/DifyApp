@@ -4,10 +4,8 @@ import com.github.app.dify.domain.VectorDatabase;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
-
 /**
  * 向量数据库配置Repository
  */
@@ -53,4 +51,3 @@ public interface VectorDatabaseRepository extends JpaRepository<VectorDatabase, 
            "ORDER BY v.type, v.isDefault DESC, v.createTime DESC")
     List<VectorDatabase> findAllEnabled();
 }
-

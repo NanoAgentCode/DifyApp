@@ -5,7 +5,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.Cache;
 import org.springframework.cache.interceptor.CacheErrorHandler;
-
 /**
  * 缓存错误处理器
  * 当Redis缓存操作失败时，记录日志但不抛出异常，确保业务逻辑继续执行
@@ -38,4 +37,3 @@ public class CustomCacheErrorHandler implements CacheErrorHandler {
                 cache.getName(), exception);
     }
 }
-

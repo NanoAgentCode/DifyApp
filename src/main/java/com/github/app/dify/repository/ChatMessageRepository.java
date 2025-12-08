@@ -5,9 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
 import java.util.List;
-
 /**
  * 对话消息Repository
  */
@@ -39,4 +37,3 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     @Query("SELECT COALESCE(MAX(m.sequence), 0) FROM ChatMessage m WHERE m.conversationId = :conversationId")
     Integer getMaxSequenceByConversationId(@Param("conversationId") Long conversationId);
 }
-

@@ -3,11 +3,12 @@ package com.github.app.dify.config;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.CachingConfigurerSupport;
+import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.cache.support.NoOpCacheManager;
@@ -23,16 +24,14 @@ import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSeriali
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
-
 import java.time.Duration;
-
 /**
  * Redis配置类
  */
 @Configuration
 @EnableCaching
 @ConfigurationProperties(prefix = "spring.redis")
-public class RedisConfig extends CachingConfigurerSupport {
+public class RedisConfig implements CachingConfigurer {
     
     private static final Logger logger = LoggerFactory.getLogger(RedisConfig.class);
     
@@ -78,12 +77,11 @@ public class RedisConfig extends CachingConfigurerSupport {
         template.setConnectionFactory(connectionFactory);
         
         // 使用Jackson2JsonRedisSerializer来序列化和反序列化redis的value值
-        Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer<>(Object.class);
         ObjectMapper om = new ObjectMapper();
         om.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
-        // 配置ObjectMapper以支持多态类型（Spring Boot 2.6.13兼容）
-        om.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL);
-        jackson2JsonRedisSerializer.setObjectMapper(om);
+        // 配置ObjectMapper以支持多态类型
+        om.activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ObjectMapper.DefaultTyping.NON_FINAL);
+        Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer<>(om, Object.class);
         
         // 使用StringRedisSerializer来序列化和反序列化redis的key值
         StringRedisSerializer stringRedisSerializer = new StringRedisSerializer();
@@ -195,4 +193,3 @@ public class RedisConfig extends CachingConfigurerSupport {
         return new CustomCacheErrorHandler();
     }
 }
-

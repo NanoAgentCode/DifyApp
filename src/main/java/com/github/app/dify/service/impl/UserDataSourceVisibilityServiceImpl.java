@@ -11,12 +11,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
 /**
  * 用户数据源可见性服务
  */
@@ -145,4 +143,3 @@ public class UserDataSourceVisibilityServiceImpl implements UserDataSourceVisibi
         return optional.isPresent() && Boolean.TRUE.equals(optional.get().getVisible());
     }
 }
-

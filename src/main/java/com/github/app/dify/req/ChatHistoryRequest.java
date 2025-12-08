@@ -1,35 +1,32 @@
 package com.github.app.dify.req;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Date;
-
 /**
  * 历史查询请求
  */
-@ApiModel("历史查询请求")
+@Schema(description = "历史查询请求")
 public class ChatHistoryRequest {
     
-    @ApiModelProperty("页码（从1开始）")
+    @Schema(description = "页码（从1开始）")
     private Integer page = 1;
     
-    @ApiModelProperty("每页大小")
+    @Schema(description = "每页大小")
     private Integer size = 20;
     
-    @ApiModelProperty("关键词（搜索标题）")
+    @Schema(description = "关键词（搜索标题）")
     private String keyword;
     
-    @ApiModelProperty("对话类型（1-普通聊天，2-知识库问答）")
+    @Schema(description = "对话类型（1-普通聊天，2-知识库问答）")
     private Integer type;
     
-    @ApiModelProperty("用户ID（管理员端使用）")
+    @Schema(description = "用户ID（管理员端使用）")
     private Long userId;
     
-    @ApiModelProperty("开始时间（管理员端使用）")
+    @Schema(description = "开始时间（管理员端使用）")
     private Date startTime;
     
-    @ApiModelProperty("结束时间（管理员端使用）")
+    @Schema(description = "结束时间（管理员端使用）")
     private Date endTime;
 
     public Integer getPage() {
@@ -88,4 +85,3 @@ public class ChatHistoryRequest {
         this.endTime = endTime;
     }
 }
-

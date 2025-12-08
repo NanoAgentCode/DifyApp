@@ -1,32 +1,29 @@
 package com.github.app.dify.resp;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Date;
-
 /**
  * 用户响应
  */
-@ApiModel("用户响应")
+@Schema(description = "用户响应")
 public class UserResp {
     
-    @ApiModelProperty("用户ID")
+    @Schema(description = "用户ID")
     private Long id;
     
-    @ApiModelProperty("用户名")
+    @Schema(description = "用户名")
     private String username;
     
-    @ApiModelProperty("角色：1-管理员，2-普通用户")
+    @Schema(description = "角色：1-管理员，2-普通用户")
     private Integer role;
     
-    @ApiModelProperty("状态：0-待审核，1-已激活，2-已禁用")
+    @Schema(description = "状态：0-待审核，1-已激活，2-已禁用")
     private Integer status;
     
-    @ApiModelProperty("创建时间")
+    @Schema(description = "创建时间")
     private Date createTime;
     
-    @ApiModelProperty("更新时间")
+    @Schema(description = "更新时间")
     private Date updateTime;
     
     // Getters and Setters
@@ -78,4 +75,3 @@ public class UserResp {
         this.updateTime = updateTime;
     }
 }
-

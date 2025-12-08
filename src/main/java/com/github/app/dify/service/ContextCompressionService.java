@@ -2,9 +2,7 @@ package com.github.app.dify.service;
 
 import com.github.app.dify.req.KnowledgeBaseQARequest;
 import dev.langchain4j.data.message.ChatMessage;
-
 import java.util.List;
-
 /**
  * 上下文压缩服务接口
  * 用于在连续对话时压缩历史上下文，避免超过token限制

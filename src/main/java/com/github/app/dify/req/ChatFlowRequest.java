@@ -1,34 +1,31 @@
 package com.github.app.dify.req;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
-import javax.validation.constraints.NotBlank;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import java.util.Map;
-
 /**
  * ChatFlow请求体（统一格式）
  */
-@ApiModel("ChatFlow请求")
+@Schema(description = "ChatFlow请求")
 public class ChatFlowRequest {
     
     @NotBlank(message = "查询内容不能为空")
-    @ApiModelProperty(value = "查询内容", required = true)
+    @Schema(description = "查询内容")
     private String query;
     
-    @ApiModelProperty("会话ID")
+    @Schema(description = "会话ID")
     private String conversationId;
     
-    @ApiModelProperty(value = "用户ID", required = true)
+    @Schema(description = "用户ID")
     private String userId;
     
-    @ApiModelProperty("输入参数")
+    @Schema(description = "输入参数")
     private Map<String, Object> inputs;
     
-    @ApiModelProperty("文件数组，用于文件上传场景")
+    @Schema(description = "文件数组，用于文件上传场景")
     private java.util.List<Map<String, Object>> files;
     
-    @ApiModelProperty("是否流式响应")
+    @Schema(description = "是否流式响应")
     private Boolean stream;
     
     // Getters and Setters
@@ -80,4 +77,3 @@ public class ChatFlowRequest {
         this.stream = stream;
     }
 }
-

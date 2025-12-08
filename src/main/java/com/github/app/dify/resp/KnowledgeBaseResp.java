@@ -1,68 +1,65 @@
 package com.github.app.dify.resp;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Date;
-
 /**
  * 知识库响应
  */
-@ApiModel("知识库响应")
+@Schema(description = "知识库响应")
 public class KnowledgeBaseResp {
     
-    @ApiModelProperty("知识库编号")
+    @Schema(description = "知识库编号")
     private Long id;
     
-    @ApiModelProperty("知识库名称")
+    @Schema(description = "知识库名称")
     private String name;
     
-    @ApiModelProperty("知识库描述")
+    @Schema(description = "知识库描述")
     private String description;
     
-    @ApiModelProperty("知识库状态：1-启用，0-禁用")
+    @Schema(description = "知识库状态：1-启用，0-禁用")
     private Integer status;
     
-    @ApiModelProperty("文档数量")
+    @Schema(description = "文档数量")
     private Integer documentCount;
     
-    @ApiModelProperty("成功向量化的文档数量")
+    @Schema(description = "成功向量化的文档数量")
     private Integer successDocumentCount;
     
-    @ApiModelProperty("向量化失败的文档数量")
+    @Schema(description = "向量化失败的文档数量")
     private Integer failedDocumentCount;
     
-    @ApiModelProperty("创建者")
+    @Schema(description = "创建者")
     private String creator;
     
-    @ApiModelProperty("创建者ID")
+    @Schema(description = "创建者ID")
     private Long creatorId;
     
-    @ApiModelProperty("是否公开：true-公开，false-私有")
+    @Schema(description = "是否公开：true-公开，false-私有")
     private Boolean isPublic;
     
-    @ApiModelProperty("向量化模型ID")
+    @Schema(description = "向量化模型ID")
     private Long embeddingModelId;
     
-    @ApiModelProperty("Top-K检索数量（如果为null则使用全局配置）")
+    @Schema(description = "Top-K检索数量（如果为null则使用全局配置）")
     private Integer topK;
     
-    @ApiModelProperty("向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储，milvus-Milvus向量数据库")
+    @Schema(description = "向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储，milvus-Milvus向量数据库")
     private String vectorStoreType;
     
-    @ApiModelProperty("向量库实例ID（关联VECTOR_DATABASE表的id）")
+    @Schema(description = "向量库实例ID（关联VECTOR_DATABASE表的id）")
     private Long vectorDatabaseId;
     
-    @ApiModelProperty("创建时间")
+    @Schema(description = "创建时间")
     private Date createTime;
     
-    @ApiModelProperty("更新者")
+    @Schema(description = "更新者")
     private String updater;
     
-    @ApiModelProperty("更新时间")
+    @Schema(description = "更新时间")
     private Date updateTime;
     
-    @ApiModelProperty("租户编号")
+    @Schema(description = "租户编号")
     private Integer tenantId;
     
     // Getters and Setters
@@ -210,4 +207,3 @@ public class KnowledgeBaseResp {
         this.tenantId = tenantId;
     }
 }
-

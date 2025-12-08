@@ -1,26 +1,23 @@
 package com.github.app.dify.resp;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
-
 /**
  * 知识库问答响应
  */
-@ApiModel("知识库问答响应")
+@Schema(description = "知识库问答响应")
 public class KnowledgeBaseQAResponse {
     
-    @ApiModelProperty("答案")
+    @Schema(description = "答案")
     private String answer;
     
-    @ApiModelProperty("对话ID")
+    @Schema(description = "对话ID")
     private String conversationId;
     
-    @ApiModelProperty("来源文档")
+    @Schema(description = "来源文档")
     private List<SourceDocument> sources;
     
-    @ApiModelProperty("是否完成（流式响应）")
+    @Schema(description = "是否完成（流式响应）")
     private Boolean finished;
     
     public String getAnswer() {
@@ -97,4 +94,3 @@ public class KnowledgeBaseQAResponse {
         }
     }
 }
-

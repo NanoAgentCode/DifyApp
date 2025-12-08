@@ -13,14 +13,12 @@ import org.springframework.context.annotation.DependsOn;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.WebClient;
-
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import reactor.core.publisher.Mono;
-
 /**
  * Chroma配置类
  * 注意：
@@ -333,4 +331,3 @@ public class ChromaConfig implements CommandLineRunner {
         }
     }
 }
-

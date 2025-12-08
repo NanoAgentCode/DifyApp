@@ -1,42 +1,39 @@
 package com.github.app.dify.req;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
-import javax.validation.constraints.Size;
-
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Size;
 /**
  * 更新知识库请求
  */
-@ApiModel("更新知识库请求")
+@Schema(description = "更新知识库请求")
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class UpdateKnowledgeBaseReq {
     
     @Size(max = 100, message = "知识库名称长度不能超过100")
-    @ApiModelProperty("知识库名称")
+    @Schema(description = "知识库名称")
     private String name;
     
     @Size(max = 500, message = "知识库描述长度不能超过500")
-    @ApiModelProperty("知识库描述")
+    @Schema(description = "知识库描述")
     private String description;
     
-    @ApiModelProperty("知识库状态：1-启用，0-禁用")
+    @Schema(description = "知识库状态：1-启用，0-禁用")
     private Integer status;
     
-    @ApiModelProperty("是否公开：true-公开，false-私有")
+    @Schema(description = "是否公开：true-公开，false-私有")
     private Boolean isPublic;
     
-    @ApiModelProperty("向量化模型ID（可选，如果不指定则使用默认向量化模型）")
+    @Schema(description = "向量化模型ID（可选，如果不指定则使用默认向量化模型）")
     private Long embeddingModelId;
     
-    @ApiModelProperty("Top-K检索数量（可选，如果不指定则使用全局配置）")
+    @Schema(description = "Top-K检索数量（可选，如果不指定则使用全局配置）")
     private Integer topK;
     
-    @ApiModelProperty("向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储，milvus-Milvus向量数据库")
+    @Schema(description = "向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储，milvus-Milvus向量数据库")
     private String vectorStoreType;
     
-    @ApiModelProperty("向量库实例ID（关联VECTOR_DATABASE表的id，可选，如果指定则使用该实例）")
+    @Schema(description = "向量库实例ID（关联VECTOR_DATABASE表的id，可选，如果指定则使用该实例）")
     private Long vectorDatabaseId;
     
     // Getters and Setters
@@ -104,4 +101,3 @@ public class UpdateKnowledgeBaseReq {
         this.vectorDatabaseId = vectorDatabaseId;
     }
 }
-

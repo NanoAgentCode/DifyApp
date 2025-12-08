@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-
 /**
  * Weaviate EmbeddingStore实现，适配Weaviate存储
  * 支持按知识库ID隔离存储（每个知识库一个类）
@@ -282,4 +281,3 @@ public class WeaviateEmbeddingStore implements EmbeddingStore<TextSegment> {
         }
     }
 }
-

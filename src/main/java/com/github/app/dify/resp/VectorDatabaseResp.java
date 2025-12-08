@@ -1,53 +1,50 @@
 package com.github.app.dify.resp;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Date;
-
 /**
  * 向量数据库配置响应
  */
-@ApiModel("向量数据库配置响应")
+@Schema(description = "向量数据库配置响应")
 public class VectorDatabaseResp {
     
-    @ApiModelProperty("配置编号")
+    @Schema(description = "配置编号")
     private Long id;
     
-    @ApiModelProperty("配置名称")
+    @Schema(description = "配置名称")
     private String name;
     
-    @ApiModelProperty("数据库类型：qdrant, milvus, faiss")
+    @Schema(description = "数据库类型：qdrant, milvus, faiss")
     private String type;
     
-    @ApiModelProperty("连接地址（URL或路径）")
+    @Schema(description = "连接地址（URL或路径）")
     private String url;
     
-    @ApiModelProperty("API Key（可选，返回时隐藏敏感信息）")
+    @Schema(description = "API Key（可选，返回时隐藏敏感信息）")
     private String apiKey;
     
-    @ApiModelProperty("超时时间（毫秒）")
+    @Schema(description = "超时时间（毫秒）")
     private Integer timeout;
     
-    @ApiModelProperty("额外配置（JSON格式）")
+    @Schema(description = "额外配置（JSON格式）")
     private String extraConfig;
     
-    @ApiModelProperty("是否启用")
+    @Schema(description = "是否启用")
     private Boolean enabled;
     
-    @ApiModelProperty("是否默认")
+    @Schema(description = "是否默认")
     private Boolean isDefault;
     
-    @ApiModelProperty("是否允许新建知识库：true-允许, false-不允许")
+    @Schema(description = "是否允许新建知识库：true-允许, false-不允许")
     private Boolean allowCreateKnowledgeBase;
     
-    @ApiModelProperty("描述")
+    @Schema(description = "描述")
     private String description;
     
-    @ApiModelProperty("创建时间")
+    @Schema(description = "创建时间")
     private Date createTime;
     
-    @ApiModelProperty("更新时间")
+    @Schema(description = "更新时间")
     private Date updateTime;
 
     public Long getId() {
@@ -154,4 +151,3 @@ public class VectorDatabaseResp {
         this.updateTime = updateTime;
     }
 }
-

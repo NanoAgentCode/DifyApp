@@ -2,16 +2,16 @@ package com.github.app.dify.util;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-
 /**
  * JWT工具类
  */
@@ -48,12 +48,13 @@ public class JwtUtil {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
         
+        SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(username)
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(SignatureAlgorithm.HS512, secret)
+                .claims(claims)
+                .subject(username)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(key)
                 .compact();
     }
     
@@ -64,10 +65,12 @@ public class JwtUtil {
      */
     public Claims getClaimsFromToken(String token) {
         try {
+            SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
             return Jwts.parser()
-                    .setSigningKey(secret)
-                    .parseClaimsJws(token)
-                    .getBody();
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
         } catch (Exception e) {
             logger.error("解析JWT Token失败", e);
             return null;
@@ -137,4 +140,3 @@ public class JwtUtil {
         }
     }
 }
-

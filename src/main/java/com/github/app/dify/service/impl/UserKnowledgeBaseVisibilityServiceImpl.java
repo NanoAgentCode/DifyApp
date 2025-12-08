@@ -11,12 +11,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
 /**
  * 用户知识库可见性服务
  */
@@ -133,4 +131,3 @@ public class UserKnowledgeBaseVisibilityServiceImpl implements UserKnowledgeBase
         return optional.map(UserKnowledgeBaseVisibility::getVisible).orElse(true);
     }
 }
-

@@ -1,33 +1,30 @@
 package com.github.app.dify.req;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
-import javax.validation.constraints.NotBlank;
-
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 /**
  * 模型配置请求
  */
-@ApiModel("模型配置请求")
+@Schema(description = "模型配置请求")
 public class ModelConfigRequest {
     
-    @ApiModelProperty("操作类型：add-添加, update-更新, delete-删除, setDefault-设置默认, toggleEnabled-切换启用状态")
+    @Schema(description = "操作类型：add-添加, update-更新, delete-删除, setDefault-设置默认, toggleEnabled-切换启用状态")
     @NotBlank(message = "操作类型不能为空")
     private String action;
     
-    @ApiModelProperty("模型类型：qa-问答模型, embedding-向量化模型")
+    @Schema(description = "模型类型：qa-问答模型, embedding-向量化模型")
     private String type;
     
-    @ApiModelProperty("模型ID（更新、删除、设置默认、切换状态时需要）")
+    @Schema(description = "模型ID（更新、删除、设置默认、切换状态时需要）")
     private Long modelId;
     
-    @ApiModelProperty("模型信息（添加、更新时需要）")
+    @Schema(description = "模型信息（添加、更新时需要）")
     private ModelInfo model;
     
-    @ApiModelProperty("启用状态（切换状态时需要）")
+    @Schema(description = "启用状态（切换状态时需要）")
     private Boolean enabled;
     
-    @ApiModelProperty("使用场景（设置默认时需要，qa模型专用：chat/rag/both）")
+    @Schema(description = "使用场景（设置默认时需要，qa模型专用：chat/rag/both）")
     private String useFor;
 
     public String getAction() {
@@ -81,43 +78,43 @@ public class ModelConfigRequest {
     /**
      * 模型信息
      */
-    @ApiModel("模型信息")
+    @Schema(description = "模型信息")
     public static class ModelInfo {
-        @ApiModelProperty("模型ID（更新时需要）")
+        @Schema(description = "模型ID（更新时需要）")
         private Long id;
         
-        @ApiModelProperty("模型名称")
+        @Schema(description = "模型名称")
         @NotBlank(message = "模型名称不能为空")
         private String name;
         
-        @ApiModelProperty("提供商类型：openai, vllm, ollama")
+        @Schema(description = "提供商类型：openai, vllm, ollama")
         @NotBlank(message = "提供商类型不能为空")
         private String provider;
         
-        @ApiModelProperty("提供商类型（原始值，用于前端显示）")
+        @Schema(description = "提供商类型（原始值，用于前端显示）")
         private String providerType;
         
-        @ApiModelProperty("API 地址")
+        @Schema(description = "API 地址")
         @NotBlank(message = "API 地址不能为空")
         private String apiUrl;
         
-        @ApiModelProperty("API Key")
+        @Schema(description = "API Key")
         private String apiKey;
         
-        @ApiModelProperty("模型标识")
+        @Schema(description = "模型标识")
         @NotBlank(message = "模型标识不能为空")
         private String model;
         
-        @ApiModelProperty("使用场景（qa模型专用）：chat-仅智能问答, rag-仅知识库问答, both-两者都使用")
+        @Schema(description = "使用场景（qa模型专用）：chat-仅智能问答, rag-仅知识库问答, both-两者都使用")
         private String useFor;
         
-        @ApiModelProperty("超时时间（毫秒，embedding模型专用）")
+        @Schema(description = "超时时间（毫秒，embedding模型专用）")
         private Integer timeout;
         
-        @ApiModelProperty("批处理大小（embedding模型专用）")
+        @Schema(description = "批处理大小（embedding模型专用）")
         private Integer batchSize;
         
-        @ApiModelProperty("是否启用")
+        @Schema(description = "是否启用")
         private Boolean enabled;
 
         public Long getId() {
@@ -209,4 +206,3 @@ public class ModelConfigRequest {
         }
     }
 }
-

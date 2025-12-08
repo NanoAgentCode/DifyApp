@@ -4,22 +4,20 @@ import com.github.app.dify.req.CreateKnowledgeBaseReq;
 import com.github.app.dify.req.UpdateKnowledgeBaseReq;
 import com.github.app.dify.resp.KnowledgeBaseResp;
 import com.github.app.dify.service.KnowledgeBaseService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
-
 /**
  * 知识库控制器
  */
-@Api(tags = "知识库管理")
+@Tag(name = "知识库管理")
 @RestController
 @RequestMapping("/api/knowledge-bases")
 public class KnowledgeBaseController {
@@ -32,7 +30,7 @@ public class KnowledgeBaseController {
     /**
      * 创建知识库
      */
-    @ApiOperation("创建知识库")
+    @Operation(summary = "创建知识库")
     @PostMapping
     public ResponseEntity<?> createKnowledgeBase(
             @Validated @RequestBody CreateKnowledgeBaseReq req,
@@ -66,7 +64,7 @@ public class KnowledgeBaseController {
     /**
      * 更新知识库
      */
-    @ApiOperation("更新知识库")
+    @Operation(summary = "更新知识库")
     @PutMapping("/{id}")
     public ResponseEntity<KnowledgeBaseResp> updateKnowledgeBase(@PathVariable Long id, 
                                                                  @Validated @RequestBody UpdateKnowledgeBaseReq req) {
@@ -82,7 +80,7 @@ public class KnowledgeBaseController {
     /**
      * 根据ID获取知识库
      */
-    @ApiOperation("根据ID获取知识库")
+    @Operation(summary = "根据ID获取知识库")
     @GetMapping("/{id}")
     public ResponseEntity<KnowledgeBaseResp> getKnowledgeBaseById(@PathVariable Long id) {
         try {
@@ -97,7 +95,7 @@ public class KnowledgeBaseController {
     /**
      * 删除知识库
      */
-    @ApiOperation("删除知识库")
+    @Operation(summary = "删除知识库")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteKnowledgeBase(@PathVariable Long id) {
         try {
@@ -112,7 +110,7 @@ public class KnowledgeBaseController {
     /**
      * 获取知识库列表
      */
-    @ApiOperation("获取知识库列表")
+    @Operation(summary = "获取知识库列表")
     @GetMapping
     public ResponseEntity<?> listKnowledgeBases(
             @RequestParam(required = false) Integer tenantId,
@@ -150,4 +148,3 @@ public class KnowledgeBaseController {
         }
     }
 }
-

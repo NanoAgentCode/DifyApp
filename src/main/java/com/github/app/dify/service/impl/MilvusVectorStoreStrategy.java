@@ -20,9 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
 import java.util.*;
-
 /**
  * Milvus向量存储服务（使用gRPC）
  */
@@ -193,16 +191,6 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
         return null;
     }
     
-    /**
-     * 获取指定知识库的超时时间
-     */
-    private int getTimeout(Long knowledgeBaseId) {
-        VectorDatabase config = getConfigByType("milvus");
-        if (config != null && config.getTimeout() != null) {
-            return config.getTimeout();
-        }
-        return milvusConfig.getTimeout();
-    }
     
     /**
      * 确保集合存在
@@ -696,7 +684,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
                         }
                     }
                     
-                    if (!created) {
+                    if (!created || wrapper == null) {
                         throw new RuntimeException("无法创建 SearchResultsWrapper。数据类型: " +
                                 (searchResultsData != null ? searchResultsData.getClass().getName() : "null") +
                                 "，可用构造函数: " + Arrays.toString(constructors));

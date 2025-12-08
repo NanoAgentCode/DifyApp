@@ -8,10 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-
 import java.util.List;
 import java.util.Optional;
-
 /**
  * 对话会话Repository
  */
@@ -81,4 +79,3 @@ public interface ChatConversationRepository extends JpaRepository<ChatConversati
            "AND (c.deleted IS NULL OR c.deleted = 0) ORDER BY c.createTime DESC")
     List<ChatConversation> findAllByUserId(@Param("userId") Long userId);
 }
-

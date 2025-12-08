@@ -8,13 +8,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
-
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import java.io.File;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
-
 /**
  * FAISS配置类
  * 用于配置FAISS向量存储的基础路径
@@ -154,4 +152,3 @@ public class FaissConfig {
         return Paths.get(getKnowledgeBasePath(knowledgeBaseId), "metadata.json").toString();
     }
 }
-

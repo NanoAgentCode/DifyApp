@@ -3,26 +3,24 @@ package com.github.app.dify.controller;
 import com.github.app.dify.req.ChatHistoryRequest;
 import com.github.app.dify.resp.*;
 import com.github.app.dify.service.ChatHistoryService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.format.annotation.DateTimeFormat;
-
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-
 /**
  * 管理员会话历史管理控制器
  * 会话（Conversation）：一个完整的对话会话，包含多轮问答
  * 消息（Message）：会话中的单条消息，一问一答为一轮对话
  */
-@Api(tags = "管理员-会话历史管理")
+@Tag(name = "管理员-会话历史管理")
 @RestController
 @RequestMapping("/api/admin/chat/history")
 public class AdminChatHistoryController {
@@ -35,7 +33,7 @@ public class AdminChatHistoryController {
     /**
      * 获取所有会话列表（管理员端）
      */
-    @ApiOperation("获取所有会话列表")
+    @Operation(summary = "获取所有会话列表")
     @GetMapping("/conversations")
     public ResponseEntity<PageResponse<ChatConversationResponse>> getAllConversations(
             @RequestParam(required = false, defaultValue = "1") Integer page,
@@ -74,7 +72,7 @@ public class AdminChatHistoryController {
     /**
      * 获取统计信息
      */
-    @ApiOperation("获取统计信息")
+    @Operation(summary = "获取统计信息")
     @GetMapping("/statistics")
     public ResponseEntity<ChatHistoryStatisticsResponse> getStatistics(
             HttpServletRequest httpRequest) {
@@ -95,7 +93,7 @@ public class AdminChatHistoryController {
     /**
      * 删除会话（管理员，会删除该会话中的所有消息）
      */
-    @ApiOperation("删除会话（管理员）")
+    @Operation(summary = "删除会话（管理员）")
     @DeleteMapping("/conversations/{id}")
     public ResponseEntity<Void> deleteConversation(
             @PathVariable Long id,
@@ -118,7 +116,7 @@ public class AdminChatHistoryController {
     /**
      * 批量删除会话（管理员，会删除这些会话中的所有消息）
      */
-    @ApiOperation("批量删除会话")
+    @Operation(summary = "批量删除会话")
     @DeleteMapping("/conversations/batch")
     public ResponseEntity<Void> batchDeleteConversations(
             @RequestBody Map<String, List<Long>> request,
@@ -142,4 +140,3 @@ public class AdminChatHistoryController {
         }
     }
 }
-

@@ -1,10 +1,8 @@
 package com.github.app.dify.service;
 
 import com.github.app.dify.domain.DataSource;
-
 import java.util.List;
 import java.util.Map;
-
 /**
  * 数据库表结构服务接口
  * 负责获取和缓存数据库表结构信息

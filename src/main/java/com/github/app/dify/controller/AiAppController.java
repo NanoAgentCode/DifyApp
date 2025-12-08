@@ -8,8 +8,8 @@ import com.github.app.dify.req.UpdateAiAppReq;
 import com.github.app.dify.resp.AiAppResp;
 import com.github.app.dify.resp.DifyResponse;
 import com.github.app.dify.service.AiAppService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,15 +20,13 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 /**
  * AI应用控制器
  */
-@Api(tags = "AI应用管理")
+@Tag(name = "AI应用管理")
 @RestController
 @RequestMapping("/api/ai-apps")
 public class AiAppController {
@@ -44,7 +42,7 @@ public class AiAppController {
     /**
      * 创建AI应用
      */
-    @ApiOperation("创建AI应用")
+    @Operation(summary = "创建AI应用")
     @PostMapping
     public ResponseEntity<AiAppResp> createAiApp(@Validated @RequestBody CreateAiAppReq req) {
         // 记录接收到的请求数据
@@ -57,7 +55,7 @@ public class AiAppController {
     /**
      * 更新AI应用
      */
-    @ApiOperation("更新AI应用")
+    @Operation(summary = "更新AI应用")
     @PutMapping("/{id}")
     public ResponseEntity<AiAppResp> updateAiApp(@PathVariable Long id, 
                                                   @Validated @RequestBody UpdateAiAppReq req) {
@@ -72,7 +70,7 @@ public class AiAppController {
     /**
      * 根据ID获取AI应用
      */
-    @ApiOperation("根据ID获取AI应用")
+    @Operation(summary = "根据ID获取AI应用")
     @GetMapping("/{id}")
     public ResponseEntity<AiAppResp> getAiAppById(@PathVariable Long id) {
         try {
@@ -86,7 +84,7 @@ public class AiAppController {
     /**
      * 删除AI应用
      */
-    @ApiOperation("删除AI应用")
+    @Operation(summary = "删除AI应用")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteAiApp(@PathVariable Long id) {
         try {
@@ -100,7 +98,7 @@ public class AiAppController {
     /**
      * 获取应用列表
      */
-    @ApiOperation("获取应用列表")
+    @Operation(summary = "获取应用列表")
     @GetMapping
     public ResponseEntity<?> listAiApps(
             @RequestParam(required = false) Integer tenantId,
@@ -154,7 +152,7 @@ public class AiAppController {
     /**
      * 调用Chat Flow（非流式）
      */
-    @ApiOperation("调用Chat Flow（非流式）")
+    @Operation(summary = "调用Chat Flow（非流式）")
     @PostMapping("/{id}/chat")
     public Mono<ResponseEntity<DifyResponse>> chat(@PathVariable Long id, 
                                                     @Validated @RequestBody ChatFlowRequest request) {
@@ -166,7 +164,7 @@ public class AiAppController {
     /**
      * 调用Chat Flow（流式）
      */
-    @ApiOperation("调用Chat Flow（流式）")
+    @Operation(summary = "调用Chat Flow（流式）")
     @PostMapping(value = "/{id}/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<DifyResponse>> chatStream(@PathVariable Long id, 
                                                           @Validated @RequestBody ChatFlowRequest request) {
@@ -216,7 +214,7 @@ public class AiAppController {
     /**
      * 调用Workflow（非流式）
      */
-    @ApiOperation("调用Workflow（非流式）")
+    @Operation(summary = "调用Workflow（非流式）")
     @PostMapping("/{id}/workflow")
     public Mono<ResponseEntity<DifyResponse>> workflow(@PathVariable Long id, 
                                                        @Validated @RequestBody WorkFlowRequest request,
@@ -234,7 +232,7 @@ public class AiAppController {
     /**
      * 调用Workflow（流式）
      */
-    @ApiOperation("调用Workflow（流式）")
+    @Operation(summary = "调用Workflow（流式）")
     @PostMapping(value = "/{id}/workflow/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<DifyResponse>> workflowStream(@PathVariable Long id, 
                                                               @Validated @RequestBody WorkFlowRequest request,
@@ -251,9 +249,7 @@ public class AiAppController {
                     // 如果响应中有event字段，也设置到SSE的event中
                     String event = response.getEvent();
                     if (event != null && !event.isEmpty()) {
-                        @SuppressWarnings("null")
-                        String nonNullEvent = event;
-                        builder.event(nonNullEvent);
+                        builder.event(event);
                     }
                     return builder.build();
                 })
@@ -272,7 +268,7 @@ public class AiAppController {
     /**
      * 获取Dify配置信息（用于前端）
      */
-    @ApiOperation("获取Dify配置信息")
+    @Operation(summary = "获取Dify配置信息")
     @GetMapping("/config")
     public ResponseEntity<Map<String, String>> getConfig() {
         Map<String, String> config = new HashMap<>();
@@ -283,7 +279,7 @@ public class AiAppController {
     /**
      * 上传文件到Dify
      */
-    @ApiOperation("上传文件到Dify")
+    @Operation(summary = "上传文件到Dify")
     @PostMapping(value = "/{id}/files/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Mono<ResponseEntity<Map<String, Object>>> uploadFile(
             @PathVariable Long id,
@@ -298,4 +294,3 @@ public class AiAppController {
     }
     
 }
-

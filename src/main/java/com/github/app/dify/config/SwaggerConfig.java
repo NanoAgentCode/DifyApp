@@ -1,50 +1,21 @@
 package com.github.app.dify.config;
 
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Info;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import springfox.documentation.builders.ApiInfoBuilder;
-import springfox.documentation.builders.PathSelectors;
-import springfox.documentation.builders.RequestHandlerSelectors;
-import springfox.documentation.service.ApiInfo;
-import springfox.documentation.spi.DocumentationType;
-import springfox.documentation.spring.web.plugins.Docket;
-import springfox.documentation.swagger2.annotations.EnableSwagger2;
-
 /**
- * Swagger配置
- * 暂时禁用以避免 Spring Boot 2.6+ 兼容性问题
- * 如需启用，请解决 Springfox 与 Spring Boot 2.6+ 的兼容性问题
+ * SpringDoc OpenAPI 配置（替代 SpringFox，支持 Spring Boot 3）
  */
-// @Configuration
-// @EnableSwagger2
-public class SwaggerConfig implements WebMvcConfigurer {
+@Configuration
+public class SwaggerConfig {
     
     @Bean
-    public Docket createRestApi() {
-        return new Docket(DocumentationType.SWAGGER_2)
-                .apiInfo(apiInfo())
-                .select()
-                .apis(RequestHandlerSelectors.basePackage("com.github.app.dify.controller"))
-                .paths(PathSelectors.any())
-                .build();
-    }
-    
-    private ApiInfo apiInfo() {
-        return new ApiInfoBuilder()
-                .title("DifyApp API文档")
-                .description("Dify应用管理和对接API")
-                .version("1.0.0")
-                .build();
-    }
-    
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("swagger-ui.html")
-                .addResourceLocations("classpath:/META-INF/resources/");
-        registry.addResourceHandler("/webjars/**")
-                .addResourceLocations("classpath:/META-INF/resources/webjars/");
+    public OpenAPI customOpenAPI() {
+        return new OpenAPI()
+                .info(new Info()
+                        .title("DifyApp API文档")
+                        .description("Dify应用管理和对接API")
+                        .version("1.0.0"));
     }
 }
-

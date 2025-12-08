@@ -18,12 +18,17 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import java.time.Duration;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
 /**
  * 模型配置服务实现
  */
@@ -181,9 +186,36 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             throw new RuntimeException("模型标识不能为空");
         }
         
-        // TODO: 实现实际的连接测试逻辑
+        // 实现实际的连接测试逻辑
         logger.info("测试模型连接: type={}, provider={}, apiUrl={}, model={}", 
                 request.getType(), request.getProvider(), request.getApiUrl(), request.getModel());
+        
+        try {
+            // 构建测试请求
+            String apiUrl = request.getApiUrl().trim();
+            if (apiUrl.endsWith("/")) {
+                apiUrl = apiUrl.substring(0, apiUrl.length() - 1);
+            }
+            
+            // 根据提供商类型发送测试请求
+            if ("openai".equalsIgnoreCase(request.getProvider()) || "vllm".equalsIgnoreCase(request.getProvider())) {
+                // OpenAI 兼容 API 测试
+                testOpenAICompatibleConnection(apiUrl, request.getApiKey(), request.getModel());
+            } else if ("ollama".equalsIgnoreCase(request.getProvider())) {
+                // Ollama API 测试
+                testOllamaConnection(apiUrl, request.getModel());
+            } else {
+                // 默认尝试 OpenAI 兼容 API
+                testOpenAICompatibleConnection(apiUrl, request.getApiKey(), request.getModel());
+            }
+            
+            logger.info("模型连接测试成功 - type={}, provider={}, apiUrl={}, model={}", 
+                    request.getType(), request.getProvider(), request.getApiUrl(), request.getModel());
+        } catch (Exception e) {
+            logger.error("模型连接测试失败 - type={}, provider={}, apiUrl={}, model={}, 错误: {}", 
+                    request.getType(), request.getProvider(), request.getApiUrl(), request.getModel(), e.getMessage());
+            throw new RuntimeException("模型连接测试失败: " + e.getMessage(), e);
+        }
     }
     
     /**
@@ -495,5 +527,59 @@ public class ModelConfigServiceImpl implements ModelConfigService {
         BeanUtils.copyProperties(embeddingModel, resp);
         return resp;
     }
+    
+    /**
+     * 测试 OpenAI 兼容 API 连接
+     */
+    private void testOpenAICompatibleConnection(String apiUrl, String apiKey, String model) {
+        WebClient webClient = WebClient.builder()
+                .baseUrl(apiUrl)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build();
+        
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("model", model);
+        Map<String, String> message = new HashMap<>();
+        message.put("role", "user");
+        message.put("content", "test");
+        requestBody.put("messages", Collections.singletonList(message));
+        requestBody.put("max_tokens", 1);
+        
+        WebClient.RequestBodySpec requestSpec = webClient.post()
+                .uri("/v1/chat/completions");
+        
+        if (apiKey != null && !apiKey.trim().isEmpty()) {
+            requestSpec.header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey.trim());
+        }
+        
+        requestSpec
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(String.class)
+                .timeout(Duration.ofSeconds(10))
+                .block();
+    }
+    
+    /**
+     * 测试 Ollama API 连接
+     */
+    private void testOllamaConnection(String apiUrl, String model) {
+        WebClient webClient = WebClient.builder()
+                .baseUrl(apiUrl)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build();
+        
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("model", model);
+        requestBody.put("prompt", "test");
+        requestBody.put("stream", false);
+        
+        webClient.post()
+                .uri("/api/generate")
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(String.class)
+                .timeout(Duration.ofSeconds(10))
+                .block();
+    }
 }
-

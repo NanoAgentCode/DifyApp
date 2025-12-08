@@ -1,34 +1,31 @@
 package com.github.app.dify.req;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
-import javax.validation.constraints.NotBlank;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import java.util.List;
-
 /**
  * 知识库问答请求
  */
-@ApiModel("知识库问答请求")
+@Schema(description = "知识库问答请求")
 public class KnowledgeBaseQARequest {
     
     @NotBlank(message = "问题不能为空")
-    @ApiModelProperty(value = "问题", required = true)
+    @Schema(description = "问题")
     private String question;
     
-    @ApiModelProperty("对话ID（用于多轮对话）")
+    @Schema(description = "对话ID（用于多轮对话）")
     private String conversationId;
     
-    @ApiModelProperty("用户ID")
+    @Schema(description = "用户ID")
     private String userId;
     
-    @ApiModelProperty("对话历史")
+    @Schema(description = "对话历史")
     private List<Message> history;
     
-    @ApiModelProperty("是否流式响应")
+    @Schema(description = "是否流式响应")
     private Boolean stream;
     
-    @ApiModelProperty("问答模型ID（可选，不指定则使用默认模型）")
+    @Schema(description = "问答模型ID（可选，不指定则使用默认模型）")
     private Long modelId;
     
     public String getQuestion() {
@@ -103,4 +100,3 @@ public class KnowledgeBaseQARequest {
         }
     }
 }
-

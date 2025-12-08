@@ -4,10 +4,8 @@ import com.github.app.dify.domain.EmbeddingModel;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
-
 /**
  * 向量化模型Repository
  */
@@ -36,4 +34,3 @@ public interface EmbeddingModelRepository extends JpaRepository<EmbeddingModel, 
            "ORDER BY e.isDefault DESC, e.createTime DESC")
     List<EmbeddingModel> findAllEnabled();
 }
-

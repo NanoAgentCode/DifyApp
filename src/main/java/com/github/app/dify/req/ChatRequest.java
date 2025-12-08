@@ -1,37 +1,34 @@
 package com.github.app.dify.req;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
-import javax.validation.constraints.NotBlank;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import java.util.List;
-
 /**
  * 智能问答请求（直接对话，不使用知识库）
  */
-@ApiModel("智能问答请求")
+@Schema(description = "智能问答请求")
 public class ChatRequest {
     
     @NotBlank(message = "问题不能为空")
-    @ApiModelProperty(value = "问题", required = true)
+    @Schema(description = "问题")
     private String question;
     
-    @ApiModelProperty("对话ID（用于多轮对话）")
+    @Schema(description = "对话ID（用于多轮对话）")
     private String conversationId;
     
-    @ApiModelProperty("用户ID")
+    @Schema(description = "用户ID")
     private String userId;
     
-    @ApiModelProperty("对话历史")
+    @Schema(description = "对话历史")
     private List<Message> history;
     
-    @ApiModelProperty("是否流式响应")
+    @Schema(description = "是否流式响应")
     private Boolean stream;
     
-    @ApiModelProperty("模型ID（从数据库中选择的问答模型）")
+    @Schema(description = "模型ID（从数据库中选择的问答模型）")
     private Long modelId;
     
-    @ApiModelProperty("是否启用浏览器检索（MCP协议）")
+    @Schema(description = "是否启用浏览器检索（MCP协议）")
     private Boolean enableBrowserSearch;
     
     public String getQuestion() {
@@ -114,4 +111,3 @@ public class ChatRequest {
         }
     }
 }
-

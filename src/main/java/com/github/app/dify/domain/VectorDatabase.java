@@ -1,13 +1,12 @@
 package com.github.app.dify.domain;
 
-import javax.persistence.*;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Size;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 import java.util.Date;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.validator.constraints.Length;
-
 /**
  * 向量数据库配置表
  * @TableName VECTOR_DATABASE
@@ -21,7 +20,7 @@ public class VectorDatabase implements Serializable {
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @ApiModelProperty("配置编号")
+    @Schema(description = "配置编号")
     private Long id;
     
     /**
@@ -29,7 +28,7 @@ public class VectorDatabase implements Serializable {
      */
     @NotBlank(message="[配置名称]不能为空")
     @Size(max= 100,message="编码长度不能超过100")
-    @ApiModelProperty("配置名称")
+    @Schema(description = "配置名称")
     @Length(max= 100,message="编码长度不能超过100")
     @Column(name = "name", columnDefinition = "VARCHAR(100)")
     private String name;
@@ -39,7 +38,7 @@ public class VectorDatabase implements Serializable {
      */
     @NotBlank(message="[数据库类型]不能为空")
     @Size(max= 20,message="编码长度不能超过20")
-    @ApiModelProperty("数据库类型：qdrant, milvus, faiss")
+    @Schema(description = "数据库类型：qdrant, milvus, faiss")
     @Length(max= 20,message="编码长度不能超过20")
     @Column(name = "type", columnDefinition = "VARCHAR(20)")
     private String type;
@@ -49,7 +48,7 @@ public class VectorDatabase implements Serializable {
      */
     @NotBlank(message="[连接地址]不能为空")
     @Size(max= 500,message="编码长度不能超过500")
-    @ApiModelProperty("连接地址（URL或路径）")
+    @Schema(description = "连接地址（URL或路径）")
     @Length(max= 500,message="编码长度不能超过500")
     @Column(name = "url", columnDefinition = "VARCHAR(500)")
     private String url;
@@ -58,7 +57,7 @@ public class VectorDatabase implements Serializable {
      * API Key（可选）
      */
     @Size(max= 500,message="编码长度不能超过500")
-    @ApiModelProperty("API Key（可选）")
+    @Schema(description = "API Key（可选）")
     @Length(max= 500,message="编码长度不能超过500")
     @Column(name = "api_key", columnDefinition = "VARCHAR(500)")
     private String apiKey;
@@ -66,7 +65,7 @@ public class VectorDatabase implements Serializable {
     /**
      * 超时时间（毫秒）
      */
-    @ApiModelProperty("超时时间（毫秒）")
+    @Schema(description = "超时时间（毫秒）")
     @Column(name = "timeout")
     private Integer timeout;
     
@@ -74,7 +73,7 @@ public class VectorDatabase implements Serializable {
      * 额外配置（JSON格式）
      */
     @Size(max= 2000,message="编码长度不能超过2000")
-    @ApiModelProperty("额外配置（JSON格式）")
+    @Schema(description = "额外配置（JSON格式）")
     @Length(max= 2000,message="编码长度不能超过2000")
     @Column(name = "extra_config", columnDefinition = "TEXT")
     private String extraConfig;
@@ -82,21 +81,21 @@ public class VectorDatabase implements Serializable {
     /**
      * 是否启用：true-启用, false-禁用
      */
-    @ApiModelProperty("是否启用：true-启用, false-禁用")
+    @Schema(description = "是否启用：true-启用, false-禁用")
     @Column(name = "enabled")
     private Boolean enabled;
     
     /**
      * 是否默认：true-默认, false-非默认
      */
-    @ApiModelProperty("是否默认：true-默认, false-非默认")
+    @Schema(description = "是否默认：true-默认, false-非默认")
     @Column(name = "is_default")
     private Boolean isDefault;
     
     /**
      * 是否允许新建知识库：true-允许, false-不允许，默认为true
      */
-    @ApiModelProperty("是否允许新建知识库：true-允许, false-不允许，默认为true")
+    @Schema(description = "是否允许新建知识库：true-允许, false-不允许，默认为true")
     @Column(name = "allow_create_knowledge_base")
     private Boolean allowCreateKnowledgeBase;
     
@@ -104,7 +103,7 @@ public class VectorDatabase implements Serializable {
      * 描述
      */
     @Size(max= 500,message="编码长度不能超过500")
-    @ApiModelProperty("描述")
+    @Schema(description = "描述")
     @Length(max= 500,message="编码长度不能超过500")
     @Column(name = "description", columnDefinition = "VARCHAR(500)")
     private String description;
@@ -112,21 +111,21 @@ public class VectorDatabase implements Serializable {
     /**
      * 创建时间
      */
-    @ApiModelProperty("创建时间")
+    @Schema(description = "创建时间")
     @Column(name = "create_time")
     private Date createTime;
     
     /**
      * 更新时间
      */
-    @ApiModelProperty("更新时间")
+    @Schema(description = "更新时间")
     @Column(name = "update_time")
     private Date updateTime;
     
     /**
      * 是否删除：0-未删除，1-已删除
      */
-    @ApiModelProperty("是否删除：0-未删除，1-已删除")
+    @Schema(description = "是否删除：0-未删除，1-已删除")
     @Column(name = "deleted")
     private Integer deleted;
 
@@ -243,4 +242,3 @@ public class VectorDatabase implements Serializable {
         this.deleted = deleted;
     }
 }
-

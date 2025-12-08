@@ -9,10 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.stream.Collectors;
-
 /**
  * 自定义EmbeddingModel，适配现有的向量化API
  * 注意：此类使用默认模型，如需使用特定模型，请使用 EmbeddingModelFactory 创建实例
@@ -74,4 +72,3 @@ public class CustomEmbeddingModel implements EmbeddingModel {
         return array;
     }
 }
-

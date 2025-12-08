@@ -1,24 +1,22 @@
 package com.github.app.dify.req;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * 创建会话请求
  */
-@ApiModel("创建会话请求")
+@Schema(description = "创建会话请求")
 public class CreateConversationRequest {
     
-    @ApiModelProperty("会话标题（可选，不提供则自动生成）")
+    @Schema(description = "会话标题（可选，不提供则自动生成）")
     private String title;
     
-    @ApiModelProperty("应用ID（可选）")
+    @Schema(description = "应用ID（可选）")
     private Long appId;
     
-    @ApiModelProperty("知识库ID（可选）")
+    @Schema(description = "知识库ID（可选）")
     private Long knowledgeBaseId;
     
-    @ApiModelProperty("会话类型：1-普通聊天，2-知识库问答")
+    @Schema(description = "会话类型：1-普通聊天，2-知识库问答")
     private Integer type;
 
     public String getTitle() {
@@ -53,4 +51,3 @@ public class CreateConversationRequest {
         this.type = type;
     }
 }
-

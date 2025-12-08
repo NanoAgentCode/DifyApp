@@ -3,22 +3,20 @@ package com.github.app.dify.controller;
 import com.github.app.dify.service.DataSourceService;
 import com.github.app.dify.service.DatabaseSchemaService;
 import com.github.app.dify.service.Text2SqlService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 /**
  * Text2SQL 控制器
  */
-@Api(tags = "Text2SQL")
+@Tag(name = "Text2SQL")
 @RestController
 @RequestMapping("/api/text2sql")
 public class Text2SqlController {
@@ -37,7 +35,7 @@ public class Text2SqlController {
     /**
      * 执行 Text2SQL 查询
      */
-    @ApiOperation("执行 Text2SQL 查询")
+    @Operation(summary = "执行 Text2SQL 查询")
     @PostMapping("/query")
     public ResponseEntity<?> executeQuery(@RequestBody Map<String, Object> request) {
         try {
@@ -68,7 +66,7 @@ public class Text2SqlController {
     /**
      * 获取表列表
      */
-    @ApiOperation("获取表列表")
+    @Operation(summary = "获取表列表")
     @GetMapping("/{dataSourceId}/tables")
     public ResponseEntity<?> getTableList(@PathVariable Long dataSourceId) {
         try {
@@ -86,7 +84,7 @@ public class Text2SqlController {
     /**
      * 获取表结构
      */
-    @ApiOperation("获取表结构")
+    @Operation(summary = "获取表结构")
     @GetMapping("/{dataSourceId}/tables/{tableName}/schema")
     public ResponseEntity<?> getTableSchema(
             @PathVariable Long dataSourceId,
@@ -104,4 +102,3 @@ public class Text2SqlController {
         }
     }
 }
-

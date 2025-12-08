@@ -1,10 +1,6 @@
 package com.github.app.dify.service.impl;
-
-import com.github.app.dify.config.RagConfig;
 import com.github.app.dify.domain.QAModel;
-import com.github.app.dify.langchain4j.CustomEmbeddingModel;
 import com.github.app.dify.langchain4j.ModelLanguageModelFactory;
-import com.github.app.dify.langchain4j.VectorStoreFactory;
 import com.github.app.dify.req.KnowledgeBaseQARequest;
 import com.github.app.dify.resp.KnowledgeBaseQAResponse;
 import com.github.app.dify.service.ChatHistoryService;
@@ -17,20 +13,14 @@ import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.output.Response;
-import dev.langchain4j.rag.content.retriever.ContentRetriever;
-import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
-import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
-
 import java.util.*;
 import java.util.stream.Collectors;
-
 /**
  * 知识库问答服务（使用LangChain4j RAG）
  */
@@ -41,12 +31,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     
     @Autowired
     private RagRetrievalService ragRetrievalService;
-    
-    @Autowired
-    private RagConfig ragConfig;
-    
-    @Autowired
-    private CustomEmbeddingModel embeddingModel;
+
     
     @Autowired
     private KnowledgeBaseService knowledgeBaseService;
@@ -56,9 +41,6 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     
     @Autowired
     private ModelConfigService modelConfigService;
-    
-    @Autowired
-    private VectorStoreFactory vectorStoreFactory;
     
     @Autowired
     private ContextCompressionService contextCompressionService;
@@ -221,29 +203,6 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
         }
     }
     
-    /**
-     * 创建ContentRetriever
-     */
-    private ContentRetriever createContentRetriever(Long knowledgeBaseId) {
-        EmbeddingStore<TextSegment> embeddingStore = vectorStoreFactory.createEmbeddingStore(knowledgeBaseId);
-        
-        // 获取知识库的topK配置，如果为null则使用全局配置
-        Integer topK = null;
-        try {
-            com.github.app.dify.resp.KnowledgeBaseResp kb = knowledgeBaseService.getKnowledgeBaseById(knowledgeBaseId);
-            topK = kb.getTopK();
-        } catch (Exception e) {
-            logger.debug("获取知识库topK配置失败，使用全局配置 - 知识库ID: {}", knowledgeBaseId);
-        }
-        int effectiveTopK = (topK != null && topK > 0) ? topK : ragConfig.getTopK();
-        
-        return EmbeddingStoreContentRetriever.builder()
-                .embeddingStore(embeddingStore)
-                .embeddingModel(embeddingModel)
-                .maxResults(effectiveTopK)
-                .minScore(ragConfig.getSimilarityThreshold())
-                .build();
-    }
     
     /**
      * 构建消息列表（包含历史对话）
@@ -602,4 +561,3 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
         }
     }
 }
-

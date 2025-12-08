@@ -16,10 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
 import java.sql.*;
 import java.util.*;
-
 /**
  * Text2SQL 服务
  * 使用 LangChain4j 实现自然语言到 SQL 的转换
@@ -463,7 +461,6 @@ public class Text2SqlServiceImpl implements Text2SqlService {
         while (matcher.find()) {
             // 检查匹配位置前后是否已经有CAST，如果有则跳过
             int start = matcher.start();
-            int end = matcher.end();
             String beforeMatch = fixedSql.substring(Math.max(0, start - 50), start);
             if (beforeMatch.toUpperCase().contains("CAST(")) {
                 matcher.appendReplacement(sb, matcher.group(0));
@@ -1018,7 +1015,6 @@ public class Text2SqlServiceImpl implements Text2SqlService {
      */
     private Set<String> extractAliases(String sql) {
         Set<String> aliases = new HashSet<>();
-        String upperSql = sql.toUpperCase();
         
         // 匹配 "AS alias" 模式
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
@@ -1101,7 +1097,6 @@ public class Text2SqlServiceImpl implements Text2SqlService {
             if (matcher.find()) {
                 // 检查是否在字符串值中（单引号或双引号内）
                 int start = matcher.start();
-                int end = matcher.end();
                 
                 // 检查关键字前后是否有引号（可能在字符串值中）
                 boolean inString = false;
@@ -1235,4 +1230,3 @@ public class Text2SqlServiceImpl implements Text2SqlService {
         }
     }
 }
-

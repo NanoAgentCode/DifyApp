@@ -1,10 +1,9 @@
 package com.github.app.dify.domain;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.io.Serializable;
 import java.util.Date;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * 会话消息表（会话中的单条消息，一问一答为一轮对话）
  * @TableName chat_message
@@ -18,41 +17,41 @@ public class ChatMessage implements Serializable {
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @ApiModelProperty("主键")
+    @Schema(description = "主键")
     private Long id;
 
     /**
      * 会话ID（外键关联chat_conversation）
      */
-    @ApiModelProperty("会话ID")
+    @Schema(description = "会话ID")
     @Column(name = "conversation_id")
     private Long conversationId;
 
     /**
      * 角色（user/assistant）
      */
-    @ApiModelProperty("角色（user/assistant）")
+    @Schema(description = "角色（user/assistant）")
     @Column(name = "role", length = 20)
     private String role;
 
     /**
      * 消息内容
      */
-    @ApiModelProperty("消息内容")
+    @Schema(description = "消息内容")
     @Column(name = "content", columnDefinition = "TEXT")
     private String content;
 
     /**
      * 消息顺序
      */
-    @ApiModelProperty("消息顺序")
+    @Schema(description = "消息顺序")
     @Column(name = "sequence")
     private Integer sequence;
 
     /**
      * 创建时间
      */
-    @ApiModelProperty("创建时间")
+    @Schema(description = "创建时间")
     @Column(name = "create_time")
     private Date createTime;
 
@@ -104,4 +103,3 @@ public class ChatMessage implements Serializable {
         this.createTime = createTime;
     }
 }
-

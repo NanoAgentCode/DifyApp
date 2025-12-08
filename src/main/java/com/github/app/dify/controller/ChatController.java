@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.req.ChatRequest;
 import com.github.app.dify.resp.ChatResponse;
 import com.github.app.dify.service.ChatService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,13 +15,11 @@ import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
-
-import javax.servlet.http.HttpServletRequest;
-
+import jakarta.servlet.http.HttpServletRequest;
 /**
  * 智能问答控制器（直接对话，不使用知识库）
  */
-@Api(tags = "智能问答")
+@Tag(name = "智能问答")
 @RestController
 @RequestMapping("/api/chat")
 public class ChatController {
@@ -37,7 +35,7 @@ public class ChatController {
     /**
      * 智能问答（非流式）
      */
-    @ApiOperation("智能问答")
+    @Operation(summary = "智能问答")
     @PostMapping
     public ResponseEntity<ChatResponse> chat(
             @Validated @RequestBody ChatRequest request,
@@ -56,7 +54,7 @@ public class ChatController {
     /**
      * 智能问答（流式）
      */
-    @ApiOperation("智能问答（流式）")
+    @Operation(summary = "智能问答（流式）")
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> chatStream(
             @Validated @RequestBody ChatRequest request,
@@ -103,4 +101,3 @@ public class ChatController {
         }
     }
 }
-

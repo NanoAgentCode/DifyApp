@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.req.KnowledgeBaseQARequest;
 import com.github.app.dify.resp.KnowledgeBaseQAResponse;
 import com.github.app.dify.service.KnowledgeBaseQAService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,13 +15,11 @@ import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
-
-import javax.servlet.http.HttpServletRequest;
-
+import jakarta.servlet.http.HttpServletRequest;
 /**
  * 知识库问答控制器
  */
-@Api(tags = "知识库问答")
+@Tag(name = "知识库问答")
 @RestController
 @RequestMapping("/api/knowledge-bases/{kbId}/qa")
 public class KnowledgeBaseQAController {
@@ -34,10 +32,13 @@ public class KnowledgeBaseQAController {
     @Autowired
     private ObjectMapper objectMapper;
     
+    @Autowired(required = false)
+    private com.github.app.dify.service.DocumentVectorizationService documentVectorizationService;
+    
     /**
      * 知识库问答（非流式）
      */
-    @ApiOperation("知识库问答")
+    @Operation(summary = "知识库问答")
     @PostMapping
     public ResponseEntity<KnowledgeBaseQAResponse> answer(
             @PathVariable Long kbId,
@@ -66,7 +67,7 @@ public class KnowledgeBaseQAController {
     /**
      * 知识库问答（流式）
      */
-    @ApiOperation("知识库问答（流式）")
+    @Operation(summary = "知识库问答（流式）")
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> answerStream(
             @PathVariable Long kbId,
@@ -118,14 +119,19 @@ public class KnowledgeBaseQAController {
     /**
      * 重新索引文档
      */
-    @ApiOperation("重新索引文档")
+    @Operation(summary = "重新索引文档")
     @PostMapping("/documents/{docId}/reindex")
     public ResponseEntity<Void> reindexDocument(
             @PathVariable Long kbId,
             @PathVariable Long docId) {
         try {
             logger.info("接收到重新索引文档请求 - 知识库ID: {}, 文档ID: {}", kbId, docId);
-            // TODO: 实现重新索引逻辑
+            if (documentVectorizationService == null) {
+                logger.warn("DocumentVectorizationService未配置，无法重新索引 - 知识库ID: {}, 文档ID: {}", kbId, docId);
+                return ResponseEntity.badRequest().build();
+            }
+            documentVectorizationService.reindexDocument(kbId, docId);
+            logger.info("重新索引文档任务已提交 - 知识库ID: {}, 文档ID: {}", kbId, docId);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             logger.error("重新索引文档失败 - 知识库ID: {}, 文档ID: {}", kbId, docId, e);
@@ -133,4 +139,3 @@ public class KnowledgeBaseQAController {
         }
     }
 }
-

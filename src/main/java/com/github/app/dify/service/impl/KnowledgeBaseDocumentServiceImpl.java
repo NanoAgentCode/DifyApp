@@ -15,14 +15,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
 /**
  * 知识库文档服务
  */
@@ -353,4 +351,3 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
         return resp;
     }
 }
-

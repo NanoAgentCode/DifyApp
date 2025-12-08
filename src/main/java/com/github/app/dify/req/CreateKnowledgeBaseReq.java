@@ -1,45 +1,42 @@
 package com.github.app.dify.req;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Size;
-
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 /**
  * 创建知识库请求
  */
-@ApiModel("创建知识库请求")
+@Schema(description = "创建知识库请求")
 public class CreateKnowledgeBaseReq {
     
     @NotBlank(message = "知识库名称不能为空")
     @Size(max = 100, message = "知识库名称长度不能超过100")
-    @ApiModelProperty(value = "知识库名称", required = true)
+    @Schema(description = "知识库名称")
     private String name;
     
     @Size(max = 500, message = "知识库描述长度不能超过500")
-    @ApiModelProperty("知识库描述")
+    @Schema(description = "知识库描述")
     private String description;
     
-    @ApiModelProperty("知识库状态：1-启用，0-禁用，默认为1")
+    @Schema(description = "知识库状态：1-启用，0-禁用，默认为1")
     private Integer status;
     
-    @ApiModelProperty("是否公开：true-公开，false-私有，默认为false（私有）")
+    @Schema(description = "是否公开：true-公开，false-私有，默认为false（私有）")
     private Boolean isPublic;
     
-    @ApiModelProperty("向量化模型ID（可选，如果不指定则使用默认向量化模型）")
+    @Schema(description = "向量化模型ID（可选，如果不指定则使用默认向量化模型）")
     private Long embeddingModelId;
     
-    @ApiModelProperty("Top-K检索数量（可选，如果不指定则使用全局配置）")
+    @Schema(description = "Top-K检索数量（可选，如果不指定则使用全局配置）")
     private Integer topK;
     
-    @ApiModelProperty("向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储，milvus-Milvus向量数据库（默认为qdrant）")
+    @Schema(description = "向量存储类型：qdrant-Qdrant向量数据库，faiss-FAISS本地文件存储，milvus-Milvus向量数据库（默认为qdrant）")
     private String vectorStoreType;
     
-    @ApiModelProperty("向量库实例ID（关联VECTOR_DATABASE表的id，可选，如果指定则使用该实例，否则使用默认实例）")
+    @Schema(description = "向量库实例ID（关联VECTOR_DATABASE表的id，可选，如果指定则使用该实例，否则使用默认实例）")
     private Long vectorDatabaseId;
     
-    @ApiModelProperty("租户编号")
+    @Schema(description = "租户编号")
     private Integer tenantId;
     
     // Getters and Setters
@@ -115,4 +112,3 @@ public class CreateKnowledgeBaseReq {
         this.tenantId = tenantId;
     }
 }
-

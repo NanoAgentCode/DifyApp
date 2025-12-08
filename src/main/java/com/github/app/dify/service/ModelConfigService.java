@@ -6,9 +6,7 @@ import com.github.app.dify.req.ModelConfigRequest;
 import com.github.app.dify.req.TestModelConnectionRequest;
 import com.github.app.dify.resp.ModelConfigResponse;
 import com.github.app.dify.resp.QAModelResp;
-
 import java.util.List;
-
 /**
  * 模型配置服务接口
  */

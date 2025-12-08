@@ -7,9 +7,7 @@ import com.github.app.dify.resp.LoginResponse;
 import com.github.app.dify.resp.PageResponse;
 import com.github.app.dify.resp.RegisterResponse;
 import com.github.app.dify.resp.UserResp;
-
 import java.util.List;
-
 /**
  * 认证服务接口
  */

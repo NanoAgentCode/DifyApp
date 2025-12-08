@@ -1,6 +1,5 @@
 package com.github.app.dify.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.config.QdrantConfig;
 import com.github.app.dify.service.VectorStoreStrategy;
 import org.slf4j.Logger;
@@ -13,10 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
-
 import java.time.Duration;
 import java.util.*;
-
 /**
  * Qdrant向量存储策略实现
  */

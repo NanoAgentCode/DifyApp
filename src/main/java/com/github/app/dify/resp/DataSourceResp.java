@@ -1,62 +1,59 @@
 package com.github.app.dify.resp;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Date;
-
 /**
  * 数据源响应
  */
-@ApiModel("数据源响应")
+@Schema(description = "数据源响应")
 public class DataSourceResp {
     
-    @ApiModelProperty("数据源编号")
+    @Schema(description = "数据源编号")
     private Long id;
     
-    @ApiModelProperty("数据源名称")
+    @Schema(description = "数据源名称")
     private String name;
     
-    @ApiModelProperty("数据源描述")
+    @Schema(description = "数据源描述")
     private String description;
     
-    @ApiModelProperty("数据库类型：postgresql, mysql, oracle, mongodb")
+    @Schema(description = "数据库类型：postgresql, mysql, oracle, mongodb")
     private String type;
     
-    @ApiModelProperty("主机地址")
+    @Schema(description = "主机地址")
     private String host;
     
-    @ApiModelProperty("端口号")
+    @Schema(description = "端口号")
     private Integer port;
     
-    @ApiModelProperty("数据库名称")
+    @Schema(description = "数据库名称")
     private String database;
     
-    @ApiModelProperty("用户名")
+    @Schema(description = "用户名")
     private String username;
     
-    @ApiModelProperty("数据源状态：1-启用，0-禁用")
+    @Schema(description = "数据源状态：1-启用，0-禁用")
     private Integer status;
     
-    @ApiModelProperty("创建者")
+    @Schema(description = "创建者")
     private String creator;
     
-    @ApiModelProperty("创建者ID")
+    @Schema(description = "创建者ID")
     private Long creatorId;
     
-    @ApiModelProperty("是否公开：true-公开，false-私有")
+    @Schema(description = "是否公开：true-公开，false-私有")
     private Boolean isPublic;
     
-    @ApiModelProperty("创建时间")
+    @Schema(description = "创建时间")
     private Date createTime;
     
-    @ApiModelProperty("更新者")
+    @Schema(description = "更新者")
     private String updater;
     
-    @ApiModelProperty("更新时间")
+    @Schema(description = "更新时间")
     private Date updateTime;
     
-    @ApiModelProperty("租户编号")
+    @Schema(description = "租户编号")
     private Integer tenantId;
     
     // Getters and Setters
@@ -188,4 +185,3 @@ public class DataSourceResp {
         this.tenantId = tenantId;
     }
 }
-

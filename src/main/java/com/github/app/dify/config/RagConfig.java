@@ -2,7 +2,6 @@ package com.github.app.dify.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
-
 /**
  * RAG配置类
  */
@@ -96,4 +95,3 @@ public class RagConfig {
         this.enableSummary = enableSummary;
     }
 }
-

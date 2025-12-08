@@ -3,7 +3,6 @@ package com.github.app.dify.resp;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
-
 /**
  * Dify API响应对象
  */

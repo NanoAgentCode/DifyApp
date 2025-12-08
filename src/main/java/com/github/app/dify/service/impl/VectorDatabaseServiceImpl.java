@@ -23,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
-
 import java.io.File;
 import java.net.URL;
 import java.time.Duration;
@@ -32,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
 /**
  * 向量数据库配置服务实现
  */
@@ -740,4 +738,3 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
         return resp;
     }
 }
-

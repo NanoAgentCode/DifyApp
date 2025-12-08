@@ -1,24 +1,22 @@
 package com.github.app.dify.resp;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * 注册响应
  */
-@ApiModel("注册响应")
+@Schema(description = "注册响应")
 public class RegisterResponse {
     
-    @ApiModelProperty("用户ID")
+    @Schema(description = "用户ID")
     private Long userId;
     
-    @ApiModelProperty("用户名")
+    @Schema(description = "用户名")
     private String username;
     
-    @ApiModelProperty("状态：0-待审核，1-已激活，2-已禁用")
+    @Schema(description = "状态：0-待审核，1-已激活，2-已禁用")
     private Integer status;
     
-    @ApiModelProperty("提示信息")
+    @Schema(description = "提示信息")
     private String message;
     
     // Getters and Setters
@@ -54,4 +52,3 @@ public class RegisterResponse {
         this.message = message;
     }
 }
-

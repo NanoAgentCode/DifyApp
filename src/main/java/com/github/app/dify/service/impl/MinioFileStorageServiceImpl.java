@@ -12,9 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.io.InputStream;
-
 /**
  * MinIO文件存储服务实现
  */
@@ -106,4 +104,3 @@ public class MinioFileStorageServiceImpl implements FileStorageService {
         }
     }
 }
-

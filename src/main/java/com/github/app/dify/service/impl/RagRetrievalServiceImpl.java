@@ -5,7 +5,6 @@ import com.github.app.dify.langchain4j.CustomEmbeddingModel;
 import com.github.app.dify.langchain4j.VectorStoreFactory;
 import com.github.app.dify.service.EmbeddingService;
 import com.github.app.dify.service.RagRetrievalService;
-import com.github.app.dify.service.VectorStoreService;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
@@ -14,11 +13,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-
 /**
  * RAG检索服务（使用LangChain4j）
  */

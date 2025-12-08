@@ -1,57 +1,54 @@
 package com.github.app.dify.req;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
-import javax.validation.constraints.Size;
-
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Size;
 /**
  * 更新AI应用请求
  */
-@ApiModel("更新AI应用请求")
+@Schema(description = "更新AI应用请求")
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class UpdateAiAppReq {
     
     @Size(max = 100, message = "应用名称长度不能超过100")
-    @ApiModelProperty("应用名称")
+    @Schema(description = "应用名称")
     private String name;
     
     @Size(max = 500, message = "应用描述长度不能超过500")
-    @ApiModelProperty("应用描述")
+    @Schema(description = "应用描述")
     private String description;
     
-    @ApiModelProperty("应用类型：1-chatFlow，2-workflow")
+    @Schema(description = "应用类型：1-chatFlow，2-workflow")
     private Integer type;
     
-    @ApiModelProperty("应用状态")
+    @Schema(description = "应用状态")
     private Integer status;
     
     @Size(max = 500, message = "API Base URL长度不能超过500")
-    @ApiModelProperty("Dify API Base URL")
+    @Schema(description = "Dify API Base URL")
     private String apiBaseUrl;
     
-    @ApiModelProperty("是否支持流式响应")
+    @Schema(description = "是否支持流式响应")
     private Boolean streamEnabled;
     
-    @ApiModelProperty("是否需要上传文件")
+    @Schema(description = "是否需要上传文件")
     private Boolean fileUploadEnabled;
     
-    @ApiModelProperty("是否显示文本输入框")
+    @Schema(description = "是否显示文本输入框")
     private Boolean inputEnabled;
     
     @Size(max = 255, message = "应用图标长度不能超过255")
-    @ApiModelProperty("应用图标")
+    @Schema(description = "应用图标")
     private String icon;
     
-    @ApiModelProperty("排序")
+    @Schema(description = "排序")
     private Integer sort;
     
     @Size(max = 64, message = "主题色长度不能超过64")
-    @ApiModelProperty("主题色")
+    @Schema(description = "主题色")
     private String themeColor;
     
-    @ApiModelProperty("应用配置JSON")
+    @Schema(description = "应用配置JSON")
     private String inputs;
     
     // Getters and Setters
@@ -151,4 +148,3 @@ public class UpdateAiAppReq {
         this.inputs = inputs;
     }
 }
-

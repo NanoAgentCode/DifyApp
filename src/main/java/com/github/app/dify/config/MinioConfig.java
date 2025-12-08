@@ -6,7 +6,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
 /**
  * MinIO配置类
  */
@@ -83,4 +82,3 @@ public class MinioConfig {
         this.bucketName = bucketName;
     }
 }
-

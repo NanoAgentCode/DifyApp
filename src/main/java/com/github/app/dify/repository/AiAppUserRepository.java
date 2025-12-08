@@ -3,10 +3,8 @@ package com.github.app.dify.repository;
 import com.github.app.dify.domain.AiAppUser;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
-
 /**
  * AI应用用户关联Repository
  */
@@ -48,4 +46,3 @@ public interface AiAppUserRepository extends JpaRepository<AiAppUser, Long> {
      */
     boolean existsByAppIdAndUserId(Long appId, String userId);
 }
-

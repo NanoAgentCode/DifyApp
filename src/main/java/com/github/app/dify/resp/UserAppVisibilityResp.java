@@ -1,27 +1,25 @@
 package com.github.app.dify.resp;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * 用户应用可见性响应
  */
-@ApiModel("用户应用可见性响应")
+@Schema(description = "用户应用可见性响应")
 public class UserAppVisibilityResp {
     
-    @ApiModelProperty("应用ID")
+    @Schema(description = "应用ID")
     private Long appId;
     
-    @ApiModelProperty("应用名称")
+    @Schema(description = "应用名称")
     private String appName;
     
-    @ApiModelProperty("应用描述")
+    @Schema(description = "应用描述")
     private String appDescription;
     
-    @ApiModelProperty("应用类型：1-chatFlow，2-workflow")
+    @Schema(description = "应用类型：1-chatFlow，2-workflow")
     private Integer appType;
     
-    @ApiModelProperty("是否可见")
+    @Schema(description = "是否可见")
     private Boolean visible;
     
     // Getters and Setters
@@ -65,4 +63,3 @@ public class UserAppVisibilityResp {
         this.visible = visible;
     }
 }
-

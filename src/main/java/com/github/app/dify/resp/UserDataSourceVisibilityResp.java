@@ -1,30 +1,28 @@
 package com.github.app.dify.resp;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
+import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * 用户数据源可见性响应
  */
-@ApiModel("用户数据源可见性响应")
+@Schema(description = "用户数据源可见性响应")
 public class UserDataSourceVisibilityResp {
     
-    @ApiModelProperty("数据源ID")
+    @Schema(description = "数据源ID")
     private Long dataSourceId;
     
-    @ApiModelProperty("数据源名称")
+    @Schema(description = "数据源名称")
     private String dataSourceName;
     
-    @ApiModelProperty("数据源描述")
+    @Schema(description = "数据源描述")
     private String dataSourceDescription;
     
-    @ApiModelProperty("数据源类型")
+    @Schema(description = "数据源类型")
     private String dataSourceType;
     
-    @ApiModelProperty("数据源状态")
+    @Schema(description = "数据源状态")
     private Integer dataSourceStatus;
     
-    @ApiModelProperty("是否可见：true-可见，false-不可见")
+    @Schema(description = "是否可见：true-可见，false-不可见")
     private Boolean visible;
     
     // Getters and Setters
@@ -76,4 +74,3 @@ public class UserDataSourceVisibilityResp {
         this.visible = visible;
     }
 }
-

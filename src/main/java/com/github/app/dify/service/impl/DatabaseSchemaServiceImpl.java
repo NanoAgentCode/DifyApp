@@ -13,11 +13,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.sql.*;
 import java.util.*;
 import java.util.Date;
-
 /**
  * 数据库表结构服务
  * 负责获取和缓存数据库表结构信息
@@ -319,4 +317,3 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
         }
     }
 }
-

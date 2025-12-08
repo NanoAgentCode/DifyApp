@@ -6,10 +6,8 @@ import com.github.app.dify.resp.ChatConversationResponse;
 import com.github.app.dify.resp.ChatHistoryStatisticsResponse;
 import com.github.app.dify.resp.ChatMessageResponse;
 import com.github.app.dify.resp.PageResponse;
-
 import java.util.List;
 import java.util.Map;
-
 /**
  * 会话历史管理服务接口
  * 会话（Conversation）：一个完整的对话会话，包含多轮问答

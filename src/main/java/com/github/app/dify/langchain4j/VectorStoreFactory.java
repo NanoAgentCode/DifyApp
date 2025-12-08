@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
 /**
  * 向量存储工厂类
  * 根据知识库的vector_store_type配置选择创建Qdrant、FAISS、Milvus、Chroma或Weaviate EmbeddingStore
@@ -117,4 +116,3 @@ public class VectorStoreFactory {
         }
     }
 }
-

@@ -1,28 +1,25 @@
 package com.github.app.dify.req;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-
-import javax.validation.constraints.NotBlank;
-
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 /**
  * 测试向量数据库连接请求
  */
-@ApiModel("测试向量数据库连接请求")
+@Schema(description = "测试向量数据库连接请求")
 public class TestVectorDatabaseConnectionRequest {
     
-    @ApiModelProperty("数据库类型：qdrant, milvus, faiss")
+    @Schema(description = "数据库类型：qdrant, milvus, faiss")
     @NotBlank(message = "数据库类型不能为空")
     private String type;
     
-    @ApiModelProperty("连接地址（URL或路径）")
+    @Schema(description = "连接地址（URL或路径）")
     @NotBlank(message = "连接地址不能为空")
     private String url;
     
-    @ApiModelProperty("API Key（可选）")
+    @Schema(description = "API Key（可选）")
     private String apiKey;
     
-    @ApiModelProperty("超时时间（毫秒）")
+    @Schema(description = "超时时间（毫秒）")
     private Integer timeout;
 
     public String getType() {
@@ -57,4 +54,3 @@ public class TestVectorDatabaseConnectionRequest {
         this.timeout = timeout;
     }
 }
-

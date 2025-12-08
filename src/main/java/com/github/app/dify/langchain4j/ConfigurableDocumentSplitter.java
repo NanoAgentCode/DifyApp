@@ -8,10 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.List;
-
 /**
  * 可配置的文档分割器，使用现有配置
  */
@@ -119,4 +117,3 @@ public class ConfigurableDocumentSplitter implements DocumentSplitter {
         return segments;
     }
 }
-

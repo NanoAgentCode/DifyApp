@@ -4,25 +4,23 @@ import com.github.app.dify.req.ChatHistoryRequest;
 import com.github.app.dify.req.CreateConversationRequest;
 import com.github.app.dify.resp.*;
 import com.github.app.dify.service.ChatHistoryService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
-
 /**
  * 会话历史管理控制器（用户端）
  * 会话（Conversation）：一个完整的对话会话，包含多轮问答
  * 消息（Message）：会话中的单条消息，一问一答为一轮对话
  */
-@Api(tags = "会话历史管理")
+@Tag(name = "会话历史管理")
 @RestController
 @RequestMapping("/api/chat/history")
 public class ChatHistoryController {
@@ -35,7 +33,7 @@ public class ChatHistoryController {
     /**
      * 创建新会话
      */
-    @ApiOperation("创建新会话")
+    @Operation(summary = "创建新会话")
     @PostMapping("/conversations")
     public ResponseEntity<ChatConversationResponse> createConversation(
             @Validated @RequestBody CreateConversationRequest request,
@@ -57,7 +55,7 @@ public class ChatHistoryController {
     /**
      * 获取我的会话列表（用户端）
      */
-    @ApiOperation("获取我的会话列表")
+    @Operation(summary = "获取我的会话列表")
     @GetMapping("/conversations")
     public ResponseEntity<PageResponse<ChatConversationResponse>> getMyConversations(
             @RequestParam(required = false, defaultValue = "1") Integer page,
@@ -90,7 +88,7 @@ public class ChatHistoryController {
     /**
      * 获取会话详情
      */
-    @ApiOperation("获取会话详情")
+    @Operation(summary = "获取会话详情")
     @GetMapping("/conversations/{id}")
     public ResponseEntity<ChatConversationResponse> getConversation(
             @PathVariable Long id,
@@ -111,7 +109,7 @@ public class ChatHistoryController {
     /**
      * 获取会话消息列表（该会话中的所有对话消息）
      */
-    @ApiOperation("获取会话消息列表")
+    @Operation(summary = "获取会话消息列表")
     @GetMapping("/conversations/{id}/messages")
     public ResponseEntity<List<ChatMessageResponse>> getMessages(
             @PathVariable Long id,
@@ -132,7 +130,7 @@ public class ChatHistoryController {
     /**
      * 更新会话标题
      */
-    @ApiOperation("更新会话标题")
+    @Operation(summary = "更新会话标题")
     @PutMapping("/conversations/{id}/title")
     public ResponseEntity<Void> updateConversationTitle(
             @PathVariable Long id,
@@ -159,7 +157,7 @@ public class ChatHistoryController {
     /**
      * 删除会话（会删除该会话中的所有消息）
      */
-    @ApiOperation("删除会话")
+    @Operation(summary = "删除会话")
     @DeleteMapping("/conversations/{id}")
     public ResponseEntity<Void> deleteConversation(
             @PathVariable Long id,
@@ -180,7 +178,7 @@ public class ChatHistoryController {
     /**
      * 导出会话（包含该会话中的所有消息）
      */
-    @ApiOperation("导出会话")
+    @Operation(summary = "导出会话")
     @GetMapping("/conversations/{id}/export")
     public ResponseEntity<Map<String, Object>> exportConversation(
             @PathVariable Long id,
@@ -198,4 +196,3 @@ public class ChatHistoryController {
         }
     }
 }
-

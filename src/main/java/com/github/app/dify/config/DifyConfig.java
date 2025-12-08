@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
 /**
  * Dify配置类
  */
@@ -54,4 +53,3 @@ public class DifyConfig {
         this.fileUrlPrefix = fileUrlPrefix;
     }
 }
-

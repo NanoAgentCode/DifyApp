@@ -3,11 +3,9 @@ package com.github.app.dify.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-
 /**
  * 数据库驱动管理器
  * 负责加载数据库驱动和创建连接
@@ -181,4 +179,3 @@ public class DatabaseDriverManager {
         }
     }
 }
-
