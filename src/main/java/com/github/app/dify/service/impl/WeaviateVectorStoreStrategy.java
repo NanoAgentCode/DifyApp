@@ -1,6 +1,7 @@
-package com.github.app.dify.service;
+package com.github.app.dify.service.impl;
 
 import com.github.app.dify.config.WeaviateConfig;
+import com.github.app.dify.service.VectorStoreStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,9 +25,14 @@ import java.security.NoSuchAlgorithmException;
  * Weaviate向量存储服务（使用HTTP REST API）
  */
 @Service
-public class WeaviateVectorStoreService {
+public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
     
-    private static final Logger logger = LoggerFactory.getLogger(WeaviateVectorStoreService.class);
+    private static final Logger logger = LoggerFactory.getLogger(WeaviateVectorStoreStrategy.class);
+    
+    @Override
+    public String getType() {
+        return "weaviate";
+    }
     
     @Autowired
     private WeaviateConfig weaviateConfig;
@@ -162,6 +168,7 @@ public class WeaviateVectorStoreService {
     /**
      * 获取或创建知识库对应的类（Class）
      */
+    @Override
     public void ensureCollection(Long knowledgeBaseId, int vectorSize) {
         String className = getClassName(knowledgeBaseId);
         
@@ -300,6 +307,7 @@ public class WeaviateVectorStoreService {
     /**
      * 批量插入/更新向量
      */
+    @Override
     public void upsertVectors(Long knowledgeBaseId, Long documentId, 
                                List<List<Float>> vectors, List<String> texts, 
                                List<Integer> chunkIndices) {
@@ -444,7 +452,8 @@ public class WeaviateVectorStoreService {
     /**
      * 向量检索
      */
-    public List<SearchResult> searchVectors(Long knowledgeBaseId, List<Float> queryVector, int topK) {
+    @Override
+    public List<VectorStoreStrategy.SearchResult> searchVectors(Long knowledgeBaseId, List<Float> queryVector, int topK) {
         String className = getClassName(knowledgeBaseId);
         
         // 检查类是否存在
@@ -506,7 +515,7 @@ public class WeaviateVectorStoreService {
                     .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
                     .block();
             
-            List<SearchResult> results = new ArrayList<>();
+            List<VectorStoreStrategy.SearchResult> results = new ArrayList<>();
             
             if (response != null && response.containsKey("data")) {
                 @SuppressWarnings("unchecked")
@@ -519,7 +528,7 @@ public class WeaviateVectorStoreService {
                         List<Map<String, Object>> objects = (List<Map<String, Object>>) get.get(className);
                         
                         for (Map<String, Object> obj : objects) {
-                        SearchResult result = new SearchResult();
+                        VectorStoreStrategy.SearchResult result = new VectorStoreStrategy.SearchResult();
                         
                         // 获取相似度分数（certainty或distance）
                         // Weaviate的certainty范围是0-1，distance范围取决于距离函数
@@ -592,6 +601,7 @@ public class WeaviateVectorStoreService {
     /**
      * 删除文档的所有向量
      */
+    @Override
     public void deleteDocumentVectors(Long knowledgeBaseId, Long documentId) {
         String className = getClassName(knowledgeBaseId);
         
@@ -894,43 +904,5 @@ public class WeaviateVectorStoreService {
     /**
      * 检索结果
      */
-    public static class SearchResult {
-        private double score;
-        private String text;
-        private Long documentId;
-        private Integer chunkIndex;
-        
-        public double getScore() {
-            return score;
-        }
-        
-        public void setScore(double score) {
-            this.score = score;
-        }
-        
-        public String getText() {
-            return text;
-        }
-        
-        public void setText(String text) {
-            this.text = text;
-        }
-        
-        public Long getDocumentId() {
-            return documentId;
-        }
-        
-        public void setDocumentId(Long documentId) {
-            this.documentId = documentId;
-        }
-        
-        public Integer getChunkIndex() {
-            return chunkIndex;
-        }
-        
-        public void setChunkIndex(Integer chunkIndex) {
-            this.chunkIndex = chunkIndex;
-        }
-    }
 }
 

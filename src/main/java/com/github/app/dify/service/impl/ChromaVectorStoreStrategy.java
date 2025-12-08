@@ -1,6 +1,8 @@
-package com.github.app.dify.service;
+package com.github.app.dify.service.impl;
 
 import com.github.app.dify.config.ChromaConfig;
+import com.github.app.dify.service.VectorStoreStrategy;
+import com.github.app.dify.service.VectorStoreStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,9 +21,14 @@ import java.util.*;
  * Chroma向量存储服务（使用HTTP REST API）
  */
 @Service
-public class ChromaVectorStoreService {
+public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
     
-    private static final Logger logger = LoggerFactory.getLogger(ChromaVectorStoreService.class);
+    private static final Logger logger = LoggerFactory.getLogger(ChromaVectorStoreStrategy.class);
+    
+    @Override
+    public String getType() {
+        return "chroma";
+    }
     
     @Autowired
     private ChromaConfig chromaConfig;
@@ -204,6 +211,7 @@ public class ChromaVectorStoreService {
     /**
      * 获取或创建知识库对应的集合
      */
+    @Override
     public void ensureCollection(Long knowledgeBaseId, int vectorSize) {
         String collectionName = getCollectionName(knowledgeBaseId);
         
@@ -222,6 +230,7 @@ public class ChromaVectorStoreService {
      * 批量插入向量
      * 如果向量数量较多，会分批插入以避免请求体过大
      */
+    @Override
     public void upsertVectors(Long knowledgeBaseId, Long documentId, 
                                List<List<Float>> vectors, List<String> texts, 
                                List<Integer> chunkIndices) {
@@ -409,7 +418,8 @@ public class ChromaVectorStoreService {
     /**
      * 向量检索
      */
-    public List<SearchResult> searchVectors(Long knowledgeBaseId, List<Float> queryVector, int topK) {
+    @Override
+    public List<VectorStoreStrategy.SearchResult> searchVectors(Long knowledgeBaseId, List<Float> queryVector, int topK) {
         String collectionName = getCollectionName(knowledgeBaseId);
         
         // 检查查询向量是否为空或维度为0
@@ -456,7 +466,7 @@ public class ChromaVectorStoreService {
                     .timeout(Duration.ofMillis(chromaConfig.getTimeout()))
                     .block();
             
-            List<SearchResult> results = new ArrayList<>();
+            List<VectorStoreStrategy.SearchResult> results = new ArrayList<>();
             
             if (response != null) {
                 // Chroma返回格式：{ "ids": [[...]], "distances": [[...]], "metadatas": [[...]], "documents": [[...]] }
@@ -476,7 +486,7 @@ public class ChromaVectorStoreService {
                     List<String> documents = documentsList != null && !documentsList.isEmpty() ? documentsList.get(0) : new ArrayList<>();
                     
                     for (int i = 0; i < ids.size(); i++) {
-                        SearchResult result = new SearchResult();
+                        VectorStoreStrategy.SearchResult result = new VectorStoreStrategy.SearchResult();
                         
                         // Chroma使用距离（distance），需要转换为相似度分数（score）
                         // 距离越小，相似度越高，所以使用 1 / (1 + distance) 或 1 - distance（如果distance是归一化的）
@@ -542,6 +552,7 @@ public class ChromaVectorStoreService {
     /**
      * 删除文档的所有向量
      */
+    @Override
     public void deleteDocumentVectors(Long knowledgeBaseId, Long documentId) {
         String collectionName = getCollectionName(knowledgeBaseId);
         
@@ -652,43 +663,6 @@ public class ChromaVectorStoreService {
     /**
      * 检索结果
      */
-    public static class SearchResult {
-        private double score;
-        private String text;
-        private Long documentId;
-        private Integer chunkIndex;
-        
-        public double getScore() {
-            return score;
-        }
-        
-        public void setScore(double score) {
-            this.score = score;
-        }
-        
-        public String getText() {
-            return text;
-        }
-        
-        public void setText(String text) {
-            this.text = text;
-        }
-        
-        public Long getDocumentId() {
-            return documentId;
-        }
-        
-        public void setDocumentId(Long documentId) {
-            this.documentId = documentId;
-        }
-        
-        public Integer getChunkIndex() {
-            return chunkIndex;
-        }
-        
-        public void setChunkIndex(Integer chunkIndex) {
-            this.chunkIndex = chunkIndex;
-        }
-    }
+    
 }
 

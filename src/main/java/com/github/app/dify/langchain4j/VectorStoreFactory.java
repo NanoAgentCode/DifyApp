@@ -1,11 +1,8 @@
 package com.github.app.dify.langchain4j;
 
 import com.github.app.dify.repository.KnowledgeBaseRepository;
-import com.github.app.dify.service.ChromaVectorStoreService;
-import com.github.app.dify.service.FaissVectorStoreService;
-import com.github.app.dify.service.MilvusVectorStoreService;
 import com.github.app.dify.service.VectorStoreService;
-import com.github.app.dify.service.WeaviateVectorStoreService;
+import com.github.app.dify.service.VectorStoreStrategy;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.slf4j.Logger;
@@ -25,20 +22,41 @@ public class VectorStoreFactory {
     @Autowired
     private VectorStoreService vectorStoreService;
     
-    @Autowired
-    private FaissVectorStoreService faissVectorStoreService;
-    
-    @Autowired
-    private MilvusVectorStoreService milvusVectorStoreService;
-    
-    @Autowired
-    private ChromaVectorStoreService chromaVectorStoreService;
-    
-    @Autowired
-    private WeaviateVectorStoreService weaviateVectorStoreService;
+    @Autowired(required = false)
+    private java.util.List<VectorStoreStrategy> strategies;
     
     @Autowired
     private KnowledgeBaseRepository knowledgeBaseRepository;
+    
+    // 策略缓存：类型 -> 策略实例
+    private java.util.Map<String, VectorStoreStrategy> strategyMap;
+    
+    /**
+     * 初始化策略映射
+     */
+    private void initStrategyMap() {
+        if (strategyMap == null && strategies != null) {
+            strategyMap = strategies.stream()
+                    .collect(java.util.stream.Collectors.toMap(
+                            VectorStoreStrategy::getType,
+                            strategy -> strategy,
+                            (existing, replacement) -> existing
+                    ));
+            logger.info("初始化向量存储策略映射 - 策略数量: {}, 类型: {}", 
+                    strategyMap.size(), strategyMap.keySet());
+        }
+    }
+    
+    /**
+     * 根据类型获取策略
+     */
+    private VectorStoreStrategy getStrategy(String type) {
+        initStrategyMap();
+        if (strategyMap == null) {
+            return null;
+        }
+        return strategyMap.get(type.toLowerCase());
+    }
     
     /**
      * 为指定知识库创建EmbeddingStore
@@ -52,17 +70,35 @@ public class VectorStoreFactory {
         logger.debug("为知识库创建EmbeddingStore - 知识库ID: {}, 向量存储类型: {}", 
                 knowledgeBaseId, vectorStoreType);
         
-        if ("faiss".equalsIgnoreCase(vectorStoreType)) {
-            return FaissEmbeddingStore.forKnowledgeBase(knowledgeBaseId, faissVectorStoreService);
-        } else if ("milvus".equalsIgnoreCase(vectorStoreType)) {
-            return MilvusEmbeddingStore.forKnowledgeBase(knowledgeBaseId, milvusVectorStoreService);
-        } else if ("chroma".equalsIgnoreCase(vectorStoreType)) {
-            return ChromaEmbeddingStore.forKnowledgeBase(knowledgeBaseId, chromaVectorStoreService);
-        } else if ("weaviate".equalsIgnoreCase(vectorStoreType)) {
-            return WeaviateEmbeddingStore.forKnowledgeBase(knowledgeBaseId, weaviateVectorStoreService);
+        VectorStoreStrategy strategy = getStrategy(vectorStoreType);
+        if (strategy == null) {
+            // 如果没有找到策略，尝试使用默认策略（qdrant）
+            strategy = getStrategy("qdrant");
+            if (strategy == null && strategyMap != null && !strategyMap.isEmpty()) {
+                // 如果qdrant也没有，使用第一个可用的策略
+                strategy = strategyMap.values().iterator().next();
+            }
+            logger.warn("未找到向量存储策略，使用默认策略 - 知识库ID: {}, 类型: {}, 使用策略: {}", 
+                    knowledgeBaseId, vectorStoreType, strategy != null ? strategy.getType() : "none");
+        }
+        
+        if (strategy == null) {
+            throw new IllegalStateException("没有可用的向量存储策略 - 知识库ID: " + knowledgeBaseId);
+        }
+        
+        // 根据策略类型创建对应的EmbeddingStore
+        String strategyType = strategy.getType().toLowerCase();
+        if ("faiss".equals(strategyType)) {
+            return FaissEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
+        } else if ("milvus".equals(strategyType)) {
+            return MilvusEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
+        } else if ("chroma".equals(strategyType)) {
+            return ChromaEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
+        } else if ("weaviate".equals(strategyType)) {
+            return WeaviateEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
         } else {
             // 默认使用Qdrant
-            return QdrantEmbeddingStore.forKnowledgeBase(knowledgeBaseId, vectorStoreService);
+            return QdrantEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
         }
     }
     

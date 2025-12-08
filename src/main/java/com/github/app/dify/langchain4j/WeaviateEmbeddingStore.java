@@ -1,6 +1,6 @@
 package com.github.app.dify.langchain4j;
 
-import com.github.app.dify.service.WeaviateVectorStoreService;
+import com.github.app.dify.service.VectorStoreStrategy;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
@@ -23,8 +23,7 @@ public class WeaviateEmbeddingStore implements EmbeddingStore<TextSegment> {
     
     private static final Logger logger = LoggerFactory.getLogger(WeaviateEmbeddingStore.class);
     
-    @Autowired
-    private WeaviateVectorStoreService weaviateVectorStoreService;
+    private VectorStoreStrategy strategy;
     
     private Long knowledgeBaseId;
     
@@ -39,9 +38,9 @@ public class WeaviateEmbeddingStore implements EmbeddingStore<TextSegment> {
      * 创建指定知识库的EmbeddingStore实例
      */
     public static WeaviateEmbeddingStore forKnowledgeBase(Long knowledgeBaseId, 
-                                                        WeaviateVectorStoreService weaviateVectorStoreService) {
+                                                        VectorStoreStrategy strategy) {
         WeaviateEmbeddingStore store = new WeaviateEmbeddingStore();
-        store.weaviateVectorStoreService = weaviateVectorStoreService;
+        store.strategy = strategy;
         store.knowledgeBaseId = knowledgeBaseId;
         return store;
     }
@@ -70,7 +69,7 @@ public class WeaviateEmbeddingStore implements EmbeddingStore<TextSegment> {
         List<Float> vector = convertEmbeddingToFloatList(embedding);
         
         // 确保类存在
-        weaviateVectorStoreService.ensureCollection(knowledgeBaseId, vector.size());
+        strategy.ensureCollection(knowledgeBaseId, vector.size());
         
         // 存储向量
         List<List<Float>> vectors = new ArrayList<>();
@@ -80,7 +79,7 @@ public class WeaviateEmbeddingStore implements EmbeddingStore<TextSegment> {
         List<Integer> chunkIndices = new ArrayList<>();
         chunkIndices.add(chunkIndex != null ? chunkIndex : 0);
         
-        weaviateVectorStoreService.upsertVectors(knowledgeBaseId, documentId, vectors, texts, chunkIndices);
+        strategy.upsertVectors(knowledgeBaseId, documentId, vectors, texts, chunkIndices);
         
         // 返回ID（使用documentId和chunkIndex组合）
         return generateId(documentId, chunkIndex != null ? chunkIndex : 0);
@@ -134,10 +133,10 @@ public class WeaviateEmbeddingStore implements EmbeddingStore<TextSegment> {
             
             // 确保类存在
             if (!vectors.isEmpty()) {
-                weaviateVectorStoreService.ensureCollection(knowledgeBaseId, vectors.get(0).size());
+                strategy.ensureCollection(knowledgeBaseId, vectors.get(0).size());
             }
             
-            weaviateVectorStoreService.upsertVectors(knowledgeBaseId, documentId, vectors, texts, chunkIndices);
+            strategy.upsertVectors(knowledgeBaseId, documentId, vectors, texts, chunkIndices);
             
             // 生成IDs
             for (int i = 0; i < items.size(); i++) {
@@ -158,12 +157,12 @@ public class WeaviateEmbeddingStore implements EmbeddingStore<TextSegment> {
         List<Float> queryVector = convertEmbeddingToFloatList(referenceEmbedding);
         
         // 检索
-        List<WeaviateVectorStoreService.SearchResult> searchResults = 
-                weaviateVectorStoreService.searchVectors(knowledgeBaseId, queryVector, maxResults);
+        List<VectorStoreStrategy.SearchResult> searchResults = 
+                strategy.searchVectors(knowledgeBaseId, queryVector, maxResults);
         
         // 转换为EmbeddingMatch
         List<EmbeddingMatch<TextSegment>> matches = new ArrayList<>();
-        for (WeaviateVectorStoreService.SearchResult result : searchResults) {
+        for (VectorStoreStrategy.SearchResult result : searchResults) {
             if (result.getScore() >= minScore) {
                 TextSegment segment = TextSegment.from(result.getText());
                 if (result.getDocumentId() != null) {
@@ -190,7 +189,7 @@ public class WeaviateEmbeddingStore implements EmbeddingStore<TextSegment> {
      * 删除文档的所有向量
      */
     public void deleteByDocumentId(Long documentId) {
-        weaviateVectorStoreService.deleteDocumentVectors(knowledgeBaseId, documentId);
+        strategy.deleteDocumentVectors(knowledgeBaseId, documentId);
     }
     
     /**

@@ -1,6 +1,5 @@
 package com.github.app.dify.langchain4j;
 
-import com.github.app.dify.service.VectorStoreService;
 import dev.langchain4j.data.document.DocumentSplitter;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
@@ -21,7 +20,7 @@ public class LangChain4jConfig {
     private ConfigurableDocumentSplitter configurableDocumentSplitter;
     
     @Autowired
-    private VectorStoreService vectorStoreService;
+    private VectorStoreFactory vectorStoreFactory;
     
     /**
      * EmbeddingModel Bean
@@ -42,10 +41,10 @@ public class LangChain4jConfig {
     /**
      * 为指定知识库创建EmbeddingStore Bean（工厂方法）
      * 注意：由于每个知识库需要独立的EmbeddingStore，这里不创建全局Bean
-     * 而是在使用时通过QdrantEmbeddingStore.forKnowledgeBase()创建
+     * 而是通过VectorStoreFactory根据知识库配置选择合适的策略创建
      */
     public EmbeddingStore<dev.langchain4j.data.segment.TextSegment> createEmbeddingStore(Long knowledgeBaseId) {
-        return QdrantEmbeddingStore.forKnowledgeBase(knowledgeBaseId, vectorStoreService);
+        return vectorStoreFactory.createEmbeddingStore(knowledgeBaseId);
     }
 }
 

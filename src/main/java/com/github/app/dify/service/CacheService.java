@@ -1,29 +1,17 @@
 package com.github.app.dify.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Service;
-
 import java.util.concurrent.TimeUnit;
 
 /**
- * 缓存服务工具类
+ * 缓存服务接口
  * 提供统一的缓存操作方法
  */
-@Service
-public class CacheService {
-    
-    private static final Logger logger = LoggerFactory.getLogger(CacheService.class);
-    
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+public interface CacheService {
     
     /**
      * 缓存前缀常量
      */
-    public static class CacheKey {
+    class CacheKey {
         // 用户相关
         public static final String USER_PREFIX = "user:";
         public static final String USER_BY_ID = USER_PREFIX + "id:";
@@ -54,140 +42,41 @@ public class CacheService {
     
     /**
      * 设置缓存
-     * @param key 缓存键
-     * @param value 缓存值
      */
-    public void set(String key, Object value) {
-        try {
-            redisTemplate.opsForValue().set(key, value);
-            logger.debug("设置缓存成功 - Key: {}", key);
-        } catch (Exception e) {
-            logger.error("设置缓存失败 - Key: {}", key, e);
-        }
-    }
+    void set(String key, Object value);
     
     /**
      * 设置缓存（带过期时间）
-     * @param key 缓存键
-     * @param value 缓存值
-     * @param timeout 过期时间
-     * @param unit 时间单位
      */
-    public void set(String key, Object value, long timeout, TimeUnit unit) {
-        try {
-            redisTemplate.opsForValue().set(key, value, timeout, unit);
-            logger.debug("设置缓存成功（带过期时间） - Key: {}, Timeout: {} {}", key, timeout, unit);
-        } catch (Exception e) {
-            logger.error("设置缓存失败 - Key: {}", key, e);
-        }
-    }
+    void set(String key, Object value, long timeout, TimeUnit unit);
     
     /**
      * 获取缓存
-     * @param key 缓存键
-     * @return 缓存值
      */
-    public Object get(String key) {
-        try {
-            Object value = redisTemplate.opsForValue().get(key);
-            logger.debug("获取缓存 - Key: {}, Hit: {}", key, value != null);
-            return value;
-        } catch (Exception e) {
-            logger.error("获取缓存失败 - Key: {}", key, e);
-            return null;
-        }
-    }
-    
-    /**
-     * 获取缓存（指定类型）
-     * @param key 缓存键
-     * @param clazz 类型
-     * @return 缓存值
-     */
-    @SuppressWarnings("unchecked")
-    public <T> T get(String key, Class<T> clazz) {
-        try {
-            Object value = redisTemplate.opsForValue().get(key);
-            if (value != null && clazz.isInstance(value)) {
-                logger.debug("获取缓存成功 - Key: {}, Type: {}", key, clazz.getSimpleName());
-                return (T) value;
-            }
-            return null;
-        } catch (Exception e) {
-            logger.error("获取缓存失败 - Key: {}, Type: {}", key, clazz.getSimpleName(), e);
-            return null;
-        }
-    }
+    Object get(String key);
     
     /**
      * 删除缓存
-     * @param key 缓存键
      */
-    public void delete(String key) {
-        try {
-            redisTemplate.delete(key);
-            logger.debug("删除缓存成功 - Key: {}", key);
-        } catch (Exception e) {
-            logger.error("删除缓存失败 - Key: {}", key, e);
-        }
-    }
+    void delete(String key);
     
     /**
-     * 批量删除缓存（根据前缀）
-     * @param prefix 缓存键前缀
+     * 根据前缀删除缓存
      */
-    public void deleteByPrefix(String prefix) {
-        try {
-            redisTemplate.delete(redisTemplate.keys(prefix + "*"));
-            logger.debug("批量删除缓存成功 - Prefix: {}", prefix);
-        } catch (Exception e) {
-            logger.error("批量删除缓存失败 - Prefix: {}", prefix, e);
-        }
-    }
+    void deleteByPrefix(String prefix);
     
     /**
-     * 判断缓存是否存在
-     * @param key 缓存键
-     * @return 是否存在
+     * 检查缓存是否存在
      */
-    public boolean exists(String key) {
-        try {
-            Boolean exists = redisTemplate.hasKey(key);
-            return exists != null && exists;
-        } catch (Exception e) {
-            logger.error("判断缓存是否存在失败 - Key: {}", key, e);
-            return false;
-        }
-    }
+    boolean exists(String key);
     
     /**
-     * 设置过期时间
-     * @param key 缓存键
-     * @param timeout 过期时间
-     * @param unit 时间单位
+     * 设置缓存过期时间
      */
-    public void expire(String key, long timeout, TimeUnit unit) {
-        try {
-            redisTemplate.expire(key, timeout, unit);
-            logger.debug("设置过期时间成功 - Key: {}, Timeout: {} {}", key, timeout, unit);
-        } catch (Exception e) {
-            logger.error("设置过期时间失败 - Key: {}", key, e);
-        }
-    }
+    void expire(String key, long timeout, TimeUnit unit);
     
     /**
-     * 获取剩余过期时间
-     * @param key 缓存键
-     * @return 剩余过期时间（秒），-1表示永不过期，-2表示键不存在
+     * 获取缓存剩余过期时间（秒）
      */
-    public long getExpire(String key) {
-        try {
-            Long expire = redisTemplate.getExpire(key, TimeUnit.SECONDS);
-            return expire != null ? expire : -2;
-        } catch (Exception e) {
-            logger.error("获取过期时间失败 - Key: {}", key, e);
-            return -2;
-        }
-    }
+    long getExpire(String key);
 }
-

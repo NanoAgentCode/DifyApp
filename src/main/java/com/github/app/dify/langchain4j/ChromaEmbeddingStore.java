@@ -1,6 +1,6 @@
 package com.github.app.dify.langchain4j;
 
-import com.github.app.dify.service.ChromaVectorStoreService;
+import com.github.app.dify.service.VectorStoreStrategy;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
@@ -23,8 +23,7 @@ public class ChromaEmbeddingStore implements EmbeddingStore<TextSegment> {
     
     private static final Logger logger = LoggerFactory.getLogger(ChromaEmbeddingStore.class);
     
-    @Autowired
-    private ChromaVectorStoreService chromaVectorStoreService;
+    private VectorStoreStrategy strategy;
     
     private Long knowledgeBaseId;
     
@@ -39,9 +38,9 @@ public class ChromaEmbeddingStore implements EmbeddingStore<TextSegment> {
      * 创建指定知识库的EmbeddingStore实例
      */
     public static ChromaEmbeddingStore forKnowledgeBase(Long knowledgeBaseId, 
-                                                        ChromaVectorStoreService chromaVectorStoreService) {
+                                                        VectorStoreStrategy strategy) {
         ChromaEmbeddingStore store = new ChromaEmbeddingStore();
-        store.chromaVectorStoreService = chromaVectorStoreService;
+        store.strategy = strategy;
         store.knowledgeBaseId = knowledgeBaseId;
         return store;
     }
@@ -70,7 +69,7 @@ public class ChromaEmbeddingStore implements EmbeddingStore<TextSegment> {
         List<Float> vector = convertEmbeddingToFloatList(embedding);
         
         // 确保集合存在
-        chromaVectorStoreService.ensureCollection(knowledgeBaseId, vector.size());
+        strategy.ensureCollection(knowledgeBaseId, vector.size());
         
         // 存储向量
         List<List<Float>> vectors = new ArrayList<>();
@@ -80,7 +79,7 @@ public class ChromaEmbeddingStore implements EmbeddingStore<TextSegment> {
         List<Integer> chunkIndices = new ArrayList<>();
         chunkIndices.add(chunkIndex != null ? chunkIndex : 0);
         
-        chromaVectorStoreService.upsertVectors(knowledgeBaseId, documentId, vectors, texts, chunkIndices);
+        strategy.upsertVectors(knowledgeBaseId, documentId, vectors, texts, chunkIndices);
         
         // 返回ID（使用documentId和chunkIndex组合）
         return generateId(documentId, chunkIndex != null ? chunkIndex : 0);
@@ -134,10 +133,10 @@ public class ChromaEmbeddingStore implements EmbeddingStore<TextSegment> {
             
             // 确保集合存在
             if (!vectors.isEmpty()) {
-                chromaVectorStoreService.ensureCollection(knowledgeBaseId, vectors.get(0).size());
+                strategy.ensureCollection(knowledgeBaseId, vectors.get(0).size());
             }
             
-            chromaVectorStoreService.upsertVectors(knowledgeBaseId, documentId, vectors, texts, chunkIndices);
+            strategy.upsertVectors(knowledgeBaseId, documentId, vectors, texts, chunkIndices);
             
             // 生成IDs
             for (int i = 0; i < items.size(); i++) {
@@ -158,12 +157,12 @@ public class ChromaEmbeddingStore implements EmbeddingStore<TextSegment> {
         List<Float> queryVector = convertEmbeddingToFloatList(referenceEmbedding);
         
         // 检索
-        List<ChromaVectorStoreService.SearchResult> searchResults = 
-                chromaVectorStoreService.searchVectors(knowledgeBaseId, queryVector, maxResults);
+        List<VectorStoreStrategy.SearchResult> searchResults = 
+                strategy.searchVectors(knowledgeBaseId, queryVector, maxResults);
         
         // 转换为EmbeddingMatch
         List<EmbeddingMatch<TextSegment>> matches = new ArrayList<>();
-        for (ChromaVectorStoreService.SearchResult result : searchResults) {
+        for (VectorStoreStrategy.SearchResult result : searchResults) {
             if (result.getScore() >= minScore) {
                 TextSegment segment = TextSegment.from(result.getText());
                 if (result.getDocumentId() != null) {
@@ -190,7 +189,7 @@ public class ChromaEmbeddingStore implements EmbeddingStore<TextSegment> {
      * 删除文档的所有向量
      */
     public void deleteByDocumentId(Long documentId) {
-        chromaVectorStoreService.deleteDocumentVectors(knowledgeBaseId, documentId);
+        strategy.deleteDocumentVectors(knowledgeBaseId, documentId);
     }
     
     /**

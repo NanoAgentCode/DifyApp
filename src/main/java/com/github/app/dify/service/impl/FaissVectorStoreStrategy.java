@@ -1,8 +1,9 @@
-package com.github.app.dify.service;
+package com.github.app.dify.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.config.FaissConfig;
+import com.github.app.dify.service.VectorStoreStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,9 +21,14 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * 使用基于文件的向量存储，支持向量插入、检索和删除
  */
 @Service
-public class FaissVectorStoreService {
+public class FaissVectorStoreStrategy implements VectorStoreStrategy {
     
-    private static final Logger logger = LoggerFactory.getLogger(FaissVectorStoreService.class);
+    private static final Logger logger = LoggerFactory.getLogger(FaissVectorStoreStrategy.class);
+    
+    @Override
+    public String getType() {
+        return "faiss";
+    }
     
     @Autowired
     private FaissConfig faissConfig;
@@ -37,7 +43,8 @@ public class FaissVectorStoreService {
     /**
      * 确保索引存在
      */
-    public void ensureIndex(Long knowledgeBaseId, int vectorSize) {
+    @Override
+    public void ensureCollection(Long knowledgeBaseId, int vectorSize) {
         synchronized (indexLocks) {
             indexLocks.putIfAbsent(knowledgeBaseId, new ReentrantReadWriteLock());
         }
@@ -74,6 +81,7 @@ public class FaissVectorStoreService {
     /**
      * 批量插入/更新向量
      */
+    @Override
     public void upsertVectors(Long knowledgeBaseId, Long documentId, 
                               List<List<Float>> vectors, List<String> texts, 
                               List<Integer> chunkIndices) {
@@ -88,7 +96,7 @@ public class FaissVectorStoreService {
             VectorIndex index = indexes.get(knowledgeBaseId);
             if (index == null) {
                 int vectorSize = vectors.get(0).size();
-                ensureIndex(knowledgeBaseId, vectorSize);
+                ensureCollection(knowledgeBaseId, vectorSize);
                 index = indexes.get(knowledgeBaseId);
             }
             
@@ -120,7 +128,8 @@ public class FaissVectorStoreService {
     /**
      * 向量检索
      */
-    public List<SearchResult> searchVectors(Long knowledgeBaseId, List<Float> queryVector, int topK) {
+    @Override
+    public List<VectorStoreStrategy.SearchResult> searchVectors(Long knowledgeBaseId, List<Float> queryVector, int topK) {
         ReadWriteLock lock = getLock(knowledgeBaseId);
         lock.readLock().lock();
         try {
@@ -148,11 +157,11 @@ public class FaissVectorStoreService {
             scores.sort((a, b) -> Double.compare(b.getScore(), a.getScore()));
             int resultCount = Math.min(topK, scores.size());
             
-            List<SearchResult> results = new ArrayList<>();
+            List<VectorStoreStrategy.SearchResult> results = new ArrayList<>();
             for (int i = 0; i < resultCount; i++) {
                 VectorScore vs = scores.get(i);
                 VectorEntry entry = vs.getEntry();
-                SearchResult result = new SearchResult();
+                VectorStoreStrategy.SearchResult result = new VectorStoreStrategy.SearchResult();
                 result.setScore(vs.getScore());
                 result.setText(entry.getText());
                 result.setDocumentId(entry.getDocumentId());
@@ -173,6 +182,7 @@ public class FaissVectorStoreService {
     /**
      * 删除文档的所有向量
      */
+    @Override
     public void deleteDocumentVectors(Long knowledgeBaseId, Long documentId) {
         ReadWriteLock lock = getLock(knowledgeBaseId);
         lock.writeLock().lock();
@@ -296,44 +306,7 @@ public class FaissVectorStoreService {
     /**
      * 检索结果
      */
-    public static class SearchResult {
-        private double score;
-        private String text;
-        private Long documentId;
-        private Integer chunkIndex;
-        
-        public double getScore() {
-            return score;
-        }
-        
-        public void setScore(double score) {
-            this.score = score;
-        }
-        
-        public String getText() {
-            return text;
-        }
-        
-        public void setText(String text) {
-            this.text = text;
-        }
-        
-        public Long getDocumentId() {
-            return documentId;
-        }
-        
-        public void setDocumentId(Long documentId) {
-            this.documentId = documentId;
-        }
-        
-        public Integer getChunkIndex() {
-            return chunkIndex;
-        }
-        
-        public void setChunkIndex(Integer chunkIndex) {
-            this.chunkIndex = chunkIndex;
-        }
-    }
+    
     
     /**
      * 向量索引（内存中的索引结构）

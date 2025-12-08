@@ -1,6 +1,7 @@
-package com.github.app.dify.service;
+package com.github.app.dify.service.impl;
 
 import com.github.app.dify.config.MinioConfig;
+import com.github.app.dify.service.FileStorageService;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
@@ -18,9 +19,9 @@ import java.io.InputStream;
  * MinIO文件存储服务实现
  */
 @Service
-public class MinioFileStorageService implements FileStorageService {
+public class MinioFileStorageServiceImpl implements FileStorageService {
     
-    private static final Logger logger = LoggerFactory.getLogger(MinioFileStorageService.class);
+    private static final Logger logger = LoggerFactory.getLogger(MinioFileStorageServiceImpl.class);
     
     @Autowired
     private MinioClient minioClient;

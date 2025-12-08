@@ -1,6 +1,7 @@
-package com.github.app.dify.service;
+package com.github.app.dify.service.impl;
 
 import com.github.app.dify.config.MilvusConfig;
+import com.github.app.dify.service.VectorStoreStrategy;
 import com.github.app.dify.domain.VectorDatabase;
 import com.github.app.dify.repository.KnowledgeBaseRepository;
 import com.github.app.dify.repository.VectorDatabaseRepository;
@@ -26,9 +27,14 @@ import java.util.*;
  * Milvus向量存储服务（使用gRPC）
  */
 @Service
-public class MilvusVectorStoreService {
+public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
     
-    private static final Logger logger = LoggerFactory.getLogger(MilvusVectorStoreService.class);
+    private static final Logger logger = LoggerFactory.getLogger(MilvusVectorStoreStrategy.class);
+    
+    @Override
+    public String getType() {
+        return "milvus";
+    }
     
     @Autowired
     private MilvusConfig milvusConfig;
@@ -201,6 +207,7 @@ public class MilvusVectorStoreService {
     /**
      * 确保集合存在
      */
+    @Override
     public void ensureCollection(Long knowledgeBaseId, int vectorSize) {
         String collectionName = getCollectionName(knowledgeBaseId);
         
@@ -458,6 +465,7 @@ public class MilvusVectorStoreService {
     /**
      * 批量插入/更新向量
      */
+    @Override
     public void upsertVectors(Long knowledgeBaseId, Long documentId, 
                               List<List<Float>> vectors, List<String> texts, 
                               List<Integer> chunkIndices) {
@@ -541,7 +549,8 @@ public class MilvusVectorStoreService {
     /**
      * 向量检索
      */
-    public List<SearchResult> searchVectors(Long knowledgeBaseId, List<Float> queryVector, int topK) {
+    @Override
+    public List<VectorStoreStrategy.SearchResult> searchVectors(Long knowledgeBaseId, List<Float> queryVector, int topK) {
         String collectionName = getCollectionName(knowledgeBaseId);
         
         // 检查集合是否存在
@@ -594,7 +603,7 @@ public class MilvusVectorStoreService {
                 throw new RuntimeException("Milvus搜索失败: " + response.getMessage());
             }
             
-            List<SearchResult> results = new ArrayList<>();
+            List<VectorStoreStrategy.SearchResult> results = new ArrayList<>();
             
             // 获取搜索结果
             Object data = response.getData();
@@ -696,7 +705,7 @@ public class MilvusVectorStoreService {
                     // 使用 wrapper 处理搜索结果
                     int rowCount = wrapper.getIDScore(0).size();
                     for (int i = 0; i < rowCount; i++) {
-                        SearchResult result = new SearchResult();
+                        VectorStoreStrategy.SearchResult result = new VectorStoreStrategy.SearchResult();
                         
                         // 获取相似度分数（COSINE距离转换为相似度）
                         float distance = wrapper.getIDScore(0).get(i).getScore();
@@ -753,6 +762,7 @@ public class MilvusVectorStoreService {
     /**
      * 删除文档的所有向量
      */
+    @Override
     public void deleteDocumentVectors(Long knowledgeBaseId, Long documentId) {
         String collectionName = getCollectionName(knowledgeBaseId);
         
@@ -810,42 +820,5 @@ public class MilvusVectorStoreService {
     /**
      * 检索结果
      */
-    public static class SearchResult {
-        private double score;
-        private String text;
-        private Long documentId;
-        private Integer chunkIndex;
-        
-        public double getScore() {
-            return score;
-        }
-        
-        public void setScore(double score) {
-            this.score = score;
-        }
-        
-        public String getText() {
-            return text;
-        }
-        
-        public void setText(String text) {
-            this.text = text;
-        }
-        
-        public Long getDocumentId() {
-            return documentId;
-        }
-        
-        public void setDocumentId(Long documentId) {
-            this.documentId = documentId;
-        }
-        
-        public Integer getChunkIndex() {
-            return chunkIndex;
-        }
-        
-        public void setChunkIndex(Integer chunkIndex) {
-            this.chunkIndex = chunkIndex;
-        }
-    }
+    
 }
