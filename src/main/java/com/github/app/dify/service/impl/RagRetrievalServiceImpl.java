@@ -34,9 +34,6 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
     private EmbeddingService embeddingService;
     
     @Autowired
-    private VectorStoreService vectorStoreService;
-    
-    @Autowired
     private VectorStoreFactory vectorStoreFactory;
     
     @Autowired
@@ -92,8 +89,9 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
             // 直接使用EmbeddingStore检索，这样可以获取完整的相似度分数
             // 检索更多结果用于调试和过滤
             int maxResults = effectiveTopK * 3; // 检索更多结果
+            @SuppressWarnings("deprecation")
             List<EmbeddingMatch<TextSegment>> matches = embeddingStore.findRelevant(
-                    queryEmbedding, maxResults, 0.0); // 先不设置阈值，获取所有结果
+                    queryEmbedding, maxResults); // 先不设置阈值，获取所有结果
             
             logger.info("RAG检索原始结果 - 知识库ID: {}, 查询: {}, 原始结果数量: {}, 配置topK: {} (知识库配置: {}, 全局配置: {}), 相似度阈值: {}", 
                     knowledgeBaseId, query, matches.size(), effectiveTopK, topK, ragConfig.getTopK(), ragConfig.getSimilarityThreshold());
@@ -116,7 +114,7 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
                         result.setScore(match.score()); // 直接使用EmbeddingMatch的score
                         
                         // 从metadata中提取信息
-                        Object docIdObj = segment.metadata("documentId");
+                        Object docIdObj = segment.metadata().toMap().get("documentId");
                         if (docIdObj != null) {
                             if (docIdObj instanceof Long) {
                                 result.setDocumentId((Long) docIdObj);
@@ -127,7 +125,7 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
                             }
                         }
                         
-                        Object chunkIndexObj = segment.metadata("chunkIndex");
+                        Object chunkIndexObj = segment.metadata().toMap().get("chunkIndex");
                         if (chunkIndexObj != null) {
                             if (chunkIndexObj instanceof Integer) {
                                 result.setChunkIndex((Integer) chunkIndexObj);

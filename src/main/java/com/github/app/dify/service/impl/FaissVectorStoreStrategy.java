@@ -4,6 +4,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.config.FaissConfig;
 import com.github.app.dify.service.VectorStoreStrategy;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,7 +62,7 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
                 index = loadIndexFromFile(knowledgeBaseId, vectorSize);
                 if (index == null) {
                     // 创建新索引
-                    index = new VectorIndex(knowledgeBaseId, vectorSize);
+                    index = new VectorIndex(vectorSize);
                     logger.info("创建新的FAISS索引 - 知识库ID: {}, 向量维度: {}", knowledgeBaseId, vectorSize);
                 } else {
                     logger.info("从文件加载FAISS索引 - 知识库ID: {}, 向量维度: {}, 向量数量: {}", 
@@ -233,7 +237,7 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
             String json = new String(Files.readAllBytes(Paths.get(metadataPath)));
             List<VectorEntry> entries = objectMapper.readValue(json, new TypeReference<List<VectorEntry>>() {});
             
-            VectorIndex index = new VectorIndex(knowledgeBaseId, vectorSize);
+            VectorIndex index = new VectorIndex(vectorSize);
             for (VectorEntry entry : entries) {
                 index.addVector(entry);
             }
@@ -312,13 +316,11 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
      * 向量索引（内存中的索引结构）
      */
     private static class VectorIndex {
-        private final Long knowledgeBaseId;
         private final int vectorSize;
         private final Map<String, VectorEntry> vectors = new HashMap<>();
         private final Map<Long, Set<String>> documentVectors = new HashMap<>();
         
-        public VectorIndex(Long knowledgeBaseId, int vectorSize) {
-            this.knowledgeBaseId = knowledgeBaseId;
+        public VectorIndex(int vectorSize) {
             this.vectorSize = vectorSize;
         }
         
@@ -357,6 +359,9 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
     /**
      * 向量条目
      */
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
     private static class VectorEntry {
         private String vectorId;
         private List<Float> vector;
@@ -364,67 +369,6 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
         private Long documentId;
         private Integer chunkIndex;
         private Long knowledgeBaseId;
-        
-        public VectorEntry() {
-        }
-        
-        public VectorEntry(String vectorId, List<Float> vector, String text, 
-                          Long documentId, Integer chunkIndex, Long knowledgeBaseId) {
-            this.vectorId = vectorId;
-            this.vector = vector;
-            this.text = text;
-            this.documentId = documentId;
-            this.chunkIndex = chunkIndex;
-            this.knowledgeBaseId = knowledgeBaseId;
-        }
-        
-        public String getVectorId() {
-            return vectorId;
-        }
-        
-        public void setVectorId(String vectorId) {
-            this.vectorId = vectorId;
-        }
-        
-        public List<Float> getVector() {
-            return vector;
-        }
-        
-        public void setVector(List<Float> vector) {
-            this.vector = vector;
-        }
-        
-        public String getText() {
-            return text;
-        }
-        
-        public void setText(String text) {
-            this.text = text;
-        }
-        
-        public Long getDocumentId() {
-            return documentId;
-        }
-        
-        public void setDocumentId(Long documentId) {
-            this.documentId = documentId;
-        }
-        
-        public Integer getChunkIndex() {
-            return chunkIndex;
-        }
-        
-        public void setChunkIndex(Integer chunkIndex) {
-            this.chunkIndex = chunkIndex;
-        }
-        
-        public Long getKnowledgeBaseId() {
-            return knowledgeBaseId;
-        }
-        
-        public void setKnowledgeBaseId(Long knowledgeBaseId) {
-            this.knowledgeBaseId = knowledgeBaseId;
-        }
     }
     
     /**

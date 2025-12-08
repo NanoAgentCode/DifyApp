@@ -143,7 +143,7 @@ public class ContextCompressionServiceImpl implements ContextCompressionService 
                 if (msg instanceof UserMessage) {
                     historyText.append("用户: ").append(((UserMessage) msg).singleText()).append("\n");
                 } else if (msg instanceof AiMessage) {
-                    historyText.append("助手: ").append(msg.text()).append("\n");
+                    historyText.append("助手: ").append(((AiMessage) msg).text()).append("\n");
                 }
             }
             
@@ -246,7 +246,17 @@ public class ContextCompressionServiceImpl implements ContextCompressionService 
         
         int totalTokens = 0;
         for (ChatMessage msg : messages) {
-            totalTokens += estimateTokens(msg.text());
+            String text = null;
+            if (msg instanceof UserMessage) {
+                text = ((UserMessage) msg).singleText();
+            } else if (msg instanceof AiMessage) {
+                text = ((AiMessage) msg).text();
+            } else if (msg instanceof SystemMessage) {
+                text = ((SystemMessage) msg).text();
+            }
+            if (text != null) {
+                totalTokens += estimateTokens(text);
+            }
         }
         
         boolean needs = totalTokens > ragConfig.getMaxHistoryTokens();

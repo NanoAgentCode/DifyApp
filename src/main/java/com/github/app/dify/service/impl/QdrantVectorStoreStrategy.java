@@ -16,7 +16,6 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
 
 /**
  * Qdrant向量存储策略实现
@@ -33,9 +32,6 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
     
     @Autowired
     private QdrantConfig qdrantConfig;
-    
-    @Autowired
-    private ObjectMapper objectMapper;
     
     private WebClient webClient;
     private String lastUrl;

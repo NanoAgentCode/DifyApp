@@ -1,7 +1,6 @@
 package com.github.app.dify.langchain4j;
 
 import com.github.app.dify.repository.KnowledgeBaseRepository;
-import com.github.app.dify.service.VectorStoreService;
 import com.github.app.dify.service.VectorStoreStrategy;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingStore;
@@ -18,9 +17,6 @@ import org.springframework.stereotype.Component;
 public class VectorStoreFactory {
     
     private static final Logger logger = LoggerFactory.getLogger(VectorStoreFactory.class);
-    
-    @Autowired
-    private VectorStoreService vectorStoreService;
     
     @Autowired(required = false)
     private java.util.List<VectorStoreStrategy> strategies;

@@ -8,7 +8,6 @@ import com.github.app.dify.service.DatabaseConnectionService;
 import com.github.app.dify.service.DatabaseSchemaService;
 import com.github.app.dify.util.DatabaseDriverManager;
 import com.mongodb.client.MongoDatabase;
-import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.*;
 import java.util.*;
 import java.util.Date;
-import java.util.stream.Collectors;
 
 /**
  * 数据库表结构服务

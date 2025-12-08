@@ -204,7 +204,7 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
      * 更新访问频率
      */
     private void updateAccessFrequency(Long dataSourceId) {
-        accessFrequency.merge(dataSourceId, 1, Integer::sum);
+        accessFrequency.merge(dataSourceId, 1, (a, b) -> a + b);
     }
     
     /**

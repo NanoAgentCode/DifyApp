@@ -13,7 +13,6 @@ import com.github.app.dify.service.KnowledgeBaseQAService;
 import com.github.app.dify.service.KnowledgeBaseService;
 import com.github.app.dify.service.ModelConfigService;
 import com.github.app.dify.service.RagRetrievalService;
-import com.github.app.dify.service.VectorStoreService;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -57,9 +56,6 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     
     @Autowired
     private ModelConfigService modelConfigService;
-    
-    @Autowired
-    private VectorStoreService vectorStoreService;
     
     @Autowired
     private VectorStoreFactory vectorStoreFactory;

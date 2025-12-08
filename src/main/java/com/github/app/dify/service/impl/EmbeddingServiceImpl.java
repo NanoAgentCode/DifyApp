@@ -163,7 +163,9 @@ public class EmbeddingServiceImpl implements EmbeddingService {
             }
             
             // 解析响应
+            @SuppressWarnings("unchecked")
             Map<String, Object> responseMap = objectMapper.readValue(response, Map.class);
+            @SuppressWarnings("unchecked")
             List<Map<String, Object>> data = (List<Map<String, Object>>) responseMap.get("data");
             
             if (data == null || data.isEmpty()) {
@@ -172,6 +174,7 @@ public class EmbeddingServiceImpl implements EmbeddingService {
             
             List<List<Float>> embeddings = new ArrayList<>();
             for (Map<String, Object> item : data) {
+                @SuppressWarnings("unchecked")
                 List<Object> embeddingObj = (List<Object>) item.get("embedding");
                 if (embeddingObj != null) {
                     List<Float> embedding = new ArrayList<>();

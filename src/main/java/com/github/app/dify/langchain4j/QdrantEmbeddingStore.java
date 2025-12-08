@@ -193,8 +193,8 @@ public class QdrantEmbeddingStore implements EmbeddingStore<TextSegment> {
      * 从TextSegment metadata中提取documentId
      */
     private Long extractDocumentId(TextSegment textSegment) {
-        // 使用get方法获取metadata值
-        Object docIdObj = textSegment.metadata("documentId");
+        // 使用toMap方法获取metadata值
+        Object docIdObj = textSegment.metadata().toMap().get("documentId");
         if (docIdObj != null) {
             try {
                 if (docIdObj instanceof Long) {
@@ -215,8 +215,8 @@ public class QdrantEmbeddingStore implements EmbeddingStore<TextSegment> {
      * 从TextSegment metadata中提取chunkIndex
      */
     private Integer extractChunkIndex(TextSegment textSegment) {
-        // 使用get方法获取metadata值
-        Object chunkIndexObj = textSegment.metadata("chunkIndex");
+        // 使用toMap方法获取metadata值
+        Object chunkIndexObj = textSegment.metadata().toMap().get("chunkIndex");
         if (chunkIndexObj != null) {
             try {
                 if (chunkIndexObj instanceof Integer) {

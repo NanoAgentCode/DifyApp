@@ -111,6 +111,7 @@ public class Text2SqlServiceImpl implements Text2SqlService {
             
             for (String tableName : targetTables) {
                 String schemaJson = schemaService.getTableSchema(dataSource, tableName, false);
+                @SuppressWarnings("unchecked")
                 Map<String, Object> schema = objectMapper.readValue(schemaJson, Map.class);
                 tableSchemas.add(schema);
                 
@@ -389,6 +390,7 @@ public class Text2SqlServiceImpl implements Text2SqlService {
                 
                 try {
                     // 解析JSON
+                    @SuppressWarnings("unchecked")
                     Map<String, Object> schema = objectMapper.readValue(line, Map.class);
                     
                     // 获取表名
@@ -693,6 +695,7 @@ public class Text2SqlServiceImpl implements Text2SqlService {
                 
                 try {
                     // 解析JSON
+                    @SuppressWarnings("unchecked")
                     Map<String, Object> schema = objectMapper.readValue(line, Map.class);
                     
                     // 获取表名

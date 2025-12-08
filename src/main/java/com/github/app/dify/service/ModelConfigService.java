@@ -4,7 +4,6 @@ import com.github.app.dify.domain.EmbeddingModel;
 import com.github.app.dify.domain.QAModel;
 import com.github.app.dify.req.ModelConfigRequest;
 import com.github.app.dify.req.TestModelConnectionRequest;
-import com.github.app.dify.resp.EmbeddingModelResp;
 import com.github.app.dify.resp.ModelConfigResponse;
 import com.github.app.dify.resp.QAModelResp;
 
