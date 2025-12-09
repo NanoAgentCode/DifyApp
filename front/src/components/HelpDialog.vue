@@ -14,6 +14,14 @@
                 </div>
                 <div class="header-top-right">
                   <el-icon 
+                    v-if="showConfigButton"
+                    class="header-action-btn" 
+                    title="用户手册配置" 
+                    @click="handleConfig"
+                  >
+                    <Setting />
+                  </el-icon>
+                  <el-icon 
                     class="header-action-btn" 
                     title="开启新会话" 
                     @click="handleNewConversation"
@@ -118,7 +126,7 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import { User, Service, Loading, ChatLineRound, Link, UploadFilled, Close, Refresh } from '@element-plus/icons-vue'
+import { User, Service, Loading, ChatLineRound, Link, UploadFilled, Close, Refresh, Setting } from '@element-plus/icons-vue'
 import { marked } from 'marked'
 import { chat, chatStream } from '@/api/chat'
 import { knowledgeBaseQA, knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
@@ -136,10 +144,14 @@ const props = defineProps({
   modelId: {
     type: Number,
     default: null
+  },
+  showConfigButton: {
+    type: Boolean,
+    default: false
   }
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'config'])
 
 const visible = ref(false)
 const question = ref('')
@@ -493,6 +505,11 @@ const handleClose = () => {
   // 如果需要清空，可以取消下面的注释
   // chatHistory.value = []
   // conversationId.value = null
+}
+
+// 处理配置按钮点击
+const handleConfig = () => {
+  emit('config')
 }
 </script>
 

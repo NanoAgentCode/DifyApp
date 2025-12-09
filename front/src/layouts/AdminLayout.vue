@@ -81,6 +81,10 @@
             <el-icon><Clock /></el-icon>
             <span>会话历史</span>
           </el-menu-item>
+          <el-menu-item v-if="isAdmin" index="/admin/system-config">
+            <el-icon><Tools /></el-icon>
+            <span>系统配置</span>
+          </el-menu-item>
         </el-menu>
       </el-aside>
       <el-main class="main">
@@ -98,11 +102,12 @@
     <!-- 帮助悬浮按钮 -->
     <HelpFloatingButton @click="handleHelpButtonClick" />
     
-    <!-- 知识库配置对话框 -->
+    <!-- 用户手册配置对话框 -->
     <el-dialog
       v-model="showKBConfigDialog"
       title="配置用户手册智能问答"
       width="500px"
+      @open="handleConfigDialogOpen"
     >
       <el-form>
         <el-form-item label="选择知识库">
@@ -155,6 +160,8 @@
       v-model="showHelpDialog" 
       :knowledge-base-id="helpKnowledgeBaseId"
       :model-id="helpModelId"
+      :show-config-button="isAdmin"
+      @config="showKBConfigDialog = true"
     />
   </el-container>
 </template>
@@ -163,12 +170,13 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { List, User, ArrowDown, Folder, ChatLineRound, Fold, Expand, Clock, Setting, Document, Box, Connection, Search } from '@element-plus/icons-vue'
+import { List, User, ArrowDown, Folder, ChatLineRound, Fold, Expand, Clock, Setting, Document, Box, Connection, Search, Tools } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import HelpFloatingButton from '@/components/HelpFloatingButton.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
 import { getKnowledgeBaseList } from '@/api/knowledgeBase'
 import { getAvailableQAModels, getAvailableQAModelsForRAG } from '@/api/model'
+import { getConfigValue, setOrUpdateConfig, getConfigsByGroup } from '@/api/systemConfig'
 
 const route = useRoute()
 const router = useRouter()
@@ -202,6 +210,48 @@ const toggleCollapse = () => {
   localStorage.setItem('adminMenuCollapse', String(isCollapse.value))
 }
 
+// 从数据库加载配置
+const loadConfigFromDB = async () => {
+  try {
+    // 加载帮助配置组的所有配置
+    const configs = await getConfigsByGroup('help')
+    console.log('从数据库加载的配置:', configs)
+    
+    // 查找知识库ID配置
+    const kbConfig = configs.find(c => c.configKey === 'help.knowledgeBaseId')
+    if (kbConfig && kbConfig.configValue) {
+      const kbId = parseInt(kbConfig.configValue)
+      if (!isNaN(kbId)) {
+        helpKnowledgeBaseId.value = kbId
+        selectedKnowledgeBaseId.value = kbId
+      }
+    }
+    
+    // 查找模型ID配置
+    const modelConfig = configs.find(c => c.configKey === 'help.modelId')
+    if (modelConfig && modelConfig.configValue) {
+      const modelId = parseInt(modelConfig.configValue)
+      if (!isNaN(modelId)) {
+        helpModelId.value = modelId
+        selectedModelId.value = modelId
+      }
+    }
+  } catch (error) {
+    console.error('从数据库加载配置失败:', error)
+    // 如果数据库加载失败，尝试从本地存储恢复（兼容旧数据）
+    const savedKBId = localStorage.getItem('helpKnowledgeBaseId')
+    if (savedKBId) {
+      helpKnowledgeBaseId.value = parseInt(savedKBId)
+      selectedKnowledgeBaseId.value = parseInt(savedKBId)
+    }
+    const savedModelId = localStorage.getItem('helpModelId')
+    if (savedModelId) {
+      helpModelId.value = parseInt(savedModelId)
+      selectedModelId.value = parseInt(savedModelId)
+    }
+  }
+}
+
 // 从本地存储恢复收缩状态和知识库配置
 onMounted(async () => {
   const savedCollapse = localStorage.getItem('adminMenuCollapse')
@@ -221,19 +271,8 @@ onMounted(async () => {
   // 加载知识库列表
   await loadKnowledgeBaseList()
   
-  // 从本地存储恢复知识库配置
-  const savedKBId = localStorage.getItem('helpKnowledgeBaseId')
-  if (savedKBId) {
-    helpKnowledgeBaseId.value = parseInt(savedKBId)
-    selectedKnowledgeBaseId.value = parseInt(savedKBId)
-  }
-  
-  // 从本地存储恢复模型配置
-  const savedModelId = localStorage.getItem('helpModelId')
-  if (savedModelId) {
-    helpModelId.value = parseInt(savedModelId)
-    selectedModelId.value = parseInt(savedModelId)
-  }
+  // 从数据库加载配置
+  await loadConfigFromDB()
   
   // 加载模型列表
   await loadModelList()
@@ -310,29 +349,67 @@ const loadModelList = async () => {
   }
 }
 
-// 保存知识库配置
-const saveKBConfig = () => {
-  if (selectedKnowledgeBaseId.value) {
-    helpKnowledgeBaseId.value = selectedKnowledgeBaseId.value
-    localStorage.setItem('helpKnowledgeBaseId', String(selectedKnowledgeBaseId.value))
-  } else {
-    helpKnowledgeBaseId.value = null
-    localStorage.removeItem('helpKnowledgeBaseId')
+// 配置对话框打开时的处理
+const handleConfigDialogOpen = async () => {
+  // 加载模型列表
+  await loadModelList()
+}
+
+// 保存知识库配置到数据库
+const saveKBConfig = async () => {
+  try {
+    // 保存知识库ID配置
+    if (selectedKnowledgeBaseId.value) {
+      await setOrUpdateConfig({
+        configKey: 'help.knowledgeBaseId',
+        configValue: String(selectedKnowledgeBaseId.value),
+        configGroup: 'help',
+        configType: 'number',
+        description: '用户手册智能问答绑定的知识库ID'
+      })
+      helpKnowledgeBaseId.value = selectedKnowledgeBaseId.value
+    } else {
+      // 如果清空了选择，删除配置（可选，也可以保留为空值）
+      // 这里选择保留为空值，不删除配置
+      await setOrUpdateConfig({
+        configKey: 'help.knowledgeBaseId',
+        configValue: '',
+        configGroup: 'help',
+        configType: 'number',
+        description: '用户手册智能问答绑定的知识库ID'
+      })
+      helpKnowledgeBaseId.value = null
+    }
+    
+    // 保存模型ID配置
+    if (selectedModelId.value) {
+      await setOrUpdateConfig({
+        configKey: 'help.modelId',
+        configValue: String(selectedModelId.value),
+        configGroup: 'help',
+        configType: 'number',
+        description: '用户手册智能问答使用的模型ID'
+      })
+      helpModelId.value = selectedModelId.value
+    } else {
+      await setOrUpdateConfig({
+        configKey: 'help.modelId',
+        configValue: '',
+        configGroup: 'help',
+        configType: 'number',
+        description: '用户手册智能问答使用的模型ID'
+      })
+      helpModelId.value = null
+    }
+    
+    ElMessage.success('配置已保存到数据库')
+    // 配置完成后，如果用户是通过帮助按钮触发的，自动打开帮助对话框
+    showHelpDialog.value = true
+    showKBConfigDialog.value = false
+  } catch (error) {
+    console.error('保存配置失败:', error)
+    ElMessage.error('保存配置失败：' + (error.message || '未知错误'))
   }
-  
-  // 保存模型配置
-  if (selectedModelId.value) {
-    helpModelId.value = selectedModelId.value
-    localStorage.setItem('helpModelId', String(selectedModelId.value))
-  } else {
-    helpModelId.value = null
-    localStorage.removeItem('helpModelId')
-  }
-  
-  ElMessage.success('配置已保存')
-  // 配置完成后，如果用户是通过帮助按钮触发的，自动打开帮助对话框
-  showHelpDialog.value = true
-  showKBConfigDialog.value = false
 }
 
 
