@@ -38,7 +38,6 @@ spring:
     open-in-view: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: false  # 关闭SQL格式化（因为show-sql已关闭）
   mvc:
     pathmatch:

@@ -68,6 +68,16 @@
       v-model="showChangePasswordDialog"
       @success="handlePasswordChangeSuccess"
     />
+    
+    <!-- 帮助悬浮按钮 -->
+    <HelpFloatingButton @click="showHelpDialog = true" />
+    
+    <!-- 帮助对话框 -->
+    <HelpDialog 
+      v-model="showHelpDialog" 
+      :knowledge-base-id="helpKnowledgeBaseId"
+      :model-id="helpModelId"
+    />
   </el-container>
 </template>
 
@@ -77,6 +87,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { User, ArrowDown, List, Folder, ChatLineRound, Fold, Expand, Clock, Document } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
+import HelpFloatingButton from '@/components/HelpFloatingButton.vue'
+import HelpDialog from '@/components/HelpDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -89,6 +101,9 @@ const activeMenu = computed(() => {
 })
 const userInfo = ref(null)
 const showChangePasswordDialog = ref(false)
+const showHelpDialog = ref(false)
+const helpKnowledgeBaseId = ref(null)
+const helpModelId = ref(null)
 
 // 导航菜单收缩状态
 const isCollapse = ref(false)
@@ -100,7 +115,7 @@ const toggleCollapse = () => {
   localStorage.setItem('userMenuCollapse', String(isCollapse.value))
 }
 
-// 从本地存储恢复收缩状态
+// 从本地存储恢复收缩状态和知识库配置
 onMounted(() => {
   const savedCollapse = localStorage.getItem('userMenuCollapse')
   if (savedCollapse !== null) {
@@ -114,6 +129,18 @@ onMounted(() => {
     } catch (e) {
       console.error('解析用户信息失败', e)
     }
+  }
+  
+  // 从本地存储读取知识库配置（由管理端配置）
+  const savedKBId = localStorage.getItem('helpKnowledgeBaseId')
+  if (savedKBId) {
+    helpKnowledgeBaseId.value = parseInt(savedKBId)
+  }
+  
+  // 从本地存储读取模型配置（由管理端配置）
+  const savedModelId = localStorage.getItem('helpModelId')
+  if (savedModelId) {
+    helpModelId.value = parseInt(savedModelId)
   }
 })
 
