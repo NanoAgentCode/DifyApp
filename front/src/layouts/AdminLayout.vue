@@ -54,6 +54,10 @@
             <span>应用列表</span>
           </el-menu-item>
           <!-- 工具 -->
+          <el-menu-item v-if="isAdmin" index="/admin/ai-drawio">
+            <el-icon><DataAnalysis /></el-icon>
+            <span>AI 绘图</span>
+          </el-menu-item>
           <el-menu-item v-if="isAdmin" index="/admin/text2sql">
             <el-icon><Search /></el-icon>
             <span>SQL 生成</span>
@@ -170,7 +174,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { List, User, ArrowDown, Folder, ChatLineRound, Fold, Expand, Clock, Setting, Document, Box, Connection, Search, Tools } from '@element-plus/icons-vue'
+import { List, User, ArrowDown, Folder, ChatLineRound, Fold, Expand, Clock, Setting, Document, Box, Connection, Search, Tools, DataAnalysis } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import HelpFloatingButton from '@/components/HelpFloatingButton.vue'
 import HelpDialog from '@/components/HelpDialog.vue'

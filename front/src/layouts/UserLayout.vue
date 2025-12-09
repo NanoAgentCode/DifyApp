@@ -90,7 +90,6 @@ import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import HelpFloatingButton from '@/components/HelpFloatingButton.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
 import { getConfigsByGroup } from '@/api/systemConfig'
-import { getConfigsByGroup } from '@/api/systemConfig'
 
 const route = useRoute()
 const router = useRouter()

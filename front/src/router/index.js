@@ -130,6 +130,12 @@ const routes = [
                 name: 'SystemConfig',
                 component: () => import('@/views/admin/SystemConfig.vue'),
                 meta: {title: '系统配置', requiresAuth: true, requiresAdmin: true}
+            },
+            {
+                path: 'ai-drawio',
+                name: 'AIDrawIO',
+                component: () => import('@/views/admin/AIDrawIO.vue'),
+                meta: {title: 'AI 绘图', requiresAuth: true, requiresAdmin: true}
             }
         ]
     },
