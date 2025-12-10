@@ -735,11 +735,8 @@ public class Text2SqlServiceImpl implements Text2SqlService {
             return sql;
         }
         
-        // 如果SQL中已经包含CAST，说明可能已经处理过，跳过
-        if (sql.toUpperCase().contains("CAST(")) {
-            logger.debug("SQL中已包含CAST，跳过自动修复");
-            return sql;
-        }
+        // 即使SQL中已经包含CAST，也要检查是否所有类型转换都正确
+        // 不再直接跳过，而是继续处理，因为可能有些地方需要修复而有些已经正确
         
         // 匹配 WHERE 条件中的比较表达式
         // 匹配模式：列名 = '值' 或 列名 = "值"
@@ -797,16 +794,24 @@ public class Text2SqlServiceImpl implements Text2SqlService {
                                        columnType.contains("real") ||
                                        columnType.contains("serial");
                 
-                // 如果列是数字类型，但值是字符串，需要添加CAST
+                // 如果列是数字类型，但值是字符串，需要检查值是否是纯数字
                 if (isNumericType) {
-                    // 确定PostgreSQL类型名称
-                    String pgType = mapToPostgreSqlType(columnType);
+                    // 检查值是否是纯数字（可能包含负号和小数点）
+                    boolean isNumericValue = value.matches("^-?\\d+(\\.\\d+)?$");
                     
-                    // 构建替换：将 'value' 替换为 CAST('value' AS pgType)
+                    if (isNumericValue) {
+                        // 值是数字字符串，可以转换为数字类型
+                        String pgType = mapToPostgreSqlType(columnType);
                     String quotedValue = matcher.group(4) != null ? "'" + value + "'" : "\"" + value + "\"";
                     replacement = columnRef + " " + operator + " CAST(" + quotedValue + " AS " + pgType + ")";
-                    
                     logger.debug("修复类型转换: {} -> {}", originalMatch, replacement);
+                    } else {
+                        // 值不是数字，但列是数字类型，这可能是错误
+                        // 记录警告，但不自动修复（可能是列类型信息错误，或者这是真正的错误）
+                        logger.warn("检测到类型不匹配：列 {} 是数字类型 {}，但值 '{}' 不是数字。可能需要检查列类型或查询条件。", 
+                                   columnRef, columnType, value);
+                        // 不进行替换，保持原样，让数据库报错，这样用户可以看到明确的错误信息
+                    }
                 }
             }
             
@@ -949,8 +954,8 @@ public class Text2SqlServiceImpl implements Text2SqlService {
                             String actualTableName = aliasToTableMap.get(tableOrAlias);
                             if (actualTableName != null) {
                                 columns = tableColumnsMap.get(actualTableName);
-                                if (columns != null && columns.contains(columnName)) {
-                                    found = true;
+                        if (columns != null && columns.contains(columnName)) {
+                            found = true;
                                 }
                             }
                         }
@@ -1246,6 +1251,25 @@ public class Text2SqlServiceImpl implements Text2SqlService {
             java.util.regex.Pattern.CASE_INSENSITIVE
         );
         
+        // SQL数据类型列表（用于过滤CAST表达式中的类型）
+        Set<String> sqlDataTypes = new HashSet<>(Arrays.asList(
+            // 字符串类型
+            "VARCHAR", "CHAR", "TEXT", "CHARACTER", "VARYING",
+            // 数值类型
+            "INT", "INTEGER", "BIGINT", "SMALLINT", "TINYINT", "NUMERIC", "DECIMAL",
+            "FLOAT", "DOUBLE", "REAL", "SERIAL", "BIGSERIAL", "SMALLSERIAL",
+            // 日期时间类型
+            "DATE", "TIME", "TIMESTAMP", "DATETIME", "YEAR",
+            // 布尔类型
+            "BOOLEAN", "BOOL",
+            // PostgreSQL 特有类型
+            "JSON", "JSONB", "ARRAY", "UUID", "BYTEA", "INTERVAL",
+            // MySQL 特有类型
+            "BLOB", "MEDIUMBLOB", "LONGBLOB", "MEDIUMTEXT", "LONGTEXT",
+            // Oracle 特有类型
+            "CLOB", "NCLOB", "BLOB", "RAW", "LONG", "NUMBER"
+        ));
+        
         java.util.regex.Matcher matcher = pattern.matcher(text);
         while (matcher.find()) {
             String match = matcher.group(1);
@@ -1254,6 +1278,11 @@ public class Text2SqlServiceImpl implements Text2SqlService {
             
             // 跳过SQL关键字
             if (sqlKeywords.contains(upperMatch)) {
+                continue;
+            }
+            
+            // 跳过SQL数据类型（用于过滤CAST表达式中的类型，如 CAST(value AS varchar)）
+            if (sqlDataTypes.contains(upperMatch)) {
                 continue;
             }
             
@@ -1534,10 +1563,18 @@ public class Text2SqlServiceImpl implements Text2SqlService {
             String errorMessage = e.getMessage();
             
             // 如果是类型转换错误，提供更友好的提示
-            if (errorMessage != null && errorMessage.contains("operator does not exist")) {
+            if (errorMessage != null) {
+                if (errorMessage.contains("operator does not exist")) {
                 errorMessage = "SQL类型转换错误: " + errorMessage + 
                     "\n提示：PostgreSQL 在比较不同数据类型的字段时需要显式类型转换。" +
                     "\n例如：WHERE id = CAST('123' AS bigint) 或 WHERE id = '123'::bigint";
+                } else if (errorMessage.contains("invalid input syntax for type")) {
+                    // 处理类型转换错误，如 "invalid input syntax for type bigint: \"app-Ek0ZLe1NpUdLLirjjzbtiVrx\""
+                    errorMessage = "SQL类型转换错误: " + errorMessage + 
+                        "\n提示：尝试将非数字字符串转换为数字类型失败。" +
+                        "\n请检查：1) 列的数据类型是否正确；2) 查询条件中的值是否与列类型匹配；" +
+                        "\n如果列应该是字符串类型，请检查表结构信息是否正确。";
+                }
             }
             
             throw new RuntimeException("执行SQL查询失败: " + errorMessage, e);
