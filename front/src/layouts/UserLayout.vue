@@ -274,11 +274,18 @@ const handlePasswordChangeSuccess = () => {
   background: #fff;
   border-right: 1px solid #e4e7ed;
   transition: width 0.3s;
+  height: calc(100vh - 60px); /* 减去header高度 */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .menu {
   border-right: none;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .main {

@@ -24,6 +24,12 @@ export function applyGlobalTheme(themeValue) {
     const theme = getThemeById(themeId)
     if (theme) {
       cssVariables = getThemeCSSVariables(theme)
+    } else {
+      // 如果主题ID无效，默认使用饿了么蓝（修复Bug 1：添加回退逻辑）
+      const defaultTheme = getThemeById('element')
+      if (defaultTheme) {
+        cssVariables = getThemeCSSVariables(defaultTheme)
+      }
     }
   } else {
     // 尝试根据ID查找主题
@@ -45,8 +51,9 @@ export function applyGlobalTheme(themeValue) {
   })
 
   // 同时设置Element Plus的主色（如果存在主色）
-  if (cssVariables['--theme-primary'] || cssVariables['--global-theme-primary']) {
-    const primaryColor = cssVariables['--theme-primary'] || cssVariables['--global-theme-primary']
+  // 修复Bug 2：只检查 '--theme-primary'，因为 getThemeCSSVariables() 只返回这个键
+  if (cssVariables['--theme-primary']) {
+    const primaryColor = cssVariables['--theme-primary']
     root.style.setProperty('--el-color-primary', primaryColor)
     
     // 生成并设置Element Plus的主色变体

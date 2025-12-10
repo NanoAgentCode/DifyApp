@@ -47,6 +47,7 @@
           @selection-change="handleSelectionChange"
           style="width: 100%"
           :default-sort="{ prop: 'updateTime', order: 'descending' }"
+          height="100%"
         >
         <el-table-column type="selection" width="55" align="center" />
         <el-table-column prop="id" label="ID" width="80" align="center" />
@@ -588,8 +589,20 @@ export default {
 .table-wrapper {
   flex: 1;
   min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.table-wrapper .el-table) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.table-wrapper .el-table .el-table__body-wrapper) {
+  flex: 1;
   overflow-y: auto;
-  overflow-x: hidden;
 }
 
 .pagination-container {
