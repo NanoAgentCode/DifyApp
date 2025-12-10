@@ -9,7 +9,7 @@
         >
           <el-icon><Fold v-if="!isCollapse" /><Expand v-else /></el-icon>
         </el-button>
-        <h2>Dify应用管理平台</h2>
+        <h2>智能应用工作台</h2>
       </div>
       <div class="header-right">
         <el-dropdown @command="handleCommand">
