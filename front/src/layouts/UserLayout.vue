@@ -222,7 +222,7 @@ const handlePasswordChangeSuccess = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #409eff;
+  background: var(--el-color-primary, #409EFF);
   color: white;
   padding: 0 20px;
   height: 60px;

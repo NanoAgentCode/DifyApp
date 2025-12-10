@@ -3,7 +3,14 @@
 </template>
 
 <script setup>
-// 根组件
+import { onMounted } from 'vue'
+import { getConfigValue } from '@/api/systemConfig'
+import { loadAndApplyGlobalTheme } from '@/utils/globalTheme'
+
+// 加载并应用全局主题色
+onMounted(async () => {
+  await loadAndApplyGlobalTheme(getConfigValue)
+})
 </script>
 
 <style>

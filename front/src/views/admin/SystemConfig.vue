@@ -90,7 +90,57 @@
             :disabled="!!editingConfig"
           />
         </el-form-item>
-        <el-form-item label="配置值" prop="configValue">
+        <!-- 全局主题色配置特殊处理 -->
+        <el-form-item 
+          v-if="isGlobalThemeConfig" 
+          label="主题" 
+          prop="configValue"
+        >
+          <div class="theme-selector">
+            <el-radio-group v-model="selectedTheme" @change="handleThemeChange" class="theme-grid">
+              <el-radio 
+                v-for="theme in industrialThemes" 
+                :key="theme.id" 
+                :label="theme.id"
+                class="theme-card"
+              >
+                <div class="theme-preview-card">
+                  <div class="theme-header">
+                    <div class="theme-name">{{ theme.name }}</div>
+                    <div class="theme-check-icon" v-if="selectedTheme === theme.id">
+                      <el-icon><Check /></el-icon>
+                    </div>
+                  </div>
+                  <div class="theme-colors-preview">
+                    <div 
+                      class="color-dot primary" 
+                      :style="{ backgroundColor: theme.colors.primary }"
+                      :title="`主色: ${theme.colors.primary}`"
+                    ></div>
+                    <div 
+                      class="color-dot secondary" 
+                      :style="{ backgroundColor: theme.colors.secondary }"
+                      :title="`次色: ${theme.colors.secondary}`"
+                    ></div>
+                    <div 
+                      class="color-dot accent" 
+                      :style="{ backgroundColor: theme.colors.accent }"
+                      :title="`强调色: ${theme.colors.accent}`"
+                    ></div>
+                  </div>
+                  <div class="theme-info">
+                    <div class="theme-desc">{{ theme.description }}</div>
+                  </div>
+                </div>
+              </el-radio>
+            </el-radio-group>
+          </div>
+        </el-form-item>
+        <el-form-item 
+          v-else
+          label="配置值" 
+          prop="configValue"
+        >
           <el-input
             v-model="form.configValue"
             type="textarea"
@@ -130,10 +180,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search } from '@element-plus/icons-vue'
+import { Plus, Search, Check } from '@element-plus/icons-vue'
 import { getAllConfigs, setOrUpdateConfig, deleteConfig } from '@/api/systemConfig'
+import { industrialThemes, getThemeById } from '@/utils/themes'
+import { GLOBAL_THEME_CONFIG_KEY } from '@/utils/globalTheme'
+import { applyGlobalTheme } from '@/utils/globalTheme'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -151,6 +204,49 @@ const form = ref({
   configType: '',
   description: ''
 })
+
+// 主题相关
+const selectedTheme = ref('element') // 默认使用饿了么蓝
+
+// 判断是否是全局主题色配置
+const isGlobalThemeConfig = computed(() => {
+  return form.value.configKey === GLOBAL_THEME_CONFIG_KEY
+})
+
+// 监听配置键变化，初始化主题选择
+watch(() => form.value.configKey, (newKey) => {
+  if (newKey === GLOBAL_THEME_CONFIG_KEY) {
+    // 自动设置配置分组为system
+    if (!form.value.configGroup) {
+      form.value.configGroup = 'system'
+    }
+    // 自动设置描述
+    if (!form.value.description) {
+      form.value.description = '全局主题色配置，从预设主题中选择'
+    }
+    
+    // 解析当前配置值
+    const currentValue = form.value.configValue
+    if (currentValue) {
+      if (currentValue.includes(':')) {
+        const [themeId] = currentValue.split(':')
+        selectedTheme.value = themeId
+      } else {
+        // 尝试查找主题
+        const theme = getThemeById(currentValue)
+        if (theme) {
+          selectedTheme.value = currentValue
+        } else {
+          // 如果不是有效的主题ID，默认使用饿了么蓝
+          selectedTheme.value = 'element'
+        }
+      }
+    } else {
+      // 如果没有配置，默认使用饿了么蓝
+      selectedTheme.value = 'element'
+    }
+  }
+}, { immediate: true })
 
 // 过滤后的配置列表
 const filteredConfigList = computed(() => {
@@ -207,6 +303,7 @@ const handleAdd = () => {
     configType: '',
     description: ''
   }
+  selectedTheme.value = 'element' // 默认使用饿了么蓝
   showDialog.value = true
 }
 
@@ -220,7 +317,34 @@ const handleEdit = (row) => {
     configType: row.configType || '',
     description: row.description || ''
   }
+  
+  // 如果是全局主题配置，初始化主题选择
+  if (row.configKey === GLOBAL_THEME_CONFIG_KEY) {
+    const currentValue = row.configValue || ''
+    if (currentValue.includes(':')) {
+      const [themeId] = currentValue.split(':')
+      selectedTheme.value = themeId
+    } else {
+      const theme = getThemeById(currentValue)
+      if (theme) {
+        selectedTheme.value = currentValue
+      } else {
+        // 如果不是有效的主题ID，默认使用饿了么蓝
+        selectedTheme.value = 'element'
+      }
+    }
+  }
+  
   showDialog.value = true
+}
+
+// 主题变化处理
+const handleThemeChange = (themeId) => {
+  const theme = getThemeById(themeId)
+  if (theme) {
+    // 保存主题ID和主色到configValue字段（格式：themeId:primaryColor）
+    form.value.configValue = `${themeId}:${theme.colors.primary}`
+  }
 }
 
 // 保存配置
@@ -231,6 +355,28 @@ const handleSave = async () => {
     await formRef.value.validate()
     saving.value = true
     
+    // 如果是全局主题配置，确保使用正确的格式
+    if (form.value.configKey === GLOBAL_THEME_CONFIG_KEY) {
+      if (selectedTheme.value) {
+        const theme = getThemeById(selectedTheme.value)
+        if (theme) {
+          form.value.configValue = `${selectedTheme.value}:${theme.colors.primary}`
+        } else {
+          // 如果主题不存在，默认使用饿了么蓝
+          const defaultTheme = getThemeById('element')
+          if (defaultTheme) {
+            form.value.configValue = `element:${defaultTheme.colors.primary}`
+          }
+        }
+      } else {
+        // 如果没有选择主题，默认使用饿了么蓝
+        const defaultTheme = getThemeById('element')
+        if (defaultTheme) {
+          form.value.configValue = `element:${defaultTheme.colors.primary}`
+        }
+      }
+    }
+    
     await setOrUpdateConfig({
       configKey: form.value.configKey,
       configValue: form.value.configValue,
@@ -240,6 +386,12 @@ const handleSave = async () => {
     })
     
     ElMessage.success(editingConfig.value ? '配置更新成功' : '配置添加成功')
+    
+    // 如果是全局主题配置，立即应用新主题
+    if (form.value.configKey === GLOBAL_THEME_CONFIG_KEY) {
+      applyGlobalTheme(form.value.configValue)
+    }
+    
     showDialog.value = false
     await loadConfigs()
   } catch (error) {
@@ -296,6 +448,98 @@ onMounted(() => {
   display: flex;
   align-items: center;
   margin-bottom: 20px;
+}
+
+/* 主题选择器样式 */
+.theme-selector {
+  width: 100%;
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.theme-card {
+  margin: 0;
+  height: auto;
+}
+
+.theme-preview-card {
+  border: 2px solid #e4e7ed;
+  border-radius: 4px;
+  padding: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: #fff;
+}
+
+.theme-preview-card:hover {
+  border-color: #409eff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.theme-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.theme-name {
+  font-weight: 600;
+  font-size: 12px;
+  color: #303133;
+  line-height: 1.2;
+}
+
+.theme-check-icon {
+  color: #409eff;
+  font-size: 14px;
+}
+
+.theme-colors-preview {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.color-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  border: 1px solid #e4e7ed;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.theme-info {
+  margin-top: 2px;
+}
+
+.theme-desc {
+  font-size: 10px;
+  color: #909399;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-color-section {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  background: #f5f7fa;
+  border-radius: 4px;
+}
+
+/* 选中状态 */
+:deep(.el-radio.is-checked .theme-preview-card) {
+  border-color: #409eff;
+  background: #ecf5ff;
 }
 </style>
 

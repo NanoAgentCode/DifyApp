@@ -124,7 +124,7 @@ const goToRegister = () => {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #409EFF 0%, #1890ff 50%, #096dd9 100%);
+  background: linear-gradient(135deg, var(--el-color-primary, #409EFF) 0%, var(--el-color-primary-dark-2, #337ECC) 50%, var(--el-color-primary-dark-2, #2B6CB0) 100%);
   position: relative;
   overflow: hidden;
 }
@@ -155,7 +155,7 @@ const goToRegister = () => {
   padding: 50px 40px;
   background: rgba(255, 255, 255, 0.98);
   border-radius: 12px;
-  box-shadow: 0 15px 50px rgba(64, 158, 255, 0.3);
+  box-shadow: 0 15px 50px var(--el-color-primary-rgba-03, rgba(64, 158, 255, 0.25));
   position: relative;
   z-index: 1;
   backdrop-filter: blur(10px);
@@ -164,7 +164,7 @@ const goToRegister = () => {
 .title {
   text-align: center;
   margin-bottom: 40px;
-  color: #409EFF;
+  color: var(--el-color-primary, #409EFF);
   font-size: 28px;
   font-weight: 600;
   letter-spacing: 1px;
@@ -181,11 +181,11 @@ const goToRegister = () => {
 }
 
 .login-form :deep(.el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px #409EFF inset;
+  box-shadow: 0 0 0 1px var(--el-color-primary, #409EFF) inset;
 }
 
 .login-form :deep(.el-input.is-focus .el-input__wrapper) {
-  box-shadow: 0 0 0 1px #409EFF inset;
+  box-shadow: 0 0 0 1px var(--el-color-primary, #409EFF) inset;
 }
 
 .login-form :deep(.el-input__inner) {
@@ -193,24 +193,24 @@ const goToRegister = () => {
 }
 
 .login-form :deep(.el-input__prefix) {
-  color: #409EFF;
+  color: var(--el-color-primary, #409EFF);
 }
 
 .login-button {
   width: 100%;
-  background: linear-gradient(135deg, #409EFF 0%, #1890ff 100%);
+  background: linear-gradient(135deg, var(--el-color-primary, #409EFF) 0%, var(--el-color-primary-dark-2, #337ECC) 100%);
   border: none;
   border-radius: 6px;
   font-size: 16px;
   font-weight: 500;
   height: 44px;
   transition: all 0.3s;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
+  box-shadow: 0 4px 12px var(--el-color-primary-rgba-04, rgba(64, 158, 255, 0.3));
 }
 
 .login-button:hover {
-  background: linear-gradient(135deg, #66b1ff 0%, #409EFF 100%);
-  box-shadow: 0 6px 16px rgba(64, 158, 255, 0.5);
+  background: linear-gradient(135deg, var(--el-color-primary-light-3, #66B1FF) 0%, var(--el-color-primary, #409EFF) 100%);
+  box-shadow: 0 6px 16px var(--el-color-primary-rgba-05, rgba(64, 158, 255, 0.4));
   transform: translateY(-2px);
 }
 
@@ -230,12 +230,12 @@ const goToRegister = () => {
 }
 
 .register-link :deep(.el-link) {
-  color: #409EFF;
+  color: var(--el-color-primary, #409EFF);
   font-weight: 500;
 }
 
 .register-link :deep(.el-link:hover) {
-  color: #66b1ff;
+  color: var(--el-color-primary-light-3, #66B1FF);
 }
 </style>
 
