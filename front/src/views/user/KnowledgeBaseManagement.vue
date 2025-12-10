@@ -197,7 +197,19 @@
             </template>
           </el-alert>
         </el-form-item>
-        <el-form-item label="向量化模型" prop="embeddingModelId">
+        <el-form-item prop="embeddingModelId">
+          <template #label>
+            <span>向量化模型</span>
+            <el-tooltip
+              v-if="!(isEdit && hasDocuments)"
+              content="用于文档向量化的模型，如果不选择则使用系统默认向量化模型"
+              placement="top"
+            >
+              <el-icon style="margin-left: 4px; color: #909399; cursor: help;">
+                <QuestionFilled />
+              </el-icon>
+            </el-tooltip>
+          </template>
           <el-select
             v-model="formData.embeddingModelId"
             :placeholder="isEdit && hasDocuments ? (getEmbeddingModelName(formData.embeddingModelId) || '默认模型') : '选择向量化模型（不选择则使用默认模型）'"
@@ -229,11 +241,19 @@
             <el-icon><Warning /></el-icon>
             <span>当前使用：<strong>{{ getEmbeddingModelName(formData.embeddingModelId) || '默认模型' }}</strong>。已有文档，无法修改。</span>
           </div>
-          <div v-else class="form-item-hint">
-            用于文档向量化的模型，如果不选择则使用系统默认向量化模型
-          </div>
         </el-form-item>
-        <el-form-item label="Top-K检索数量" prop="topK">
+        <el-form-item prop="topK">
+          <template #label>
+            <span>Top-K检索数量</span>
+            <el-tooltip
+              content="检索时返回的最相关文档片段数量（1-50），如果不设置则使用系统全局配置"
+              placement="top"
+            >
+              <el-icon style="margin-left: 4px; color: #909399; cursor: help;">
+                <QuestionFilled />
+              </el-icon>
+            </el-tooltip>
+          </template>
           <el-input-number
             v-model="formData.topK"
             :min="1"
@@ -243,11 +263,20 @@
             style="width: 100%"
             clearable
           />
-          <div class="form-item-hint">
-            检索时返回的最相关文档片段数量（1-50），如果不设置则使用系统全局配置
-          </div>
         </el-form-item>
-        <el-form-item label="向量存储" prop="vectorStoreType">
+        <el-form-item prop="vectorStoreType">
+          <template #label>
+            <span>向量存储</span>
+            <el-tooltip
+              v-if="!formData.vectorStoreType"
+              content="请选择向量存储实例。将显示所有启用的向量库配置。"
+              placement="top"
+            >
+              <el-icon style="margin-left: 4px; color: #909399; cursor: help;">
+                <QuestionFilled />
+              </el-icon>
+            </el-tooltip>
+          </template>
           <el-select
             v-model="formData.vectorStoreType"
             placeholder="选择向量存储实例"
@@ -290,9 +319,6 @@
           <div v-else-if="formData.vectorStoreType" class="form-item-hint form-item-description">
             <span class="description-label">{{ getVectorStoreTypeNameFromValue(formData.vectorStoreType) }}：</span>
             <span class="description-text">{{ getVectorStoreTypeDescriptionFromValue(formData.vectorStoreType) }}</span>
-          </div>
-          <div v-else class="form-item-hint form-item-description">
-            <span>请选择向量存储实例。将显示所有启用的向量库配置。</span>
           </div>
         </el-form-item>
         <el-form-item label="状态" prop="status">
@@ -364,7 +390,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, ElTooltip } from 'element-plus'
-import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Check, Close, Warning, Link } from '@element-plus/icons-vue'
+import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Check, Close, Warning, Link, QuestionFilled } from '@element-plus/icons-vue'
 import { 
   getKnowledgeBaseList, 
   createKnowledgeBase, 
@@ -492,7 +518,7 @@ const loadVectorDatabases = async () => {
   } catch (error) {
     console.error('加载向量库配置列表失败', error)
     // 如果加载失败，默认允许所有类型
-    enabledVectorStoreTypes.value = ['qdrant', 'faiss', 'milvus', 'chroma', 'weaviate']
+    enabledVectorStoreTypes.value = ['qdrant', 'faiss', 'milvus', 'chroma', 'weaviate', 'elasticsearch']
   }
 }
 
@@ -953,7 +979,8 @@ const getVectorStoreTypeDescription = (type) => {
     'faiss': '本地文件存储，无需额外服务，适合开发测试。',
     'milvus': '开源向量数据库，支持大规模向量检索，需要独立服务器，使用 gRPC 协议。',
     'chroma': '开源向量数据库，轻量级，易于部署，支持 HTTP REST API。',
-    'weaviate': '开源向量数据库，支持 GraphQL 和 REST API，提供强大的语义搜索能力。'
+    'weaviate': '开源向量数据库，支持 GraphQL 和 REST API，提供强大的语义搜索能力。',
+    'elasticsearch': '企业级分布式搜索和分析引擎，支持向量搜索、全文检索和混合搜索。具备高可用性、水平扩展能力强，适合大规模生产环境。支持多种认证方式（用户名密码、API Key）。重要：建议使用 Elasticsearch 8.x 版本（推荐 8.11.0+），低版本可能存在兼容性问题。'
   }
   return descriptions[type.toLowerCase()] || ''
 }
@@ -964,6 +991,7 @@ const getVectorStoreTypeName = (type) => {
   if (type === 'milvus') return 'Milvus'
   if (type === 'chroma') return 'Chroma'
   if (type === 'weaviate') return 'Weaviate'
+  if (type === 'elasticsearch') return 'Elasticsearch'
   return 'Qdrant'
 }
 
@@ -973,6 +1001,7 @@ const getVectorStoreTypeDisplayName = (type) => {
   if (type === 'milvus') return 'Milvus（向量数据库）'
   if (type === 'chroma') return 'Chroma（向量数据库）'
   if (type === 'weaviate') return 'Weaviate（向量数据库）'
+  if (type === 'elasticsearch') return 'Elasticsearch（向量数据库）'
   return 'Qdrant（向量数据库）'
 }
 
@@ -1022,6 +1051,7 @@ const getVectorStoreTypeTag = (type) => {
   if (type === 'milvus') return 'warning'
   if (type === 'chroma') return 'info'
   if (type === 'weaviate') return 'success'
+  if (type === 'elasticsearch') return 'warning'
   return 'primary'
 }
 

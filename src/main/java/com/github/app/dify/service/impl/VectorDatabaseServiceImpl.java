@@ -117,6 +117,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
         String type = request.getType();
         String url = request.getUrl();
         String apiKey = request.getApiKey();
+        String extraConfig = request.getExtraConfig();
         Integer timeout = request.getTimeout() != null ? request.getTimeout() : 30000;
         
         try {
@@ -130,6 +131,8 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
                 testChromaConnection(url, apiKey, timeout);
             } else if ("weaviate".equalsIgnoreCase(type)) {
                 testWeaviateConnection(url, apiKey, timeout);
+            } else if ("elasticsearch".equalsIgnoreCase(type)) {
+                testElasticsearchConnection(url, apiKey, extraConfig, timeout);
             } else {
                 throw new RuntimeException("不支持的数据库类型: " + type);
             }
@@ -343,6 +346,8 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
                 faissConfig.reload();
             } else if ("weaviate".equalsIgnoreCase(type) && weaviateConfig != null) {
                 weaviateConfig.reload();
+            } else if ("elasticsearch".equalsIgnoreCase(type)) {
+                // Elasticsearch配置重新加载在需要时进行
             }
         } catch (Exception e) {
             logger.warn("重新加载{}配置失败: {}", type, e.getMessage());
@@ -718,6 +723,159 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
         } else {
             throw new RuntimeException(
                 String.format("Weaviate健康检查返回空响应。已尝试端点: %s。请检查Weaviate服务是否正在运行。", 
+                    String.join(", ", healthEndpoints)));
+        }
+    }
+    
+    /**
+     * 测试Elasticsearch连接
+     */
+    private void testElasticsearchConnection(String url, String apiKey, String extraConfig, int timeout) {
+        WebClient.Builder builder = WebClient.builder()
+                .baseUrl(url)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+        
+        // 解析extraConfig获取username和password
+        String username = null;
+        String password = null;
+        if (extraConfig != null && !extraConfig.trim().isEmpty()) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                @SuppressWarnings("unchecked")
+                Map<String, Object> config = mapper.readValue(extraConfig, Map.class);
+                if (config.containsKey("username")) {
+                    username = (String) config.get("username");
+                }
+                if (config.containsKey("password")) {
+                    password = (String) config.get("password");
+                }
+            } catch (Exception e) {
+                logger.debug("解析extraConfig失败: {}", e.getMessage());
+            }
+        }
+        
+        // 配置认证：优先使用username/password（Basic Auth），其次使用API Key
+        if (username != null && password != null && 
+            !username.trim().isEmpty() && !password.trim().isEmpty()) {
+            // 使用Basic Auth
+            String credentials = username + ":" + password;
+            String encodedCredentials = java.util.Base64.getEncoder().encodeToString(credentials.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            builder.defaultHeader("Authorization", "Basic " + encodedCredentials);
+            logger.debug("使用Basic Auth进行Elasticsearch连接测试 - 用户名: {}", username);
+        } else if (apiKey != null && !apiKey.trim().isEmpty()) {
+            // 使用API Key认证
+            builder.defaultHeader("Authorization", "ApiKey " + apiKey);
+            logger.debug("使用API Key进行Elasticsearch连接测试");
+        }
+        
+        WebClient webClient = builder.build();
+        
+        // 尝试多个健康检查端点
+        String[] healthEndpoints = {"/", "/_cluster/health", "/_cat/health"};
+        String healthResponse = null;
+        String successfulEndpoint = null;
+        Exception lastException = null;
+        
+        for (String endpoint : healthEndpoints) {
+            try {
+                if (endpoint.equals("/_cluster/health") || endpoint.equals("/")) {
+                    // 这些端点返回JSON
+                    ParameterizedTypeReference<Map<String, Object>> typeRef = 
+                            new ParameterizedTypeReference<Map<String, Object>>() {};
+                    Map<String, Object> healthResponseMap = webClient
+                            .get()
+                            .uri(endpoint)
+                            .retrieve()
+                            .bodyToMono(typeRef)
+                            .timeout(Duration.ofMillis(timeout))
+                            .block();
+                    
+                    if (healthResponseMap != null) {
+                        healthResponse = "OK";
+                        successfulEndpoint = endpoint;
+                        break;
+                    }
+                } else {
+                    // 其他端点返回文本
+                    healthResponse = webClient
+                            .get()
+                            .uri(endpoint)
+                            .retrieve()
+                            .bodyToMono(String.class)
+                            .timeout(Duration.ofMillis(timeout))
+                            .block();
+                    
+                    if (healthResponse != null && !healthResponse.trim().isEmpty()) {
+                        successfulEndpoint = endpoint;
+                        break;
+                    }
+                }
+            } catch (WebClientResponseException e) {
+                int statusCode = e.getStatusCode().value();
+                // 如果是404，继续尝试下一个端点
+                if (statusCode == 404) {
+                    logger.debug("端点 {} 返回404，尝试下一个端点", endpoint);
+                    lastException = e;
+                    continue;
+                }
+                // 如果是401（认证失败），立即停止尝试，因为所有端点都需要认证
+                if (statusCode == 401) {
+                    logger.debug("端点 {} 返回401（认证失败），停止尝试其他端点", endpoint);
+                    lastException = e;
+                    break;
+                }
+                // 其他HTTP错误，记录并继续尝试
+                logger.debug("端点 {} 返回错误 {}: {}", endpoint, e.getStatusCode(), e.getMessage());
+                lastException = e;
+            } catch (Exception e) {
+                // 其他异常（如超时、网络错误等），记录并继续尝试
+                logger.debug("端点 {} 访问异常: {}", endpoint, e.getMessage());
+                lastException = e;
+            }
+        }
+        
+        // 如果找到成功的端点，返回
+        if (successfulEndpoint != null && healthResponse != null) {
+            return;
+        }
+        
+        // 所有端点都失败
+        if (lastException != null) {
+            if (lastException instanceof WebClientResponseException) {
+                WebClientResponseException webEx = (WebClientResponseException) lastException;
+                int statusCode = webEx.getStatusCode().value();
+                String errorMessage;
+                
+                if (statusCode == 401) {
+                    // 401 Unauthorized - 认证失败
+                    errorMessage = String.format(
+                        "Elasticsearch连接失败: %d %s。已尝试端点: %s。\n" +
+                        "认证失败，请检查：\n" +
+                        "1. 如果Elasticsearch启用了安全功能（xpack.security.enabled=true），请提供用户名和密码（在extraConfig中）或API Key\n" +
+                        "2. 用户名和密码格式：在extraConfig中提供JSON格式 {\"username\":\"your_username\",\"password\":\"your_password\"}\n" +
+                        "3. 如果Elasticsearch未启用安全功能，请检查docker-compose.yml中的xpack.security.enabled设置\n" +
+                        "4. 请确认URL、用户名、密码或API Key是否正确",
+                        statusCode, 
+                        webEx.getStatusText(),
+                        String.join(", ", healthEndpoints));
+                } else {
+                    errorMessage = String.format(
+                        "Elasticsearch连接失败: %d %s。已尝试端点: %s。请检查Elasticsearch服务是否正在运行，URL是否正确。", 
+                        statusCode, 
+                        webEx.getStatusText(),
+                        String.join(", ", healthEndpoints));
+                }
+                
+                throw new RuntimeException(errorMessage);
+            } else {
+                throw new RuntimeException(
+                    String.format("Elasticsearch连接失败: %s。已尝试端点: %s。请检查Elasticsearch服务是否正在运行，URL是否正确。", 
+                        lastException.getMessage(),
+                        String.join(", ", healthEndpoints)));
+            }
+        } else {
+            throw new RuntimeException(
+                String.format("Elasticsearch健康检查返回空响应。已尝试端点: %s。请检查Elasticsearch服务是否正在运行。", 
                     String.join(", ", healthEndpoints)));
         }
     }

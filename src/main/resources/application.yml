@@ -101,6 +101,14 @@ chroma:
   url: http://localhost:8000
   api-key: # 可选，Docker部署默认不需要，仅在启用认证时需要
   timeout: 30000
+
+# Elasticsearch配置
+elasticsearch:
+  url: http://localhost:9200
+  api-key: # 可选，如果Elasticsearch启用了认证，可以使用API Key
+  username: # 可选，如果使用用户名密码认证
+  password: # 可选，如果使用用户名密码认证
+  timeout: 30000
 ---
 # Redis配置
 spring:

@@ -34,11 +34,11 @@ public class VectorDatabase implements Serializable {
     private String name;
     
     /**
-     * 数据库类型：qdrant, milvus, faiss
+     * 数据库类型：qdrant, milvus, faiss, chroma, weaviate, elasticsearch
      */
     @NotBlank(message="[数据库类型]不能为空")
     @Size(max= 20,message="编码长度不能超过20")
-    @Schema(description = "数据库类型：qdrant, milvus, faiss")
+    @Schema(description = "数据库类型：qdrant, milvus, faiss, chroma, weaviate, elasticsearch")
     @Length(max= 20,message="编码长度不能超过20")
     @Column(name = "type", columnDefinition = "VARCHAR(20)")
     private String type;

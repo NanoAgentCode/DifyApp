@@ -1,0 +1,54 @@
+services:
+  elasticsearch:
+    # 使用国内镜像源（如果官方镜像无法访问）
+    # 官方镜像：docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    # 阿里云镜像：registry.cn-hangzhou.aliyuncs.com/elastic/elasticsearch:8.11.0
+    # 腾讯云镜像：ccr.ccs.tencentyun.com/elastic/elasticsearch:8.11.0
+    image: ccr.ccs.tencentyun.com/elastic/elasticsearch:8.11.0
+    container_name: elasticsearch
+    environment:
+      # 单节点模式
+      - discovery.type=single-node
+      # 禁用安全功能（仅用于开发环境，生产环境请启用）
+      - xpack.security.enabled=false
+      # 或者启用安全功能并设置密码（生产环境推荐）
+      # - xpack.security.enabled=true
+      # - ELASTIC_PASSWORD=your_password_here
+      # 设置JVM堆内存（根据服务器内存调整，建议至少1GB）
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      # 允许跨域请求（如果需要）
+      - http.cors.enabled=true
+      - http.cors.allow-origin=*
+      # 启用向量搜索功能（Elasticsearch 8.x 默认支持）
+      - xpack.ml.enabled=true
+      # 设置内存锁定（提高性能，可选）
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - elasticsearch_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+volumes:
+  elasticsearch_data:
+    driver: local
+
+networks:
+  elasticsearch_network:
+    driver: bridge
+

@@ -8,7 +8,7 @@ import java.util.List;
 public interface VectorStoreStrategy {
     
     /**
-     * 获取策略类型（如：qdrant, weaviate, chroma, milvus, faiss）
+     * 获取策略类型（如：qdrant, weaviate, chroma, milvus, faiss, elasticsearch）
      */
     String getType();
     

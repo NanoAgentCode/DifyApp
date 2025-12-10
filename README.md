@@ -252,6 +252,36 @@ docker run -d \
 > - 如果遇到 Docker 启动错误，请参考 `milvus/README_DOCKER.md`
 > - 详细说明请参考 `milvus/README_DOCKER.md` 文件
 
+#### 启动 Elasticsearch（可选，用于向量存储）
+
+**方式一：使用 docker-compose（推荐）**
+
+```bash
+cd docker/elasticsearch
+docker-compose up -d
+```
+
+这将启动 Elasticsearch 服务，服务地址：`http://localhost:9200`
+
+**方式二：使用单个 Docker 命令**
+
+```bash
+docker run -d \
+  --name elasticsearch \
+  -p 9200:9200 \
+  -p 9300:9300 \
+  -e "discovery.type=single-node" \
+  -e "xpack.security.enabled=false" \
+  -e "ES_JAVA_OPTS=-Xms512m -Xmx512m" \
+  -v elasticsearch_data:/usr/share/elasticsearch/data \
+  docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+```
+
+> **注意**：
+> - 如果遇到 Docker 启动错误，请参考 `docker/elasticsearch/README.md`
+> - 详细说明请参考 `docker/elasticsearch/README.md` 文件
+> - 生产环境建议启用安全功能并设置密码
+
 #### 启动 Redis
 
 使用 Docker 启动 Redis：

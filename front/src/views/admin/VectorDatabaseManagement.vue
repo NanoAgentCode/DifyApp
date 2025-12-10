@@ -133,31 +133,117 @@
             <el-option label="FAISS" value="faiss" />
             <el-option label="Chroma" value="chroma" />
             <el-option label="Weaviate" value="weaviate" />
+            <el-option label="Elasticsearch" value="elasticsearch" />
           </el-select>
         </el-form-item>
 
-        <el-form-item :label="currentConfig.type === 'faiss' ? '存储路径' : '连接地址'" prop="url">
+        <el-form-item prop="url">
+          <template #label>
+            <span>{{ currentConfig.type === 'faiss' ? '存储路径' : '连接地址' }}</span>
+            <el-tooltip
+              v-if="currentConfig.type === 'milvus'"
+              content="Milvus 使用 gRPC 协议，配置 URL 格式（例如：http://localhost:19530）"
+              placement="top"
+            >
+              <el-icon style="margin-left: 4px; color: #909399; cursor: help;">
+                <QuestionFilled />
+              </el-icon>
+            </el-tooltip>
+            <el-tooltip
+              v-if="currentConfig.type === 'chroma'"
+              content="Chroma 使用 HTTP REST API，默认端口为 8000（例如：http://localhost:8000）"
+              placement="top"
+            >
+              <el-icon style="margin-left: 4px; color: #909399; cursor: help;">
+                <QuestionFilled />
+              </el-icon>
+            </el-tooltip>
+            <el-tooltip
+              v-if="currentConfig.type === 'weaviate'"
+              content="Weaviate 使用 HTTP REST API 和 GraphQL，默认端口为 8080（例如：http://localhost:8080）"
+              placement="top"
+            >
+              <el-icon style="margin-left: 4px; color: #909399; cursor: help;">
+                <QuestionFilled />
+              </el-icon>
+            </el-tooltip>
+            <el-tooltip
+              v-if="currentConfig.type === 'elasticsearch'"
+              content="Elasticsearch 使用 HTTP REST API，默认端口为 9200（例如：http://localhost:9200）"
+              placement="top"
+            >
+              <el-icon style="margin-left: 4px; color: #909399; cursor: help;">
+                <QuestionFilled />
+              </el-icon>
+            </el-tooltip>
+          </template>
           <el-input
             v-model="currentConfig.url"
-            :placeholder="currentConfig.type === 'faiss' ? '例如: ./data/faiss 或 /path/to/faiss' : (currentConfig.type === 'chroma' ? '例如: http://localhost:8000' : (currentConfig.type === 'weaviate' ? '例如: http://localhost:8080' : '例如: http://localhost:6333 或 http://localhost:19530'))"
+            :placeholder="currentConfig.type === 'faiss' ? '例如: ./data/faiss 或 /path/to/faiss' : (currentConfig.type === 'chroma' ? '例如: http://localhost:8000' : (currentConfig.type === 'weaviate' ? '例如: http://localhost:8080' : (currentConfig.type === 'elasticsearch' ? '例如: http://localhost:9200' : '例如: http://localhost:6333 或 http://localhost:19530')))"
           />
-          <div v-if="currentConfig.type === 'milvus'" style="font-size: 12px; color: #909399; margin-top: 5px;">
-            提示：Milvus 使用 gRPC 协议，配置 URL 格式（例如：http://localhost:19530）
-          </div>
-          <div v-if="currentConfig.type === 'chroma'" style="font-size: 12px; color: #909399; margin-top: 5px;">
-            提示：Chroma 使用 HTTP REST API，默认端口为 8000（例如：http://localhost:8000）
-          </div>
-          <div v-if="currentConfig.type === 'weaviate'" style="font-size: 12px; color: #909399; margin-top: 5px;">
-            提示：Weaviate 使用 HTTP REST API 和 GraphQL，默认端口为 8080（例如：http://localhost:8080）
-          </div>
         </el-form-item>
 
-        <el-form-item label="API Key" prop="apiKey" v-if="currentConfig.type !== 'faiss'">
+        <!-- Elasticsearch 用户名密码认证 -->
+        <template v-if="currentConfig.type === 'elasticsearch'">
+          <el-form-item prop="username">
+            <template #label>
+              <span>用户名/密码</span>
+              <el-tooltip
+                content="如果Elasticsearch启用了安全功能，请配置用户名和密码"
+                placement="top"
+              >
+                <el-icon style="margin-left: 4px; color: #909399; cursor: help;">
+                  <QuestionFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-row :gutter="12">
+              <el-col :span="12">
+                <el-input
+                  v-model="currentConfig.username"
+                  placeholder="用户名（可选）"
+                />
+              </el-col>
+              <el-col :span="12">
+                <el-input
+                  v-model="currentConfig.password"
+                  type="password"
+                  show-password
+                  placeholder="密码（可选）"
+                />
+              </el-col>
+            </el-row>
+          </el-form-item>
+        </template>
+        
+        <!-- 其他数据库的 API Key -->
+        <el-form-item label="API Key" prop="apiKey" v-if="currentConfig.type !== 'faiss' && currentConfig.type !== 'elasticsearch'">
           <el-input
             v-model="currentConfig.apiKey"
             type="password"
             show-password
             placeholder="可选，如果数据库启用了认证，请配置API Key"
+          />
+        </el-form-item>
+        
+        <!-- Elasticsearch 也支持 API Key（作为备选） -->
+        <el-form-item prop="apiKey" v-if="currentConfig.type === 'elasticsearch'">
+          <template #label>
+            <span>API Key（备选）</span>
+            <el-tooltip
+              content="Elasticsearch 支持用户名密码或 API Key 认证，优先使用用户名密码"
+              placement="top"
+            >
+              <el-icon style="margin-left: 4px; color: #909399; cursor: help;">
+                <QuestionFilled />
+              </el-icon>
+            </el-tooltip>
+          </template>
+          <el-input
+            v-model="currentConfig.apiKey"
+            type="password"
+            show-password
+            placeholder="可选，如果使用API Key认证而不是用户名密码，请配置API Key"
           />
         </el-form-item>
 
@@ -184,15 +270,23 @@
         <el-form-item label="是否启用" prop="enabled">
           <el-switch v-model="currentConfig.enabled" />
         </el-form-item>
-        <el-form-item label="新建知识库">
+        <el-form-item>
+          <template #label>
+            <span>新建知识库</span>
+            <el-tooltip
+              content="控制是否允许使用该向量库创建新知识库。如果设置为不允许，创建知识库时该向量库将不会出现在下拉菜单中。"
+              placement="top"
+            >
+              <el-icon style="margin-left: 4px; color: #909399; cursor: help;">
+                <QuestionFilled />
+              </el-icon>
+            </el-tooltip>
+          </template>
           <el-switch
             v-model="currentConfig.allowCreateKnowledgeBase"
             active-text="允许"
             inactive-text="禁止"
           />
-          <div style="font-size: 12px; color: #909399; margin-top: 5px;">
-            控制是否允许使用该向量库创建新知识库。如果设置为不允许，创建知识库时该向量库将不会出现在下拉菜单中。
-          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -210,7 +304,8 @@ import {
   Plus,
   Edit,
   Delete,
-  Link
+  Link,
+  QuestionFilled
 } from '@element-plus/icons-vue'
 import { 
   getVectorDatabaseList, 
@@ -234,6 +329,8 @@ const currentConfig = reactive({
   type: 'qdrant',
   url: '',
   apiKey: '',
+  username: '', // Elasticsearch 用户名
+  password: '', // Elasticsearch 密码
   timeout: 30000,
   description: '',
   enabled: true,
@@ -275,7 +372,8 @@ const getTypeTagType = (type) => {
     milvus: 'warning',
     faiss: 'success',
     chroma: 'info',
-    weaviate: 'success'
+    weaviate: 'success',
+    elasticsearch: 'danger'
   }
   return map[type] || 'info'
 }
@@ -287,7 +385,8 @@ const getTypeLabel = (type) => {
     milvus: 'Milvus',
     faiss: 'FAISS',
     chroma: 'Chroma',
-    weaviate: 'Weaviate'
+    weaviate: 'Weaviate',
+    elasticsearch: 'Elasticsearch'
   }
   return map[type] || type
 }
@@ -325,6 +424,8 @@ const handleAdd = () => {
   currentConfig.type = 'qdrant' // 默认类型
   currentConfig.url = ''
   currentConfig.apiKey = ''
+  currentConfig.username = ''
+  currentConfig.password = ''
   currentConfig.timeout = 30000
   currentConfig.description = ''
   currentConfig.enabled = true
@@ -345,6 +446,22 @@ const handleEdit = (row) => {
   currentConfig.description = row.description || ''
   currentConfig.enabled = row.enabled !== false
   currentConfig.allowCreateKnowledgeBase = row.allowCreateKnowledgeBase !== undefined ? row.allowCreateKnowledgeBase : true
+  
+  // 解析 extraConfig 获取用户名和密码（针对 Elasticsearch）
+  if (row.type === 'elasticsearch' && row.extraConfig) {
+    try {
+      const extraConfig = JSON.parse(row.extraConfig)
+      currentConfig.username = extraConfig.username || ''
+      currentConfig.password = extraConfig.password || ''
+    } catch (e) {
+      currentConfig.username = ''
+      currentConfig.password = ''
+    }
+  } else {
+    currentConfig.username = ''
+    currentConfig.password = ''
+  }
+  
   dialogVisible.value = true
 }
 
@@ -358,6 +475,17 @@ const handleSave = async () => {
     saving.value = true
     
     const action = isEdit.value ? 'update' : 'add'
+    
+    // 构建 extraConfig（针对 Elasticsearch 的用户名密码）
+    let extraConfig = null
+    if (currentConfig.type === 'elasticsearch' && 
+        (currentConfig.username || currentConfig.password)) {
+      extraConfig = JSON.stringify({
+        username: currentConfig.username || '',
+        password: currentConfig.password || ''
+      })
+    }
+    
     const data = {
       action: action,
       configId: currentConfig.id,
@@ -370,7 +498,8 @@ const handleSave = async () => {
         timeout: currentConfig.timeout || (currentConfig.type === 'faiss' ? null : 30000),
         description: currentConfig.description || null,
         enabled: currentConfig.enabled,
-        allowCreateKnowledgeBase: currentConfig.allowCreateKnowledgeBase !== undefined ? currentConfig.allowCreateKnowledgeBase : true
+        allowCreateKnowledgeBase: currentConfig.allowCreateKnowledgeBase !== undefined ? currentConfig.allowCreateKnowledgeBase : true,
+        extraConfig: extraConfig
       }
     }
     
@@ -468,7 +597,8 @@ const handleToggleAllowCreateKnowledgeBase = async (row, allowCreate) => {
         timeout: row.timeout || null,
         description: row.description || null,
         enabled: row.enabled,
-        allowCreateKnowledgeBase: allowCreate
+        allowCreateKnowledgeBase: allowCreate,
+        extraConfig: row.extraConfig || null // 保留 extraConfig
       }
     })
     ElMessage.success(allowCreate ? '已允许新建知识库' : '已禁止新建知识库')
@@ -487,12 +617,20 @@ const handleTest = async (row) => {
   configList.value[index].testing = true
   
   try {
-    await testVectorDatabaseConnection({
+    // 构建测试连接请求数据
+    const testData = {
       type: row.type,
       url: row.url,
       apiKey: row.apiKey || null,
       timeout: row.timeout || 30000
-    })
+    }
+    
+    // 对于 Elasticsearch，传递 extraConfig（包含用户名密码）
+    if (row.type === 'elasticsearch' && row.extraConfig) {
+      testData.extraConfig = row.extraConfig
+    }
+    
+    await testVectorDatabaseConnection(testData)
     ElMessage.success('连接测试成功')
   } catch (error) {
     ElMessage.error('连接测试失败：' + (error.message || '未知错误'))
