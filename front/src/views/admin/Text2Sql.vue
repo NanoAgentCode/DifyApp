@@ -110,7 +110,11 @@
                   :prop="column"
                   :label="column"
                   show-overflow-tooltip
-                />
+                >
+                  <template #default="scope">
+                    <span>{{ formatCellValue(scope.row[column]) }}</span>
+                  </template>
+                </el-table-column>
               </el-table>
             </div>
           </div>
@@ -290,6 +294,25 @@ const getTypeName = (type) => {
     mongodb: 'MongoDB'
   }
   return typeMap[type] || type
+}
+
+// 格式化单元格值，处理对象类型
+const formatCellValue = (value) => {
+  if (value === null || value === undefined) {
+    return ''
+  }
+  
+  // 如果是对象或数组，转换为JSON字符串
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value, null, 2)
+    } catch (e) {
+      return String(value)
+    }
+  }
+  
+  // 其他类型直接返回
+  return String(value)
 }
 
 const showTableSchema = async () => {

@@ -12,6 +12,13 @@ import com.github.app.dify.util.DatabaseDriverManager;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.output.Response;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoCursor;
+import org.bson.Document;
+import org.bson.conversions.Bson;
+import com.mongodb.client.model.Filters;
+import static com.mongodb.client.model.Aggregates.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,16 +77,21 @@ public class Text2SqlServiceImpl implements Text2SqlService {
             // 获取表结构信息
             String schemaInfo = getSchemaInfo(dataSource, tableNames);
             
-            // 生成 SQL
-            String sql = generateSql(dataSource, question, schemaInfo, modelId);
+            // 生成查询语句（SQL或MongoDB查询）
+            String query;
+            if (dbType == DatabaseDriverManager.DatabaseType.MONGODB) {
+                query = generateMongoQuery(dataSource, question, schemaInfo, modelId);
+                logger.info("生成的MongoDB查询 - 数据源ID: {}, 问题: {}, 查询: {}", dataSourceId, question, query);
+            } else {
+                query = generateSql(dataSource, question, schemaInfo, modelId);
+                logger.info("生成的SQL - 数据源ID: {}, SQL: {}", dataSourceId, query);
+            }
             
-            logger.info("生成的SQL - 数据源ID: {}, SQL: {}", dataSourceId, sql);
-            
-            // 执行 SQL
-            QueryResult result = executeSql(dataSource, dbType, sql);
+            // 执行查询
+            QueryResult result = executeSql(dataSource, dbType, query);
             
             Text2SqlResult text2SqlResult = new Text2SqlResult();
-            text2SqlResult.setSql(sql);
+            text2SqlResult.setSql(query);
             text2SqlResult.setColumns(result.getColumns());
             text2SqlResult.setRows(result.getRows());
             text2SqlResult.setRowCount(result.getRowCount());
@@ -96,6 +108,8 @@ public class Text2SqlServiceImpl implements Text2SqlService {
      */
     private String getSchemaInfo(DataSource dataSource, List<String> tableNames) {
         try {
+            DatabaseDriverManager.DatabaseType dbType = DatabaseDriverManager.DatabaseType.fromString(dataSource.getType());
+            
             List<String> targetTables;
             if (tableNames != null && !tableNames.isEmpty()) {
                 targetTables = tableNames;
@@ -103,6 +117,27 @@ public class Text2SqlServiceImpl implements Text2SqlService {
                 targetTables = schemaService.getTableList(dataSource);
             }
             
+            // MongoDB 使用不同的结构
+            if (dbType == DatabaseDriverManager.DatabaseType.MONGODB) {
+                // 获取所有集合的结构
+                List<Map<String, Object>> collectionSchemas = new ArrayList<>();
+                
+                for (String collectionName : targetTables) {
+                    String schemaJson = schemaService.getTableSchema(dataSource, collectionName, false);
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> schema = objectMapper.readValue(schemaJson, Map.class);
+                    collectionSchemas.add(schema);
+                }
+                
+                // 构建集合结构信息
+                StringBuilder schemaBuilder = new StringBuilder();
+                schemaBuilder.append("集合结构信息：\n");
+                for (Map<String, Object> schema : collectionSchemas) {
+                    schemaBuilder.append(objectMapper.writeValueAsString(schema)).append("\n");
+                }
+                
+                return schemaBuilder.toString();
+            } else {
             // 获取所有表的结构
             List<Map<String, Object>> tableSchemas = new ArrayList<>();
             Map<String, List<Map<String, Object>>> tableRelations = new HashMap<>();
@@ -145,10 +180,52 @@ public class Text2SqlServiceImpl implements Text2SqlService {
             }
             
             return schemaBuilder.toString();
+            }
         } catch (Exception e) {
             logger.error("获取表结构信息失败", e);
             throw new RuntimeException("获取表结构信息失败: " + e.getMessage(), e);
         }
+    }
+    
+    /**
+     * 生成 MongoDB 查询（JSON格式）
+     */
+    private String generateMongoQuery(DataSource dataSource, String question, String schemaInfo, Long modelId) {
+        // 构建提示词
+        String prompt = buildMongoPrompt(dataSource, question, schemaInfo);
+        
+        // 获取问答模型
+        com.github.app.dify.domain.QAModel qaModel;
+        try {
+            if (modelId != null) {
+                qaModel = modelConfigService.getQAModelById(modelId);
+            } else {
+                qaModel = modelConfigService.getDefaultQAModelForRAG();
+            }
+        } catch (Exception e) {
+            logger.error("获取问答模型失败，使用默认模型 - modelId: {}", modelId, e);
+            qaModel = modelConfigService.getDefaultQAModelForRAG();
+        }
+        
+        // 创建 LLM 模型
+        ModelLanguageModelFactory.ChatLanguageModel chatModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+        
+        // 构建系统消息
+        SystemMessage systemMessage = new SystemMessage(buildMongoSystemPrompt());
+        
+        // 构建用户消息
+        UserMessage userMessage = new UserMessage(prompt);
+        
+        // 调用 LLM 生成 MongoDB 查询
+        Response<dev.langchain4j.data.message.AiMessage> response = chatModel.generate(
+                Arrays.asList(systemMessage, userMessage));
+        
+        String query = response.content().text();
+        
+        // 清理查询（移除可能的代码块标记）
+        query = cleanMongoQuery(query);
+        
+        return query;
     }
     
     /**
@@ -262,6 +339,162 @@ public class Text2SqlServiceImpl implements Text2SqlService {
         }
         
         return sb.toString();
+    }
+    
+    /**
+     * 构建MongoDB系统提示词
+     */
+    private String buildMongoSystemPrompt() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("你是一个专业的MongoDB查询生成助手。根据用户的问题和集合结构，生成正确的MongoDB查询JSON。\n");
+        sb.append("数据库类型: MongoDB\n");
+        sb.append("要求：\n");
+        sb.append("1. 只生成查询操作，不要生成INSERT、UPDATE、DELETE、DROP等修改数据的操作\n");
+        sb.append("2. 必须返回有效的JSON格式，不要包含其他解释性文字\n");
+        sb.append("3. 支持三种查询类型：\n");
+        sb.append("   a) find查询（简单查询）：{\"type\": \"find\", \"collection\": \"集合名\", \"filter\": {...}, \"projection\": {...}, \"sort\": {...}, \"limit\": 数量}\n");
+        sb.append("   b) aggregate查询（聚合统计）：{\"type\": \"aggregate\", \"collection\": \"集合名\", \"pipeline\": [...]}\n");
+        sb.append("   c) metadata查询（元数据查询）：{\"type\": \"metadata\", \"metadataType\": \"collections\" 或 \"collectionCount\"}\n");
+        sb.append("4. 如果问题涉及统计（COUNT、SUM、AVG、MAX、MIN、分组等），必须使用aggregate查询\n");
+        sb.append("5. 如果只是简单的查询和过滤，使用find查询\n");
+        sb.append("6. 如果问题是关于集合列表、集合数量等元数据信息，必须使用metadata查询\n");
+        sb.append("   - 查询集合列表：{\"type\": \"metadata\", \"metadataType\": \"collections\"}\n");
+        sb.append("   - 查询集合数量：{\"type\": \"metadata\", \"metadataType\": \"collectionCount\"}\n");
+        sb.append("\n");
+        sb.append("find查询格式：\n");
+        sb.append("   {\n");
+        sb.append("     \"type\": \"find\",\n");
+        sb.append("     \"collection\": \"集合名称\",\n");
+        sb.append("     \"filter\": {\"字段名\": \"值\" 或 {\"$操作符\": \"值\"}},\n");
+        sb.append("     \"projection\": {\"字段名\": 1 或 0},\n");
+        sb.append("     \"sort\": {\"字段名\": 1 或 -1},\n");
+        sb.append("     \"limit\": 数量\n");
+        sb.append("   }\n");
+        sb.append("\n");
+        sb.append("aggregate查询格式：\n");
+        sb.append("   {\n");
+        sb.append("     \"type\": \"aggregate\",\n");
+        sb.append("     \"collection\": \"集合名称\",\n");
+        sb.append("     \"pipeline\": [\n");
+        sb.append("       {\"$match\": {...}},  // 过滤条件（可选）\n");
+        sb.append("       {\"$group\": {\"_id\": \"$字段名\", \"count\": {\"$sum\": 1}, \"total\": {\"$sum\": \"$字段名\"}}},  // 分组统计\n");
+        sb.append("       {\"$project\": {...}},  // 字段投影（可选）\n");
+        sb.append("       {\"$sort\": {...}},  // 排序（可选）\n");
+        sb.append("       {\"$limit\": 数量}  // 限制数量（可选）\n");
+        sb.append("     ]\n");
+        sb.append("   }\n");
+        sb.append("\n");
+        sb.append("filter字段支持的操作符：\n");
+        sb.append("   - $eq: 等于, $ne: 不等于\n");
+        sb.append("   - $gt: 大于, $gte: 大于等于, $lt: 小于, $lte: 小于等于\n");
+        sb.append("   - $in: 在数组中, $nin: 不在数组中\n");
+        sb.append("   - $regex: 正则匹配（需要$options字段，如\"i\"表示忽略大小写）\n");
+        sb.append("   - $or: OR条件, $and: AND条件\n");
+        sb.append("\n");
+        sb.append("aggregate管道阶段：\n");
+        sb.append("   - $match: 过滤文档（类似WHERE）\n");
+        sb.append("   - $group: 分组统计，必须包含_id字段（分组字段）\n");
+        sb.append("     * 统计所有记录数量：{\"_id\": null, \"count\": {\"$sum\": 1}}（_id必须是null，$sum的值必须是数字1）\n");
+        sb.append("     * 分组表达式：{\"$sum\": 1} 或 {\"$sum\": \"$字段名\"} 统计数量或求和\n");
+        sb.append("     * {\"$avg\": \"$字段名\"} 平均值, {\"$max\": \"$字段名\"} 最大值, {\"$min\": \"$字段名\"} 最小值\n");
+        sb.append("     * {\"$count\": true} 或 {\"$sum\": 1} 统计数量\n");
+        sb.append("     * 重要：统计记录总数时，_id 必须是 null（不是字符串），$sum 的值必须是数字 1（不是字符串）\n");
+        sb.append("   - $project: 字段投影（类似SELECT）\n");
+        sb.append("   - $sort: 排序，{\"字段名\": 1} 升序, {\"字段名\": -1} 降序\n");
+        sb.append("   - $limit: 限制返回数量\n");
+        sb.append("   - $skip: 跳过指定数量\n");
+        sb.append("\n");
+        sb.append("重要：只能使用集合结构信息中提供的字段名\n");
+        sb.append("\n");
+        sb.append("示例：\n");
+        sb.append("find查询：\n");
+        sb.append("   {\"type\": \"find\", \"collection\": \"users\", \"filter\": {\"age\": {\"$gte\": 18}}, \"limit\": 10}\n");
+        sb.append("   {\"type\": \"find\", \"collection\": \"orders\", \"filter\": {\"status\": \"completed\"}, \"sort\": {\"createTime\": -1}}\n");
+        sb.append("\n");
+        sb.append("aggregate查询（统计总数）：\n");
+        sb.append("   {\"type\": \"aggregate\", \"collection\": \"orders\", \"pipeline\": [{\"$group\": {\"_id\": null, \"count\": {\"$sum\": 1}}}]}\n");
+        sb.append("\n");
+        sb.append("aggregate查询（分组统计）：\n");
+        sb.append("   {\"type\": \"aggregate\", \"collection\": \"orders\", \"pipeline\": [\n");
+        sb.append("     {\"$match\": {\"status\": \"completed\"}},\n");
+        sb.append("     {\"$group\": {\"_id\": \"$userId\", \"totalAmount\": {\"$sum\": \"$amount\"}, \"count\": {\"$sum\": 1}}},\n");
+        sb.append("     {\"$sort\": {\"totalAmount\": -1}},\n");
+        sb.append("     {\"$limit\": 10}\n");
+        sb.append("   ]}\n");
+        sb.append("\n");
+        sb.append("metadata查询（集合数量）：\n");
+        sb.append("   {\"type\": \"metadata\", \"metadataType\": \"collectionCount\"}\n");
+        sb.append("\n");
+        sb.append("metadata查询（集合列表）：\n");
+        sb.append("   {\"type\": \"metadata\", \"metadataType\": \"collections\"}\n");
+        return sb.toString();
+    }
+    
+    /**
+     * 构建MongoDB用户提示词
+     */
+    private String buildMongoPrompt(DataSource dataSource, String question, String schemaInfo) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("数据库信息：\n");
+        sb.append("数据库类型: MongoDB\n");
+        sb.append("数据库名称: ").append(dataSource.getDatabase()).append("\n");
+        sb.append("\n");
+        sb.append("集合结构信息（JSON格式，包含字段名和数据类型）：\n");
+        sb.append(schemaInfo);
+        sb.append("\n");
+        sb.append("重要提示：\n");
+        sb.append("- 只能使用上面集合结构信息中列出的字段名\n");
+        sb.append("- 如果集合结构信息中没有某个字段，说明该字段不存在，绝对不要使用它\n");
+        sb.append("\n");
+        sb.append("查询类型选择：\n");
+        sb.append("- 如果问题是关于集合列表、集合数量等元数据信息（如：\"有多少个集合\"、\"列出所有集合\"等），必须使用metadata查询\n");
+        sb.append("- 如果问题涉及统计、分组、聚合（如：总数、求和、平均值、最大值、最小值、分组统计等），必须使用aggregate查询\n");
+        sb.append("- 如果只是简单的查询、过滤、排序，使用find查询\n");
+        sb.append("\n");
+        sb.append("find查询说明：\n");
+        sb.append("- filter条件中，简单等于可以直接写 {\"字段名\": \"值\"}\n");
+        sb.append("- filter条件中，复杂条件使用操作符，如 {\"字段名\": {\"$gt\": 100}}\n");
+        sb.append("- 多个条件默认是AND关系，如果需要OR关系，使用$or操作符\n");
+        sb.append("\n");
+        sb.append("aggregate查询说明：\n");
+        sb.append("- 统计记录总数（非常重要）：必须使用 {\"$group\": {\"_id\": null, \"count\": {\"$sum\": 1}}}\n");
+        sb.append("  * _id 必须是 null（JSON中的null值，不是字符串\"null\"），表示不分组，统计所有记录\n");
+        sb.append("  * count 使用 {\"$sum\": 1} 来统计数量（注意：1是数字，不是字符串\"1\"）\n");
+        sb.append("  * 示例：{\"type\": \"aggregate\", \"collection\": \"users\", \"pipeline\": [{\"$group\": {\"_id\": null, \"count\": {\"$sum\": 1}}}]}\n");
+        sb.append("- 分组统计：使用 {\"$group\": {\"_id\": \"$字段名\", \"count\": {\"$sum\": 1}, \"total\": {\"$sum\": \"$字段名\"}}}\n");
+        sb.append("- 平均值：{\"$avg\": \"$字段名\"}, 最大值：{\"$max\": \"$字段名\"}, 最小值：{\"$min\": \"$字段名\"}\n");
+        sb.append("- 可以先使用$match过滤，然后$group分组统计，最后$sort排序和$limit限制\n");
+        sb.append("- 字段引用使用 \"$字段名\" 格式（注意$符号）\n");
+        sb.append("- 重要：统计记录数量时，_id 必须是 null（JSON中的null值），count 的 $sum 值必须是数字 1（不是字符串）\n");
+        sb.append("\n");
+        sb.append("用户问题：\n");
+        sb.append(question);
+        sb.append("\n");
+        sb.append("请根据以上信息生成MongoDB查询JSON（只使用集合结构信息中提供的字段，根据问题类型选择合适的查询方式，返回有效的JSON格式）：");
+        return sb.toString();
+    }
+    
+    /**
+     * 清理MongoDB查询（移除代码块标记等）
+     */
+    private String cleanMongoQuery(String query) {
+        if (query == null) {
+            return null;
+        }
+        
+        query = query.trim();
+        
+        // 移除可能的代码块标记
+        if (query.startsWith("```json")) {
+            query = query.substring(7);
+        } else if (query.startsWith("```")) {
+            query = query.substring(3);
+        }
+        if (query.endsWith("```")) {
+            query = query.substring(0, query.length() - 3);
+        }
+        
+        return query.trim();
     }
     
     /**
@@ -1189,12 +1422,746 @@ public class Text2SqlServiceImpl implements Text2SqlService {
     }
     
     /**
-     * 执行 MongoDB 查询（简化实现，实际应该解析SQL并转换为MongoDB查询）
+     * 执行 MongoDB 查询
+     * @param dataSource 数据源配置
+     * @param queryJson MongoDB查询JSON字符串，格式：
+     *   find查询: {"type": "find", "collection": "collectionName", "filter": {...}, "projection": {...}, "sort": {...}, "limit": 100}
+     *   aggregate查询: {"type": "aggregate", "collection": "collectionName", "pipeline": [...]}
      */
-    private QueryResult executeMongoQuery(DataSource dataSource, String sql) {
-        // MongoDB 不支持 SQL，这里需要将 SQL 转换为 MongoDB 查询
-        // 这是一个简化实现，实际应该使用 SQL 解析器
-        throw new UnsupportedOperationException("MongoDB SQL查询功能暂未实现，请使用MongoDB原生查询语法");
+    private QueryResult executeMongoQuery(DataSource dataSource, String queryJson) {
+        try {
+            // 解析查询JSON
+            @SuppressWarnings("unchecked")
+            Map<String, Object> query = objectMapper.readValue(queryJson, Map.class);
+            
+            // 检查查询类型：metadata、aggregate 或 find（默认）
+            String queryType = (String) query.getOrDefault("type", "find");
+            
+            // metadata查询不需要collection字段
+            if ("metadata".equalsIgnoreCase(queryType)) {
+                return executeMongoMetadata(dataSource, query);
+            }
+            
+            // find和aggregate查询需要collection字段
+            String collectionName = (String) query.get("collection");
+            if (collectionName == null || collectionName.isEmpty()) {
+                throw new IllegalArgumentException("MongoDB查询必须指定collection字段");
+            }
+            
+            // 获取MongoDB数据库
+            MongoDatabase database = connectionService.getMongoDatabase(dataSource);
+            MongoCollection<Document> collection = database.getCollection(collectionName);
+            
+            if ("aggregate".equalsIgnoreCase(queryType)) {
+                // 执行聚合查询
+                return executeMongoAggregate(collection, query);
+            } else {
+                // 执行find查询（原有逻辑）
+                return executeMongoFind(collection, query);
+            }
+        } catch (Exception e) {
+            logger.error("执行MongoDB查询失败 - 查询: {}", queryJson, e);
+            throw new RuntimeException("执行MongoDB查询失败: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 执行MongoDB find查询
+     */
+    private QueryResult executeMongoFind(MongoCollection<Document> collection, Map<String, Object> query) {
+        QueryResult result = new QueryResult();
+        List<String> columns = new ArrayList<>();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        
+        try {
+            
+            // 构建查询条件
+            Bson filter = null;
+            if (query.containsKey("filter") && query.get("filter") != null) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> filterMap = (Map<String, Object>) query.get("filter");
+                filter = buildBsonFilter(filterMap);
+            }
+            
+            // 构建投影（字段选择）
+            Bson projection = null;
+            if (query.containsKey("projection") && query.get("projection") != null) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> projectionMap = (Map<String, Object>) query.get("projection");
+                projection = buildBsonProjection(projectionMap);
+            }
+            
+            // 构建排序
+            Bson sort = null;
+            if (query.containsKey("sort") && query.get("sort") != null) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> sortMap = (Map<String, Object>) query.get("sort");
+                sort = buildBsonSort(sortMap);
+            }
+            
+            // 获取限制数量
+            Integer limit = null;
+            if (query.containsKey("limit") && query.get("limit") != null) {
+                if (query.get("limit") instanceof Number) {
+                    limit = ((Number) query.get("limit")).intValue();
+                } else {
+                    limit = Integer.parseInt(query.get("limit").toString());
+                }
+            }
+            
+            // 执行查询
+            MongoCursor<Document> cursor;
+            com.mongodb.client.FindIterable<Document> findIterable;
+            
+            if (filter != null) {
+                findIterable = collection.find(filter);
+            } else {
+                findIterable = collection.find();
+            }
+            
+            if (projection != null) {
+                findIterable = findIterable.projection(projection);
+            }
+            
+            if (sort != null) {
+                findIterable = findIterable.sort(sort);
+            }
+            
+            if (limit != null && limit > 0) {
+                findIterable = findIterable.limit(limit);
+            }
+            
+            cursor = findIterable.iterator();
+            
+            // 处理结果
+            Set<String> columnSet = new LinkedHashSet<>();
+            
+            try {
+                while (cursor.hasNext()) {
+                    Document doc = cursor.next();
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    
+                    for (String key : doc.keySet()) {
+                        columnSet.add(key);
+                        Object value = doc.get(key);
+                        // 转换BSON类型为Java类型
+                        row.put(key, convertBsonValue(value));
+                    }
+                    
+                    rows.add(row);
+                }
+            } finally {
+                cursor.close();
+            }
+            
+            // 设置列信息
+            columns.addAll(columnSet);
+            result.setColumns(columns);
+            result.setRows(rows);
+            result.setRowCount(rows.size());
+            
+            logger.info("MongoDB find查询执行成功 - 返回记录数: {}", rows.size());
+            
+        } catch (Exception e) {
+            logger.error("执行MongoDB find查询失败", e);
+            throw new RuntimeException("执行MongoDB find查询失败: " + e.getMessage(), e);
+        }
+        
+        return result;
+    }
+    
+    /**
+     * 执行MongoDB聚合查询
+     */
+    private QueryResult executeMongoAggregate(MongoCollection<Document> collection, Map<String, Object> query) {
+        QueryResult result = new QueryResult();
+        List<String> columns = new ArrayList<>();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        
+        try {
+            // 获取聚合管道
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> pipelineList = (List<Map<String, Object>>) query.get("pipeline");
+            
+            if (pipelineList == null || pipelineList.isEmpty()) {
+                throw new IllegalArgumentException("MongoDB聚合查询必须指定pipeline字段（数组）");
+            }
+            
+            // 检查是否是简单的统计记录数量查询（优化：使用countDocuments更高效）
+            if (isSimpleCountQuery(pipelineList)) {
+                return executeSimpleCount(collection, pipelineList);
+            }
+            
+            // 构建聚合管道
+            List<Bson> pipeline = new ArrayList<>();
+            for (Map<String, Object> stage : pipelineList) {
+                Bson bsonStage = buildAggregateStage(stage);
+                if (bsonStage != null) {
+                    pipeline.add(bsonStage);
+                }
+            }
+            
+            if (pipeline.isEmpty()) {
+                throw new IllegalArgumentException("聚合管道不能为空");
+            }
+            
+            // 记录构建的管道（用于调试）
+            logger.info("MongoDB聚合管道 - 阶段数: {}, 原始pipeline: {}", pipeline.size(), pipelineList);
+            if (logger.isDebugEnabled()) {
+                logger.debug("MongoDB聚合管道BSON - 管道: {}", pipeline);
+            }
+            
+            // 执行聚合查询
+            MongoCursor<Document> cursor = collection.aggregate(pipeline).iterator();
+            
+            // 处理结果
+            Set<String> columnSet = new LinkedHashSet<>();
+            
+            try {
+                while (cursor.hasNext()) {
+                    Document doc = cursor.next();
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    
+                    for (String key : doc.keySet()) {
+                        columnSet.add(key);
+                        Object value = doc.get(key);
+                        // 转换BSON类型为Java类型
+                        row.put(key, convertBsonValue(value));
+                    }
+                    
+                    rows.add(row);
+                }
+            } finally {
+                cursor.close();
+            }
+            
+            // 设置列信息
+            columns.addAll(columnSet);
+            result.setColumns(columns);
+            result.setRows(rows);
+            result.setRowCount(rows.size());
+            
+            logger.info("MongoDB聚合查询执行成功 - 管道阶段数: {}, 返回记录数: {}, 结果: {}", pipeline.size(), rows.size(), rows);
+            if (logger.isDebugEnabled()) {
+                logger.debug("MongoDB聚合查询结果 - 列: {}, 行数据: {}", columns, rows);
+            }
+            
+        } catch (Exception e) {
+            logger.error("执行MongoDB聚合查询失败", e);
+            throw new RuntimeException("执行MongoDB聚合查询失败: " + e.getMessage(), e);
+        }
+        
+        return result;
+    }
+    
+    /**
+     * 检查是否是简单的统计记录数量查询
+     * 格式：pipeline = [{"$group": {"_id": null, "count": {"$sum": 1}}}]
+     * 或者：pipeline = [{"$match": {...}}, {"$group": {"_id": null, "count": {"$sum": 1}}}]
+     */
+    private boolean isSimpleCountQuery(List<Map<String, Object>> pipelineList) {
+        if (pipelineList == null || pipelineList.isEmpty()) {
+            return false;
+        }
+        
+        // 检查最后一个阶段是否是 $group，且 _id 为 null，只有 count: {$sum: 1}
+        Map<String, Object> lastStage = pipelineList.get(pipelineList.size() - 1);
+        if (!lastStage.containsKey("$group")) {
+            return false;
+        }
+        
+        @SuppressWarnings("unchecked")
+        Map<String, Object> groupSpec = (Map<String, Object>) lastStage.get("$group");
+        if (groupSpec == null || groupSpec.size() != 2) {
+            return false;
+        }
+        
+        // 检查 _id 是否为 null
+        Object idValue = groupSpec.get("_id");
+        if (idValue != null && !(idValue instanceof String && "null".equalsIgnoreCase((String) idValue))) {
+            return false;
+        }
+        
+        // 检查是否有 count: {$sum: 1} 或 count: {$sum: "1"}
+        Object countValue = groupSpec.get("count");
+        if (!(countValue instanceof Map)) {
+            return false;
+        }
+        
+        @SuppressWarnings("unchecked")
+        Map<String, Object> countExpr = (Map<String, Object>) countValue;
+        if (!countExpr.containsKey("$sum")) {
+            return false;
+        }
+        
+        Object sumValue = countExpr.get("$sum");
+        // 检查 $sum 的值是否为 1（数字或字符串"1"）
+        if (sumValue instanceof Number && ((Number) sumValue).intValue() == 1) {
+            return true;
+        }
+        if (sumValue instanceof String && "1".equals(sumValue)) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * 执行简单的统计记录数量查询（使用countDocuments优化）
+     */
+    private QueryResult executeSimpleCount(MongoCollection<Document> collection, List<Map<String, Object>> pipelineList) {
+        QueryResult result = new QueryResult();
+        List<String> columns = new ArrayList<>();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        
+        try {
+            // 检查是否有 $match 阶段
+            Bson filter = null;
+            if (pipelineList.size() > 1) {
+                Map<String, Object> firstStage = pipelineList.get(0);
+                if (firstStage.containsKey("$match")) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> matchFilter = (Map<String, Object>) firstStage.get("$match");
+                    if (matchFilter != null && !matchFilter.isEmpty()) {
+                        filter = buildBsonFilter(matchFilter);
+                    }
+                }
+            }
+            
+            // 使用 countDocuments 方法（更高效）
+            long count;
+            if (filter != null) {
+                count = collection.countDocuments(filter);
+            } else {
+                count = collection.countDocuments();
+            }
+            
+            // 构建结果
+            columns.add("count");
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("count", count);
+            rows.add(row);
+            
+            result.setColumns(columns);
+            result.setRows(rows);
+            result.setRowCount(rows.size());
+            
+            logger.info("MongoDB简单统计查询执行成功 - 使用countDocuments优化, 记录数: {}", count);
+            
+        } catch (Exception e) {
+            logger.error("执行MongoDB简单统计查询失败", e);
+            throw new RuntimeException("执行MongoDB简单统计查询失败: " + e.getMessage(), e);
+        }
+        
+        return result;
+    }
+    
+    /**
+     * 执行MongoDB元数据查询（集合列表、集合数量等）
+     */
+    private QueryResult executeMongoMetadata(DataSource dataSource, Map<String, Object> query) {
+        QueryResult result = new QueryResult();
+        List<String> columns = new ArrayList<>();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        
+        try {
+            String metadataType = (String) query.getOrDefault("metadataType", "collections");
+            
+            MongoDatabase database = connectionService.getMongoDatabase(dataSource);
+            
+            if ("collections".equalsIgnoreCase(metadataType) || "collectionCount".equalsIgnoreCase(metadataType)) {
+                // 获取集合列表
+                List<String> collectionNames = database.listCollectionNames().into(new ArrayList<>());
+                
+                if ("collectionCount".equalsIgnoreCase(metadataType)) {
+                    // 只返回集合数量
+                    columns.add("count");
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("count", collectionNames.size());
+                    rows.add(row);
+                } else {
+                    // 返回集合列表
+                    columns.add("name");
+                    for (String name : collectionNames) {
+                        Map<String, Object> row = new LinkedHashMap<>();
+                        row.put("name", name);
+                        rows.add(row);
+                    }
+                }
+            } else {
+                throw new IllegalArgumentException("不支持的元数据查询类型: " + metadataType);
+            }
+            
+            result.setColumns(columns);
+            result.setRows(rows);
+            result.setRowCount(rows.size());
+            
+            logger.info("MongoDB元数据查询执行成功 - 类型: {}, 返回记录数: {}", metadataType, rows.size());
+            
+        } catch (Exception e) {
+            logger.error("执行MongoDB元数据查询失败", e);
+            throw new RuntimeException("执行MongoDB元数据查询失败: " + e.getMessage(), e);
+        }
+        
+        return result;
+    }
+    
+    /**
+     * 构建聚合管道阶段
+     */
+    private Bson buildAggregateStage(Map<String, Object> stage) {
+        if (stage == null || stage.isEmpty()) {
+            return null;
+        }
+        
+        // 检查阶段类型（$match, $group, $project, $sort, $limit, $skip等）
+        if (stage.containsKey("$match")) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> matchFilter = (Map<String, Object>) stage.get("$match");
+            return match(matchFilter != null ? buildBsonFilter(matchFilter) : new Document());
+        }
+        
+        if (stage.containsKey("$group")) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> groupSpec = (Map<String, Object>) stage.get("$group");
+            Document groupDoc = new Document();
+            
+            for (Map.Entry<String, Object> entry : groupSpec.entrySet()) {
+                String key = entry.getKey();
+                Object value = entry.getValue();
+                
+                // 特殊处理 _id 字段：null 值需要特殊处理
+                if ("_id".equals(key)) {
+                    if (value == null) {
+                        groupDoc.append(key, null);
+                    } else if (value instanceof String && "null".equalsIgnoreCase((String) value)) {
+                        // 处理字符串 "null" 的情况
+                        groupDoc.append(key, null);
+                    } else {
+                        groupDoc.append(key, value);
+                    }
+                } else if (value instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> expr = (Map<String, Object>) value;
+                    groupDoc.append(key, buildGroupExpression(expr));
+                } else {
+                    groupDoc.append(key, value);
+                }
+            }
+            
+            return group(groupDoc);
+        }
+        
+        if (stage.containsKey("$project")) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> projectSpec = (Map<String, Object>) stage.get("$project");
+            return project(projectSpec != null ? buildBsonProjection(projectSpec) : new Document());
+        }
+        
+        if (stage.containsKey("$sort")) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> sortSpec = (Map<String, Object>) stage.get("$sort");
+            return sort(sortSpec != null ? buildBsonSort(sortSpec) : new Document());
+        }
+        
+        if (stage.containsKey("$limit")) {
+            Object limitObj = stage.get("$limit");
+            int limit = limitObj instanceof Number ? ((Number) limitObj).intValue() : Integer.parseInt(limitObj.toString());
+            return limit(limit);
+        }
+        
+        if (stage.containsKey("$skip")) {
+            Object skipObj = stage.get("$skip");
+            int skip = skipObj instanceof Number ? ((Number) skipObj).intValue() : Integer.parseInt(skipObj.toString());
+            return skip(skip);
+        }
+        
+        // 如果不匹配任何已知阶段，返回Document
+        return new Document(stage);
+    }
+    
+    /**
+     * 构建分组表达式（$sum, $avg, $max, $min, $count等）
+     */
+    private Object buildGroupExpression(Map<String, Object> expr) {
+        if (expr.containsKey("$sum")) {
+            Object sumValue = expr.get("$sum");
+            if (sumValue instanceof Number) {
+                return new Document("$sum", sumValue);
+            } else if (sumValue instanceof String) {
+                String strValue = (String) sumValue;
+                // 尝试将字符串转换为数字（处理 "1" -> 1 的情况）
+                try {
+                    if (strValue.matches("^-?\\d+$")) {
+                        // 是纯数字字符串，转换为整数
+                        int intValue = Integer.parseInt(strValue);
+                        return new Document("$sum", intValue);
+                    } else if (strValue.matches("^-?\\d+\\.\\d+$")) {
+                        // 是浮点数字符串，转换为浮点数
+                        double doubleValue = Double.parseDouble(strValue);
+                        return new Document("$sum", doubleValue);
+                    } else {
+                        // 不是数字，可能是字段引用
+                        return new Document("$sum", strValue.startsWith("$") ? strValue : "$" + strValue);
+                    }
+                } catch (NumberFormatException e) {
+                    // 转换失败，当作字段引用处理
+                    return new Document("$sum", strValue.startsWith("$") ? strValue : "$" + strValue);
+                }
+            } else {
+                return new Document("$sum", sumValue);
+            }
+        }
+        
+        if (expr.containsKey("$avg")) {
+            Object avgValue = expr.get("$avg");
+            if (avgValue instanceof String) {
+                String strValue = (String) avgValue;
+                return new Document("$avg", strValue.startsWith("$") ? strValue : "$" + strValue);
+            } else {
+                return new Document("$avg", avgValue);
+            }
+        }
+        
+        if (expr.containsKey("$max")) {
+            Object maxValue = expr.get("$max");
+            if (maxValue instanceof String) {
+                String strValue = (String) maxValue;
+                return new Document("$max", strValue.startsWith("$") ? strValue : "$" + strValue);
+            } else {
+                return new Document("$max", maxValue);
+            }
+        }
+        
+        if (expr.containsKey("$min")) {
+            Object minValue = expr.get("$min");
+            if (minValue instanceof String) {
+                String strValue = (String) minValue;
+                return new Document("$min", strValue.startsWith("$") ? strValue : "$" + strValue);
+            } else {
+                return new Document("$min", minValue);
+            }
+        }
+        
+        if (expr.containsKey("$count")) {
+            return new Document("$sum", 1);
+        }
+        
+        if (expr.containsKey("$first")) {
+            Object firstValue = expr.get("$first");
+            if (firstValue instanceof String) {
+                String strValue = (String) firstValue;
+                return new Document("$first", strValue.startsWith("$") ? strValue : "$" + strValue);
+            } else {
+                return new Document("$first", firstValue);
+            }
+        }
+        
+        if (expr.containsKey("$last")) {
+            Object lastValue = expr.get("$last");
+            if (lastValue instanceof String) {
+                String strValue = (String) lastValue;
+                return new Document("$last", strValue.startsWith("$") ? strValue : "$" + strValue);
+            } else {
+                return new Document("$last", lastValue);
+            }
+        }
+        
+        // 默认返回原表达式
+        return new Document(expr);
+    }
+    
+    /**
+     * 转换BSON值为Java可序列化的类型
+     * 处理ObjectId、Document、数组、嵌套对象等复杂类型
+     */
+    private Object convertBsonValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        
+        // ObjectId 转换为字符串
+        if (value instanceof org.bson.types.ObjectId) {
+            return value.toString();
+        }
+        
+        // Date 保持原样（Jackson会自动序列化为时间戳或ISO格式）
+        if (value instanceof java.util.Date) {
+            return value;
+        }
+        
+        // Document 转换为 Map
+        if (value instanceof Document) {
+            Document doc = (Document) value;
+            Map<String, Object> map = new LinkedHashMap<>();
+            for (String key : doc.keySet()) {
+                map.put(key, convertBsonValue(doc.get(key)));
+            }
+            return map;
+        }
+        
+        // 数组/列表 递归转换每个元素
+        if (value instanceof java.util.List) {
+            @SuppressWarnings("unchecked")
+            List<Object> list = (List<Object>) value;
+            List<Object> convertedList = new ArrayList<>();
+            for (Object item : list) {
+                convertedList.add(convertBsonValue(item));
+            }
+            return convertedList;
+        }
+        
+        // Map类型（可能是嵌套的Map）递归转换
+        if (value instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> map = (Map<String, Object>) value;
+            Map<String, Object> convertedMap = new LinkedHashMap<>();
+            for (Map.Entry<String, Object> entry : map.entrySet()) {
+                convertedMap.put(entry.getKey(), convertBsonValue(entry.getValue()));
+            }
+            return convertedMap;
+        }
+        
+        // 其他BSON类型（如Binary、Decimal128等）转换为字符串
+        if (value.getClass().getPackage() != null && 
+            value.getClass().getPackage().getName().startsWith("org.bson")) {
+            return value.toString();
+        }
+        
+        // 基本类型（String、Number、Boolean等）直接返回
+        return value;
+    }
+    
+    /**
+     * 构建BSON过滤条件
+     */
+    private Bson buildBsonFilter(Map<String, Object> filterMap) {
+        // 检查是否有逻辑操作符（$or, $and, $nor）
+        if (filterMap.containsKey("$or")) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> orConditions = (List<Map<String, Object>>) filterMap.get("$or");
+            List<Bson> orFilters = new ArrayList<>();
+            for (Map<String, Object> condition : orConditions) {
+                orFilters.add(buildBsonFilter(condition));
+            }
+            return Filters.or(orFilters);
+        }
+        
+        if (filterMap.containsKey("$and")) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> andConditions = (List<Map<String, Object>>) filterMap.get("$and");
+            List<Bson> andFilters = new ArrayList<>();
+            for (Map<String, Object> condition : andConditions) {
+                andFilters.add(buildBsonFilter(condition));
+            }
+            return Filters.and(andFilters);
+        }
+        
+        if (filterMap.containsKey("$nor")) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> norConditions = (List<Map<String, Object>>) filterMap.get("$nor");
+            List<Bson> norFilters = new ArrayList<>();
+            for (Map<String, Object> condition : norConditions) {
+                norFilters.add(buildBsonFilter(condition));
+            }
+            return Filters.nor(norFilters);
+        }
+        
+        // 处理普通字段条件
+        List<Bson> filters = new ArrayList<>();
+        
+        for (Map.Entry<String, Object> entry : filterMap.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            
+            if (value instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> operatorMap = (Map<String, Object>) value;
+                
+                // 处理操作符：$eq, $ne, $gt, $gte, $lt, $lte, $in, $nin, $regex等
+                if (operatorMap.containsKey("$eq")) {
+                    filters.add(Filters.eq(key, operatorMap.get("$eq")));
+                } else if (operatorMap.containsKey("$ne")) {
+                    filters.add(Filters.ne(key, operatorMap.get("$ne")));
+                } else if (operatorMap.containsKey("$gt")) {
+                    filters.add(Filters.gt(key, operatorMap.get("$gt")));
+                } else if (operatorMap.containsKey("$gte")) {
+                    filters.add(Filters.gte(key, operatorMap.get("$gte")));
+                } else if (operatorMap.containsKey("$lt")) {
+                    filters.add(Filters.lt(key, operatorMap.get("$lt")));
+                } else if (operatorMap.containsKey("$lte")) {
+                    filters.add(Filters.lte(key, operatorMap.get("$lte")));
+                } else if (operatorMap.containsKey("$in")) {
+                    @SuppressWarnings("unchecked")
+                    List<Object> inList = (List<Object>) operatorMap.get("$in");
+                    filters.add(Filters.in(key, inList));
+                } else if (operatorMap.containsKey("$nin")) {
+                    @SuppressWarnings("unchecked")
+                    List<Object> ninList = (List<Object>) operatorMap.get("$nin");
+                    filters.add(Filters.nin(key, ninList));
+                } else if (operatorMap.containsKey("$regex")) {
+                    String pattern = (String) operatorMap.get("$regex");
+                    String options = (String) operatorMap.getOrDefault("$options", "");
+                    filters.add(Filters.regex(key, pattern, options));
+                } else if (operatorMap.containsKey("$exists")) {
+                    boolean exists = Boolean.TRUE.equals(operatorMap.get("$exists"));
+                    filters.add(Filters.exists(key, exists));
+                } else {
+                    // 默认使用等于
+                    filters.add(Filters.eq(key, value));
+                }
+            } else {
+                // 简单等于条件
+                filters.add(Filters.eq(key, value));
+            }
+        }
+        
+        if (filters.size() == 1) {
+            return filters.get(0);
+        } else if (filters.size() > 1) {
+            return Filters.and(filters);
+        } else {
+            return new Document(); // 空过滤条件
+        }
+    }
+    
+    /**
+     * 构建BSON投影（字段选择）
+     */
+    private Bson buildBsonProjection(Map<String, Object> projectionMap) {
+        Document projection = new Document();
+        for (Map.Entry<String, Object> entry : projectionMap.entrySet()) {
+            Object value = entry.getValue();
+            if (value instanceof Number) {
+                projection.append(entry.getKey(), ((Number) value).intValue());
+            } else if (value instanceof Boolean) {
+                projection.append(entry.getKey(), (Boolean) value);
+            } else {
+                projection.append(entry.getKey(), 1);
+            }
+        }
+        return projection;
+    }
+    
+    /**
+     * 构建BSON排序
+     */
+    private Bson buildBsonSort(Map<String, Object> sortMap) {
+        Document sort = new Document();
+        for (Map.Entry<String, Object> entry : sortMap.entrySet()) {
+            Object value = entry.getValue();
+            int direction = 1; // 默认升序
+            if (value instanceof Number) {
+                direction = ((Number) value).intValue();
+            } else if (value instanceof String) {
+                String dir = ((String) value).toLowerCase();
+                if ("desc".equals(dir) || "-1".equals(dir)) {
+                    direction = -1;
+                }
+            }
+            sort.append(entry.getKey(), direction);
+        }
+        return sort;
     }
     
     /**
