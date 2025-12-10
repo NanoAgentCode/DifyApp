@@ -65,6 +65,11 @@ public class Text2SqlServiceImpl implements Text2SqlService {
             throw new IllegalArgumentException("数据源ID和问题不能为空");
         }
         
+        // 验证表名列表不能为空
+        if (tableNames == null || tableNames.isEmpty()) {
+            throw new IllegalArgumentException("必须至少选择一个表");
+        }
+        
         // 获取数据源
         DataSource dataSource = dataSourceService.getDataSourceEntityById(dataSourceId);
         if (dataSource.getStatus() == null || dataSource.getStatus() != 1) {
@@ -74,7 +79,7 @@ public class Text2SqlServiceImpl implements Text2SqlService {
         DatabaseDriverManager.DatabaseType dbType = DatabaseDriverManager.DatabaseType.fromString(dataSource.getType());
         
         try {
-            // 获取表结构信息
+            // 获取表结构信息（使用指定的表）
             String schemaInfo = getSchemaInfo(dataSource, tableNames);
             
             // 生成查询语句（SQL或MongoDB查询）
@@ -110,12 +115,8 @@ public class Text2SqlServiceImpl implements Text2SqlService {
         try {
             DatabaseDriverManager.DatabaseType dbType = DatabaseDriverManager.DatabaseType.fromString(dataSource.getType());
             
-            List<String> targetTables;
-            if (tableNames != null && !tableNames.isEmpty()) {
-                targetTables = tableNames;
-            } else {
-                targetTables = schemaService.getTableList(dataSource);
-            }
+            // 表名列表必须不为空（已在executeQuery中验证）
+            List<String> targetTables = tableNames;
             
             // MongoDB 使用不同的结构
             if (dbType == DatabaseDriverManager.DatabaseType.MONGODB) {
@@ -265,8 +266,14 @@ public class Text2SqlServiceImpl implements Text2SqlService {
         
         String sql = response.content().text();
         
+        // 记录原始SQL（用于调试）
+        logger.debug("LLM生成的原始SQL: {}", sql);
+        
         // 清理 SQL（移除可能的代码块标记）
         sql = cleanSql(sql);
+        
+        // 记录清理后的SQL（用于调试）
+        logger.info("清理后的SQL: {}", sql);
         
         // SQL 安全检查
         validateSql(sql);
@@ -298,17 +305,21 @@ public class Text2SqlServiceImpl implements Text2SqlService {
         sb.append("6. 如果表结构信息中没有某个列，说明该列不存在或不可用，绝对不要使用它\n");
         sb.append("7. 支持统计查询：可以使用COUNT、SUM、AVG、MAX、MIN等聚合函数进行统计分析\n");
         sb.append("8. 统计函数示例：COUNT(*)统计记录数，SUM(column)求和，AVG(column)求平均值，MAX(column)求最大值，MIN(column)求最小值\n");
-        sb.append("9. 支持多表关联查询：当问题涉及多个表时，必须使用JOIN进行关联\n");
-        sb.append("10. JOIN语法：\n");
+        sb.append("9. 重要：完全支持多表关联查询，当问题涉及多个表时，必须使用JOIN进行关联\n");
+        sb.append("10. JOIN语法（完全支持，请积极使用）：\n");
         sb.append("    - INNER JOIN：内连接，只返回两表都匹配的记录\n");
         sb.append("    - LEFT JOIN：左连接，返回左表所有记录和右表匹配的记录\n");
         sb.append("    - RIGHT JOIN：右连接，返回右表所有记录和左表匹配的记录\n");
+        sb.append("    - FULL OUTER JOIN：全外连接，返回两表所有记录（部分数据库支持）\n");
         sb.append("    - 关联条件：使用ON关键字，例如：ON table1.column = table2.column\n");
-        sb.append("11. 多表关联示例：\n");
-        sb.append("    SELECT t1.col1, t2.col2 FROM table1 t1 INNER JOIN table2 t2 ON t1.id = t2.table1_id\n");
+        sb.append("11. 多表关联示例（请参考这些示例生成SQL）：\n");
+        sb.append("    - 两表关联：SELECT t1.col1, t2.col2 FROM table1 t1 INNER JOIN table2 t2 ON t1.id = t2.table1_id\n");
+        sb.append("    - 三表关联：SELECT t1.col1, t2.col2, t3.col3 FROM table1 t1 INNER JOIN table2 t2 ON t1.id = t2.table1_id INNER JOIN table3 t3 ON t2.id = t3.table2_id\n");
+        sb.append("    - 左连接：SELECT t1.col1, t2.col2 FROM table1 t1 LEFT JOIN table2 t2 ON t1.id = t2.table1_id\n");
         sb.append("12. 当查询涉及多个表时，必须根据表关联关系正确使用JOIN，关联关系信息会在表结构信息中提供\n");
         sb.append("13. 如果表结构信息中提供了外键关联关系（格式：table1.column -> table2.column），请使用这些关系进行JOIN\n");
         sb.append("14. 多表查询时，列名必须使用表别名或表名作为前缀，避免列名冲突，例如：table1.name 或 t1.name\n");
+        sb.append("15. 支持多个表的链式关联，例如：table1 JOIN table2 ON ... JOIN table3 ON ...\n");
         
         // PostgreSQL 特殊要求
         if ("postgresql".equalsIgnoreCase(databaseType)) {
@@ -336,6 +347,7 @@ public class Text2SqlServiceImpl implements Text2SqlService {
             sb.append("- 字符串使用单引号\n");
             sb.append("- 日期时间使用 TO_DATE 函数\n");
             sb.append("- 注意大小写敏感性\n");
+            sb.append("- 重要：SQL语句末尾不要加分号（;），PreparedStatement 不支持分号\n");
         }
         
         return sb.toString();
@@ -526,14 +538,16 @@ public class Text2SqlServiceImpl implements Text2SqlService {
         sb.append("- 不要使用表结构信息中未提供的列（如tenant_id、deleted、create_time、update_time等系统列）\n");
         sb.append("- 如果表结构信息中没有某个列，说明该列不存在，绝对不要使用它\n");
         sb.append("\n");
-        sb.append("多表关联查询说明：\n");
+        sb.append("多表关联查询说明（重要：完全支持，请积极使用）：\n");
         sb.append("- 当问题涉及多个表的数据时，必须使用JOIN进行表关联\n");
         sb.append("- 表关联关系信息在表结构信息中提供，格式为：table1.column -> table2.column\n");
         sb.append("- 使用JOIN时，必须正确设置ON条件，例如：ON table1.foreign_key = table2.primary_key\n");
         sb.append("- 多表查询时，列名必须使用表别名或表名作为前缀，例如：table1.name 或 t1.name\n");
-        sb.append("- 推荐使用表别名（AS关键字或空格）简化SQL，例如：FROM users u INNER JOIN orders o ON u.id = o.user_id\n");
-        sb.append("- 支持多个表的关联，例如：table1 JOIN table2 ON ... JOIN table3 ON ...\n");
+        sb.append("- 强烈推荐使用表别名（AS关键字或空格）简化SQL，例如：FROM users u INNER JOIN orders o ON u.id = o.user_id\n");
+        sb.append("- 完全支持多个表的链式关联，例如：table1 JOIN table2 ON ... JOIN table3 ON ...\n");
         sb.append("- 如果问题需要关联多个表，请使用INNER JOIN、LEFT JOIN或RIGHT JOIN，根据业务逻辑选择合适的JOIN类型\n");
+        sb.append("- 示例：查询用户及其订单信息：SELECT u.name, o.order_no FROM users u INNER JOIN orders o ON u.id = o.user_id\n");
+        sb.append("- 示例：查询用户、订单和商品信息：SELECT u.name, o.order_no, p.product_name FROM users u INNER JOIN orders o ON u.id = o.user_id INNER JOIN products p ON o.product_id = p.id\n");
         sb.append("\n");
         sb.append("统计查询支持：\n");
         sb.append("- COUNT(*) 或 COUNT(column)：统计记录数或非空值数量\n");
@@ -553,7 +567,7 @@ public class Text2SqlServiceImpl implements Text2SqlService {
     }
     
     /**
-     * 清理 SQL（移除代码块标记等）
+     * 清理 SQL（移除代码块标记等，并提取SELECT语句）
      */
     private String cleanSql(String sql) {
         if (sql == null) {
@@ -573,7 +587,60 @@ public class Text2SqlServiceImpl implements Text2SqlService {
             sql = sql.substring(0, sql.length() - 3);
         }
         
-        return sql.trim();
+        sql = sql.trim();
+        
+        // 如果SQL不是以SELECT开头，尝试提取SELECT语句
+        // LLM可能返回包含解释性文字的文本，需要提取其中的SQL语句
+        if (!sql.toUpperCase().trim().startsWith("SELECT")) {
+            // 尝试查找SELECT语句的开始位置（不区分大小写）
+            String upperSql = sql.toUpperCase();
+            int selectIndex = upperSql.indexOf("SELECT");
+            if (selectIndex != -1) {
+                // 找到SELECT，提取从SELECT开始的内容
+                sql = sql.substring(selectIndex);
+                
+                // 尝试找到SQL语句的结束位置
+                // 查找第一个分号，如果分号后没有SQL关键字，则认为SQL结束
+                int semicolonIndex = sql.indexOf(';');
+                if (semicolonIndex != -1) {
+                    String afterSemicolon = sql.substring(semicolonIndex + 1).trim();
+                    // 如果分号后是空或者是非SQL内容（不以SQL关键字开头），则只取到分号
+                    if (afterSemicolon.isEmpty() || 
+                        !afterSemicolon.toUpperCase().matches("^\\s*(SELECT|FROM|WHERE|ORDER|GROUP|HAVING|LIMIT|OFFSET|UNION|INTERSECT|EXCEPT|WITH).*")) {
+                        sql = sql.substring(0, semicolonIndex);
+                    }
+                } else {
+                    // 没有分号，尝试找到第一个明显的非SQL内容（如中文、解释性文字）
+                    // 简单处理：如果遇到换行后是明显的非SQL内容，则截断
+                    String[] lines = sql.split("\n");
+                    if (lines.length > 1) {
+                        // 检查第二行是否看起来像SQL
+                        String secondLine = lines[1].trim();
+                        if (!secondLine.isEmpty() && 
+                            !secondLine.toUpperCase().matches("^\\s*(SELECT|FROM|WHERE|ORDER|GROUP|HAVING|LIMIT|OFFSET|UNION|INTERSECT|EXCEPT|WITH|AND|OR|INNER|LEFT|RIGHT|FULL|ON).*") &&
+                            !secondLine.matches("^\\s*[a-zA-Z_][a-zA-Z0-9_]*\\s*[,=<>!].*")) {
+                            // 第二行看起来不像SQL，只取第一行
+                            sql = lines[0];
+                        }
+                    }
+                }
+                
+                logger.info("从LLM输出中提取SELECT语句: {}", sql);
+            } else {
+                // 如果找不到SELECT，记录警告
+                logger.warn("无法从LLM输出中提取SELECT语句，原始内容: {}", sql);
+                throw new RuntimeException("LLM生成的SQL不包含SELECT语句，请检查提示词或模型配置");
+            }
+        }
+        
+        sql = sql.trim();
+        
+        // 移除末尾的分号（Oracle PreparedStatement 不支持分号）
+        while (sql.endsWith(";")) {
+            sql = sql.substring(0, sql.length() - 1).trim();
+        }
+        
+        return sql;
     }
     
     /**
@@ -855,6 +922,9 @@ public class Text2SqlServiceImpl implements Text2SqlService {
                 return;
             }
             
+            // 从SQL中提取表别名到表名的映射
+            Map<String, String> aliasToTableMap = extractTableAliasMapping(sql, tableColumnsMap.keySet());
+            
             // 从SQL中提取使用的列名
             Set<String> usedColumns = extractColumnsFromSql(sql);
             
@@ -863,15 +933,26 @@ public class Text2SqlServiceImpl implements Text2SqlService {
             for (String columnRef : usedColumns) {
                 boolean found = false;
                 
-                // 检查是否包含表名前缀（如 table.column）
+                // 检查是否包含表名前缀（如 table.column 或 alias.column）
                 if (columnRef.contains(".")) {
                     String[] parts = columnRef.split("\\.");
                     if (parts.length == 2) {
-                        String tableName = parts[0].toLowerCase();
+                        String tableOrAlias = parts[0].toLowerCase();
                         String columnName = parts[1].toLowerCase();
-                        Set<String> columns = tableColumnsMap.get(tableName);
+                        
+                        // 先尝试直接查找表名
+                        Set<String> columns = tableColumnsMap.get(tableOrAlias);
                         if (columns != null && columns.contains(columnName)) {
                             found = true;
+                        } else {
+                            // 如果不是表名，可能是别名，查找别名对应的表名
+                            String actualTableName = aliasToTableMap.get(tableOrAlias);
+                            if (actualTableName != null) {
+                                columns = tableColumnsMap.get(actualTableName);
+                                if (columns != null && columns.contains(columnName)) {
+                                    found = true;
+                                }
+                            }
                         }
                     }
                 } else {
@@ -890,8 +971,9 @@ public class Text2SqlServiceImpl implements Text2SqlService {
                 }
             }
             
-            // 如果发现不存在的列，抛出错误
+            // 如果发现不存在的列，记录详细信息并抛出错误
             if (!invalidColumns.isEmpty()) {
+                logger.warn("表结构信息 - 可用表: {}, 表别名映射: {}", tableColumnsMap.keySet(), aliasToTableMap);
                 String errorMsg = String.format(
                     "SQL中使用了不存在的列: %s。请只使用表结构信息中提供的列名。",
                     String.join(", ", invalidColumns)
@@ -957,6 +1039,46 @@ public class Text2SqlServiceImpl implements Text2SqlService {
         }
         
         return tableColumnsMap;
+    }
+    
+    /**
+     * 从SQL中提取表别名到表名的映射
+     * 例如：FROM users u -> {u: users}
+     *      FROM users AS u -> {u: users}
+     *      FROM table1 t1 INNER JOIN table2 t2 -> {t1: table1, t2: table2}
+     */
+    private Map<String, String> extractTableAliasMapping(String sql, Set<String> tableNames) {
+        Map<String, String> aliasMap = new HashMap<>();
+        
+        // 匹配 FROM table alias 或 FROM table AS alias
+        java.util.regex.Pattern fromPattern = java.util.regex.Pattern.compile(
+            "FROM\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s+(?:AS\\s+)?([a-zA-Z_][a-zA-Z0-9_]*)",
+            java.util.regex.Pattern.CASE_INSENSITIVE
+        );
+        java.util.regex.Matcher fromMatcher = fromPattern.matcher(sql);
+        while (fromMatcher.find()) {
+            String tableName = fromMatcher.group(1).toLowerCase();
+            String alias = fromMatcher.group(2).toLowerCase();
+            if (tableNames.contains(tableName)) {
+                aliasMap.put(alias, tableName);
+            }
+        }
+        
+        // 匹配 JOIN table alias 或 JOIN table AS alias
+        java.util.regex.Pattern joinPattern = java.util.regex.Pattern.compile(
+            "(?:INNER|LEFT|RIGHT|FULL|CROSS)?\\s+JOIN\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s+(?:AS\\s+)?([a-zA-Z_][a-zA-Z0-9_]*)",
+            java.util.regex.Pattern.CASE_INSENSITIVE
+        );
+        java.util.regex.Matcher joinMatcher = joinPattern.matcher(sql);
+        while (joinMatcher.find()) {
+            String tableName = joinMatcher.group(1).toLowerCase();
+            String alias = joinMatcher.group(2).toLowerCase();
+            if (tableNames.contains(tableName)) {
+                aliasMap.put(alias, tableName);
+            }
+        }
+        
+        return aliasMap;
     }
     
     /**
@@ -1378,6 +1500,9 @@ public class Text2SqlServiceImpl implements Text2SqlService {
         QueryResult result = new QueryResult();
         List<String> columns = new ArrayList<>();
         List<Map<String, Object>> rows = new ArrayList<>();
+        
+        // 清理 SQL（移除末尾分号等，Oracle PreparedStatement 不支持分号）
+        sql = cleanSql(sql);
         
         try (Connection connection = connectionService.getConnection(dataSource);
              PreparedStatement stmt = connection.prepareStatement(sql);

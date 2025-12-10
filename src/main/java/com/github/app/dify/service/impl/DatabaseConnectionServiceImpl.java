@@ -147,7 +147,14 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
         config.setConnectionTimeout(30000);
         config.setIdleTimeout(600000);
         config.setMaxLifetime(1800000);
-        config.setConnectionTestQuery("SELECT 1");
+        
+        // Oracle 需要使用 "SELECT 1 FROM DUAL"，其他数据库使用 "SELECT 1"
+        if (dbType == DatabaseDriverManager.DatabaseType.ORACLE) {
+            config.setConnectionTestQuery("SELECT 1 FROM DUAL");
+        } else {
+            config.setConnectionTestQuery("SELECT 1");
+        }
+        
         config.setPoolName("DataSourcePool-" + dataSource.getId());
         
         return new HikariDataSource(config);

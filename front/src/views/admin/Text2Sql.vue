@@ -21,9 +21,40 @@
                 </el-option>
               </el-select>
             </el-form-item>
-            <el-form-item label="选择表">
+            <el-form-item label="选择表" required>
               <div style="display: flex; gap: 8px; width: 100%;">
-                <el-select v-model="queryForm.tableNames" multiple placeholder="不选择则使用所有表（可选）" style="flex: 1; min-width: 0;">
+                <el-select 
+                  v-model="queryForm.tableNames" 
+                  multiple 
+                  filterable
+                  placeholder="请至少选择一个表（必选，支持多选）" 
+                  style="flex: 1; min-width: 0;"
+                  collapse-tags
+                  collapse-tags-tooltip
+                  :max-collapse-tags="3"
+                >
+                  <template #header>
+                    <div style="padding: 8px 12px; border-bottom: 1px solid #e4e7ed;">
+                      <el-button 
+                        text 
+                        type="primary" 
+                        size="small" 
+                        @click="selectAllTables"
+                        style="padding: 0;"
+                      >
+                        全选
+                      </el-button>
+                      <el-button 
+                        text 
+                        type="primary" 
+                        size="small" 
+                        @click="clearAllTables"
+                        style="padding: 0; margin-left: 12px;"
+                      >
+                        清空
+                      </el-button>
+                    </div>
+                  </template>
                   <el-option
                     v-for="table in tables"
                     :key="table"
@@ -41,6 +72,9 @@
                 >
                   查看结构
                 </el-button>
+              </div>
+              <div v-if="queryForm.tableNames && queryForm.tableNames.length > 0" style="margin-top: 8px; font-size: 12px; color: #909399;">
+                已选择 {{ queryForm.tableNames.length }} 个表
               </div>
             </el-form-item>
             <el-form-item label="选择模型">
@@ -242,6 +276,10 @@ const handleQuery = async () => {
     ElMessage.warning('请选择数据源')
     return
   }
+  if (!queryForm.value.tableNames || queryForm.value.tableNames.length === 0) {
+    ElMessage.warning('请至少选择一个表')
+    return
+  }
   if (!queryForm.value.question.trim()) {
     ElMessage.warning('请输入问题')
     return
@@ -252,7 +290,7 @@ const handleQuery = async () => {
     const data = {
       dataSourceId: queryForm.value.dataSourceId,
       question: queryForm.value.question,
-      tableNames: queryForm.value.tableNames.length > 0 ? queryForm.value.tableNames : null,
+      tableNames: queryForm.value.tableNames,
       modelId: queryForm.value.modelId || null
     }
     const response = await executeText2SqlQuery(data)
