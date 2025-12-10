@@ -1,16 +1,21 @@
 package com.github.app.dify.service.impl;
 
 import com.github.app.dify.domain.DrawIODiagram;
+import com.github.app.dify.domain.DrawIOHistory;
 import com.github.app.dify.domain.QAModel;
 import com.github.app.dify.langchain4j.ModelLanguageModelFactory;
 import com.github.app.dify.repository.DrawIODiagramRepository;
+import com.github.app.dify.repository.DrawIOHistoryRepository;
 import com.github.app.dify.req.DrawIOGenerateRequest;
 import com.github.app.dify.req.DrawIOModifyRequest;
 import com.github.app.dify.req.DrawIOSaveRequest;
+import com.github.app.dify.req.DrawIOHistoryRequest;
 import com.github.app.dify.resp.DrawIOGenerateResponse;
 import com.github.app.dify.resp.DrawIODiagramResp;
+import com.github.app.dify.resp.DrawIOHistoryResp;
 import com.github.app.dify.service.DrawIOService;
 import com.github.app.dify.service.ModelConfigService;
+import com.github.app.dify.service.SystemConfigService;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -40,7 +45,13 @@ public class DrawIOServiceImpl implements DrawIOService {
     private DrawIODiagramRepository drawIODiagramRepository;
     
     @Autowired
+    private DrawIOHistoryRepository drawIOHistoryRepository;
+    
+    @Autowired
     private ModelConfigService modelConfigService;
+    
+    @Autowired
+    private SystemConfigService systemConfigService;
     
     @Autowired
     private ModelLanguageModelFactory modelLanguageModelFactory;
@@ -205,19 +216,41 @@ public class DrawIOServiceImpl implements DrawIOService {
     
     /**
      * 获取问答模型
+     * 优先级：1. 请求中的modelId 2. 系统配置中的drawio.defaultModelId 3. 默认RAG模型
      */
     private QAModel getQAModel(Long modelId) {
         try {
             QAModel qaModel;
             if (modelId != null) {
+                // 使用请求中指定的模型
                 qaModel = modelConfigService.getQAModelById(modelId);
                 if (qaModel == null) {
                     throw new IllegalStateException("指定的模型不存在，ID: " + modelId);
                 }
             } else {
-                qaModel = modelConfigService.getDefaultQAModelForRAG();
+                // 尝试从系统配置读取AI绘图默认模型
+                String defaultModelIdStr = systemConfigService.getConfigValue("drawio.defaultModelId");
+                if (defaultModelIdStr != null && !defaultModelIdStr.trim().isEmpty()) {
+                    try {
+                        Long defaultModelId = Long.parseLong(defaultModelIdStr.trim());
+                        qaModel = modelConfigService.getQAModelById(defaultModelId);
+                        if (qaModel != null) {
+                            logger.info("使用系统配置的AI绘图默认模型: {} (ID: {})", qaModel.getName(), qaModel.getId());
+                        } else {
+                            logger.warn("系统配置的AI绘图默认模型不存在，ID: {}，将使用默认RAG模型", defaultModelId);
+                            qaModel = modelConfigService.getDefaultQAModelForRAG();
+                        }
+                    } catch (NumberFormatException e) {
+                        logger.warn("系统配置的AI绘图默认模型ID格式错误: {}，将使用默认RAG模型", defaultModelIdStr);
+                        qaModel = modelConfigService.getDefaultQAModelForRAG();
+                    }
+                } else {
+                    // 使用默认RAG模型
+                    qaModel = modelConfigService.getDefaultQAModelForRAG();
+                }
+                
                 if (qaModel == null) {
-                    throw new IllegalStateException("未找到可用的问答模型，请先在系统配置中配置模型");
+                    throw new IllegalStateException("未找到可用的问答模型，请先在系统配置中配置模型或设置drawio.defaultModelId");
                 }
             }
             logger.info("使用问答模型: {} (ID: {})", qaModel.getName(), qaModel.getId());
@@ -1140,6 +1173,105 @@ public class DrawIOServiceImpl implements DrawIOService {
         resp.setUserId(diagram.getUserId());
         resp.setCreateTime(diagram.getCreateTime());
         resp.setUpdateTime(diagram.getUpdateTime());
+        return resp;
+    }
+    
+    @Override
+    @Transactional
+    public DrawIOHistoryResp saveHistory(DrawIOHistoryRequest request, Long userId) {
+        try {
+            logger.info("保存历史记录请求 - 用户ID: {}, 提示词: {}", userId, request.getPrompt());
+            
+            // 检查是否已存在相同的历史记录（避免重复）
+            List<DrawIOHistory> existingHistories = drawIOHistoryRepository.findByUserIdAndNotDeleted(userId);
+            String promptToSave = request.getPrompt();
+            boolean exists = existingHistories.stream()
+                    .anyMatch(h -> promptToSave.equals(h.getPrompt()));
+            
+            if (exists) {
+                // 如果已存在，返回已存在的记录
+                DrawIOHistory existing = existingHistories.stream()
+                        .filter(h -> promptToSave.equals(h.getPrompt()))
+                        .findFirst()
+                        .orElse(null);
+                if (existing != null) {
+                    return convertHistoryToResp(existing);
+                }
+            }
+            
+            // 创建新历史记录
+            DrawIOHistory history = new DrawIOHistory();
+            history.setUserId(userId);
+            history.setPrompt(request.getPrompt());
+            history.setDiagramType(request.getDiagramType());
+            history.setCreateTime(new Date());
+            history.setDeleted(0);
+            
+            // 保存前检查，如果历史记录超过10条，删除最旧的
+            List<DrawIOHistory> allHistories = drawIOHistoryRepository.findByUserIdAndNotDeleted(userId);
+            if (allHistories.size() >= 10) {
+                // 按创建时间排序，删除最旧的
+                allHistories.sort((a, b) -> a.getCreateTime().compareTo(b.getCreateTime()));
+                for (int i = 0; i < allHistories.size() - 9; i++) {
+                    DrawIOHistory oldHistory = allHistories.get(i);
+                    oldHistory.setDeleted(1);
+                    drawIOHistoryRepository.save(oldHistory);
+                }
+            }
+            
+            history = drawIOHistoryRepository.save(history);
+            
+            logger.info("历史记录保存成功 - ID: {}, 用户ID: {}", history.getId(), userId);
+            
+            return convertHistoryToResp(history);
+            
+        } catch (Exception e) {
+            logger.error("保存历史记录失败 - 用户ID: {}, 提示词: {}", userId, request.getPrompt(), e);
+            throw new RuntimeException("保存历史记录失败: " + e.getMessage(), e);
+        }
+    }
+    
+    @Override
+    public List<DrawIOHistoryResp> getHistoryList(Long userId) {
+        try {
+            // 获取最多10条历史记录
+            List<DrawIOHistory> histories = drawIOHistoryRepository.findByUserIdAndNotDeletedLimit(userId);
+            return histories.stream()
+                    .map(this::convertHistoryToResp)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            logger.error("获取历史记录列表失败 - 用户ID: {}", userId, e);
+            throw new RuntimeException("获取历史记录列表失败: " + e.getMessage(), e);
+        }
+    }
+    
+    @Override
+    @Transactional
+    public void deleteHistory(Long id, Long userId) {
+        try {
+            DrawIOHistory history = drawIOHistoryRepository.findByIdAndUserId(id, userId)
+                    .orElseThrow(() -> new RuntimeException("历史记录不存在或无权限访问"));
+            
+            history.setDeleted(1);
+            drawIOHistoryRepository.save(history);
+            
+            logger.info("历史记录删除成功 - ID: {}, 用户ID: {}", id, userId);
+        } catch (Exception e) {
+            logger.error("删除历史记录失败 - ID: {}, 用户ID: {}", id, userId, e);
+            throw new RuntimeException("删除历史记录失败: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 转换为历史记录响应对象
+     */
+    private DrawIOHistoryResp convertHistoryToResp(DrawIOHistory history) {
+        DrawIOHistoryResp resp = new DrawIOHistoryResp();
+        resp.setId(history.getId());
+        resp.setUserId(history.getUserId());
+        resp.setPrompt(history.getPrompt());
+        resp.setDiagramType(history.getDiagramType());
+        resp.setCreateTime(history.getCreateTime());
         return resp;
     }
 }

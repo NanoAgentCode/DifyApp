@@ -92,3 +92,43 @@ export function deleteDiagram(id) {
   })
 }
 
+/**
+ * 保存历史记录
+ * @param {string} prompt - 提示词
+ * @param {string} diagramType - 图表类型（可选）
+ * @returns {Promise}
+ */
+export function saveHistory(prompt, diagramType = null) {
+  return request({
+    url: '/api/drawio/history',
+    method: 'post',
+    data: {
+      prompt,
+      diagramType
+    }
+  })
+}
+
+/**
+ * 获取历史记录列表
+ * @returns {Promise}
+ */
+export function getHistoryList() {
+  return request({
+    url: '/api/drawio/history',
+    method: 'get'
+  })
+}
+
+/**
+ * 删除历史记录
+ * @param {string} id - 历史记录ID
+ * @returns {Promise}
+ */
+export function deleteHistory(id) {
+  return request({
+    url: `/api/drawio/history/${id}`,
+    method: 'delete'
+  })
+}
+

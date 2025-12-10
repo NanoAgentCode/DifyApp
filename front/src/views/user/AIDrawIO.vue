@@ -30,12 +30,6 @@
           </el-select>
         </div>
 
-        <!-- LLM模型提示 -->
-        <div class="model-section">
-          <div style="font-size: 12px; color: #909399; text-align: center; padding: 8px 0;">
-            模型配置在系统配置中设置
-          </div>
-        </div>
 
         <!-- 快速模板 -->
         <div class="template-section" v-if="selectedDiagramType !== 'custom'">
@@ -86,27 +80,11 @@
           </div>
         </div>
 
-        <!-- 图表管理 -->
+        <!-- 图表操作 -->
         <el-divider style="margin: 8px 0;" />
         <div class="diagram-management">
-          <div class="section-title">图表管理</div>
+          <div class="section-title">图表操作</div>
           <div class="management-buttons">
-            <el-button 
-              type="success" 
-              @click="handleSave"
-              :disabled="!hasDiagram"
-              class="management-button"
-            >
-              <el-icon><DocumentAdd /></el-icon>
-              保存图表
-            </el-button>
-            <el-button 
-              @click="handleLoadList"
-              class="management-button"
-            >
-              <el-icon><FolderOpened /></el-icon>
-              加载图表
-            </el-button>
             <el-button 
               @click="handleClear"
               :disabled="!hasDiagram"
@@ -114,6 +92,14 @@
             >
               <el-icon><Delete /></el-icon>
               清空画布
+            </el-button>
+            <el-button 
+              @click="handleExport"
+              :disabled="!hasDiagram"
+              class="management-button"
+            >
+              <el-icon><Download /></el-icon>
+              导出图表
             </el-button>
           </div>
         </div>
@@ -124,18 +110,18 @@
           <div class="section-title">历史记录</div>
           <el-scrollbar class="history-scrollbar">
             <div 
-              v-for="item in historyList" 
-              :key="item.id"
+              v-for="(item, index) in historyList" 
+              :key="index"
               class="history-item"
             >
-              <div class="history-prompt" @click="loadHistoryPrompt(item.prompt)">{{ item.prompt }}</div>
+              <div class="history-prompt" @click="loadHistoryPrompt(item)">{{ item }}</div>
               <el-button
                 type="danger"
                 :icon="Delete"
                 size="small"
                 text
                 circle
-                @click.stop="deleteHistoryItem(item.id)"
+                @click.stop="deleteHistoryItem(index)"
                 class="history-delete-btn"
                 title="删除"
               />
@@ -167,10 +153,6 @@
                 <el-icon><FullScreen /></el-icon>
               </el-button>
             </el-button-group>
-            <el-button size="small" @click="handleExport">
-              <el-icon><Download /></el-icon>
-              导出
-            </el-button>
             <el-button size="small" @click="handleImport">
               <el-icon><Upload /></el-icon>
               导入
@@ -201,53 +183,6 @@
         </div>
       </el-main>
     </el-container>
-
-    <!-- 保存对话框 -->
-    <el-dialog
-      v-model="saveDialogVisible"
-      title="保存图表"
-      width="400px"
-    >
-      <el-form :model="saveForm" label-width="80px">
-        <el-form-item label="图表名称">
-          <el-input v-model="saveForm.name" placeholder="请输入图表名称" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="saveDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmSave" :loading="saving">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 加载图表对话框 -->
-    <el-dialog
-      v-model="loadDialogVisible"
-      title="加载图表"
-      width="600px"
-    >
-      <el-table :data="diagramList" style="width: 100%">
-        <el-table-column prop="name" label="图表名称" />
-        <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="150">
-          <template #default="scope">
-            <el-button 
-              type="primary" 
-              size="small" 
-              @click="loadDiagram(scope.row)"
-            >
-              加载
-            </el-button>
-            <el-button 
-              type="danger" 
-              size="small" 
-              @click="deleteDiagramItem(scope.row.id)"
-            >
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-dialog>
   </div>
 </template>
 
@@ -258,8 +193,6 @@ import mermaid from 'mermaid'
 import {
   MagicStick,
   Edit,
-  DocumentAdd,
-  FolderOpened,
   Delete,
   DataAnalysis,
   Download,
@@ -290,11 +223,7 @@ import {
 } from '@element-plus/icons-vue'
 import { 
   generateDiagram, 
-  modifyDiagram, 
-  saveDiagram, 
-  getDiagramList, 
-  getDiagramDetail,
-  deleteDiagram,
+  modifyDiagram,
   saveHistory,
   getHistoryList,
   deleteHistory
@@ -436,30 +365,20 @@ const modifying = ref(false)
 const hasDiagram = ref(false)
 const currentDiagramJson = ref('')
 
-
 // 历史记录
 const historyList = ref([])
 
-// 保存相关
-const saveDialogVisible = ref(false)
-const saveForm = ref({ name: '' })
-const saving = ref(false)
-
-// 加载相关
-const loadDialogVisible = ref(false)
-const diagramList = ref([])
 
 // Mermaid 初始化标志
 let mermaidInitialized = false
 
-// 初始化 Mermaid
+// 初始化 Mermaid（复制管理端的实现）
 const initMermaid = async () => {
   if (mermaidInitialized) {
     return
   }
 
   try {
-    // 初始化 Mermaid
     mermaid.initialize({
       startOnLoad: false,
       theme: 'default',
@@ -470,22 +389,12 @@ const initMermaid = async () => {
         curve: 'basis'
       },
       themeVariables: {
-        // 基于 Transformer 架构图的颜色主题
         primaryColor: '#409eff',
         primaryTextColor: '#303133',
         primaryBorderColor: '#409eff',
         lineColor: '#606266',
         secondaryColor: '#ecf5ff',
-        tertiaryColor: '#f5f7fa',
-        // 自定义颜色变量
-        lightBlue: '#ADD8E6',      // 浅蓝色 - 输入/输出嵌入层
-        yellow: '#FFD700',          // 黄色 - 位置编码
-        purple: '#9370DB',          // 紫色 - 编码器块
-        red: '#FF5252',             // 红色 - 注意力机制、前馈网络
-        green: '#4CAF50',           // 绿色 - 归一化层
-        orange: '#FF9800',          // 橙色 - 解码器块
-        darkBlue: '#1976D2',        // 深蓝色 - 输出层
-        gray: '#808080'             // 灰色 - 连接线
+        tertiaryColor: '#f5f7fa'
       }
     })
     
@@ -496,7 +405,7 @@ const initMermaid = async () => {
   }
 }
 
-// 渲染 Mermaid 图表
+// 渲染 Mermaid 图表（简化版，复制管理端核心逻辑）
 const renderMermaid = async (mermaidCode) => {
   if (!mermaidContainer.value) {
     ElMessage.warning('容器未初始化')
@@ -509,201 +418,28 @@ const renderMermaid = async (mermaidCode) => {
     return
   }
 
-  // 确保 Mermaid 已初始化
   if (!mermaidInitialized) {
     await initMermaid()
   }
 
   try {
-    // 对于架构图，强制确保使用 TD（从上到下）方向，并添加必要的布局指令
     let codeToRender = mermaidCode.trim()
+    
+    // 对于架构图的处理（简化版）
     if (selectedDiagramType.value === 'architecture') {
-      // 强制确保架构图使用 TD 方向（整体垂直分层）
-      // 最关键：强制替换第一行的方向为 TD
       codeToRender = codeToRender.replace(/^(flowchart|graph)\s+(LR|TD|BT|RL)/i, '$1 TD')
-      // 先检查并替换所有可能的 LR
       codeToRender = codeToRender.replace(/flowchart\s+LR/gi, 'flowchart TD')
       codeToRender = codeToRender.replace(/graph\s+LR/gi, 'graph TD')
-      // 如果完全没有指定方向，添加 TD
       if (!codeToRender.match(/^(flowchart|graph)\s+(TD|LR|BT|RL)/i)) {
         codeToRender = codeToRender.replace(/^(flowchart|graph)/i, '$1 TD')
       }
-      // 再次确保第一行是 TD（防止遗漏）
-      const firstLine = codeToRender.split('\n')[0]
-      if (!firstLine.match(/^(flowchart|graph)\s+TD/i)) {
-        codeToRender = codeToRender.replace(/^(flowchart|graph)(\s+(TD|LR|BT|RL))?/i, '$1 TD')
-        console.log('前端强制修复：已设置第一行为 TD')
-      }
-      
-      // 确保每个 subgraph 内有 direction LR（用于水平布局）
-      const subgraphRegex = /subgraph\s+[\w"']+[^\n]*\n/g
-      let match
-      const subgraphs = []
-      while ((match = subgraphRegex.exec(codeToRender)) !== null) {
-        subgraphs.push(match.index)
-      }
-      
-      // 为每个 subgraph 检查并添加 direction LR（如果缺失）
-      for (let i = subgraphs.length - 1; i >= 0; i--) {
-        const subgraphStart = subgraphs[i]
-        const nextSubgraph = i < subgraphs.length - 1 ? subgraphs[i + 1] : codeToRender.length
-        const subgraphContent = codeToRender.substring(subgraphStart, nextSubgraph)
-        
-        // 检查是否已有 direction LR（必须是独立的一行）
-        const hasDirectionLR = subgraphContent.match(/^\s*direction\s+LR\s*$/m)
-        
-        // 检查是否有错误的 direction TD，需要改为 LR
-        const wrongDirectionPattern = /direction\s+TD\s*[^\n]*/g
-        let wrongMatch
-        const wrongMatches = []
-        while ((wrongMatch = wrongDirectionPattern.exec(subgraphContent)) !== null) {
-          wrongMatches.push({
-            index: subgraphStart + wrongMatch.index,
-            fullMatch: wrongMatch[0]
-          })
-        }
-        
-        // 从后往前修复，将 direction TD 改为 direction LR
-        for (let j = wrongMatches.length - 1; j >= 0; j--) {
-          const wrongMatch = wrongMatches[j]
-          const wrongLine = wrongMatch.fullMatch
-          const lineStartIndex = wrongMatch.index
-          const lineEndIndex = codeToRender.indexOf('\n', lineStartIndex)
-          const fullLine = codeToRender.substring(lineStartIndex, lineEndIndex >= 0 ? lineEndIndex : codeToRender.length)
-          const indent = fullLine.match(/^(\s*)/)?.[1] || ''
-          
-          // 修复：将 direction TD 改为 direction LR
-          const fixed = indent + '        direction LR'
-          const lineEnd = lineEndIndex >= 0 ? lineEndIndex : codeToRender.length
-          codeToRender = codeToRender.substring(0, lineStartIndex) + 
-                        fixed + 
-                        codeToRender.substring(lineEnd)
-        }
-        
-        // 如果没有 direction LR，添加它
-        if (!hasDirectionLR && !wrongMatches.length) {
-          // 找到 subgraph 行的结束位置
-          const subgraphLineEnd = codeToRender.indexOf('\n', subgraphStart) + 1
-          // 在 subgraph 后添加 direction LR（独立的一行）
-          const indent = codeToRender.substring(subgraphStart, subgraphLineEnd).match(/^(\s*)/)?.[1] || ''
-          codeToRender = codeToRender.substring(0, subgraphLineEnd) + 
-                        indent + '        direction LR\n' + 
-                        codeToRender.substring(subgraphLineEnd)
-        }
-      }
-      
-      // 在 subgraph 之间添加不可见的连接来强制垂直布局
-      // 提取所有 subgraph ID（处理带引号和不带引号的情况）
-      const subgraphIdRegex = /subgraph\s+([\w"']+)/g
-      const subgraphIds = []
-      let idMatch
-      while ((idMatch = subgraphIdRegex.exec(codeToRender)) !== null) {
-        let subgraphId = idMatch[1]
-        // 移除引号
-        subgraphId = subgraphId.replace(/["']/g, '')
-        // 移除可能的方括号内容（如 Layer1["表示层"] -> Layer1）
-        subgraphId = subgraphId.split('[')[0].trim()
-        if (subgraphId) {
-          subgraphIds.push(subgraphId)
-        }
-      }
-      
-      // 在 subgraph 之间添加不可见连接（使用 --- 但通过 linkStyle 隐藏）
-      // 在第一个 subgraph 的 end 之后，第二个 subgraph 之前添加连接
-      let linkIndex = 0
-      for (let i = 0; i < subgraphIds.length - 1; i++) {
-        const currentId = subgraphIds[i]
-        const nextId = subgraphIds[i + 1]
-        // 查找当前 subgraph 的 end，并在其后添加不可见连接
-        const endPattern = new RegExp(`(\\s+end\\s*\\n)(?=\\s*subgraph\\s+[\\w"']*${nextId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'g')
-        if (endPattern.test(codeToRender)) {
-          codeToRender = codeToRender.replace(
-            endPattern,
-            `$1    ${currentId} --- ${nextId}\n`
-          )
-          linkIndex++
-        }
-      }
-      
-      // 在 subgraph 内的节点之间添加不可见的水平连接来强制水平布局
-      const subgraphContentRegex = /subgraph\s+[\w"']+[^\n]*\n([\s\S]*?)\s+end/g
-      let subgraphMatch
-      const subgraphContents = []
-      while ((subgraphMatch = subgraphContentRegex.exec(codeToRender)) !== null) {
-        subgraphContents.push({
-          start: subgraphMatch.index,
-          end: subgraphMatch.index + subgraphMatch[0].length,
-          content: subgraphMatch[1],
-          fullMatch: subgraphMatch[0]
-        })
-      }
-      
-      // 从后往前处理，避免索引变化
-      for (let i = subgraphContents.length - 1; i >= 0; i--) {
-        const subgraphInfo = subgraphContents[i]
-        const content = subgraphInfo.content
-        
-        // 提取节点ID（从节点定义中提取，例如 A[Web前端]:::presentation -> A）
-        const nodeIdRegex = /^\s*([A-Za-z_][\w]*)\s*\[/gm
-        const nodeIds = []
-        let nodeMatch
-        while ((nodeMatch = nodeIdRegex.exec(content)) !== null) {
-          nodeIds.push(nodeMatch[1])
-        }
-        
-        // 如果节点数量大于1，添加水平连接
-        if (nodeIds.length > 1) {
-          // 找到 end 的位置
-          const endIndex = codeToRender.indexOf('end', subgraphInfo.start)
-          if (endIndex > 0) {
-            // 在 end 之前添加水平连接
-            let horizontalLinks = ''
-            for (let j = 0; j < nodeIds.length - 1; j++) {
-              horizontalLinks += `        ${nodeIds[j]} --- ${nodeIds[j + 1]}\n`
-            }
-            codeToRender = codeToRender.substring(0, endIndex) + 
-                          horizontalLinks + 
-                          codeToRender.substring(endIndex)
-            linkIndex += (nodeIds.length - 1)
-          }
-        }
-      }
-      
-      // 添加 linkStyle 来隐藏所有连接线（包括所有类型的连接：-->, ---, <-->, <->, -.-> 等）
-      // 重新计算所有连接线的数量（包括我们添加的和原有的）
-      const allLinkPattern = /(\w+)\s+(--|==|-\.-|<-|->|<->|<-->|<-\|->|==>|<=>|<-\|)\s*(\w+)/g
-      let allLinkMatch
-      let totalLinkCount = 0
-      while ((allLinkMatch = allLinkPattern.exec(codeToRender)) !== null) {
-        totalLinkCount++
-      }
-      
-      if (totalLinkCount > 0) {
-        const hiddenLinks = []
-        for (let i = 0; i < totalLinkCount; i++) {
-          hiddenLinks.push(`    linkStyle ${i} stroke-width:0px,stroke:transparent`)
-        }
-        codeToRender = codeToRender + '\n' + hiddenLinks.join('\n')
-        console.log(`已添加 ${totalLinkCount} 个隐藏连接样式（包括所有类型的连接线）`)
-      }
     }
     
-    // 生成唯一 ID
     const id = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    
-    // 清空容器
     mermaidContainer.value.innerHTML = ''
-    
-    // 等待 DOM 更新
     await nextTick()
-    
-    // 使用 render 方法渲染（不需要创建 DOM 元素）
     const { svg } = await mermaid.render(id, codeToRender)
-    
-    // 直接设置 SVG 内容
     mermaidContainer.value.innerHTML = svg
-    
-    // 更新当前图表代码（使用修正后的代码）
     currentDiagramJson.value = codeToRender
     hasDiagram.value = true
     ElMessage.success('图表渲染成功')
@@ -741,7 +477,6 @@ const clearMermaid = () => {
 // 图表类型变更处理
 const onDiagramTypeChange = (type) => {
   // 切换类型时清空输入（可选）
-  // aiPrompt.value = ''
 }
 
 // 获取图标组件
@@ -771,11 +506,10 @@ const loadTemplate = (template) => {
   ElMessage.success(`已加载模板：${template.name}`)
 }
 
-// 构建完整的 prompt（根据图表类型添加前缀）
+// 构建完整的 prompt
 const buildFullPrompt = (userPrompt) => {
   const config = diagramTypeConfig[selectedDiagramType.value]
   if (config && selectedDiagramType.value !== 'custom') {
-    // 如果用户输入已经包含图表类型关键词，则不添加前缀
     const typeKeywords = ['流程图', '架构图', '思维导图', '时序图', 'UML', '组织架构', '网络图']
     const hasTypeKeyword = typeKeywords.some(keyword => userPrompt.includes(keyword))
     
@@ -801,8 +535,8 @@ const handleGenerate = async () => {
     
     if (response && response.diagramJson) {
       loadMermaidCode(response.diagramJson)
-      // 保存历史记录到数据库
       const historyItem = `${diagramTypeConfig[selectedDiagramType.value]?.name || ''}: ${aiPrompt.value}`
+      // 保存历史记录到数据库
       try {
         await saveHistory(historyItem, selectedDiagramType.value)
         // 重新加载历史记录列表
@@ -854,91 +588,6 @@ const handleModify = async () => {
   }
 }
 
-// 保存图表
-const handleSave = () => {
-  const code = exportMermaidCode()
-  if (!code) {
-    ElMessage.warning('没有可保存的图表')
-    return
-  }
-  saveForm.value.name = ''
-  saveDialogVisible.value = true
-}
-
-const confirmSave = async () => {
-  if (!saveForm.value.name.trim()) {
-    ElMessage.warning('请输入图表名称')
-    return
-  }
-
-  const code = exportMermaidCode()
-  if (!code) {
-    ElMessage.warning('没有可保存的图表')
-    return
-  }
-
-  saving.value = true
-  try {
-    await saveDiagram(saveForm.value.name, code, selectedDiagramType.value)
-    ElMessage.success('保存成功！')
-    saveDialogVisible.value = false
-  } catch (error) {
-    console.error('保存失败:', error)
-    ElMessage.error(error.response?.data?.error || '保存失败，请稍后重试')
-  } finally {
-    saving.value = false
-  }
-}
-
-// 加载图表列表
-const handleLoadList = async () => {
-  loadDialogVisible.value = true
-  try {
-    const response = await getDiagramList()
-    diagramList.value = response || []
-  } catch (error) {
-    console.error('加载列表失败:', error)
-    ElMessage.error('加载图表列表失败')
-  }
-}
-
-// 加载图表
-const loadDiagram = async (diagram) => {
-  try {
-    const response = await getDiagramDetail(diagram.id)
-    if (response && response.diagramJson) {
-      loadMermaidCode(response.diagramJson)
-      loadDialogVisible.value = false
-      ElMessage.success('加载成功！')
-    }
-  } catch (error) {
-    console.error('加载图表失败:', error)
-    ElMessage.error('加载图表失败')
-  }
-}
-
-// 删除图表
-const deleteDiagramItem = async (id) => {
-  try {
-    await ElMessageBox.confirm('确定要删除这个图表吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    
-    await deleteDiagram(id)
-    ElMessage.success('删除成功！')
-    // 刷新列表
-    const response = await getDiagramList()
-    diagramList.value = response || []
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('删除失败:', error)
-      ElMessage.error('删除失败')
-    }
-  }
-}
-
 // 清空画布
 const handleClear = () => {
   ElMessageBox.confirm('确定要清空画布吗？', '提示', {
@@ -973,10 +622,7 @@ const resetZoom = () => {
 
 // 拖拽处理
 const handleMouseDown = (e) => {
-  // 只在鼠标左键按下时开始拖拽
   if (e.button !== 0) return
-  
-  // 如果点击的是 SVG 内部的链接或按钮，不拖拽
   if (e.target.tagName === 'A' || e.target.closest('a')) {
     return
   }
@@ -987,8 +633,6 @@ const handleMouseDown = (e) => {
     y: e.clientY - panOffset.value.y
   }
   lastPanOffset.value = { ...panOffset.value }
-  
-  // 阻止默认行为
   e.preventDefault()
 }
 
@@ -1024,7 +668,6 @@ const fitToWindow = () => {
     const wrapperWidth = mermaidWrapper.value.clientWidth
     const wrapperHeight = mermaidWrapper.value.clientHeight
     
-    // 尝试多种方式获取 SVG 尺寸
     let svgWidth = 0
     let svgHeight = 0
     
@@ -1034,7 +677,7 @@ const fitToWindow = () => {
         svgWidth = bbox.width
         svgHeight = bbox.height
       } catch (e) {
-        // getBBox 可能失败，使用备用方法
+        // getBBox 可能失败
       }
     }
     
@@ -1044,7 +687,7 @@ const fitToWindow = () => {
     }
     
     if (svgWidth > 0 && svgHeight > 0) {
-      const scaleX = (wrapperWidth - 40) / svgWidth  // 留出边距
+      const scaleX = (wrapperWidth - 40) / svgWidth
       const scaleY = (wrapperHeight - 40) / svgHeight
       zoomLevel.value = Math.min(scaleX, scaleY, maxZoom)
     } else {
@@ -1056,7 +699,7 @@ const fitToWindow = () => {
   }
 }
 
-// 鼠标滚轮缩放（Ctrl/Cmd + 滚轮）
+// 鼠标滚轮缩放
 const handleWheel = (event) => {
   if (event.ctrlKey || event.metaKey) {
     event.preventDefault()
@@ -1074,7 +717,6 @@ const handleExport = () => {
     return
   }
   
-  // 创建下载链接
   const blob = new Blob([code], { type: 'text/plain' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -1115,7 +757,6 @@ const handleImport = () => {
 
 // 加载历史提示
 const loadHistoryPrompt = (prompt) => {
-  // 如果历史记录包含类型前缀（格式：类型: 提示），则只提取提示部分
   const colonIndex = prompt.indexOf(':')
   if (colonIndex > 0) {
     aiPrompt.value = prompt.substring(colonIndex + 1).trim()
@@ -1150,12 +791,11 @@ const deleteHistoryItem = async (id) => {
   }
 }
 
-// 加载系统配置的默认模型信息
+
 onMounted(async () => {
   // 加载历史记录列表
   await loadHistoryList()
   
-  // 等待 DOM 渲染完成后初始化 Mermaid
   await nextTick()
   await initMermaid()
 })
@@ -1200,17 +840,6 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
-.model-section {
-  margin-bottom: 15px;
-  margin-left: 0;
-  margin-right: 0;
-  flex-shrink: 0;
-}
-
-.model-select {
-  width: 100%;
-}
-
 .diagram-type-select {
   width: 100%;
 }
@@ -1230,15 +859,11 @@ onMounted(async () => {
   color: #409eff;
 }
 
-.diagram-type-selected {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.diagram-type-selected .el-icon {
-  font-size: 16px;
-  color: #409eff;
+.model-section {
+  margin-bottom: 15px;
+  margin-left: 0;
+  margin-right: 0;
+  flex-shrink: 0;
 }
 
 .template-section {

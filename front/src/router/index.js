@@ -186,6 +186,12 @@ const routes = [
                 name: 'UserChatHistory',
                 component: () => import('@/views/user/ChatHistory.vue'),
                 meta: {title: '会话历史', requiresAuth: true}
+            },
+            {
+                path: 'ai-drawio',
+                name: 'UserAIDrawIO',
+                component: () => import('@/views/user/AIDrawIO.vue'),
+                meta: {title: 'AI 绘图', requiresAuth: true}
             }
         ]
     },

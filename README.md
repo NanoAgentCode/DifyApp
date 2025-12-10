@@ -24,6 +24,7 @@ DifyApp 是一个集成了 Dify AI 平台的应用管理系统，支持：
 - **数据源管理**：支持多种数据库类型（PostgreSQL、MySQL、Oracle、MongoDB），动态管理数据源配置
 - **Text2SQL**：基于大语言模型的自然语言转SQL查询功能，支持智能SQL生成、类型转换修复、列验证和统计查询
 - **MCP (Model Context Protocol)**：提供浏览器检索、时间信息、地理位置等上下文增强功能，支持实时信息检测
+- **AI 绘图**：基于大语言模型的智能图表生成功能，支持流程图、架构图、思维导图、时序图、UML图、组织架构图、网络图等多种图表类型，支持图表修改和历史记录管理
 - **前端界面**：提供管理端、用户端和应用端三个界面
 
 ## 技术栈
@@ -65,9 +66,18 @@ DifyApp/
 ├── front/                        # 前端项目（Vue 3）
 │   ├── src/
 │   │   ├── api/                  # API接口封装
+│   │   │   ├── drawio.js         # AI绘图API
+│   │   │   └── ...               # 其他API
 │   │   ├── components/            # 公共组件
 │   │   ├── layouts/               # 布局组件（管理端/用户端/应用端）
 │   │   ├── views/                 # 页面组件
+│   │   │   ├── admin/
+│   │   │   │   ├── AIDrawIO.vue  # 管理端AI绘图页面
+│   │   │   │   └── ...           # 其他管理端页面
+│   │   │   ├── user/
+│   │   │   │   ├── AIDrawIO.vue  # 用户端AI绘图页面
+│   │   │   │   └── ...           # 其他用户端页面
+│   │   │   └── ...               # 其他页面
 │   │   ├── router/                # 路由配置
 │   │   ├── utils/                 # 工具函数
 │   │   ├── App.vue                # 根组件
@@ -81,17 +91,38 @@ DifyApp/
 │   ├── java/com/github/app/dify/
 │   │   ├── config/               # 配置类（数据库、MinIO、Qdrant、Redis、Swagger等）
 │   │   ├── controller/           # 控制器层（REST API）
-│   │   ├── domain/                # 实体类（User、AiApp、KnowledgeBase、QAModel、EmbeddingModel等）
+│   │   │   ├── DrawIOController.java  # AI绘图控制器
+│   │   │   └── ...               # 其他控制器
+│   │   ├── domain/                # 实体类
+│   │   │   ├── DrawIODiagram.java     # DrawIO图表实体
+│   │   │   ├── DrawIOHistory.java     # DrawIO历史记录实体
+│   │   │   └── ...               # 其他实体类
 │   │   ├── repository/            # 数据访问层（JPA Repository）
+│   │   │   ├── DrawIODiagramRepository.java
+│   │   │   ├── DrawIOHistoryRepository.java
+│   │   │   └── ...               # 其他Repository
 │   │   ├── service/               # 服务层（业务逻辑）
+│   │   │   ├── DrawIOService.java
+│   │   │   ├── impl/
+│   │   │   │   └── DrawIOServiceImpl.java
+│   │   │   └── ...               # 其他服务
 │   │   ├── langchain4j/           # LangChain4j集成（RAG相关）
 │   │   ├── mcp/                   # MCP模块（Model Context Protocol）
 │   │   ├── req/                   # 请求对象（DTO）
+│   │   │   ├── DrawIOGenerateRequest.java
+│   │   │   ├── DrawIOModifyRequest.java
+│   │   │   ├── DrawIOHistoryRequest.java
+│   │   │   └── ...               # 其他请求对象
 │   │   ├── resp/                  # 响应对象（DTO）
+│   │   │   ├── DrawIOGenerateResponse.java
+│   │   │   ├── DrawIOHistoryResp.java
+│   │   │   └── ...               # 其他响应对象
+│   │   ├── interceptor/           # 拦截器（JWT认证等）
 │   │   └── util/                  # 工具类
 │   └── resources/
 │       ├── application.yml        # 应用配置文件
 │       ├── sql/                   # SQL脚本
+│       │   └── init_database_complete.sql  # 完整的数据库初始化脚本
 │       └── provider-template.yml  # 模型提供商配置模板
 ├── doc/                          # 项目文档
 │   ├── 概要设计报告.md
@@ -393,12 +424,15 @@ mcp:
 #### 方式一：使用 SQL 脚本（推荐用于生产环境）
 
 ```bash
-# 初始化基础表结构
-psql -U postgres -h localhost -p 15432 -d difyapp -f src/main/resources/sql/init_database.sql
-
-# 添加向量存储类型字段（如果使用新版本）
-psql -U postgres -h localhost -p 15432 -d difyapp -f src/main/resources/sql/add_vector_store_type_to_knowledge_base.sql
+# 执行完整的数据库初始化脚本（包含所有表结构）
+psql -U postgres -h localhost -p 15432 -d difyapp -f src/main/resources/sql/init_database_complete.sql
 ```
+
+**说明：**
+- `init_database_complete.sql` 包含了所有数据库表的创建语句，按依赖关系排序
+- 包括基础表、核心业务表、扩展功能表和 DrawIO 相关表
+- 包含所有字段注释和索引
+- 包含默认初始化数据（管理员账户、向量数据库配置等）
 
 #### 方式二：使用 Hibernate 自动创建（推荐用于开发环境）
 
@@ -451,988 +485,7 @@ yarn dev
   - 开发环境：http://localhost:3000（需要先启动前端开发服务器，见步骤7）
   - 生产环境：需要将前端构建产物集成到后端静态资源中，然后访问 http://localhost:8081
 
-## API 文档
-
-### 认证 API
-
-#### 1. 用户注册
-
-```
-POST /api/auth/register
-Content-Type: application/json
-```
-
-**请求体：**
-```json
-{
-  "username": "testuser",
-  "password": "password123",
-  "email": "test@example.com"
-}
-```
-
-#### 2. 用户登录
-
-```
-POST /api/auth/login
-Content-Type: application/json
-```
-
-**请求体：**
-```json
-{
-  "username": "admin",
-  "password": "admin123"
-}
-```
-
-**响应示例：**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": 1,
-    "username": "admin",
-    "role": 1,
-    "status": 1
-  }
-}
-```
-
-#### 3. 修改密码
-
-```
-POST /api/auth/change-password
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-**请求体：**
-```json
-{
-  "oldPassword": "oldpassword",
-  "newPassword": "newpassword"
-}
-```
-
-#### 4. 管理员重置用户密码
-
-```
-POST /api/auth/reset-password/{userId}
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-**请求体：**
-```json
-{
-  "newPassword": "newpassword"
-}
-```
-
-#### 5. 获取所有用户列表（管理员）
-
-```
-GET /api/auth/users
-Authorization: Bearer {token}
-```
-
-#### 6. 管理员审核用户
-
-```
-POST /api/auth/approve/{userId}
-Authorization: Bearer {token}
-```
-
-#### 7. 管理员禁用用户
-
-```
-POST /api/auth/disable/{userId}
-Authorization: Bearer {token}
-```
-
-#### 8. 更新用户角色
-
-```
-PUT /api/auth/users/{userId}/role?role=1
-Authorization: Bearer {token}
-```
-
-### AI 应用管理 API
-
-#### 1. 创建 AI 应用
-
-```
-POST /api/ai-apps
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-**请求体：**
-```json
-{
-  "name": "我的AI应用",
-  "description": "应用描述",
-  "type": 1,
-  "appId": "app-xxx",
-  "apiBaseUrl": "http://localhost:80",
-  "apiKey": "app-xxx-key",
-  "tenantId": 1,
-  "streamEnabled": true,
-  "fileUploadEnabled": false,
-  "inputEnabled": true,
-  "themeColor": "#409EFF",
-  "inputs": "{\"key\":\"value\"}"
-}
-```
-
-#### 2. 更新 AI 应用
-
-```
-PUT /api/ai-apps/{id}
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-#### 3. 获取 AI 应用详情
-
-```
-GET /api/ai-apps/{id}
-Authorization: Bearer {token}
-```
-
-#### 4. 删除 AI 应用
-
-```
-DELETE /api/ai-apps/{id}
-Authorization: Bearer {token}
-```
-
-#### 5. 获取应用列表
-
-```
-GET /api/ai-apps?tenantId=1&type=1&status=1
-Authorization: Bearer {token}
-```
-
-**查询参数：**
-- `tenantId` (可选): 租户ID
-- `type` (可选): 应用类型 (1-ChatFlow, 2-Workflow)
-- `status` (可选): 应用状态
-
-#### 6. 获取 Dify 配置信息
-
-```
-GET /api/ai-apps/config
-Authorization: Bearer {token}
-```
-
-### Chat Flow API
-
-#### 1. 调用 Chat Flow（非流式）
-
-```
-POST /api/ai-apps/{id}/chat
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-**请求体：**
-```json
-{
-  "query": "你好",
-  "user": "user-123",
-  "inputs": {},
-  "conversationId": 123,
-  "response_mode": "blocking"
-}
-```
-
-**响应示例：**
-```json
-{
-  "answer": "你好！我是AI助手...",
-  "finished": true,
-  "conversationId": 123
-}
-```
-
-#### 2. 调用 Chat Flow（流式）
-
-```
-POST /api/ai-apps/{id}/chat/stream
-Authorization: Bearer {token}
-Content-Type: application/json
-Accept: text/event-stream
-```
-
-**响应格式：** Server-Sent Events (SSE)
-
-**响应数据格式：**
-```
-data: {"answer":"你好","finished":false,"conversationId":123}
-data: {"answer":"！","finished":false,"conversationId":123}
-data: {"answer":"","finished":true,"conversationId":123}
-```
-
-### Workflow API
-
-#### 1. 调用 Workflow（非流式）
-
-```
-POST /api/ai-apps/{id}/workflow
-Authorization: Bearer {token}
-Content-Type: application/json
-X-Trace-Id: trace-123 (可选)
-```
-
-**请求体：**
-```json
-{
-  "inputs": {
-    "key": "value"
-  },
-  "user": "user-123",
-  "response_mode": "blocking"
-}
-```
-
-#### 2. 调用 Workflow（流式）
-
-```
-POST /api/ai-apps/{id}/workflow/stream
-Authorization: Bearer {token}
-Content-Type: application/json
-Accept: text/event-stream
-X-Trace-Id: trace-123 (可选)
-```
-
-**响应格式：** Server-Sent Events (SSE)
-
-### 文件上传 API
-
-#### 上传文件到 Dify
-
-```
-POST /api/ai-apps/{id}/files/upload
-Authorization: Bearer {token}
-Content-Type: multipart/form-data
-```
-
-**表单数据：**
-- `file`: 文件（必填）
-- `user`: 用户ID（可选）
-
-**响应示例：**
-```json
-{
-  "id": "file-123",
-  "name": "example.pdf",
-  "size": 1024,
-  "url": "http://localhost:80/files/file-123"
-}
-```
-
-### 知识库管理 API
-
-#### 1. 创建知识库
-
-```
-POST /api/knowledge-bases
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-**请求体：**
-```json
-{
-  "name": "我的知识库",
-  "description": "知识库描述",
-  "tenantId": 1,
-  "embeddingModelId": 1
-}
-```
-
-**请求体：**
-```json
-{
-  "name": "我的知识库",
-  "description": "知识库描述",
-  "tenantId": 1,
-  "embeddingModelId": 1,
-  "vectorStoreType": "qdrant"
-}
-```
-
-**请求参数说明：**
-- `name` (必填): 知识库名称
-- `description` (可选): 知识库描述
-- `tenantId` (可选): 租户ID
-- `embeddingModelId` (可选): 向量化模型ID，不指定则使用默认向量化模型
-- `vectorStoreType` (可选): 向量存储类型，可选值：`qdrant`（默认）、`faiss`、`milvus`。已有文档的知识库无法修改此参数
-
-#### 2. 更新知识库
-
-```
-PUT /api/knowledge-bases/{id}
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-#### 3. 获取知识库详情
-
-```
-GET /api/knowledge-bases/{id}
-Authorization: Bearer {token}
-```
-
-#### 4. 删除知识库
-
-```
-DELETE /api/knowledge-bases/{id}
-Authorization: Bearer {token}
-```
-
-#### 5. 获取知识库列表
-
-```
-GET /api/knowledge-bases?tenantId=1&status=1&keyword=搜索关键词&userId=1
-Authorization: Bearer {token}
-```
-
-### 知识库文档管理 API
-
-#### 1. 上传文档
-
-```
-POST /api/knowledge-bases/{kbId}/documents/upload
-Authorization: Bearer {token}
-Content-Type: multipart/form-data
-```
-
-**表单数据：**
-- `file`: 文件（必填，支持 PDF、Word、TXT、Markdown 等格式）
-- `uploadUser`: 上传用户（可选）
-- `tenantId`: 租户ID（可选）
-
-**响应示例：**
-```json
-{
-  "id": 1,
-  "originalFileName": "example.pdf",
-  "fileSize": 1024000,
-  "mimeType": "application/pdf",
-  "vectorizedStatus": "processing",
-  "uploadTime": "2024-01-01T00:00:00"
-}
-```
-
-#### 2. 删除文档
-
-```
-DELETE /api/knowledge-bases/{kbId}/documents/{docId}
-Authorization: Bearer {token}
-```
-
-#### 3. 获取文档列表
-
-```
-GET /api/knowledge-bases/{kbId}/documents
-Authorization: Bearer {token}
-```
-
-#### 4. 获取文档详情
-
-```
-GET /api/knowledge-bases/{kbId}/documents/{docId}
-Authorization: Bearer {token}
-```
-
-#### 5. 下载文档
-
-```
-GET /api/knowledge-bases/{kbId}/documents/{docId}/download
-Authorization: Bearer {token}
-```
-
-#### 6. 重新向量化文档
-
-```
-POST /api/knowledge-bases/{kbId}/documents/{docId}/reindex
-Authorization: Bearer {token}
-```
-
-### 知识库问答 API
-
-#### 1. 知识库问答（非流式）
-
-```
-POST /api/knowledge-bases/{kbId}/qa
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-**请求体：**
-```json
-{
-  "question": "什么是人工智能？",
-  "conversationId": "conversation-123",
-  "modelId": 1
-}
-```
-
-**请求参数说明：**
-- `question` (必填): 问题内容
-- `conversationId` (可选): 会话ID，用于连续对话
-- `modelId` (可选): 问答模型ID，不指定则使用默认模型
-
-**响应示例：**
-```json
-{
-  "answer": "人工智能是...",
-  "sources": [
-    {
-      "content": "相关文档内容...",
-      "metadata": {
-        "documentId": 1,
-        "chunkIndex": 0
-      }
-    }
-  ],
-  "finished": true
-}
-```
-
-#### 2. 知识库问答（流式）
-
-```
-POST /api/knowledge-bases/{kbId}/qa/stream
-Authorization: Bearer {token}
-Content-Type: application/json
-Accept: text/event-stream
-```
-
-**响应格式：** Server-Sent Events (SSE)
-
-**响应数据格式：**
-```
-data: {"answer":"人工智能是...","finished":false,"conversationId":"123"}
-data: {"answer":"一种技术...","finished":false,"conversationId":"123"}
-data: {"answer":"","finished":true,"conversationId":"123"}
-```
-
-### 对话历史管理 API
-
-#### 1. 获取我的会话列表（用户端）
-
-```
-GET /api/chat/history/conversations?page=1&size=20&keyword=搜索关键词&type=1
-Authorization: Bearer {token}
-```
-
-**查询参数：**
-- `page` (可选): 页码，默认 1
-- `size` (可选): 每页数量，默认 20
-- `keyword` (可选): 搜索关键词
-- `type` (可选): 会话类型 (1-普通聊天, 2-知识库问答)
-
-**响应示例：**
-```json
-{
-  "content": [
-    {
-      "id": 1,
-      "appId": 1,
-      "knowledgeBaseId": null,
-      "type": 1,
-      "title": "会话标题",
-      "messageCount": 5,
-      "lastMessageTime": "2024-01-01T12:00:00",
-      "createdTime": "2024-01-01T10:00:00"
-    }
-  ],
-  "totalElements": 10,
-  "totalPages": 1,
-  "number": 0,
-  "size": 20
-}
-```
-
-#### 2. 获取会话消息列表
-
-```
-GET /api/chat/history/conversations/{conversationId}/messages
-Authorization: Bearer {token}
-```
-
-**响应示例：**
-```json
-[
-  {
-    "id": 1,
-    "conversationId": 1,
-    "role": "user",
-    "content": "你好",
-    "createdTime": "2024-01-01T10:00:00"
-  },
-  {
-    "id": 2,
-    "conversationId": 1,
-    "role": "assistant",
-    "content": "你好！我是AI助手...",
-    "createdTime": "2024-01-01T10:00:01"
-  }
-]
-```
-
-#### 3. 删除会话
-
-```
-DELETE /api/chat/history/conversations/{conversationId}
-Authorization: Bearer {token}
-```
-
-#### 4. 获取所有会话列表（管理员）
-
-```
-GET /api/admin/chat/history/conversations?page=1&size=20&keyword=搜索关键词&userId=1&type=1
-Authorization: Bearer {token}
-```
-
-**查询参数：**
-- `page` (可选): 页码，默认 1
-- `size` (可选): 每页数量，默认 20
-- `keyword` (可选): 搜索关键词
-- `userId` (可选): 用户ID
-- `type` (可选): 会话类型 (1-普通聊天, 2-知识库问答)
-
-#### 5. 获取对话历史统计（管理员）
-
-```
-GET /api/admin/chat/history/statistics
-Authorization: Bearer {token}
-```
-
-**响应示例：**
-```json
-{
-  "totalConversations": 100,
-  "totalMessages": 500,
-  "todayConversations": 10,
-  "todayMessages": 50
-}
-```
-
-### 用户权限管理 API
-
-#### 1. 获取用户的应用可见性列表
-
-```
-GET /api/auth/users/{userId}/app-visibilities
-Authorization: Bearer {token}
-```
-
-#### 2. 更新用户对应用的可见性
-
-```
-PUT /api/auth/users/{userId}/app-visibilities/{appId}?visible=true
-Authorization: Bearer {token}
-```
-
-#### 3. 获取用户的知识库可见性列表
-
-```
-GET /api/auth/users/{userId}/knowledge-base-visibilities
-Authorization: Bearer {token}
-```
-
-#### 4. 更新用户对知识库的可见性
-
-```
-PUT /api/auth/users/{userId}/knowledge-base-visibilities/{knowledgeBaseId}?visible=true
-Authorization: Bearer {token}
-```
-
-### 大模型管理 API
-
-#### 1. 获取问答模型列表
-
-```
-GET /api/models/qa
-Authorization: Bearer {token}
-```
-
-#### 2. 获取向量化模型列表
-
-```
-GET /api/models/embedding
-Authorization: Bearer {token}
-```
-
-#### 3. 获取可用的 RAG 问答模型
-
-```
-GET /api/models/qa/available/rag
-Authorization: Bearer {token}
-```
-
-#### 4. 更新模型配置（添加/更新/删除/设置默认/切换启用状态）
-
-```
-POST /api/models/config
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-**请求体示例（添加模型）：**
-```json
-{
-  "action": "add",
-  "type": "qa",
-  "model": {
-    "name": "Qwen2.5-72B",
-    "provider": "openai",
-    "apiUrl": "https://api.siliconflow.cn",
-    "apiKey": "your-api-key",
-    "model": "Qwen/Qwen2.5-72B-Instruct",
-    "useFor": "both",
-    "enabled": true
-  }
-}
-```
-
-**请求体示例（设置默认模型）：**
-```json
-{
-  "action": "setDefault",
-  "type": "qa",
-  "modelId": 1,
-  "useFor": "rag"
-}
-```
-
-**请求体示例（切换启用状态）：**
-```json
-{
-  "action": "toggleEnabled",
-  "type": "qa",
-  "modelId": 1,
-  "enabled": true
-}
-```
-
-**操作类型说明：**
-- `action`: 操作类型，可选值：`add`（添加）、`update`（更新）、`delete`（删除）、`setDefault`（设置默认）、`toggleEnabled`（切换启用状态）
-- `type`: 模型类型，可选值：`qa`（问答模型）、`embedding`（向量化模型）
-- `useFor`: 使用场景（仅问答模型），可选值：`chat`（智能问答）、`rag`（知识库问答）、`both`（两者都支持）
-
-#### 5. 测试模型连接
-
-```
-POST /api/models/test
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-**请求体：**
-```json
-{
-  "type": "qa",
-  "provider": "openai",
-  "apiUrl": "https://api.siliconflow.cn",
-  "apiKey": "your-api-key",
-  "model": "Qwen/Qwen2.5-72B-Instruct"
-}
-```
-
-### 数据源管理 API
-
-#### 1. 创建数据源
-
-```
-POST /api/data-sources
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-**请求体：**
-```json
-{
-  "name": "我的数据源",
-  "description": "数据源描述",
-  "type": "postgresql",
-  "host": "localhost",
-  "port": 5432,
-  "database": "mydb",
-  "username": "postgres",
-  "password": "password",
-  "status": 1,
-  "isPublic": true
-}
-```
-
-**请求参数说明：**
-- `name` (必填): 数据源名称
-- `description` (可选): 数据源描述
-- `type` (必填): 数据库类型，可选值：`postgresql`、`mysql`、`oracle`、`mongodb`
-- `host` (必填): 数据库主机地址
-- `port` (必填): 数据库端口
-- `database` (必填): 数据库名称
-- `username` (必填): 数据库用户名
-- `password` (必填): 数据库密码
-- `status` (可选): 状态，1-启用，0-禁用，默认1
-- `isPublic` (可选): 是否公开，true-公开，false-私有，默认false
-
-#### 2. 更新数据源
-
-```
-PUT /api/data-sources/{id}
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-#### 3. 获取数据源详情
-
-```
-GET /api/data-sources/{id}
-Authorization: Bearer {token}
-```
-
-#### 4. 删除数据源
-
-```
-DELETE /api/data-sources/{id}
-Authorization: Bearer {token}
-```
-
-#### 5. 获取数据源列表
-
-```
-GET /api/data-sources?tenantId=1&status=1&keyword=搜索关键词&type=postgresql&userId=1
-Authorization: Bearer {token}
-```
-
-**查询参数：**
-- `tenantId` (可选): 租户ID
-- `status` (可选): 状态（1-启用，0-禁用）
-- `keyword` (可选): 搜索关键词（名称或描述）
-- `type` (可选): 数据库类型
-- `userId` (可选): 用户ID（用于权限过滤）
-
-#### 6. 测试数据源连接
-
-```
-POST /api/data-sources/{id}/test
-Authorization: Bearer {token}
-```
-
-**响应示例：**
-```json
-{
-  "success": true,
-  "message": "连接成功"
-}
-```
-
-#### 7. 刷新表结构
-
-```
-POST /api/data-sources/{id}/refresh-schema?tableName=table_name
-Authorization: Bearer {token}
-```
-
-**查询参数：**
-- `tableName` (可选): 表名，如果不指定则刷新所有表
-
-### Text2SQL API
-
-#### 1. 执行Text2SQL查询
-
-```
-POST /api/text2sql/execute
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-**请求体：**
-```json
-{
-  "dataSourceId": 1,
-  "question": "统计总共有多少条记录",
-  "modelId": 1,
-  "tableNames": ["users", "orders"]
-}
-```
-
-**请求参数说明：**
-- `dataSourceId` (必填): 数据源ID
-- `question` (必填): 用户问题（自然语言）
-- `modelId` (可选): 问答模型ID，不指定则使用默认模型
-- `tableNames` (可选): 表名列表，如果指定则只使用这些表的结构
-
-**响应示例：**
-```json
-{
-  "sql": "SELECT COUNT(*) AS count FROM users",
-  "columns": ["count"],
-  "rows": [
-    {
-      "count": 100
-    }
-  ],
-  "rowCount": 1
-}
-```
-
-#### 2. 获取表列表
-
-```
-GET /api/text2sql/{dataSourceId}/tables
-Authorization: Bearer {token}
-```
-
-**响应示例：**
-```json
-["users", "orders", "products"]
-```
-
-#### 3. 获取表结构
-
-```
-GET /api/text2sql/{dataSourceId}/tables/{tableName}/schema?forceRefresh=false
-Authorization: Bearer {token}
-```
-
-**查询参数：**
-- `forceRefresh` (可选): 是否强制刷新，默认false（使用缓存）
-
-**响应示例：**
-```json
-{
-  "tableName": "users",
-  "databaseType": "postgresql",
-  "columns": [
-    {
-      "name": "id",
-      "type": "bigint",
-      "size": 20,
-      "nullable": false,
-      "defaultValue": null
-    },
-    {
-      "name": "username",
-      "type": "varchar",
-      "size": 255,
-      "nullable": false,
-      "defaultValue": null
-    }
-  ],
-  "primaryKeys": [
-    {
-      "columnName": "id",
-      "keySeq": 1,
-      "pkName": "users_pkey"
-    }
-  ],
-  "foreignKeys": []
-}
-```
-
-### 向量数据库管理 API
-
-#### 1. 获取所有向量数据库配置
-
-```
-GET /api/vector-databases
-Authorization: Bearer {token}
-```
-
-#### 2. 按类型获取向量数据库配置
-
-```
-GET /api/vector-databases/type/{type}
-Authorization: Bearer {token}
-```
-
-**路径参数：**
-- `type`: 向量数据库类型，可选值：`qdrant`、`milvus`、`faiss`
-
-#### 3. 更新向量数据库配置（添加/更新/删除/设置默认/切换启用状态）
-
-```
-POST /api/vector-databases/config
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-**请求体示例（添加配置）：**
-```json
-{
-  "action": "add",
-  "database": {
-    "type": "qdrant",
-    "name": "Qdrant主实例",
-    "url": "http://localhost:6333",
-    "apiKey": "",
-    "enabled": true
-  }
-}
-```
-
-**请求体示例（添加FAISS配置）：**
-```json
-{
-  "action": "add",
-  "database": {
-    "type": "faiss",
-    "name": "FAISS本地存储",
-    "basePath": "./data/faiss",
-    "enabled": true
-  }
-}
-```
-
-**请求体示例（设置默认配置）：**
-```json
-{
-  "action": "setDefault",
-  "database": {
-    "id": 1
-  }
-}
-```
-
-**请求体示例（切换启用状态）：**
-```json
-{
-  "action": "toggleEnabled",
-  "database": {
-    "id": 1,
-    "enabled": true
-  }
-}
-```
-
-**操作类型说明：**
-- `action`: 操作类型，可选值：`add`（添加）、`update`（更新）、`delete`（删除）、`setDefault`（设置默认）、`toggleEnabled`（切换启用状态）
-- `type`: 向量数据库类型，可选值：`qdrant`、`milvus`、`faiss`
-
-#### 4. 测试向量数据库连接
-
-```
-POST /api/vector-databases/test
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-**请求体：**
-```json
-{
-  "type": "qdrant",
-  "url": "http://localhost:6333",
-  "apiKey": ""
-}
-```
+> **API 文档**: 详细的 API 文档请访问 Swagger UI：http://localhost:8081/swagger-ui.html
 
 ## 功能特性
 
@@ -1544,6 +597,13 @@ Content-Type: application/json
   - 地理位置服务：基于 IP 地址获取地理位置信息，支持缓存机制
   - 实时信息检测：智能检测问题是否涉及实时信息，提供置信度评分
 
+- ✅ **系统配置管理**
+  - 通用系统配置存储（SYSTEM_CONFIG表）
+  - 支持配置分组（help、system等）
+  - 支持多种配置类型（string、number、boolean、json）
+  - 支持配置的增删改查
+  - 用于存储系统级别的配置项（如AI绘图默认模型ID等）
+
 - ✅ **其他功能**
   - 全局异常处理
   - Swagger API 文档
@@ -1563,11 +623,13 @@ Content-Type: application/json
   - 大模型管理（问答模型和向量化模型的配置、默认设置、状态管理）
   - 向量数据库管理（Qdrant、Milvus、FAISS 的配置、默认设置、状态管理、连接测试）
   - 数据源管理（数据源CRUD、连接测试、表结构管理）
+  - 系统配置管理（系统级别配置的增删改查，如AI绘图默认模型配置等）
   - 智能问答
   - 对话历史管理
   - 知识库管理（支持选择向量化模型和向量存储类型）
   - 知识库问答（支持选择问答模型，显示向量化模型状态）
   - Text2SQL（自然语言转SQL查询，支持统计查询）
+  - AI绘图（支持多种图表类型生成、修改、保存、历史记录管理）
   - 用户权限管理（应用和知识库可见性）
 
 - ✅ **用户端界面**
@@ -1577,6 +639,7 @@ Content-Type: application/json
   - 知识库管理（仅显示有权限的知识库，支持创建和编辑知识库，支持选择向量化模型和向量存储类型）
   - 知识库问答（支持选择问答模型，显示向量化模型状态）
   - Text2SQL（自然语言转SQL查询，支持统计查询）
+  - AI绘图（支持多种图表类型生成、修改、保存、历史记录管理）
 
 - ✅ **应用端界面**
   - Chat Flow 交互界面
@@ -1885,6 +948,39 @@ dify:
     file-url-prefix: http://your-dify-server:80
 ```
 
+### AI 绘图配置
+
+AI 绘图功能支持通过系统配置表（SYSTEM_CONFIG）设置默认使用的问答模型。
+
+**配置方式：**
+
+1. **通过管理端界面配置（推荐）**：
+   - 登录管理端
+   - 进入"系统配置管理"页面
+   - 添加或编辑配置项：
+     - 配置键：`drawio.defaultModelId`
+     - 配置值：问答模型的ID（数字，如：1）
+     - 配置分组：`system`
+     - 配置类型：`number`
+     - 描述：`AI绘图默认使用的问答模型ID`
+
+2. **通过SQL直接配置**：
+   ```sql
+   INSERT INTO "SYSTEM_CONFIG" (config_key, config_value, config_group, config_type, description, create_time, update_time, deleted)
+   VALUES ('drawio.defaultModelId', '1', 'system', 'number', 'AI绘图默认使用的问答模型ID', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0)
+   ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value, update_time = CURRENT_TIMESTAMP;
+   ```
+
+**模型选择优先级：**
+1. 请求中指定的 `modelId`（如果提供）
+2. 系统配置中的 `drawio.defaultModelId`（如果已配置）
+3. 默认的RAG问答模型（如果前两者都未配置）
+
+**注意事项：**
+- 如果配置的模型ID不存在或已禁用，系统会自动降级使用默认RAG模型
+- 用户端AI绘图功能只能使用系统配置的默认模型，无法选择模型
+- 管理端AI绘图功能可以显示当前使用的模型，但无法修改（使用系统配置的默认模型）
+
 ### MCP (Model Context Protocol) 配置
 
 MCP 模块提供了浏览器检索、时间信息、地理位置等上下文增强功能。
@@ -2037,6 +1133,14 @@ yarn build
   - 存储用户信息（用户名、密码、角色、状态等）
   - 注意：表名使用 SYS_USER 而不是 USER，因为 USER 是 PostgreSQL 的保留关键字
 
+- **SYSTEM_CONFIG**: 系统配置表
+  - 存储系统级别的配置项（通用配置存储）
+  - 支持配置键值对存储（config_key、config_value）
+  - 支持配置分组（config_group，如：help、system等）
+  - 支持配置类型（config_type，如：string、number、boolean、json）
+  - 用于存储各种系统配置，如AI绘图默认模型ID（drawio.defaultModelId）等
+  - 支持软删除机制
+
 - **AI_APP**: AI 应用表
   - 存储应用基本信息、Dify API Key、配置等
 
@@ -2097,6 +1201,19 @@ yarn build
 - **USER_DATA_SOURCE_VISIBILITY**: 用户数据源可见性表
   - 存储用户对数据源的可见性权限
   - 支持管理员为用户设置数据源访问权限
+
+- **DRAWIO_DIAGRAM**: DrawIO 图表表
+  - 存储用户通过 AI 生成的图表（使用 AntV X6 格式）
+  - 包含图表名称、类型、JSON内容、用户ID等信息
+  - 支持图表保存、查询、删除功能
+  - 用户只能查看和管理自己的图表
+
+- **DRAWIO_HISTORY**: DrawIO 历史记录表
+  - 存储用户AI绘图的历史记录（提示词）
+  - 包含用户ID、提示词、图表类型、创建时间等信息
+  - 每个用户最多保存10条历史记录
+  - 支持历史记录查询、删除功能
+  - 用户只能查看和管理自己的历史记录
 
 ## 缓存架构
 

@@ -51,6 +51,10 @@
             <el-icon><List /></el-icon>
             <span>智能应用</span>
           </el-menu-item>
+          <el-menu-item index="/user/ai-drawio">
+            <el-icon><DataAnalysis /></el-icon>
+            <span>AI 绘图</span>
+          </el-menu-item>
           <el-menu-item index="/user/chat-history">
             <el-icon><Clock /></el-icon>
             <span>会话历史</span>
@@ -85,7 +89,7 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { User, ArrowDown, List, Folder, ChatLineRound, Fold, Expand, Clock, Document } from '@element-plus/icons-vue'
+import { User, ArrowDown, List, Folder, ChatLineRound, Fold, Expand, Clock, Document, DataAnalysis } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import HelpFloatingButton from '@/components/HelpFloatingButton.vue'
 import HelpDialog from '@/components/HelpDialog.vue'

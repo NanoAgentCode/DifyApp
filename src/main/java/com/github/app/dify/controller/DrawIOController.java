@@ -3,8 +3,10 @@ package com.github.app.dify.controller;
 import com.github.app.dify.req.DrawIOGenerateRequest;
 import com.github.app.dify.req.DrawIOModifyRequest;
 import com.github.app.dify.req.DrawIOSaveRequest;
+import com.github.app.dify.req.DrawIOHistoryRequest;
 import com.github.app.dify.resp.DrawIOGenerateResponse;
 import com.github.app.dify.resp.DrawIODiagramResp;
+import com.github.app.dify.resp.DrawIOHistoryResp;
 import com.github.app.dify.service.DrawIOService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
@@ -183,6 +185,75 @@ public class DrawIOController {
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             logger.error("删除图表失败 - ID: {}", id, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * 保存历史记录
+     */
+    @Operation(summary = "保存历史记录")
+    @PostMapping("/history")
+    public ResponseEntity<DrawIOHistoryResp> saveHistory(
+            @Validated @RequestBody DrawIOHistoryRequest request,
+            HttpServletRequest httpRequest) {
+        try {
+            logger.info("接收到保存历史记录请求 - 提示词: {}", request.getPrompt());
+            Long userId = (Long) httpRequest.getAttribute("userId");
+            
+            if (userId == null) {
+                return ResponseEntity.badRequest().build();
+            }
+            
+            DrawIOHistoryResp response = drawIOService.saveHistory(request, userId);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("保存历史记录失败", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * 获取历史记录列表
+     */
+    @Operation(summary = "获取历史记录列表")
+    @GetMapping("/history")
+    public ResponseEntity<List<DrawIOHistoryResp>> getHistoryList(
+            HttpServletRequest httpRequest) {
+        try {
+            Long userId = (Long) httpRequest.getAttribute("userId");
+            
+            if (userId == null) {
+                return ResponseEntity.badRequest().build();
+            }
+            
+            List<DrawIOHistoryResp> response = drawIOService.getHistoryList(userId);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("获取历史记录列表失败", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * 删除历史记录
+     */
+    @Operation(summary = "删除历史记录")
+    @DeleteMapping("/history/{id}")
+    public ResponseEntity<Void> deleteHistory(
+            @PathVariable Long id,
+            HttpServletRequest httpRequest) {
+        try {
+            Long userId = (Long) httpRequest.getAttribute("userId");
+            
+            if (userId == null) {
+                return ResponseEntity.badRequest().build();
+            }
+            
+            drawIOService.deleteHistory(id, userId);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            logger.error("删除历史记录失败 - ID: {}", id, e);
             return ResponseEntity.badRequest().build();
         }
     }
