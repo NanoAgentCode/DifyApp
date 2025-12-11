@@ -51,6 +51,7 @@
                 :disabled="!getKnowledgeBaseTooltipContent(kb)"
                 :teleported="false"
                 raw-content
+                popper-class="kb-summary-tooltip"
               >
                 <template #default>
                   <div
@@ -623,7 +624,7 @@ const getKnowledgeBaseTooltipContent = (kb) => {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;')
-    parts.push(`<div style="margin-bottom: 8px; max-width: 300px; line-height: 1.5;"><strong>智能摘要：</strong><br/>${escapedSummary}</div>`)
+    parts.push(`<div style="margin-bottom: 8px; max-width: 300px; line-height: 1.6; padding: 8px 12px; background: linear-gradient(135deg, #f5f7fa 0%, #e8f4f8 100%); border-left: 3px solid #409eff; border-radius: 4px;"><div style="color: #409eff; font-weight: 600; font-size: 13px; margin-bottom: 6px;">📋 智能摘要</div><div style="color: #606266; font-size: 13px;">${escapedSummary}</div></div>`)
   }
   
   // 如果有禁用原因，也显示
@@ -636,7 +637,7 @@ const getKnowledgeBaseTooltipContent = (kb) => {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;')
-    parts.push(`<div style="color: #f56c6c; margin-top: 8px;">${escapedTip}</div>`)
+    parts.push(`<div style="color: #f56c6c; margin-top: 8px; padding: 6px 10px; background-color: #fef0f0; border-left: 3px solid #f56c6c; border-radius: 4px; font-size: 12px;">⚠️ ${escapedTip}</div>`)
   }
   
   // 如果既没有摘要也没有禁用原因，返回空字符串（tooltip 会被禁用）
@@ -1231,6 +1232,28 @@ onUnmounted(() => {
 body {
   overflow: hidden !important;
   height: 100vh !important;
+}
+
+/* 全局移除知识库摘要tooltip的黑色边框 */
+.kb-summary-tooltip {
+  border: none !important;
+  border-width: 0 !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+.kb-summary-tooltip .el-tooltip__arrow::before {
+  border: none !important;
+  border-color: transparent !important;
+}
+
+.kb-summary-tooltip .el-tooltip__arrow::after {
+  border: none !important;
+  border-color: transparent !important;
+}
+
+.kb-summary-tooltip .el-tooltip__arrow {
+  border: none !important;
+  border-color: transparent !important;
 }
 
 html {
@@ -1987,6 +2010,29 @@ html {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* 知识库摘要tooltip样式 - 移除黑色边框 */
+:deep(.kb-summary-tooltip) {
+  border: none !important;
+  border-width: 0 !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1) !important;
+  background-color: transparent !important;
+}
+
+:deep(.kb-summary-tooltip .el-tooltip__arrow::before) {
+  border: none !important;
+  border-color: transparent !important;
+}
+
+:deep(.kb-summary-tooltip .el-tooltip__arrow::after) {
+  border: none !important;
+  border-color: transparent !important;
+}
+
+:deep(.kb-summary-tooltip .el-tooltip__arrow) {
+  border: none !important;
+  border-color: transparent !important;
 }
 </style>
 

@@ -113,6 +113,17 @@
             <el-table-column label="操作" width="280" fixed="right" align="center">
               <template #default="{ row }">
                 <div class="action-buttons-row">
+                  <el-tooltip content="可以通过查看详情看摘要" placement="top">
+                    <el-button 
+                      size="small" 
+                      type="warning" 
+                      @click="handleGenerateSummary(row)"
+                    >
+                      <el-icon><DocumentCopy /></el-icon>
+                      {{ row.summary ? '重新生成' : '生成摘要' }}
+                    </el-button>
+                  </el-tooltip>
+                  <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
                   <el-dropdown @command="(command) => handleDropdownCommand(command, row)">
                     <el-button size="small" type="primary">
                       更多<el-icon class="el-icon--right"><arrow-down /></el-icon>
@@ -121,11 +132,11 @@
                       <el-dropdown-menu>
                         <el-dropdown-item command="view">
                           <el-icon><View /></el-icon>
-                          查看
+                          查看详情
                         </el-dropdown-item>
                         <el-dropdown-item command="edit">
                           <el-icon><Edit /></el-icon>
-                          编辑
+                          编辑信息
                         </el-dropdown-item>
                         <el-dropdown-item command="upload">
                           <el-icon><UploadFilled /></el-icon>
@@ -138,16 +149,6 @@
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>
-                  <el-button 
-                    size="small" 
-                    type="warning" 
-                    @click="handleGenerateSummary(row)"
-                    title="生成摘要"
-                  >
-                    <el-icon><DocumentCopy /></el-icon>
-                    生成摘要
-                  </el-button>
-                  <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
                 </div>
               </template>
             </el-table-column>
