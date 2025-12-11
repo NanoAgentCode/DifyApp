@@ -1,4 +1,4 @@
-package com.github.app.dify.req;
+package com.github.app.dify.appaichat.req;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
@@ -76,3 +76,4 @@ public class DifyWorkflowRequest {
         this.traceId = traceId;
     }
 }
+

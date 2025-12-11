@@ -1,4 +1,4 @@
-package com.github.app.dify.req;
+package com.github.app.dify.appaichat.req;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -77,3 +77,4 @@ public class DifyChatRequest {
         this.stream = stream;
     }
 }
+
