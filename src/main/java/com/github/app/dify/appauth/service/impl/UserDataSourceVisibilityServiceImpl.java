@@ -1,0 +1,148 @@
+package com.github.app.dify.appauth.service.impl;
+
+import com.github.app.dify.appauth.domain.UserDataSourceVisibility;
+import com.github.app.dify.appauth.repository.UserDataSourceVisibilityRepository;
+import com.github.app.dify.appauth.resp.UserDataSourceVisibilityResp;
+import com.github.app.dify.appauth.service.UserDataSourceVisibilityService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+/**
+ * 用户数据源可见性服务实现
+ */
+@Service
+public class UserDataSourceVisibilityServiceImpl implements UserDataSourceVisibilityService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(UserDataSourceVisibilityServiceImpl.class);
+    
+    @Autowired
+    private UserDataSourceVisibilityRepository repository;
+    
+    @Override
+    public boolean hasAccess(Long userId, Long dataSourceId) {
+        if (userId == null || dataSourceId == null) {
+            return false;
+        }
+        
+        Optional<UserDataSourceVisibility> optional = repository.findByUserIdAndDataSourceId(userId, dataSourceId);
+        
+        // 如果没有记录，默认允许访问（由业务逻辑层决定）
+        if (!optional.isPresent()) {
+            return true;
+        }
+        
+        UserDataSourceVisibility visibility = optional.get();
+        // 如果visible为true，允许访问；如果visible为false，拒绝访问
+        return Boolean.TRUE.equals(visibility.getVisible());
+    }
+    
+    @Override
+    public boolean isExplicitlyGranted(Long userId, Long dataSourceId) {
+        if (userId == null || dataSourceId == null) {
+            return false;
+        }
+        
+        Optional<UserDataSourceVisibility> optional = repository.findByUserIdAndDataSourceId(userId, dataSourceId);
+        
+        // 如果没有记录，表示未被明确授权
+        if (!optional.isPresent()) {
+            return false;
+        }
+        
+        UserDataSourceVisibility visibility = optional.get();
+        // 只有在visible为true时，才表示被明确授权
+        return Boolean.TRUE.equals(visibility.getVisible());
+    }
+    
+    @Override
+    public List<UserDataSourceVisibilityResp> getUserDataSourceVisibilities(Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("用户ID不能为空");
+        }
+        
+        List<UserDataSourceVisibility> visibilities = repository.findByUserId(userId);
+        return visibilities.stream()
+                .map(this::convertToResp)
+                .collect(Collectors.toList());
+    }
+    
+    @Override
+    @Transactional
+    public void updateUserDataSourceVisibility(Long userId, Long dataSourceId, Boolean visible) {
+        if (userId == null || dataSourceId == null || visible == null) {
+            throw new IllegalArgumentException("参数不能为空");
+        }
+        
+        Optional<UserDataSourceVisibility> optional = repository.findByUserIdAndDataSourceId(userId, dataSourceId);
+        
+        UserDataSourceVisibility visibility;
+        if (optional.isPresent()) {
+            // 更新现有记录
+            visibility = optional.get();
+            visibility.setVisible(visible);
+            visibility.setUpdateTime(new Date());
+        } else {
+            // 创建新记录
+            visibility = new UserDataSourceVisibility();
+            visibility.setUserId(userId);
+            visibility.setDataSourceId(dataSourceId);
+            visibility.setVisible(visible);
+            visibility.setCreateTime(new Date());
+            visibility.setUpdateTime(new Date());
+        }
+        
+        repository.save(visibility);
+        logger.info("更新用户数据源可见性 - 用户ID: {}, 数据源ID: {}, 可见性: {}", userId, dataSourceId, visible);
+    }
+    
+    @Override
+    @Transactional
+    public void batchUpdateUserDataSourceVisibility(Long userId, List<Long> dataSourceIds, Boolean visible) {
+        if (userId == null || dataSourceIds == null || visible == null) {
+            throw new IllegalArgumentException("参数不能为空");
+        }
+        
+        Date now = new Date();
+        for (Long dataSourceId : dataSourceIds) {
+            Optional<UserDataSourceVisibility> optional = repository.findByUserIdAndDataSourceId(userId, dataSourceId);
+            
+            UserDataSourceVisibility visibility;
+            if (optional.isPresent()) {
+                // 更新现有记录
+                visibility = optional.get();
+                visibility.setVisible(visible);
+                visibility.setUpdateTime(now);
+            } else {
+                // 创建新记录
+                visibility = new UserDataSourceVisibility();
+                visibility.setUserId(userId);
+                visibility.setDataSourceId(dataSourceId);
+                visibility.setVisible(visible);
+                visibility.setCreateTime(now);
+                visibility.setUpdateTime(now);
+            }
+            
+            repository.save(visibility);
+        }
+        
+        logger.info("批量更新用户数据源可见性 - 用户ID: {}, 数据源数量: {}, 可见性: {}", userId, dataSourceIds.size(), visible);
+    }
+    
+    /**
+     * 转换为响应对象
+     */
+    private UserDataSourceVisibilityResp convertToResp(UserDataSourceVisibility visibility) {
+        UserDataSourceVisibilityResp resp = new UserDataSourceVisibilityResp();
+        BeanUtils.copyProperties(visibility, resp);
+        return resp;
+    }
+}
+
