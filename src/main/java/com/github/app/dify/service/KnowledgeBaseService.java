@@ -64,4 +64,12 @@ public interface KnowledgeBaseService {
     PageResponse<KnowledgeBaseResp> listKnowledgeBasesWithPagination(
             Integer tenantId, Integer status, String keyword, String vectorStoreType, Long userId, Integer userRole, 
             int page, int pageSize);
+    
+    /**
+     * 生成知识库智能摘要
+     * @param knowledgeBaseId 知识库ID
+     * @param modelId 模型ID（可选，如果为null则使用默认模型）
+     * @return 生成的摘要
+     */
+    String generateSummary(Long knowledgeBaseId, Long modelId);
 }

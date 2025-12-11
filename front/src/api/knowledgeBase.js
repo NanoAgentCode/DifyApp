@@ -58,3 +58,16 @@ export function deleteKnowledgeBase(id) {
   })
 }
 
+/**
+ * 生成知识库智能摘要
+ * @param {Number} id 知识库ID
+ * @param {Number} modelId 模型ID（可选）
+ */
+export function generateKnowledgeBaseSummary(id, modelId) {
+  return request({
+    url: `/api/knowledge-bases/${id}/generate-summary`,
+    method: 'post',
+    params: modelId ? { modelId } : {}
+  })
+}
+

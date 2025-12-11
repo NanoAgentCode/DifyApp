@@ -9,6 +9,15 @@ import com.github.app.dify.resp.KnowledgeBaseResp;
 import com.github.app.dify.resp.PageResponse;
 import com.github.app.dify.service.KnowledgeBaseService;
 import com.github.app.dify.service.UserKnowledgeBaseVisibilityService;
+import com.github.app.dify.service.RagRetrievalService;
+import com.github.app.dify.service.ModelConfigService;
+import com.github.app.dify.domain.QAModel;
+import com.github.app.dify.langchain4j.ModelLanguageModelFactory;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.output.Response;
+import dev.langchain4j.data.message.AiMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -23,6 +32,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.ArrayList;
 /**
  * 知识库服务实现
  */
@@ -42,6 +52,15 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     
     @Autowired(required = false)
     private com.github.app.dify.repository.VectorDatabaseRepository vectorDatabaseRepository;
+    
+    @Autowired(required = false)
+    private RagRetrievalService ragRetrievalService;
+    
+    @Autowired(required = false)
+    private ModelConfigService modelConfigService;
+    
+    @Autowired(required = false)
+    private ModelLanguageModelFactory modelLanguageModelFactory;
     
     @Override
     @Transactional
@@ -417,6 +436,170 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             logger.warn("获取默认向量库配置失败，使用默认值qdrant", e);
             knowledgeBase.setVectorStoreType("qdrant");
             knowledgeBase.setVectorDatabaseId(null);
+        }
+    }
+    
+    @Override
+    @Transactional
+    public String generateSummary(Long knowledgeBaseId, Long modelId) {
+        logger.info("开始生成知识库摘要 - 知识库ID: {}, 模型ID: {}", knowledgeBaseId, modelId);
+        
+        // 1. 验证知识库是否存在
+        Optional<KnowledgeBase> optional = knowledgeBaseRepository.findById(knowledgeBaseId);
+        if (!optional.isPresent()) {
+            throw new RuntimeException("知识库不存在: " + knowledgeBaseId);
+        }
+        
+        KnowledgeBase knowledgeBase = optional.get();
+        
+        // 检查是否已删除
+        if (knowledgeBase.getDeleted() != null && knowledgeBase.getDeleted() == 1) {
+            throw new RuntimeException("知识库已删除: " + knowledgeBaseId);
+        }
+        
+        // 2. 检查是否有文档
+        Long documentCount = documentRepository.countByKnowledgeBaseId(knowledgeBaseId);
+        if (documentCount == null || documentCount == 0) {
+            throw new RuntimeException("知识库中没有文档，无法生成摘要。请先上传文档。");
+        }
+        
+        // 3. 检查是否有已成功向量化的文档
+        Long successDocumentCount = documentRepository.countSuccessDocumentsByKnowledgeBaseId(knowledgeBaseId);
+        if (successDocumentCount == null || successDocumentCount == 0) {
+            throw new RuntimeException("知识库中没有已成功向量化的文档，无法生成摘要。请等待文档向量化完成后再试。");
+        }
+        
+        // 4. 从向量数据库中检索代表性文档片段
+        // 使用多个查询词来获取更全面的内容
+        List<String> queryTerms = new ArrayList<>();
+        queryTerms.add("概述");
+        queryTerms.add("介绍");
+        queryTerms.add("主要内容");
+        queryTerms.add("总结");
+        
+        // 如果知识库有描述，也作为查询词
+        if (knowledgeBase.getDescription() != null && !knowledgeBase.getDescription().trim().isEmpty()) {
+            queryTerms.add(knowledgeBase.getDescription());
+        }
+        
+        // 收集所有检索到的文档片段
+        List<RagRetrievalService.RetrievalResult> allResults = new ArrayList<>();
+        for (String query : queryTerms) {
+            try {
+                List<RagRetrievalService.RetrievalResult> results = ragRetrievalService.retrieve(
+                    knowledgeBaseId, 
+                    query, 
+                    knowledgeBase.getEmbeddingModelId(), 
+                    knowledgeBase.getTopK() != null ? knowledgeBase.getTopK() : 10
+                );
+                allResults.addAll(results);
+            } catch (Exception e) {
+                logger.warn("检索文档片段失败 - 查询词: {}, 错误: {}", query, e.getMessage());
+            }
+        }
+        
+        // 如果没有检索到结果，尝试使用知识库名称作为查询词
+        if (allResults.isEmpty()) {
+            try {
+                allResults = ragRetrievalService.retrieve(
+                    knowledgeBaseId, 
+                    knowledgeBase.getName(), 
+                    knowledgeBase.getEmbeddingModelId(), 
+                    knowledgeBase.getTopK() != null ? knowledgeBase.getTopK() : 10
+                );
+            } catch (Exception e) {
+                logger.warn("使用知识库名称检索文档片段失败 - 错误: {}", e.getMessage());
+            }
+        }
+        
+        if (allResults.isEmpty()) {
+            throw new RuntimeException("无法从知识库中检索到文档内容，请确保文档已成功向量化");
+        }
+        
+        // 5. 去重并合并文档片段（按相似度排序，取前20个）
+        List<String> uniqueTexts = allResults.stream()
+            .sorted((a, b) -> Double.compare(b.getScore(), a.getScore())) // 按相似度降序排序
+            .map(RagRetrievalService.RetrievalResult::getText)
+            .distinct()
+            .limit(20)
+            .collect(Collectors.toList());
+        
+        // 6. 构建用于生成摘要的文本内容
+        StringBuilder contentBuilder = new StringBuilder();
+        contentBuilder.append("知识库名称：").append(knowledgeBase.getName()).append("\n\n");
+        if (knowledgeBase.getDescription() != null && !knowledgeBase.getDescription().trim().isEmpty()) {
+            contentBuilder.append("知识库描述：").append(knowledgeBase.getDescription()).append("\n\n");
+        }
+        contentBuilder.append("知识库中的文档内容片段：\n\n");
+        for (int i = 0; i < uniqueTexts.size(); i++) {
+            contentBuilder.append("片段").append(i + 1).append("：\n");
+            contentBuilder.append(uniqueTexts.get(i)).append("\n\n");
+        }
+        
+        String content = contentBuilder.toString();
+        
+        // 限制内容长度（避免超过模型上下文限制）
+        int maxContentLength = 8000; // 保留一些空间给提示词和响应
+        if (content.length() > maxContentLength) {
+            content = content.substring(0, maxContentLength) + "...";
+        }
+        
+        // 7. 获取问答模型
+        QAModel qaModel;
+        try {
+            if (modelId != null) {
+                qaModel = modelConfigService.getQAModelById(modelId);
+            } else {
+                qaModel = modelConfigService.getDefaultQAModelForRAG();
+            }
+        } catch (Exception e) {
+            logger.error("获取问答模型失败，使用默认模型 - modelId: {}", modelId, e);
+            qaModel = modelConfigService.getDefaultQAModelForRAG();
+        }
+        
+        if (qaModel == null) {
+            throw new RuntimeException("未找到可用的问答模型，请先配置模型");
+        }
+        
+        // 8. 创建 LLM 模型
+        ModelLanguageModelFactory.ChatLanguageModel chatModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+        
+        // 9. 构建提示词
+        String systemPrompt = "你是一个专业的文档摘要生成助手。请根据提供的知识库信息，生成一段简洁、准确、全面的摘要。摘要应该：\n" +
+                "1. 概括知识库的主要内容和主题\n" +
+                "2. 突出知识库的核心知识点\n" +
+                "3. 语言简洁明了，控制在200字以内\n" +
+                "4. 使用中文回答";
+        
+        String userPrompt = "请为以下知识库生成智能摘要：\n\n" + content;
+        
+        // 10. 构建消息列表
+        List<ChatMessage> messages = new ArrayList<>();
+        messages.add(new SystemMessage(systemPrompt));
+        messages.add(new UserMessage(userPrompt));
+        
+        // 11. 调用 LLM 生成摘要
+        try {
+            Response<AiMessage> response = chatModel.generate(messages);
+            String summary = response.content().text();
+            
+            // 清理摘要（移除可能的标记和多余空白）
+            summary = summary.trim();
+            if (summary.startsWith("摘要：") || summary.startsWith("摘要:")) {
+                summary = summary.substring(3).trim();
+            }
+            
+            // 12. 保存摘要到数据库
+            knowledgeBase.setSummary(summary);
+            knowledgeBase.setUpdateTime(new Date());
+            knowledgeBaseRepository.save(knowledgeBase);
+            
+            logger.info("知识库摘要生成成功 - 知识库ID: {}, 摘要长度: {}", knowledgeBaseId, summary.length());
+            
+            return summary;
+        } catch (Exception e) {
+            logger.error("生成知识库摘要失败 - 知识库ID: {}", knowledgeBaseId, e);
+            throw new RuntimeException("生成摘要失败: " + e.getMessage(), e);
         }
     }
 }

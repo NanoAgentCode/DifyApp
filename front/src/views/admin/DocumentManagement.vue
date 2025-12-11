@@ -77,7 +77,7 @@
               </el-button>
             </div>
           </template>
-          <el-table :data="recentUploads" stripe size="default" class="recent-uploads-table">
+          <el-table :data="recentUploads" stripe size="default" class="recent-uploads-table" row-key="id">
             <el-table-column prop="originalFileName" label="文件名" min-width="200" show-overflow-tooltip>
               <template #default="{ row }">
                 <div class="file-name-cell">
@@ -144,6 +144,7 @@
             size="default"
             class="documents-table"
             empty-text="暂无文档"
+            row-key="id"
           >
             <el-table-column prop="originalFileName" label="文件名" min-width="220" show-overflow-tooltip>
               <template #default="{ row }">
@@ -462,15 +463,31 @@ const handleDownloadDoc = async (doc) => {
 }
 
 const handleReindexDoc = async (doc) => {
+  if (!doc || !doc.id) {
+    ElMessage.error('文档信息错误，无法重新向量化')
+    return
+  }
+  
+  const docId = doc.id
+  const currentKbId = kbId.value
+  
+  if (!currentKbId) {
+    ElMessage.error('知识库ID错误，无法重新向量化')
+    return
+  }
+  
   try {
-    reindexingDocId.value = doc.id
-    await reindexDocument(kbId.value, doc.id)
+    reindexingDocId.value = docId
+    await reindexDocument(currentKbId, docId)
     ElMessage.success('重新向量化任务已提交，请稍后查看状态')
-    await loadDocuments()
-    startAutoRefresh()
+    // 延迟刷新，确保后端已处理请求
+    setTimeout(async () => {
+      await loadDocuments()
+      startAutoRefresh()
+      reindexingDocId.value = null
+    }, 500)
   } catch (error) {
     ElMessage.error('重新向量化失败：' + (error.message || '未知错误'))
-  } finally {
     reindexingDocId.value = null
   }
 }

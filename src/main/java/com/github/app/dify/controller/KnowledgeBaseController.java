@@ -147,4 +147,47 @@ public class KnowledgeBaseController {
             return ResponseEntity.badRequest().build();
         }
     }
+    
+    /**
+     * 生成知识库智能摘要
+     */
+    @Operation(summary = "生成知识库智能摘要")
+    @PostMapping("/{id}/generate-summary")
+    public ResponseEntity<?> generateSummary(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long modelId,
+            HttpServletRequest request) {
+        try {
+            logger.info("接收到生成知识库摘要请求 - 知识库ID: {}, 模型ID: {}", id, modelId);
+            
+            // 从request中获取用户信息（由JWT拦截器设置）
+            Long userId = (Long) request.getAttribute("userId");
+            Integer role = (Integer) request.getAttribute("role");
+            
+            // 验证用户权限：检查用户是否有权限访问该知识库
+            KnowledgeBaseResp kb = knowledgeBaseService.getKnowledgeBaseById(id);
+            boolean hasAccess = false;
+            if (role != null && role == 1) {
+                // 管理员可以访问所有知识库
+                hasAccess = true;
+            } else {
+                // 普通用户只能访问公开的知识库或自己创建的知识库
+                boolean isPublic = Boolean.TRUE.equals(kb.getIsPublic());
+                boolean isOwner = userId != null && userId.equals(kb.getCreatorId());
+                hasAccess = isPublic || isOwner;
+            }
+            
+            if (!hasAccess) {
+                return ResponseEntity.status(403).body(java.util.Map.of("error", "没有权限访问该知识库"));
+            }
+            
+            String summary = knowledgeBaseService.generateSummary(id, modelId);
+            return ResponseEntity.ok(java.util.Map.of("summary", summary));
+        } catch (Exception e) {
+            logger.error("生成知识库摘要失败 - 知识库ID: {}", id, e);
+            java.util.Map<String, Object> errorResponse = new java.util.HashMap<>();
+            errorResponse.put("error", e.getMessage() != null ? e.getMessage() : "生成摘要失败");
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+    }
 }

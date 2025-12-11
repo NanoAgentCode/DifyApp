@@ -343,7 +343,8 @@ CREATE TABLE "KNOWLEDGE_BASE" (
     updater VARCHAR(64),
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted INTEGER DEFAULT 0,
-    tenant_id INTEGER DEFAULT 1
+    tenant_id INTEGER DEFAULT 1,
+    summary TEXT
 );
 
 COMMENT ON TABLE "KNOWLEDGE_BASE" IS '知识库表';
@@ -363,6 +364,7 @@ COMMENT ON COLUMN "KNOWLEDGE_BASE".updater IS '更新者';
 COMMENT ON COLUMN "KNOWLEDGE_BASE".update_time IS '更新时间';
 COMMENT ON COLUMN "KNOWLEDGE_BASE".deleted IS '是否删除：0-未删除，1-已删除';
 COMMENT ON COLUMN "KNOWLEDGE_BASE".tenant_id IS '租户编号';
+COMMENT ON COLUMN "KNOWLEDGE_BASE".summary IS '知识库智能摘要';
 
 -- 创建索引
 CREATE INDEX idx_knowledge_base_status ON "KNOWLEDGE_BASE"(status);

@@ -46,10 +46,11 @@
               <el-tooltip
                 v-for="kb in displayedKnowledgeBases"
                 :key="kb.id"
-                :content="getKnowledgeBaseDisabledTip(kb)"
+                :content="getKnowledgeBaseTooltipContent(kb)"
                 placement="right"
-                :disabled="!getKnowledgeBaseDisabledTip(kb)"
+                :disabled="!getKnowledgeBaseTooltipContent(kb)"
                 :teleported="false"
+                raw-content
               >
                 <template #default>
                   <div
@@ -523,6 +524,7 @@ const loadKnowledgeBases = async () => {
         id: kb.id,
         name: kb.name,
         description: kb.description || '',
+        summary: kb.summary || '',
         documentCount: kb.documentCount || 0,
         status: kb.status === 1 ? 'active' : 'inactive',
         embeddingModelId: kb.embeddingModelId || null,
@@ -1222,6 +1224,45 @@ const getKnowledgeBaseDisabledTip = (kb) => {
   }
   
   return ''
+}
+
+// 获取知识库 tooltip 内容（包含智能摘要和禁用原因）
+const getKnowledgeBaseTooltipContent = (kb) => {
+  if (!kb) return ''
+  
+  const parts = []
+  
+  // 如果有智能摘要，优先显示
+  if (kb.summary && kb.summary.trim()) {
+    // 转义 HTML 特殊字符，防止 XSS
+    const escapedSummary = kb.summary
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+    parts.push(`<div style="margin-bottom: 8px; max-width: 300px; line-height: 1.5;"><strong>智能摘要：</strong><br/>${escapedSummary}</div>`)
+  }
+  
+  // 如果有禁用原因，也显示
+  const disabledTip = getKnowledgeBaseDisabledTip(kb)
+  if (disabledTip) {
+    // 转义 HTML 特殊字符
+    const escapedTip = disabledTip
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+    parts.push(`<div style="color: #f56c6c; margin-top: 8px;">${escapedTip}</div>`)
+  }
+  
+  // 如果既没有摘要也没有禁用原因，返回空字符串（tooltip 会被禁用）
+  if (parts.length === 0) {
+    return ''
+  }
+  
+  return parts.join('')
 }
 
 // 加载问答模型列表（用于知识库问答）

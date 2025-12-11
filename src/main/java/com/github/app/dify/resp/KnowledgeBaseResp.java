@@ -62,6 +62,9 @@ public class KnowledgeBaseResp {
     @Schema(description = "租户编号")
     private Integer tenantId;
     
+    @Schema(description = "知识库智能摘要")
+    private String summary;
+    
     // Getters and Setters
     public Long getId() {
         return id;
@@ -205,5 +208,13 @@ public class KnowledgeBaseResp {
     
     public void setTenantId(Integer tenantId) {
         this.tenantId = tenantId;
+    }
+    
+    public String getSummary() {
+        return summary;
+    }
+    
+    public void setSummary(String summary) {
+        this.summary = summary;
     }
 }

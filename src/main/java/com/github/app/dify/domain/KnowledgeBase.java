@@ -129,6 +129,15 @@ public class KnowledgeBase implements Serializable {
      */
     @Schema(description = "租户编号")
     private Integer tenantId;
+    
+    /**
+     * 知识库智能摘要
+     */
+    @Size(max= 2000,message="编码长度不能超过2000")
+    @Schema(description = "知识库智能摘要")
+    @Length(max= 2000,message="编码长度不能超过2000")
+    @Column(name = "summary", columnDefinition = "TEXT")
+    private String summary;
 
     // Getters and Setters
     public Long getId() {
@@ -257,5 +266,13 @@ public class KnowledgeBase implements Serializable {
 
     public void setTenantId(Integer tenantId) {
         this.tenantId = tenantId;
+    }
+    
+    public String getSummary() {
+        return summary;
+    }
+    
+    public void setSummary(String summary) {
+        this.summary = summary;
     }
 }

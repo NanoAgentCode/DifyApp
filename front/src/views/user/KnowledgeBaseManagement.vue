@@ -110,7 +110,7 @@
             {{ formatDate(row.createTime) }}
           </template>
         </el-table-column>
-            <el-table-column label="操作" width="200" fixed="right" align="center">
+            <el-table-column label="操作" width="280" fixed="right" align="center">
               <template #default="{ row }">
                 <div class="action-buttons-row">
                   <el-dropdown @command="(command) => handleDropdownCommand(command, row)">
@@ -138,6 +138,15 @@
                       </el-dropdown-menu>
                     </template>
                   </el-dropdown>
+                  <el-button 
+                    size="small" 
+                    type="warning" 
+                    @click="handleGenerateSummary(row)"
+                    title="生成摘要"
+                  >
+                    <el-icon><DocumentCopy /></el-icon>
+                    生成摘要
+                  </el-button>
                   <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
                 </div>
               </template>
@@ -378,9 +387,32 @@
           <el-tag type="danger" size="small">{{ currentKB.failedDocumentCount || 0 }} 个</el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="描述" :span="2">{{ currentKB.description || '无' }}</el-descriptions-item>
+        <el-descriptions-item label="智能摘要" :span="2">
+          <div v-if="currentKB.summary" style="max-width: 600px; word-wrap: break-word; line-height: 1.6;">
+            {{ currentKB.summary }}
+          </div>
+          <div v-else style="color: #909399; font-style: italic;">
+            暂无摘要
+            <el-button 
+              type="primary" 
+              size="small" 
+              style="margin-left: 10px;"
+              @click="handleGenerateSummaryFromView"
+            >
+              生成摘要
+            </el-button>
+          </div>
+        </el-descriptions-item>
       </el-descriptions>
       <template #footer>
-        <el-button type="primary" @click="viewDialogVisible = false">关闭</el-button>
+        <el-button @click="viewDialogVisible = false">关闭</el-button>
+        <el-button 
+          v-if="currentKB && !currentKB.summary" 
+          type="primary" 
+          @click="handleGenerateSummaryFromView"
+        >
+          生成摘要
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -390,13 +422,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, ElTooltip } from 'element-plus'
-import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Check, Close, Warning, Link, QuestionFilled } from '@element-plus/icons-vue'
+import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Check, Close, Warning, Link, QuestionFilled, DocumentCopy } from '@element-plus/icons-vue'
 import { 
   getKnowledgeBaseList, 
   createKnowledgeBase, 
   updateKnowledgeBase, 
   deleteKnowledgeBase,
-  getKnowledgeBaseDetail
+  getKnowledgeBaseDetail,
+  generateKnowledgeBaseSummary
 } from '@/api/knowledgeBase'
 import { getModelConfig } from '@/api/model'
 import { getModelStyle } from '@/utils/modelColor'
@@ -822,12 +855,73 @@ const handleView = async (row) => {
   }
 }
 
+const handleGenerateSummaryFromView = async () => {
+  if (!currentKB.value) return
+  try {
+    ElMessageBox.confirm(
+      `确定要为知识库"${currentKB.value.name}"生成智能摘要吗？这将基于知识库中的文档内容自动生成摘要。`,
+      '生成摘要确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'info'
+      }
+    ).then(async () => {
+      try {
+        ElMessage.info('正在生成摘要，请稍候...')
+        const response = await generateKnowledgeBaseSummary(currentKB.value.id)
+        ElMessage.success('摘要生成成功')
+        // 刷新知识库详情
+        const updatedResponse = await getKnowledgeBaseDetail(currentKB.value.id)
+        currentKB.value = {
+          ...updatedResponse,
+          status: typeof updatedResponse.status === 'number' ? statusMap[updatedResponse.status] : updatedResponse.status
+        }
+      } catch (error) {
+        ElMessage.error('生成摘要失败：' + (error.message || '未知错误'))
+      }
+    }).catch(() => {
+      // 取消操作
+    })
+  } catch (error) {
+    ElMessage.error('操作失败：' + (error.message || '未知错误'))
+  }
+}
+
 const handleUploadDocs = (row) => {
   router.push(`/user/knowledge-base/${row.id}/documents/upload`)
 }
 
 const handleListDocs = (row) => {
   router.push(`/user/knowledge-base/${row.id}/documents/list`)
+}
+
+const handleGenerateSummary = async (row) => {
+  try {
+    ElMessageBox.confirm(
+      `确定要为知识库"${row.name}"生成智能摘要吗？这将基于知识库中的文档内容自动生成摘要。`,
+      '生成摘要确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'info'
+      }
+    ).then(async () => {
+      try {
+        ElMessage.info('正在生成摘要，请稍候...')
+        const response = await generateKnowledgeBaseSummary(row.id)
+        ElMessage.success('摘要生成成功')
+        // 刷新知识库列表
+        await loadKnowledgeBases()
+      } catch (error) {
+        ElMessage.error('生成摘要失败：' + (error.message || '未知错误'))
+      }
+    }).catch(() => {
+      // 取消操作
+    })
+  } catch (error) {
+    ElMessage.error('操作失败：' + (error.message || '未知错误'))
+  }
 }
 
 const handleDropdownCommand = (command, row) => {
