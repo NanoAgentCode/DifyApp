@@ -127,8 +127,8 @@
               <span class="section-title-text">
                 <el-icon><Document /></el-icon>
                 文档列表
-                <el-tag v-if="documents.length > 0" type="info" size="small" style="margin-left: 8px">
-                  {{ documents.length }} 个文件
+                <el-tag v-if="total > 0" type="info" size="small" style="margin-left: 8px">
+                  共 {{ total }} 个文件
                 </el-tag>
               </span>
               <el-button size="small" @click="loadDocuments" :loading="docLoading">
@@ -137,7 +137,58 @@
               </el-button>
             </div>
           </template>
-          <el-table
+          
+          <!-- 搜索和过滤栏 -->
+          <div class="search-filter-bar">
+            <el-input
+              v-model="searchKeyword"
+              placeholder="搜索文件名"
+              clearable
+              style="width: 250px"
+              @input="handleSearch"
+              @clear="handleSearch"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+            <el-select
+              v-model="filterVectorizedStatus"
+              placeholder="向量化状态"
+              clearable
+              style="width: 150px; margin-left: 10px"
+              @change="handleFilter"
+            >
+              <el-option label="全部" value="" />
+              <el-option label="未向量化" :value="0" />
+              <el-option label="向量化中" :value="1" />
+              <el-option label="向量化成功" :value="2" />
+              <el-option label="向量化失败" :value="3" />
+            </el-select>
+            <el-select
+              v-model="filterFileType"
+              placeholder="文件类型"
+              clearable
+              style="width: 150px; margin-left: 10px"
+              @change="handleFilter"
+            >
+              <el-option label="全部" value="" />
+              <el-option label="PDF" value="pdf" />
+              <el-option label="Word" value="doc" />
+              <el-option label="Word (docx)" value="docx" />
+              <el-option label="文本" value="txt" />
+              <el-option label="Markdown" value="md" />
+              <el-option label="Excel" value="xls" />
+              <el-option label="Excel (xlsx)" value="xlsx" />
+              <el-option label="PowerPoint" value="ppt" />
+              <el-option label="PowerPoint (pptx)" value="pptx" />
+              <el-option label="图片" value="png" />
+            </el-select>
+          </div>
+          
+          <!-- 表格容器 -->
+          <div class="table-wrapper">
+            <el-table
             :data="documents"
             v-loading="docLoading"
             stripe
@@ -204,7 +255,21 @@
                 </div>
               </template>
             </el-table-column>
-          </el-table>
+            </el-table>
+          </div>
+          
+          <!-- 分页 -->
+          <div class="pagination" v-if="total > 0">
+            <el-pagination
+              v-model:current-page="currentPage"
+              v-model:page-size="pageSize"
+              :page-sizes="[10, 20, 50, 100]"
+              :total="total"
+              layout="total, sizes, prev, pager, next, jumper"
+              @size-change="handleSizeChange"
+              @current-change="handlePageChange"
+            />
+          </div>
         </el-card>
       </div>
     </el-card>
@@ -215,7 +280,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, UploadFilled, Refresh, Document, Download, Delete, CircleCheck, Loading, CircleClose, InfoFilled } from '@element-plus/icons-vue'
+import { ArrowLeft, UploadFilled, Refresh, Document, Download, Delete, CircleCheck, Loading, CircleClose, InfoFilled, Search } from '@element-plus/icons-vue'
 import { getKnowledgeBaseDetail } from '@/api/knowledgeBase'
 import {
   getDocumentList,
@@ -237,6 +302,17 @@ const docLoading = ref(false)
 const refreshTimer = ref(null)
 const reindexingDocId = ref(null)
 const recentUploads = ref([]) // 本次上传的文件列表
+
+// 分页相关
+const currentPage = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
+let searchTimer = null // 搜索防抖定时器
+
+// 搜索和过滤
+const searchKeyword = ref('')
+const filterVectorizedStatus = ref('')
+const filterFileType = ref('')
 
 // 从路由参数获取知识库ID
 const kbId = computed(() => {
@@ -355,12 +431,39 @@ const clearRecentUploads = () => {
 // 文档列表相关
 const loadDocuments = async () => {
   if (!kbId.value) return
-  
+
   docLoading.value = true
   try {
-    const response = await getDocumentList(kbId.value)
-    documents.value = response || []
+    const params = {
+      page: currentPage.value,
+      pageSize: pageSize.value
+    }
     
+    if (searchKeyword.value) {
+      params.keyword = searchKeyword.value.trim()
+    }
+    
+    if (filterVectorizedStatus.value !== '') {
+      params.vectorizedStatus = filterVectorizedStatus.value
+    }
+    
+    if (filterFileType.value) {
+      params.fileType = filterFileType.value
+    }
+    
+    const response = await getDocumentList(kbId.value, params)
+    
+    // 检查是否是分页响应
+    if (response && typeof response === 'object' && 'content' in response && 'total' in response) {
+      // 分页响应
+      documents.value = response.content || []
+      total.value = response.total || 0
+    } else {
+      // 兼容旧接口（非分页响应）
+      documents.value = Array.isArray(response) ? response : []
+      total.value = documents.value.length
+    }
+
     // 检查是否有正在向量化的文档，如果有则启动定时刷新
     const hasVectorizing = documents.value.some(doc => doc.vectorizedStatus === 1)
     if (hasVectorizing) {
@@ -375,15 +478,71 @@ const loadDocuments = async () => {
   }
 }
 
+// 搜索防抖处理
+const handleSearch = () => {
+  // 清除之前的定时器
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+  // 设置新的定时器，500ms后执行搜索
+  searchTimer = setTimeout(() => {
+    currentPage.value = 1
+    loadDocuments()
+  }, 500)
+}
+
+// 过滤处理
+const handleFilter = () => {
+  currentPage.value = 1
+  loadDocuments()
+}
+
+// 分页处理
+const handleSizeChange = (size) => {
+  pageSize.value = size
+  currentPage.value = 1
+  loadDocuments()
+}
+
+const handlePageChange = (page) => {
+  currentPage.value = page
+  loadDocuments()
+}
+
 // 自动刷新文档列表（用于实时显示向量化状态）
 const startAutoRefresh = () => {
   if (refreshTimer.value) return
-  
+
   refreshTimer.value = setInterval(() => {
     if (kbId.value) {
-      getDocumentList(kbId.value)
+      const params = {
+        page: currentPage.value,
+        pageSize: pageSize.value
+      }
+      
+      if (searchKeyword.value) {
+        params.keyword = searchKeyword.value.trim()
+      }
+      
+      if (filterVectorizedStatus.value !== '') {
+        params.vectorizedStatus = filterVectorizedStatus.value
+      }
+      
+      if (filterFileType.value) {
+        params.fileType = filterFileType.value
+      }
+      
+      getDocumentList(kbId.value, params)
         .then(response => {
-          documents.value = response || []
+          // 检查是否是分页响应
+          if (response && typeof response === 'object' && 'content' in response && 'total' in response) {
+            documents.value = response.content || []
+            total.value = response.total || 0
+          } else {
+            documents.value = Array.isArray(response) ? response : []
+            total.value = documents.value.length
+          }
+          
           // 更新 recentUploads 中的向量化状态
           recentUploads.value = recentUploads.value.map(recent => {
             const updated = documents.value.find(doc => doc.id === recent.id)
@@ -576,26 +735,42 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopAutoRefresh()
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
 })
 </script>
 
 <style scoped>
 .document-management {
   padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 :deep(.el-card) {
   border-radius: 8px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 :deep(.el-card__header) {
   padding: 16px 20px;
   border-bottom: 1px solid #f0f0f0;
   background: #fafafa;
+  flex-shrink: 0;
 }
 
 :deep(.el-card__body) {
   padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
 }
 
 .card-header {
@@ -705,12 +880,47 @@ onUnmounted(() => {
   margin-top: 0;
 }
 
+.search-filter-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-bottom: 16px;
+}
+
 .doc-list-section {
   margin-top: 24px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.doc-list-section :deep(.el-card) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.doc-list-section :deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .documents-table {
-  margin-top: 0;
+  height: 100%;
 }
 
 .file-name-cell {

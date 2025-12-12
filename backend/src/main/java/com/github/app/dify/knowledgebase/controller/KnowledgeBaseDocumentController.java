@@ -1,5 +1,6 @@
 package com.github.app.dify.knowledgebase.controller;
 
+import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.knowledgebase.resp.KnowledgeBaseDocumentResp;
 import com.github.app.dify.knowledgebase.service.KnowledgeBaseDocumentService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -87,10 +88,24 @@ public class KnowledgeBaseDocumentController {
      */
     @Operation(summary = "获取文档列表")
     @GetMapping
-    public ResponseEntity<List<KnowledgeBaseDocumentResp>> listDocuments(@PathVariable Long kbId) {
+    public ResponseEntity<?> listDocuments(
+            @PathVariable Long kbId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer vectorizedStatus,
+            @RequestParam(required = false) String fileType,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer pageSize) {
         try {
-            List<KnowledgeBaseDocumentResp> resp = documentService.listDocuments(kbId);
-            return ResponseEntity.ok(resp);
+            // 如果指定了分页参数，使用分页接口
+            if (page != null && pageSize != null && page > 0 && pageSize > 0) {
+                PageResponse<KnowledgeBaseDocumentResp> pageResponse = documentService.listDocumentsWithPagination(
+                        kbId, keyword, vectorizedStatus, fileType, page, pageSize);
+                return ResponseEntity.ok(pageResponse);
+            } else {
+                // 否则返回所有数据（兼容旧接口）
+                List<KnowledgeBaseDocumentResp> resp = documentService.listDocuments(kbId);
+                return ResponseEntity.ok(resp);
+            }
         } catch (Exception e) {
             logger.error("获取文档列表失败", e);
             return ResponseEntity.badRequest().build();

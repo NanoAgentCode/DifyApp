@@ -1,5 +1,6 @@
 package com.github.app.dify.knowledgebase.service.impl;
 
+import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.knowledgebase.domain.KnowledgeBase;
 import com.github.app.dify.knowledgebase.domain.KnowledgeBaseDocument;
 import com.github.app.dify.knowledgebase.repository.KnowledgeBaseDocumentRepository;
@@ -12,6 +13,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -232,6 +237,47 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
         return documents.stream()
                 .map(this::convertToResp)
                 .collect(Collectors.toList());
+    }
+    
+    /**
+     * 获取知识库的文档列表（分页，支持搜索和过滤）
+     */
+    @Override
+    public PageResponse<KnowledgeBaseDocumentResp> listDocumentsWithPagination(
+            Long knowledgeBaseId, 
+            String keyword, 
+            Integer vectorizedStatus, 
+            String fileType, 
+            int page, 
+            int pageSize) {
+        // 创建分页请求，按创建时间倒序
+        Pageable pageable = PageRequest.of(
+                page - 1, 
+                pageSize, 
+                Sort.by("createTime").descending());
+        
+        Page<KnowledgeBaseDocument> documentPage;
+        
+        // 如果有过滤条件，使用带过滤的查询
+        if (keyword != null || vectorizedStatus != null || (fileType != null && !fileType.isEmpty())) {
+            documentPage = documentRepository.findByKnowledgeBaseIdAndDeletedAndFilters(
+                    knowledgeBaseId,
+                    0,
+                    keyword != null ? keyword.trim() : null,
+                    vectorizedStatus,
+                    fileType != null && !fileType.isEmpty() ? fileType : null,
+                    pageable);
+        } else {
+            // 否则使用简单查询
+            documentPage = documentRepository.findByKnowledgeBaseIdAndDeleted(knowledgeBaseId, 0, pageable);
+        }
+        
+        // 转换为响应对象
+        List<KnowledgeBaseDocumentResp> content = documentPage.getContent().stream()
+                .map(this::convertToResp)
+                .collect(Collectors.toList());
+        
+        return new PageResponse<>(content, documentPage.getTotalElements(), page, pageSize);
     }
     
     /**

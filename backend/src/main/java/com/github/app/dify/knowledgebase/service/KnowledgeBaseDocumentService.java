@@ -1,5 +1,6 @@
 package com.github.app.dify.knowledgebase.service;
 
+import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.knowledgebase.resp.KnowledgeBaseDocumentResp;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
@@ -28,6 +29,17 @@ public interface KnowledgeBaseDocumentService {
      * 获取文档列表
      */
     List<KnowledgeBaseDocumentResp> listDocuments(Long knowledgeBaseId);
+    
+    /**
+     * 获取文档列表（分页，支持搜索和过滤）
+     */
+    PageResponse<KnowledgeBaseDocumentResp> listDocumentsWithPagination(
+            Long knowledgeBaseId, 
+            String keyword, 
+            Integer vectorizedStatus, 
+            String fileType, 
+            int page, 
+            int pageSize);
     
     /**
      * 获取文档数量
