@@ -90,16 +90,18 @@ const routes = [
                 meta: {title: '知识库管理', requiresAuth: true, requiresAdmin: true}
             },
             {
+                path: 'knowledge-base/:kbId/documents',
+                name: 'DocumentManagement',
+                component: () => import('@/views/admin/DocumentManagement.vue'),
+                meta: {title: '文档管理', requiresAuth: true, requiresAdmin: true}
+            },
+            {
                 path: 'knowledge-base/:kbId/documents/upload',
-                name: 'DocumentUpload',
-                component: () => import('@/views/admin/DocumentUpload.vue'),
-                meta: {title: '文档上传', requiresAuth: true, requiresAdmin: true}
+                redirect: (to) => `/admin/knowledge-base/${to.params.kbId}/documents`
             },
             {
                 path: 'knowledge-base/:kbId/documents/list',
-                name: 'DocumentList',
-                component: () => import('@/views/admin/DocumentList.vue'),
-                meta: {title: '文件列表', requiresAuth: true, requiresAdmin: true}
+                redirect: (to) => `/admin/knowledge-base/${to.params.kbId}/documents`
             },
             {
                 path: 'chat-history',
@@ -187,16 +189,18 @@ const routes = [
                 meta: {title: '知识库管理', requiresAuth: true}
             },
             {
+                path: 'knowledge-base/:kbId/documents',
+                name: 'UserDocumentManagement',
+                component: () => import('@/views/user/DocumentManagement.vue'),
+                meta: {title: '文档管理', requiresAuth: true}
+            },
+            {
                 path: 'knowledge-base/:kbId/documents/upload',
-                name: 'UserDocumentUpload',
-                component: () => import('@/views/user/DocumentUpload.vue'),
-                meta: {title: '文档上传', requiresAuth: true}
+                redirect: (to) => `/user/knowledge-base/${to.params.kbId}/documents`
             },
             {
                 path: 'knowledge-base/:kbId/documents/list',
-                name: 'UserDocumentList',
-                component: () => import('@/views/user/DocumentList.vue'),
-                meta: {title: '文件列表', requiresAuth: true}
+                redirect: (to) => `/user/knowledge-base/${to.params.kbId}/documents`
             },
             {
                 path: 'chat-history',

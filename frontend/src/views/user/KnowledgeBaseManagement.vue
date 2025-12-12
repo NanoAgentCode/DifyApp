@@ -890,11 +890,11 @@ const handleGenerateSummaryFromView = async () => {
 }
 
 const handleUploadDocs = (row) => {
-  router.push(`/user/knowledge-base/${row.id}/documents/upload`)
+  router.push(`/user/knowledge-base/${row.id}/documents`)
 }
 
 const handleListDocs = (row) => {
-  router.push(`/user/knowledge-base/${row.id}/documents/list`)
+  router.push(`/user/knowledge-base/${row.id}/documents`)
 }
 
 const handleGenerateSummary = async (row) => {
