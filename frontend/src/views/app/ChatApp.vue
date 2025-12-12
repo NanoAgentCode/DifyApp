@@ -53,9 +53,7 @@ import { ref, reactive, onMounted, nextTick, triggerRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getAppDetail, chatApp, chatAppStream } from '@/api/aiApp'
-import { marked } from 'marked'
-import hljs from 'highlight.js'
-import 'highlight.js/styles/github-dark.css'
+import { renderMarkdown } from '@/composables/useMarkdown'
 import AppIcon from '@/components/AppIcon.vue'
 
 const route = useRoute()
@@ -489,33 +487,8 @@ const handleBack = () => {
   }
 }
 
-// 配置 marked 使用 highlight.js 进行代码高亮
-marked.setOptions({
-  highlight: function(code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        return hljs.highlight(code, { language: lang }).value
-      } catch (err) {
-        console.error('代码高亮错误:', err)
-      }
-    }
-    return hljs.highlightAuto(code).value
-  },
-  breaks: true, // 支持 GitHub 风格的换行
-  gfm: true // 启用 GitHub 风格的 Markdown
-})
-
-const formatMessage = (content) => {
-  if (!content) return ''
-  try {
-    // 使用 marked 渲染 markdown
-    return marked.parse(content)
-  } catch (error) {
-    console.error('Markdown 渲染错误:', error)
-    // 如果渲染失败，回退到简单的换行处理
-    return content.replace(/\n/g, '<br>')
-  }
-}
+// 使用统一的 Markdown 渲染函数（支持数学公式、代码高亮等）
+const formatMessage = renderMarkdown
 
 const formatTime = (date) => {
   if (!date) return ''
@@ -744,7 +717,8 @@ onMounted(() => {
   margin-bottom: 1em;
 }
 
-.message-text :deep(pre code) {
+.message-text :deep(pre code),
+.message-content :deep(pre code) {
   display: inline;
   max-width: auto;
   padding: 0;

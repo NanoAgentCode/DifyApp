@@ -298,8 +298,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { nextTick, onMounted, onUnmounted } from 'vue'
 import {
   Delete,
   Folder,
@@ -314,916 +313,107 @@ import {
   Plus,
   Warning
 } from '@element-plus/icons-vue'
-import { getKnowledgeBaseList } from '@/api/knowledgeBase'
-import { knowledgeBaseQA, knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
-import { getModelConfig, getAvailableQAModelsForRAG } from '@/api/model'
 import { getModelStyle } from '@/utils/modelColor'
-import { getVectorDatabaseList } from '@/api/vectorDatabase'
-import { getConversationMessages, getConversation } from '@/api/chat'
-import { marked } from 'marked'
-import hljs from 'highlight.js'
-import 'highlight.js/styles/github-dark.css'
-import katex from 'katex'
-import 'katex/dist/katex.min.css'
+import { renderMarkdown } from '@/composables/useMarkdown'
+import { useKnowledgeBaseQA } from '@/composables/useKnowledgeBaseQA'
 
-// 主流开发语言别名映射
-const languageAliases = {
-  'js': 'javascript',
-  'ts': 'typescript',
-  'py': 'python',
-  'rb': 'ruby',
-  'sh': 'bash',
-  'yml': 'yaml',
-  'md': 'markdown',
-  'json': 'json',
-  'xml': 'xml',
-  'html': 'html',
-  'css': 'css',
-  'scss': 'scss',
-  'less': 'less',
-  'vue': 'vue',
-  'react': 'jsx',
-  'jsx': 'jsx',
-  'tsx': 'tsx',
-  'go': 'go',
-  'java': 'java',
-  'c': 'c',
-  'cpp': 'cpp',
-  'cs': 'csharp',
-  'php': 'php',
-  'swift': 'swift',
-  'kt': 'kotlin',
-  'rs': 'rust',
-  'sql': 'sql',
-  'dockerfile': 'dockerfile',
-  'yaml': 'yaml'
-}
-
-// 规范化语言标识符
-const normalizeLanguage = (lang) => {
-  if (!lang) return null
-  const normalized = lang.toLowerCase().trim()
-  return languageAliases[normalized] || normalized
-}
-
-// 配置 marked（在组件初始化时配置一次即可）
-marked.setOptions({
-  highlight: function(code, lang) {
-    if (!code) return ''
-    
-    // 规范化语言标识符
-    const normalizedLang = normalizeLanguage(lang)
-    
-    try {
-      let result
-      
-      // 如果指定了语言且支持，使用指定语言高亮
-      if (normalizedLang && hljs.getLanguage(normalizedLang)) {
-        try {
-          const highlighted = hljs.highlight(code, { language: normalizedLang })
-          result = highlighted.value
-        } catch (err) {
-          console.warn('代码高亮失败', err, '语言:', normalizedLang)
-          // 如果指定语言失败，尝试自动检测
-          result = hljs.highlightAuto(code).value
-        }
-      } else {
-        // 自动检测语言
-        const autoResult = hljs.highlightAuto(code, ['javascript', 'typescript', 'python', 'java', 'go', 'rust', 'cpp', 'c', 'csharp', 'php', 'ruby', 'swift', 'kotlin', 'sql', 'html', 'css', 'json', 'xml', 'yaml', 'bash', 'shell'])
-        result = autoResult.value
-      }
-      
-      return result
-    } catch (err) {
-      console.error('代码高亮异常', err)
-      try {
-        return hljs.highlightAuto(code).value
-      } catch (fallbackErr) {
-        console.error('代码高亮降级失败', fallbackErr)
-        return `<code class="hljs">${code}</code>`
-      }
-    }
-  },
-  breaks: true, // 支持换行
-  gfm: true, // 启用 GitHub Flavored Markdown
-  headerIds: false, // 禁用自动生成 header IDs
-  mangle: false // 禁用邮箱地址混淆
+// 使用知识库问答 composable（启用对话历史功能，非管理员）
+const {
+  knowledgeBases,
+  selectedKB,
+  embeddingModels,
+  question,
+  sending,
+  chatHistory,
+  chatHistoryRef,
+  conversationId,
+  useStream,
+  currentStreamingMessage,
+  kbSearchKeyword,
+  displayedCount,
+  loadingMore,
+  availableQAModels,
+  selectedModelId,
+  vectorDatabases,
+  enabledVectorStoreTypes,
+  filteredKnowledgeBases,
+  displayedKnowledgeBases,
+  hasMoreToLoad,
+  remainingCount,
+  handleKbSearch,
+  loadMore,
+  selectKB,
+  loadKnowledgeBases,
+  loadEmbeddingModels,
+  getEmbeddingModelName,
+  isEmbeddingModelEnabled,
+  loadVectorDatabases,
+  isVectorStoreTypeEnabled,
+  getVectorStoreTypeName,
+  isKnowledgeBaseActive,
+  getKnowledgeBaseDisabledTip,
+  getKnowledgeBaseTooltipContent,
+  loadQAModels,
+  handleSend,
+  handleClearHistory,
+  handleNewConversation,
+  scrollToBottom,
+  loadConversationHistory,
+  cleanup
+} = useKnowledgeBaseQA({
+  enableConversationHistory: true, // user版本启用对话历史
+  isAdmin: false // user版本不是管理员
 })
 
-// 知识库数据
-const knowledgeBases = ref([])
-const selectedKB = ref(null)
-const embeddingModels = ref([])
-const question = ref('')
-const sending = ref(false)
-const chatHistory = ref([])
-const chatHistoryRef = ref(null)
-const conversationId = ref(null)
-const useStream = ref(true) // 默认使用流式响应
-const currentStreamingMessage = ref(null) // 当前正在流式接收的消息索引
-const kbSearchKeyword = ref('') // 知识库搜索关键词
-const displayedCount = ref(50) // 初始显示数量
-const loadingMore = ref(false) // 加载更多状态
-const searchDebounceTimer = ref(null) // 防抖定时器
-const availableQAModels = ref([]) // 可用的问答模型列表
-const selectedModelId = ref(null) // 选中的问答模型ID
-const vectorDatabases = ref([]) // 向量库配置列表
-const enabledVectorStoreTypes = ref([]) // 启用的向量库类型列表
-
-// 过滤知识库列表
-const filteredKnowledgeBases = computed(() => {
-  if (!kbSearchKeyword.value) {
-    return knowledgeBases.value
-  }
-  
-  const keyword = kbSearchKeyword.value.toLowerCase()
-  return knowledgeBases.value.filter(kb => 
-    (kb.name && kb.name.toLowerCase().includes(keyword)) ||
-    (kb.description && kb.description.toLowerCase().includes(keyword))
-  )
-})
-
-// 显示的知识库列表（限制数量）
-const displayedKnowledgeBases = computed(() => {
-  return filteredKnowledgeBases.value.slice(0, displayedCount.value)
-})
-
-// 是否还有更多可加载
-const hasMoreToLoad = computed(() => {
-  return displayedCount.value < filteredKnowledgeBases.value.length
-})
-
-// 剩余数量
-const remainingCount = computed(() => {
-  return filteredKnowledgeBases.value.length - displayedCount.value
-})
-
-// 防抖搜索
-const handleKbSearch = () => {
-  // 重置显示数量
-  displayedCount.value = 50
-  
-  // 清除之前的定时器
-  if (searchDebounceTimer.value) {
-    clearTimeout(searchDebounceTimer.value)
-  }
-  
-  // 设置新的定时器（300ms 防抖）
-  searchDebounceTimer.value = setTimeout(() => {
-    // 搜索时自动展开所有结果
-    if (kbSearchKeyword.value) {
-      displayedCount.value = filteredKnowledgeBases.value.length
-    } else {
-      displayedCount.value = 50
-    }
-  }, 300)
-}
-
-// 加载更多
-const loadMore = () => {
-  loadingMore.value = true
-  // 模拟加载延迟，实际可以异步加载
-  setTimeout(() => {
-    displayedCount.value = Math.min(
-      displayedCount.value + 50,
-      filteredKnowledgeBases.value.length
-    )
-    loadingMore.value = false
-  }, 300)
-}
-
-const selectKB = (kb) => {
-  selectedKB.value = kb
-  // 切换知识库时，清空对话历史
-  chatHistory.value = []
-  conversationId.value = null
-  scrollToBottom()
-}
-
-// 加载向量化模型列表（包括禁用的，用于检查状态）
-const loadEmbeddingModels = async () => {
-  try {
-    const response = await getModelConfig()
-    // 加载所有模型（包括禁用的），以便检查状态
-    embeddingModels.value = response.embeddingModels || []
-  } catch (error) {
-    console.error('加载向量化模型列表失败', error)
-  }
-}
-
-// 辅助函数：根据模型ID获取模型名称
-const getEmbeddingModelName = (modelId) => {
-  if (modelId) {
-    const model = embeddingModels.value.find(m => m.id === modelId)
-    return model ? model.name : null
-  } else {
-    // 如果没有指定模型ID，返回默认模型名称
-    const defaultModel = embeddingModels.value.find(m => m.isDefault)
-    return defaultModel ? defaultModel.name : null
-  }
-}
-
-// 检查向量化模型是否启用
-const isEmbeddingModelEnabled = (modelId) => {
-  if (modelId) {
-    const model = embeddingModels.value.find(m => m.id === modelId)
-    return model ? model.enabled : false
-  } else {
-    // 如果没有指定模型ID，检查默认模型是否启用
-    const defaultModel = embeddingModels.value.find(m => m.isDefault)
-    return defaultModel ? defaultModel.enabled : false
-  }
-}
-
-// 加载向量库配置列表
-const loadVectorDatabases = async () => {
-  try {
-    const response = await getVectorDatabaseList()
-    vectorDatabases.value = response || []
-    
-    // 计算启用的向量库类型
-    const enabledTypes = new Set()
-    vectorDatabases.value.forEach(db => {
-      if (db.enabled && db.type) {
-        enabledTypes.add(db.type.toLowerCase())
-      }
-    })
-    enabledVectorStoreTypes.value = Array.from(enabledTypes)
-  } catch (error) {
-    console.error('加载向量库配置列表失败', error)
-    // 如果加载失败，默认允许所有类型
-    enabledVectorStoreTypes.value = ['qdrant', 'faiss', 'milvus', 'chroma', 'weaviate', 'elasticsearch']
-  }
-}
-
-// 检查向量库类型是否启用
-const isVectorStoreTypeEnabled = (type) => {
-  if (!type) return true // 如果没有指定类型，默认允许（向后兼容）
-  return enabledVectorStoreTypes.value.includes(type.toLowerCase())
-}
-
-// 获取向量存储类型名称
-const getVectorStoreTypeName = (type) => {
-  if (type === 'faiss') return 'FAISS'
-  if (type === 'milvus') return 'Milvus'
-  if (type === 'chroma') return 'Chroma'
-  if (type === 'weaviate') return 'Weaviate'
-  return 'Qdrant'
-}
-
-// 检查知识库是否启用
-const isKnowledgeBaseActive = (status) => {
-  if (typeof status === 'number') {
-    return status === 1
-  }
-  return status === 'active'
-}
-
-// 获取知识库禁用原因提示
-const getKnowledgeBaseDisabledTip = (kb) => {
-  if (!kb) return ''
-  
-  const reasons = []
-  
-  // 检查知识库状态
-  if (!isKnowledgeBaseActive(kb.status)) {
-    reasons.push('知识库已被禁用')
-  }
-  
-  // 检查向量化模型
-  if (!isEmbeddingModelEnabled(kb.embeddingModelId)) {
-    const modelName = getEmbeddingModelName(kb.embeddingModelId) || '默认向量化模型'
-    reasons.push(`向量化模型"${modelName}"已被禁用`)
-  }
-  
-  // 检查向量库类型
-  if (!isVectorStoreTypeEnabled(kb.vectorStoreType)) {
-    const vectorStoreName = getVectorStoreTypeName(kb.vectorStoreType)
-    reasons.push(`向量库类型"${vectorStoreName}"已被禁用`)
-  }
-  
-  if (reasons.length > 0) {
-    return `无法使用：${reasons.join('、')}。请联系管理员处理。`
-  }
-  
-  return ''
-}
-
-// 获取知识库 tooltip 内容（包含智能摘要和禁用原因）
-const getKnowledgeBaseTooltipContent = (kb) => {
-  if (!kb) return ''
-  
-  const parts = []
-  
-  // 如果有智能摘要，优先显示
-  if (kb.summary && kb.summary.trim()) {
-    // 转义 HTML 特殊字符，防止 XSS
-    const escapedSummary = kb.summary
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;')
-    parts.push(`<div style="margin-bottom: 8px; max-width: 300px; line-height: 1.6; padding: 8px 12px; background: linear-gradient(135deg, #f5f7fa 0%, #e8f4f8 100%); border-left: 3px solid #409eff; border-radius: 4px;"><div style="color: #409eff; font-weight: 600; font-size: 13px; margin-bottom: 6px;">📋 智能摘要</div><div style="color: #606266; font-size: 13px;">${escapedSummary}</div></div>`)
-  }
-  
-  // 如果有禁用原因，也显示
-  const disabledTip = getKnowledgeBaseDisabledTip(kb)
-  if (disabledTip) {
-    // 转义 HTML 特殊字符
-    const escapedTip = disabledTip
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;')
-    parts.push(`<div style="color: #f56c6c; margin-top: 8px; padding: 6px 10px; background-color: #fef0f0; border-left: 3px solid #f56c6c; border-radius: 4px; font-size: 12px;">⚠️ ${escapedTip}</div>`)
-  }
-  
-  // 如果既没有摘要也没有禁用原因，返回空字符串（tooltip 会被禁用）
-  if (parts.length === 0) {
-    return ''
-  }
-  
-  return parts.join('')
-}
-
-// 加载问答模型列表（用于知识库问答）
-const loadQAModels = async () => {
-  try {
-    const response = await getAvailableQAModelsForRAG()
-    // request拦截器已经提取了response.data，所以response就是数据本身
-    const data = Array.isArray(response) ? response : (response?.data || [])
-    availableQAModels.value = data || []
-    console.log('加载的问答模型列表:', availableQAModels.value)
-    // 如果没有选中模型，默认选择第一个或默认模型
-    if (!selectedModelId.value && availableQAModels.value.length > 0) {
-      const defaultModel = availableQAModels.value.find(m => m.isDefault)
-      selectedModelId.value = defaultModel ? defaultModel.id : availableQAModels.value[0].id
-    } else if (availableQAModels.value.length === 0) {
-      console.warn('没有可用的RAG问答模型，请先在"大模型管理"页面配置useFor为"rag"或"both"的模型')
-      ElMessage.warning('当前没有可用的RAG问答模型，请先在"大模型管理"页面配置模型')
-    }
-  } catch (error) {
-    console.error('加载问答模型列表失败', error)
-    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || '未知错误'
-    ElMessage.error(`加载问答模型列表失败: ${errorMessage}`)
-    availableQAModels.value = []
-  }
-}
-
-// 加载知识库列表（包括用户自己的和公开的知识库）
-const loadKnowledgeBases = async () => {
-  try {
-    // 从localStorage获取用户信息
-    const userInfoStr = localStorage.getItem('userInfo')
-    let userId = null
-    if (userInfoStr) {
-      try {
-        const userInfo = JSON.parse(userInfoStr)
-        userId = userInfo.userId
-      } catch (e) {
-        console.warn('解析用户信息失败', e)
-      }
-    }
-    
-    const params = { status: 1 } // 只获取启用的知识库
-    if (userId) {
-      params.userId = userId // 获取用户自己的知识库和公开的知识库（后端会处理）
-    }
-    
-    const res = await getKnowledgeBaseList(params)
-    // 后端直接返回数组，request拦截器已经提取了response.data
-    const data = Array.isArray(res) ? res : (res?.data || [])
-    
-    if (data && data.length > 0) {
-      knowledgeBases.value = data.map(kb => ({
-        id: kb.id,
-        name: kb.name,
-        description: kb.description || '',
-        summary: kb.summary || '',
-        documentCount: kb.documentCount || 0,
-        status: kb.status === 1 ? 'active' : 'inactive',
-        embeddingModelId: kb.embeddingModelId || null,
-        vectorStoreType: kb.vectorStoreType || 'qdrant'
-      }))
-      
-      // 重置显示数量
-      displayedCount.value = 50
-      
-      // 默认选择第一个知识库
-      if (knowledgeBases.value.length > 0) {
-        selectKB(knowledgeBases.value[0])
-      }
-    } else {
-      ElMessage.info('暂无可用知识库，请先创建知识库')
-    }
-  } catch (error) {
-    console.error('加载知识库列表失败', error)
-    ElMessage.error('加载知识库列表失败：' + (error.message || '未知错误'))
-  }
-}
-
-const handleSend = async () => {
-  if (!question.value.trim() || !selectedKB.value || sending.value) {
-    return
-  }
-
-  // 检查向量化模型是否启用
-  if (!isEmbeddingModelEnabled(selectedKB.value.embeddingModelId)) {
-    const modelName = getEmbeddingModelName(selectedKB.value.embeddingModelId) || '默认向量化模型'
-    ElMessage.warning(`该知识库使用的向量化模型"${modelName}"已被禁用，无法进行问答。请联系管理员启用该向量化模型。`)
-    return
-  }
-
-  // 检查向量库类型是否启用
-  if (!isVectorStoreTypeEnabled(selectedKB.value.vectorStoreType)) {
-    const vectorStoreName = getVectorStoreTypeName(selectedKB.value.vectorStoreType)
-    ElMessage.warning(`该知识库使用的向量库类型"${vectorStoreName}"已被禁用，无法进行问答。请联系管理员在向量库管理中启用该类型的向量库配置。`)
-    return
-  }
-
-  // 检查知识库是否启用
-  if (!isKnowledgeBaseActive(selectedKB.value.status)) {
-    ElMessage.warning('该知识库已被禁用，无法进行问答。请联系管理员在知识库管理中启用该知识库。')
-    return
-  }
-
-  const userQuestion = question.value.trim()
-  
-  // 添加用户消息
-  chatHistory.value.push({
-    type: 'user',
-    content: userQuestion,
-    time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-  })
-
-  // 清空输入框
-  question.value = ''
-  sending.value = true
-
-  // 滚动到底部
-  await nextTick()
-  scrollToBottom()
-
-  try {
-    // 构建对话历史（限制最近10轮对话，避免token过多）
-    const maxHistoryRounds = 10 // 最多保留10轮对话（20条消息）
-    const historyMessages = chatHistory.value.slice(0, -1)
-    const limitedHistory = historyMessages.slice(-maxHistoryRounds * 2).map(msg => ({
-      role: msg.type === 'user' ? 'user' : 'assistant',
-      content: msg.content
-    }))
-    
-    // 确保历史记录格式正确（user和assistant交替）
-    const history = []
-    for (let i = 0; i < limitedHistory.length; i++) {
-      const msg = limitedHistory[i]
-      if (msg.role && msg.content) {
-        history.push(msg)
-      }
-    }
-
-    if (useStream.value) {
-      // 流式响应
-      await handleStreamResponse(userQuestion, history)
-    } else {
-      // 非流式响应
-      await handleNormalResponse(userQuestion, history)
-    }
-  } catch (error) {
-    console.error('问答失败', error)
-    ElMessage.error('问答失败：' + (error.message || '未知错误'))
-    
-    // 添加错误消息
-    chatHistory.value.push({
-      type: 'assistant',
-      content: '抱歉，问答服务暂时不可用，请稍后重试。',
-      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-    })
-  } finally {
-    sending.value = false
-    currentStreamingMessage.value = null
-    scrollToBottom()
-  }
-}
-
-// 处理非流式响应
-const handleNormalResponse = async (userQuestion, history) => {
-  // 确保历史记录不为空时才传递
-  const historyToSend = history && history.length > 0 ? history : null
-  
-  const res = await knowledgeBaseQA(
-    selectedKB.value.id,
-    userQuestion,
-    conversationId.value,
-    null,
-    historyToSend,
-    selectedModelId.value
-  )
-
-  if (res && res.data) {
-    // 更新对话ID
-    if (res.data.conversationId) {
-      conversationId.value = res.data.conversationId
-      console.log('非流式响应完成，更新 conversationId:', conversationId.value)
-    }
-
-    // 添加AI回复
-    chatHistory.value.push({
-      type: 'assistant',
-      content: res.data.answer || '抱歉，无法生成答案。',
-      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-      sources: res.data.sources || []
-    })
-  } else {
-    throw new Error('API返回数据格式错误')
-  }
-}
-
-// 处理流式响应
-const handleStreamResponse = async (userQuestion, history) => {
-  // 创建占位的AI消息（显示加载状态）
-  const aiMessageIndex = chatHistory.value.length
-  chatHistory.value.push({
-    type: 'assistant',
-    content: '',
-    time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-    sources: [],
-    isLoading: true // 标记为加载中
-  })
-  currentStreamingMessage.value = aiMessageIndex
-  
-  // 滚动到底部显示加载提示
-  await nextTick()
-  scrollToBottom()
-
-  let fullAnswer = ''
-  let sources = []
-  let finalConversationId = conversationId.value
-
-  try {
-    // 确保历史记录不为空时才传递
-    const historyToSend = history && history.length > 0 ? history : null
-    
-    const response = await knowledgeBaseQAStream(
-      selectedKB.value.id,
-      userQuestion,
-      conversationId.value,
-      null,
-      historyToSend,
-      selectedModelId.value
-    )
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-
-    while (true) {
-      const { done, value } = await reader.read()
-      
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
-      
-      // 处理SSE格式：每行以data:开头，空行分隔
-      // 保留最后一行（可能不完整）到buffer中
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || '' // 保留最后一行（可能不完整）
-
-      for (const line of lines) {
-        const trimmedLine = line.trim()
-        
-        // 跳过空行
-        if (!trimmedLine) continue
-        
-        // 处理SSE数据行：data: {...} 或 data:{...}
-        if (trimmedLine.startsWith('data:')) {
-          const data = trimmedLine.slice(5).trim()
-          
-          // 跳过结束标记和空数据
-          if (data === '[DONE]' || data === '') continue
-
-          try {
-            const json = JSON.parse(data)
-            
-            // 更新答案内容（后端已经累积，直接使用）
-            if (json.answer !== undefined && json.answer !== null) {
-              // 检查消息对象是否存在
-              if (!chatHistory.value[aiMessageIndex]) {
-                console.warn('消息对象不存在，索引:', aiMessageIndex, '数组长度:', chatHistory.value.length)
-                continue
-              }
-              // 后端使用scan操作符累积答案，所以每次返回的都是完整的累积答案
-              fullAnswer = json.answer
-              // 清除加载状态，显示实际内容
-              if (chatHistory.value[aiMessageIndex].isLoading) {
-                chatHistory.value[aiMessageIndex].isLoading = false
-              }
-              chatHistory.value[aiMessageIndex].content = fullAnswer
-              
-              // 实时滚动
-              await nextTick()
-              scrollToBottom()
-            }
-
-            // 更新来源文档（通常在最后一条消息中）
-            if (json.sources && json.sources.length > 0) {
-              sources = json.sources
-              chatHistory.value[aiMessageIndex].sources = sources
-            }
-
-            // 更新对话ID（如果响应中包含 conversationId，立即更新，不等待 finished）
-            if (json.conversationId) {
-              conversationId.value = json.conversationId
-              finalConversationId = json.conversationId
-              console.log('流式响应中更新 conversationId:', conversationId.value)
-            }
-
-            // 流式响应完成
-            if (json.finished) {
-              // 检查消息对象是否存在
-              if (chatHistory.value[aiMessageIndex]) {
-                chatHistory.value[aiMessageIndex].content = fullAnswer || json.answer || ''
-                chatHistory.value[aiMessageIndex].sources = sources
-              }
-              // 确保会话ID已更新（如果之前没有更新）
-              if (json.conversationId) {
-                conversationId.value = json.conversationId
-                console.log('流式响应完成，最终 conversationId:', conversationId.value)
-              }
-              break
-            }
-          } catch (e) {
-            console.warn('解析流式数据失败', e, data)
-          }
-        }
-        // 其他SSE行（如event:、id:等）可以忽略
-      }
-    }
-  } catch (error) {
-    console.error('流式响应失败', error)
-    chatHistory.value[aiMessageIndex].content = fullAnswer || '抱歉，生成答案时发生错误。'
-    throw error
-  }
-}
-
-// 渲染数学公式（支持行内公式 $...$ 和块级公式 $$...$$）
-const renderMath = (html) => {
-  if (!html) return ''
-  
-  try {
-    // 先标记块级公式 $$...$$，避免被行内公式匹配
-    const blockPlaceholder = '___KATEX_BLOCK_PLACEHOLDER___'
-    const blockMatches = []
-    html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
-      blockMatches.push({ original: match, formula: formula.trim() })
-      return blockPlaceholder + (blockMatches.length - 1) + blockPlaceholder
-    })
-    
-    // 处理行内公式 $...$（不包含换行符，支持方括号等特殊字符）
-    html = html.replace(/\$([^$\n]+?)\$/g, (match, formula) => {
-      try {
-        const trimmed = formula.trim()
-        if (!trimmed) return match
-        return katex.renderToString(trimmed, {
-          displayMode: false,
-          throwOnError: false
-        })
-      } catch (e) {
-        console.warn('KaTeX 渲染失败（行内）:', e, '公式:', formula)
-        return match
-      }
-    })
-    
-    // 恢复并渲染块级公式
-    html = html.replace(new RegExp(blockPlaceholder + '(\\d+)' + blockPlaceholder, 'g'), (match, index) => {
-      const blockMatch = blockMatches[parseInt(index)]
-      if (!blockMatch) return match
-      
-      try {
-        if (!blockMatch.formula) return blockMatch.original
-        return katex.renderToString(blockMatch.formula, {
-          displayMode: true,
-          throwOnError: false
-        })
-      } catch (e) {
-        console.warn('KaTeX 渲染失败（块级）:', e, '公式:', blockMatch.formula)
-        return blockMatch.original
-      }
-    })
-    
-    return html
-  } catch (error) {
-    console.error('数学公式渲染失败', error)
-    return html
-  }
-}
-
-// 渲染Markdown
-const renderMarkdown = (content) => {
-  if (!content) return ''
-  
-  try {
-    // 先渲染 Markdown
-    let html = marked.parse(content)
-    // 再渲染数学公式
-    html = renderMath(html)
-    return html
-  } catch (error) {
-    console.error('Markdown渲染失败', error)
-    return content
-  }
-}
-
-// 开启新对话
-const handleNewConversation = () => {
-  chatHistory.value = []
-  conversationId.value = null
-  question.value = ''
-  sending.value = false
-  currentStreamingMessage.value = null
-  ElMessage.success('已开启新对话')
-  
-  // 滚动到底部
-  nextTick(() => {
-    scrollToBottom(true)
-  })
-}
-
-const handleClearHistory = () => {
-  if (chatHistory.value.length === 0) {
-    ElMessage.info('当前没有对话历史')
-    return
-  }
-  
-  chatHistory.value = []
-  conversationId.value = null
-  ElMessage.success('已清空对话历史')
-}
-
-const scrollToBottom = (force = false) => {
-  nextTick(() => {
-    if (chatHistoryRef.value) {
-      // 如果用户手动向上滚动了，且不是强制滚动，则不自动滚动
-      if (!force) {
-        const element = chatHistoryRef.value
-        const threshold = 100 // 距离底部100px内认为是在底部
-        const isNearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < threshold
-        if (!isNearBottom) {
-          return
-        }
-      }
-      chatHistoryRef.value.scrollTop = chatHistoryRef.value.scrollHeight
-    }
-  })
-}
 
 // 手动触发代码高亮（用于流式响应中逐步生成的代码块）
 const highlightCodeBlocks = () => {
   nextTick(() => {
     if (chatHistoryRef.value) {
-      // 查找所有代码块（包括没有hljs类的）
       const codeBlocks = chatHistoryRef.value.querySelectorAll('pre code')
-      
-      codeBlocks.forEach((block, index) => {
+      codeBlocks.forEach((block) => {
         try {
-          // 检查是否是公式（包含 KaTeX 相关元素或公式占位符）
           const isFormula = block.closest('.katex') || 
-                           block.closest('.katex-formula-block') ||
-                           block.textContent.includes('<!--KATEX_FORMULA_') ||
-                           block.parentElement?.classList.contains('katex-formula-block')
-          
-          if (isFormula) {
-            console.debug(`代码块 ${index} 是公式，跳过代码高亮`)
-            return
-          }
+                           block.closest('.katex-formula-block')
+          if (isFormula) return
           
           const originalText = block.textContent
-          // 如果代码块没有hljs类，或者内容已更新，重新高亮
           const needsHighlight = !block.classList.contains('hljs') || 
                                 block.dataset.highlighted !== 'true' ||
                                 block.dataset.originalText !== originalText
           
           if (needsHighlight && originalText.trim()) {
-            
-            let lang = block.className.match(/language-(\w+)/)?.[1] || 
-                      block.parentElement?.className.match(/language-(\w+)/)?.[1] ||
-                      block.getAttribute('data-lang')
-            
-            // 规范化语言标识符
-            const normalizedLang = lang ? normalizeLanguage(lang) : null
-            
-            let highlightedHtml
-            if (normalizedLang && hljs.getLanguage(normalizedLang)) {
-              // 使用指定语言高亮
-              highlightedHtml = hljs.highlight(originalText, { language: normalizedLang }).value
-            } else {
-              // 自动检测语言
-              const result = hljs.highlightAuto(originalText, ['javascript', 'typescript', 'python', 'java', 'go', 'rust', 'cpp', 'c', 'csharp', 'php', 'ruby', 'swift', 'kotlin', 'sql', 'html', 'css', 'json', 'xml', 'yaml', 'bash', 'shell'])
-              highlightedHtml = result.value
-            }
-            
-            // 更新HTML并添加类名
-            block.innerHTML = highlightedHtml
+            // 代码高亮已在 useMarkdown 中处理，这里只需要标记
             block.classList.add('hljs')
             block.dataset.highlighted = 'true'
             block.dataset.originalText = originalText
           }
         } catch (err) {
-          console.error('手动高亮代码块失败', err, block)
+          console.error('手动高亮代码块失败', err)
         }
       })
     }
   })
 }
 
-// 加载历史对话记录
-const loadConversationHistory = async (convId) => {
-  try {
-    const messages = await getConversationMessages(convId)
-    if (messages && messages.length > 0) {
-      // 获取会话信息以确定知识库ID
-      let kbId = null
-      try {
-        const conversation = await getConversation(convId)
-        if (conversation && conversation.knowledgeBaseId) {
-          kbId = conversation.knowledgeBaseId
-          console.log('加载历史对话，知识库ID:', kbId)
-          // 确保知识库列表已加载
-          if (knowledgeBases.value.length === 0) {
-            await loadKnowledgeBases()
-          }
-          // 如果知识库ID存在，尝试选择对应的知识库
-          if (kbId && knowledgeBases.value.length > 0) {
-            const kb = knowledgeBases.value.find(k => k.id === kbId)
-            if (kb) {
-              selectedKB.value = kb
-              console.log('已选择知识库:', kb.name)
-            } else {
-              console.warn('未找到对应的知识库，ID:', kbId, '可用知识库:', knowledgeBases.value.map(k => k.id))
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('获取会话信息失败', e)
-      }
-      
-      // 将历史消息转换为聊天历史格式
-      chatHistory.value = messages.map(msg => ({
-        type: msg.role === 'user' ? 'user' : 'assistant',
-        content: msg.content || '',
-        sources: msg.sources || [], // 注意：历史消息中可能没有sources，因为数据库未保存
-        time: msg.createTime ? new Date(msg.createTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-        isLoading: false
-      }))
-      
-      // 设置会话ID
-      conversationId.value = convId.toString()
-      
-      // 滚动到底部
-      await nextTick()
-      scrollToBottom(true)
-      await nextTick()
-      highlightCodeBlocks()
-      
-      ElMessage.success('已加载历史对话记录')
-    }
-  } catch (error) {
-    console.error('加载历史对话失败', error)
-    ElMessage.warning('加载历史对话失败：' + (error.message || '未知错误'))
-  }
-}
-
 onMounted(async () => {
-  // 加载知识库列表
   loadKnowledgeBases()
-  // 加载向量化模型列表
   loadEmbeddingModels()
-  // 加载问答模型列表
   loadQAModels()
-  // 加载向量库配置列表
   loadVectorDatabases()
   
   // 检查是否有继续对话的标记
   const continueConvId = localStorage.getItem('continueConversationId')
   if (continueConvId) {
-    // 清除标记
     localStorage.removeItem('continueConversationId')
-    // 加载历史对话
     await loadConversationHistory(continueConvId)
+    await nextTick()
+    highlightCodeBlocks()
   }
 })
 
-// 组件卸载时清理定时器
 onUnmounted(() => {
-  if (searchDebounceTimer.value) {
-    clearTimeout(searchDebounceTimer.value)
-  }
+  cleanup()
 })
 </script>
 

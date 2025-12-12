@@ -1,0 +1,467 @@
+/**
+ * VS Code Dark+ 主题配色方案
+ * 基于 Visual Studio Code 默认的 Dark+ 主题
+ */
+
+/* 代码块容器 - 使用更高优先级的选择器 */
+.hljs,
+pre .hljs,
+pre code.hljs,
+code.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 16px;
+  background: #1e1e1e !important; /* VS Code Dark+ 背景色 */
+  color: #d4d4d4 !important; /* VS Code Dark+ 前景色 */
+  border-radius: 6px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* 不要强制继承，让每个语法元素使用自己的颜色 */
+
+/* 关键字 - 使用更高优先级，包括组件内的选择器 */
+.hljs-keyword,
+.hljs .hljs-keyword,
+pre .hljs-keyword,
+pre code .hljs-keyword,
+pre code.hljs .hljs-keyword,
+.message-text pre code.hljs .hljs-keyword,
+.message-text :deep(pre code.hljs .hljs-keyword),
+.message-content pre code.hljs .hljs-keyword,
+.message-content :deep(pre code.hljs .hljs-keyword),
+.hljs-selector-tag,
+.hljs .hljs-selector-tag,
+pre .hljs-selector-tag,
+pre code .hljs-selector-tag,
+pre code.hljs .hljs-selector-tag,
+.message-text pre code.hljs .hljs-selector-tag,
+.message-text :deep(pre code.hljs .hljs-selector-tag),
+.message-content pre code.hljs .hljs-selector-tag,
+.message-content :deep(pre code.hljs .hljs-selector-tag),
+.hljs-literal,
+.hljs .hljs-literal,
+pre .hljs-literal,
+pre code .hljs-literal,
+pre code.hljs .hljs-literal,
+.message-text pre code.hljs .hljs-literal,
+.message-text :deep(pre code.hljs .hljs-literal),
+.message-content pre code.hljs .hljs-literal,
+.message-content :deep(pre code.hljs .hljs-literal),
+.hljs-section,
+.hljs .hljs-section,
+pre .hljs-section,
+pre code .hljs-section,
+pre code.hljs .hljs-section,
+.message-text pre code.hljs .hljs-section,
+.message-text :deep(pre code.hljs .hljs-section),
+.message-content pre code.hljs .hljs-section,
+.message-content :deep(pre code.hljs .hljs-section),
+.hljs-link,
+.hljs .hljs-link,
+pre .hljs-link,
+pre code .hljs-link,
+pre code.hljs .hljs-link,
+.message-text pre code.hljs .hljs-link,
+.message-text :deep(pre code.hljs .hljs-link),
+.message-content pre code.hljs .hljs-link,
+.message-content :deep(pre code.hljs .hljs-link) {
+  color: #569cd6 !important; /* 蓝色 - 关键字 */
+}
+
+/* 类型 - 使用更高优先级，包括组件内的选择器 */
+.hljs-type,
+.hljs .hljs-type,
+pre .hljs-type,
+pre code .hljs-type,
+pre code.hljs .hljs-type,
+.message-text pre code.hljs .hljs-type,
+.message-text :deep(pre code.hljs .hljs-type),
+.message-content pre code.hljs .hljs-type,
+.message-content :deep(pre code.hljs .hljs-type),
+.hljs-class .hljs-title,
+.hljs .hljs-class .hljs-title,
+pre .hljs-class .hljs-title,
+pre code .hljs-class .hljs-title,
+pre code.hljs .hljs-class .hljs-title,
+.message-text pre code.hljs .hljs-class .hljs-title,
+.message-text :deep(pre code.hljs .hljs-class .hljs-title),
+.message-content pre code.hljs .hljs-class .hljs-title,
+.message-content :deep(pre code.hljs .hljs-class .hljs-title),
+.hljs-attribute,
+.hljs .hljs-attribute,
+pre .hljs-attribute,
+pre code .hljs-attribute,
+pre code.hljs .hljs-attribute,
+.message-text pre code.hljs .hljs-attribute,
+.message-text :deep(pre code.hljs .hljs-attribute),
+.message-content pre code.hljs .hljs-attribute,
+.message-content :deep(pre code.hljs .hljs-attribute),
+.hljs-name,
+.hljs .hljs-name,
+pre .hljs-name,
+pre code .hljs-name,
+pre code.hljs .hljs-name,
+.message-text pre code.hljs .hljs-name,
+.message-text :deep(pre code.hljs .hljs-name),
+.message-content pre code.hljs .hljs-name,
+.message-content :deep(pre code.hljs .hljs-name),
+.hljs-doctag,
+.hljs .hljs-doctag,
+pre .hljs-doctag,
+pre code .hljs-doctag,
+pre code.hljs .hljs-doctag,
+.message-text pre code.hljs .hljs-doctag,
+.message-text :deep(pre code.hljs .hljs-doctag),
+.message-content pre code.hljs .hljs-doctag,
+.message-content :deep(pre code.hljs .hljs-doctag) {
+  color: #4ec9b0 !important; /* 青色 - 类型 */
+}
+
+/* 字符串 - 使用更高优先级，包括组件内的选择器 */
+.hljs-string,
+.hljs .hljs-string,
+pre .hljs-string,
+pre code .hljs-string,
+pre code.hljs .hljs-string,
+.message-text pre code.hljs .hljs-string,
+.message-text :deep(pre code.hljs .hljs-string),
+.message-content pre code.hljs .hljs-string,
+.message-content :deep(pre code.hljs .hljs-string),
+.hljs-subst,
+.hljs .hljs-subst,
+pre .hljs-subst,
+pre code .hljs-subst,
+pre code.hljs .hljs-subst,
+.message-text pre code.hljs .hljs-subst,
+.message-text :deep(pre code.hljs .hljs-subst),
+.message-content pre code.hljs .hljs-subst,
+.message-content :deep(pre code.hljs .hljs-subst) {
+  color: #ce9178 !important; /* 橙色 - 字符串 */
+}
+
+/* 注释 - 使用更高优先级，包括组件内的选择器 */
+.hljs-comment,
+.hljs .hljs-comment,
+pre .hljs-comment,
+pre code .hljs-comment,
+pre code.hljs .hljs-comment,
+.message-text pre code.hljs .hljs-comment,
+.message-text :deep(pre code.hljs .hljs-comment),
+.message-content pre code.hljs .hljs-comment,
+.message-content :deep(pre code.hljs .hljs-comment),
+.hljs-quote,
+.hljs .hljs-quote,
+pre .hljs-quote,
+pre code .hljs-quote,
+pre code.hljs .hljs-quote,
+.message-text pre code.hljs .hljs-quote,
+.message-text :deep(pre code.hljs .hljs-quote),
+.message-content pre code.hljs .hljs-quote,
+.message-content :deep(pre code.hljs .hljs-quote) {
+  color: #6a9955 !important; /* 绿色 - 注释 */
+  font-style: italic;
+}
+
+/* 数字 - 使用更高优先级，包括组件内的选择器 */
+.hljs-number,
+.hljs .hljs-number,
+pre .hljs-number,
+pre code .hljs-number,
+pre code.hljs .hljs-number,
+.message-text pre code.hljs .hljs-number,
+.message-text :deep(pre code.hljs .hljs-number),
+.message-content pre code.hljs .hljs-number,
+.message-content :deep(pre code.hljs .hljs-number) {
+  color: #b5cea8 !important; /* 浅绿色 - 数字 */
+}
+
+/* 函数名 - 使用更高优先级，包括组件内的选择器 */
+.hljs-function .hljs-title,
+.hljs .hljs-function .hljs-title,
+pre .hljs-function .hljs-title,
+pre code .hljs-function .hljs-title,
+pre code.hljs .hljs-function .hljs-title,
+.message-text pre code.hljs .hljs-function .hljs-title,
+.message-text :deep(pre code.hljs .hljs-function .hljs-title),
+.message-content pre code.hljs .hljs-function .hljs-title,
+.message-content :deep(pre code.hljs .hljs-function .hljs-title),
+.hljs-title.function_,
+.hljs .hljs-title.function_,
+pre .hljs-title.function_,
+pre code .hljs-title.function_,
+pre code.hljs .hljs-title.function_,
+.message-text pre code.hljs .hljs-title.function_,
+.message-text :deep(pre code.hljs .hljs-title.function_),
+.message-content pre code.hljs .hljs-title.function_,
+.message-content :deep(pre code.hljs .hljs-title.function_) {
+  color: #dcdcaa !important; /* 黄色 - 函数名 */
+}
+
+/* 变量 - 使用更高优先级，包括组件内的选择器 */
+.hljs-variable,
+.hljs .hljs-variable,
+pre .hljs-variable,
+pre code .hljs-variable,
+pre code.hljs .hljs-variable,
+.message-text pre code.hljs .hljs-variable,
+.message-text :deep(pre code.hljs .hljs-variable),
+.message-content pre code.hljs .hljs-variable,
+.message-content :deep(pre code.hljs .hljs-variable),
+.hljs-template-variable,
+.hljs .hljs-template-variable,
+pre .hljs-template-variable,
+pre code .hljs-template-variable,
+pre code.hljs .hljs-template-variable,
+.message-text pre code.hljs .hljs-template-variable,
+.message-text :deep(pre code.hljs .hljs-template-variable),
+.message-content pre code.hljs .hljs-template-variable,
+.message-content :deep(pre code.hljs .hljs-template-variable),
+.hljs-tag .hljs-attr,
+.hljs .hljs-tag .hljs-attr,
+pre .hljs-tag .hljs-attr,
+pre code .hljs-tag .hljs-attr,
+pre code.hljs .hljs-tag .hljs-attr,
+.message-text pre code.hljs .hljs-tag .hljs-attr,
+.message-text :deep(pre code.hljs .hljs-tag .hljs-attr),
+.message-content pre code.hljs .hljs-tag .hljs-attr,
+.message-content :deep(pre code.hljs .hljs-tag .hljs-attr) {
+  color: #9cdcfe !important; /* 浅蓝色 - 变量 */
+}
+
+/* 操作符 - 使用更高优先级，包括组件内的选择器 */
+.hljs-operator,
+.hljs .hljs-operator,
+pre .hljs-operator,
+pre code .hljs-operator,
+pre code.hljs .hljs-operator,
+.message-text pre code.hljs .hljs-operator,
+.message-text :deep(pre code.hljs .hljs-operator),
+.message-content pre code.hljs .hljs-operator,
+.message-content :deep(pre code.hljs .hljs-operator) {
+  color: #d4d4d4 !important; /* 默认前景色 */
+}
+
+/* 标点符号 - 使用更高优先级，包括组件内的选择器 */
+.hljs-punctuation,
+.hljs .hljs-punctuation,
+pre .hljs-punctuation,
+pre code .hljs-punctuation,
+pre code.hljs .hljs-punctuation,
+.message-text pre code.hljs .hljs-punctuation,
+.message-text :deep(pre code.hljs .hljs-punctuation),
+.message-content pre code.hljs .hljs-punctuation,
+.message-content :deep(pre code.hljs .hljs-punctuation) {
+  color: #d4d4d4 !important; /* 默认前景色 */
+}
+
+/* 正则表达式 - 使用更高优先级，包括组件内的选择器 */
+.hljs-regexp,
+.hljs .hljs-regexp,
+pre .hljs-regexp,
+pre code .hljs-regexp,
+pre code.hljs .hljs-regexp,
+.message-text pre code.hljs .hljs-regexp,
+.message-text :deep(pre code.hljs .hljs-regexp),
+.message-content pre code.hljs .hljs-regexp,
+.message-content :deep(pre code.hljs .hljs-regexp) {
+  color: #d16969 !important; /* 红色 - 正则 */
+}
+
+/* 符号 - 使用更高优先级，包括组件内的选择器 */
+.hljs-symbol,
+.hljs .hljs-symbol,
+pre .hljs-symbol,
+pre code .hljs-symbol,
+pre code.hljs .hljs-symbol,
+.message-text pre code.hljs .hljs-symbol,
+.message-text :deep(pre code.hljs .hljs-symbol),
+.message-content pre code.hljs .hljs-symbol,
+.message-content :deep(pre code.hljs .hljs-symbol) {
+  color: #569cd6 !important; /* 蓝色 */
+}
+
+/* 内置函数 - 使用更高优先级，包括组件内的选择器 */
+.hljs-built_in,
+.hljs .hljs-built_in,
+pre .hljs-built_in,
+pre code .hljs-built_in,
+pre code.hljs .hljs-built_in,
+.message-text pre code.hljs .hljs-built_in,
+.message-text :deep(pre code.hljs .hljs-built_in),
+.message-content pre code.hljs .hljs-built_in,
+.message-content :deep(pre code.hljs .hljs-built_in),
+.hljs-builtin-name,
+.hljs .hljs-builtin-name,
+pre .hljs-builtin-name,
+pre code .hljs-builtin-name,
+pre code.hljs .hljs-builtin-name,
+.message-text pre code.hljs .hljs-builtin-name,
+.message-text :deep(pre code.hljs .hljs-builtin-name),
+.message-content pre code.hljs .hljs-builtin-name,
+.message-content :deep(pre code.hljs .hljs-builtin-name) {
+  color: #4ec9b0 !important; /* 青色 */
+}
+
+/* 元数据 - 使用更高优先级，包括组件内的选择器 */
+.hljs-meta,
+.hljs .hljs-meta,
+pre .hljs-meta,
+pre code .hljs-meta,
+pre code.hljs .hljs-meta,
+.message-text pre code.hljs .hljs-meta,
+.message-text :deep(pre code.hljs .hljs-meta),
+.message-content pre code.hljs .hljs-meta,
+.message-content :deep(pre code.hljs .hljs-meta) {
+  color: #569cd6 !important; /* 蓝色 */
+}
+
+.hljs-meta .hljs-keyword,
+.hljs .hljs-meta .hljs-keyword,
+pre .hljs-meta .hljs-keyword,
+pre code .hljs-meta .hljs-keyword,
+pre code.hljs .hljs-meta .hljs-keyword,
+.message-text pre code.hljs .hljs-meta .hljs-keyword,
+.message-text :deep(pre code.hljs .hljs-meta .hljs-keyword),
+.message-content pre code.hljs .hljs-meta .hljs-keyword,
+.message-content :deep(pre code.hljs .hljs-meta .hljs-keyword) {
+  color: #569cd6 !important; /* 蓝色 */
+}
+
+.hljs-meta .hljs-string,
+.hljs .hljs-meta .hljs-string,
+pre .hljs-meta .hljs-string,
+pre code .hljs-meta .hljs-string,
+pre code.hljs .hljs-meta .hljs-string,
+.message-text pre code.hljs .hljs-meta .hljs-string,
+.message-text :deep(pre code.hljs .hljs-meta .hljs-string),
+.message-content pre code.hljs .hljs-meta .hljs-string,
+.message-content :deep(pre code.hljs .hljs-meta .hljs-string) {
+  color: #ce9178 !important; /* 橙色 */
+}
+
+/* 标题 - 使用更高优先级，包括组件内的选择器 */
+.hljs-title,
+.hljs .hljs-title,
+pre .hljs-title,
+pre code .hljs-title,
+pre code.hljs .hljs-title,
+.message-text pre code.hljs .hljs-title,
+.message-text :deep(pre code.hljs .hljs-title),
+.message-content pre code.hljs .hljs-title,
+.message-content :deep(pre code.hljs .hljs-title) {
+  color: #dcdcaa !important; /* 黄色 - 函数名/标题 */
+}
+
+/* 参数 - 使用更高优先级，包括组件内的选择器 */
+.hljs-params,
+.hljs .hljs-params,
+pre .hljs-params,
+pre code .hljs-params,
+pre code.hljs .hljs-params,
+.message-text pre code.hljs .hljs-params,
+.message-text :deep(pre code.hljs .hljs-params),
+.message-content pre code.hljs .hljs-params,
+.message-content :deep(pre code.hljs .hljs-params) {
+  color: #d4d4d4 !important; /* 默认前景色 */
+}
+
+/* 属性选择器 - 使用更高优先级，包括组件内的选择器 */
+.hljs-attr,
+.hljs .hljs-attr,
+pre .hljs-attr,
+pre code .hljs-attr,
+pre code.hljs .hljs-attr,
+.message-text pre code.hljs .hljs-attr,
+.message-text :deep(pre code.hljs .hljs-attr),
+.message-content pre code.hljs .hljs-attr,
+.message-content :deep(pre code.hljs .hljs-attr) {
+  color: #9cdcfe !important; /* 浅蓝色 */
+}
+
+/* 标签 - 使用更高优先级，包括组件内的选择器 */
+.hljs-tag,
+.hljs .hljs-tag,
+pre .hljs-tag,
+pre code .hljs-tag,
+pre code.hljs .hljs-tag,
+.message-text pre code.hljs .hljs-tag,
+.message-text :deep(pre code.hljs .hljs-tag),
+.message-content pre code.hljs .hljs-tag,
+.message-content :deep(pre code.hljs .hljs-tag) {
+  color: #569cd6 !important; /* 蓝色 */
+}
+
+/* 强调 */
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: bold;
+}
+
+/* 删除线 */
+.hljs-deletion {
+  background: #ff0000;
+  color: #ffffff;
+}
+
+/* 添加 */
+.hljs-addition {
+  background: #00ff00;
+  color: #000000;
+}
+
+/* 选择 */
+.hljs::selection,
+.hljs ::selection {
+  background-color: #264f78 !important; /* VS Code 选中背景色 */
+  color: inherit;
+}
+
+/* 代码块容器样式 - 不设置 color，让语法元素使用自己的颜色 */
+pre code.hljs,
+.message-text pre code.hljs,
+.message-text :deep(pre code.hljs),
+.message-content pre code.hljs,
+.message-content :deep(pre code.hljs) {
+  display: block;
+  overflow-x: auto;
+  padding: 0;
+  background: transparent;
+  /* 不设置 color，让语法元素使用自己的颜色 */
+}
+
+pre {
+  background: #1e1e1e !important;
+  color: #d4d4d4 !important;
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 12px 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+pre code {
+  background: transparent !important;
+  /* 不设置 color，让语法元素使用自己的颜色 */
+  padding: 0;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  display: block;
+  width: 100%;
+}
+
+/* 行内代码 */
+code:not(pre code) {
+  background: rgba(110, 110, 110, 0.4) !important; /* VS Code 行内代码背景 */
+  color: #d4d4d4 !important;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+}
+

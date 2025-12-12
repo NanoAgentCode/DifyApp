@@ -39,7 +39,12 @@ const routes = [
             {
                 path: 'chat',
                 name: 'Chat',
-                component: () => import('@/views/admin/Chat.vue'),
+                component: () => import('@/components/chat/Chat.vue'),
+                props: {
+                    title: '智能问答',
+                    showNewConversationButton: false,
+                    showBrowserSearch: true
+                },
                 meta: {title: '智能问答', requiresAuth: true}
             },
             {
@@ -149,7 +154,12 @@ const routes = [
             {
                 path: 'chat',
                 name: 'UserChat',
-                component: () => import('@/views/user/Chat.vue'),
+                component: () => import('@/components/chat/Chat.vue'),
+                props: {
+                    title: '智能问答',
+                    showNewConversationButton: true,
+                    showBrowserSearch: true
+                },
                 meta: {title: '智能问答', requiresAuth: true}
             },
             {
