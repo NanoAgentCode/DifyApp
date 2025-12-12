@@ -133,7 +133,7 @@
                       @click="handleGenerateSummary(row)"
                     >
                       <el-icon><DocumentCopy /></el-icon>
-                      {{ row.summary ? '重新生成' : '生成摘要' }}
+                      摘要
                     </el-button>
                   </el-tooltip>
                   <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
@@ -151,13 +151,9 @@
                           <el-icon><Edit /></el-icon>
                           编辑信息
                         </el-dropdown-item>
-                        <el-dropdown-item command="upload">
-                          <el-icon><UploadFilled /></el-icon>
-                          上传文档
-                        </el-dropdown-item>
-                        <el-dropdown-item command="list">
+                        <el-dropdown-item command="documents">
                           <el-icon><Document /></el-icon>
-                          文件列表
+                          文件管理
                         </el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
@@ -864,11 +860,7 @@ const handleGenerateSummaryFromView = async () => {
 
 const router = useRouter()
 
-const handleUploadDocs = (row) => {
-  router.push(`/admin/knowledge-base/${row.id}/documents`)
-}
-
-const handleListDocs = (row) => {
+const handleDocuments = (row) => {
   router.push(`/admin/knowledge-base/${row.id}/documents`)
 }
 
@@ -908,11 +900,8 @@ const handleDropdownCommand = (command, row) => {
     case 'edit':
       handleEdit(row)
       break
-    case 'upload':
-      handleUploadDocs(row)
-      break
-    case 'list':
-      handleListDocs(row)
+    case 'documents':
+      handleDocuments(row)
       break
   }
 }

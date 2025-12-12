@@ -71,10 +71,6 @@
             <el-icon><Setting /></el-icon>
             <span>大模型管理</span>
           </el-menu-item>
-          <el-menu-item v-if="isAdmin" index="/admin/prompts">
-            <el-icon><Edit /></el-icon>
-            <span>提示词管理</span>
-          </el-menu-item>
           <el-menu-item v-if="isAdmin" index="/admin/vector-databases">
             <el-icon><Box /></el-icon>
             <span>向量数据库</span>
