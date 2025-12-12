@@ -1,6 +1,8 @@
 package com.github.app.dify.knowledgebase.service.impl;
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
+import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
+import com.github.app.dify.knowledgebase.langchain4j.StreamingChatLanguageModel;
 import com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest;
 import com.github.app.dify.knowledgebase.resp.KnowledgeBaseQAResponse;
 import com.github.app.dify.chat.service.ChatHistoryService;
@@ -320,7 +322,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
         }
         
         // 创建模型实例
-        ModelLanguageModelFactory.ChatLanguageModel chatLanguageModel = 
+        ChatLanguageModel chatLanguageModel = 
                 modelLanguageModelFactory.createChatLanguageModel(qaModel);
         
         // 调用LLM生成答案
@@ -393,7 +395,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
         }
         
         // 创建流式模型实例
-        ModelLanguageModelFactory.StreamingChatLanguageModel streamingModel = 
+        StreamingChatLanguageModel streamingModel = 
                 modelLanguageModelFactory.createStreamingChatLanguageModel(qaModel);
         
         // 调用流式LLM生成答案

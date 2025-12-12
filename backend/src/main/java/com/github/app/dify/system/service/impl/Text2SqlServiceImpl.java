@@ -3,6 +3,7 @@ package com.github.app.dify.system.service.impl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.system.domain.DataSource;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
+import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
 import com.github.app.dify.system.service.DatabaseConnectionService;
 import com.github.app.dify.system.service.DatabaseSchemaService;
 import com.github.app.dify.system.service.DataSourceService;
@@ -209,7 +210,7 @@ public class Text2SqlServiceImpl implements Text2SqlService {
         }
         
         // 创建 LLM 模型
-        ModelLanguageModelFactory.ChatLanguageModel chatModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+        ChatLanguageModel chatModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
         
         // 构建系统消息
         SystemMessage systemMessage = new SystemMessage(buildMongoSystemPrompt());
@@ -252,7 +253,7 @@ public class Text2SqlServiceImpl implements Text2SqlService {
         }
         
         // 创建 LLM 模型
-        ModelLanguageModelFactory.ChatLanguageModel chatModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+        ChatLanguageModel chatModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
         
         // 构建系统消息
         SystemMessage systemMessage = new SystemMessage(buildSystemPrompt(dataSource.getType()));

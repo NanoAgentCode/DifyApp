@@ -3,6 +3,7 @@ package com.github.app.dify.knowledgebase.service.impl;
 import com.github.app.dify.system.config.RagConfig;
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
+import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
 import com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest;
 import com.github.app.dify.system.service.ModelConfigService;
 import com.github.app.dify.knowledgebase.service.ContextCompressionService;
@@ -159,7 +160,7 @@ public class ContextCompressionServiceImpl implements ContextCompressionService 
             
             // 使用默认的RAG模型进行总结
             QAModel qaModel = modelConfigService.getDefaultQAModelForRAG();
-            ModelLanguageModelFactory.ChatLanguageModel chatLanguageModel = 
+            ChatLanguageModel chatLanguageModel = 
                     modelLanguageModelFactory.createChatLanguageModel(qaModel);
             Response<AiMessage> response = chatLanguageModel.generate(summaryMessages);
             String summary = response.content().text();

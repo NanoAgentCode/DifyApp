@@ -13,6 +13,7 @@ import com.github.app.dify.knowledgebase.service.RagRetrievalService;
 import com.github.app.dify.system.service.ModelConfigService;
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
+import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -562,7 +563,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         }
         
         // 8. 创建 LLM 模型
-        ModelLanguageModelFactory.ChatLanguageModel chatModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+        ChatLanguageModel chatModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
         
         // 9. 构建提示词
         String systemPrompt = "你是一个专业的文档摘要生成助手。请根据提供的知识库信息，生成一段简洁、准确、全面的摘要。摘要应该：\n" +

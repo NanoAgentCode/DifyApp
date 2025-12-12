@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -113,12 +114,13 @@ public class ModelLanguageModelFactory {
                     // 调用流式LLM API
                     ProviderType providerType = ProviderType.fromValue(qaModel.getProvider());
                     logger.info("发送流式请求 - Provider: {}, Model: {}", providerType.getValue(), qaModel.getModel());
-                    Flux<String> responseFlux = client.post()
+
+                    return client.post()
                             .uri("")
                             .accept(MediaType.TEXT_EVENT_STREAM, MediaType.APPLICATION_NDJSON, MediaType.APPLICATION_JSON)
                             .bodyValue(requestBody)
                             .retrieve()
-                            .onStatus(status -> status.isError(), response -> {
+                            .onStatus(HttpStatusCode::isError, response -> {
                                 logger.error("LLM API 返回错误状态: {}", response.statusCode());
                                 return response.bodyToMono(String.class)
                                         .doOnNext(body -> logger.error("错误响应体: {}", body.length() > 500 ? body.substring(0, 500) + "..." : body))
@@ -139,7 +141,7 @@ public class ModelLanguageModelFactory {
                                 String buffer = state.getT1() + chunk;
                                 List<String> lines = new ArrayList<>();
                                 String[] splitLines = buffer.split("\n", -1);
-                                
+
                                 String lastLine = splitLines[splitLines.length - 1];
                                 for (int i = 0; i < splitLines.length - 1; i++) {
                                     String line = splitLines[i];
@@ -151,7 +153,7 @@ public class ModelLanguageModelFactory {
                                         lines.add(trimmed);
                                     }
                                 }
-                                
+
                                 return Tuples.of(lastLine, lines);
                             })
                             .flatMap(state -> Flux.fromIterable(state.getT2()))
@@ -164,12 +166,10 @@ public class ModelLanguageModelFactory {
                                     }
                                     // 静默跳过空chunk和null，减少日志噪音
                                 } catch (Exception e) {
-                                    logger.warn("解析流式响应块失败，跳过该行: {}", 
+                                    logger.warn("解析流式响应块失败，跳过该行: {}",
                                             line.length() > 100 ? line.substring(0, 100) + "..." : line, e);
                                 }
                             });
-                    
-                    return responseFlux;
                     
                 } catch (Exception e) {
                     logger.error("调用流式LLM API失败", e);
@@ -477,19 +477,5 @@ public class ModelLanguageModelFactory {
         // 根据 provider 类型添加相应的路径
         String path = providerType.getChatPath();
         return apiUrl.endsWith("/") ? apiUrl + path.substring(1) : apiUrl + path;
-    }
-    
-    /**
-     * 聊天语言模型接口
-     */
-    public interface ChatLanguageModel {
-        Response<AiMessage> generate(List<ChatMessage> messages);
-    }
-    
-    /**
-     * 流式聊天语言模型接口
-     */
-    public interface StreamingChatLanguageModel {
-        Flux<String> generateStream(List<ChatMessage> messages);
     }
 }

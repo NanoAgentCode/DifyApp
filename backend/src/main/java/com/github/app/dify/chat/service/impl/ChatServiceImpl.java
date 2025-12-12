@@ -2,6 +2,8 @@ package com.github.app.dify.chat.service.impl;
 
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
+import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
+import com.github.app.dify.knowledgebase.langchain4j.StreamingChatLanguageModel;
 import com.github.app.dify.chat.mcp.McpBrowserSearchService;
 import com.github.app.dify.chat.mcp.McpLocationService;
 import com.github.app.dify.chat.mcp.McpTimeService;
@@ -68,7 +70,7 @@ public class ChatServiceImpl implements ChatService {
             logger.info("使用问答模型: {} (ID: {})", qaModel.getName(), qaModel.getId());
             
             // 创建模型实例
-            ModelLanguageModelFactory.ChatLanguageModel chatLanguageModel = 
+            ChatLanguageModel chatLanguageModel = 
                     modelLanguageModelFactory.createChatLanguageModel(qaModel);
             
             // 如果启用了MCP支持，直接使用浏览器检索（不再进行检测）
@@ -170,7 +172,7 @@ public class ChatServiceImpl implements ChatService {
             logger.info("使用问答模型（流式）: {} (ID: {})", qaModel.getName(), qaModel.getId());
             
             // 创建流式模型实例
-            ModelLanguageModelFactory.StreamingChatLanguageModel streamingChatLanguageModel = 
+            StreamingChatLanguageModel streamingChatLanguageModel = 
                     modelLanguageModelFactory.createStreamingChatLanguageModel(qaModel);
             
             // 如果启用了MCP支持，直接使用浏览器检索（不再进行检测）

@@ -4,6 +4,7 @@ import com.github.app.dify.system.domain.DrawIODiagram;
 import com.github.app.dify.system.domain.DrawIOHistory;
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
+import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
 import com.github.app.dify.system.repository.DrawIODiagramRepository;
 import com.github.app.dify.system.repository.DrawIOHistoryRepository;
 import com.github.app.dify.system.req.DrawIOGenerateRequest;
@@ -71,7 +72,7 @@ public class DrawIOServiceImpl implements DrawIOService {
             String userPrompt = buildUserPrompt(request.getPrompt(), request.getDiagramType());
             
             // 创建模型实例
-            ModelLanguageModelFactory.ChatLanguageModel chatLanguageModel = 
+            ChatLanguageModel chatLanguageModel = 
                     modelLanguageModelFactory.createChatLanguageModel(qaModel);
             
             // 构建消息
@@ -114,7 +115,7 @@ public class DrawIOServiceImpl implements DrawIOService {
             String userPrompt = buildModifyUserPrompt(request.getDiagramJson(), request.getPrompt());
             
             // 创建模型实例
-            ModelLanguageModelFactory.ChatLanguageModel chatLanguageModel = 
+            ChatLanguageModel chatLanguageModel = 
                     modelLanguageModelFactory.createChatLanguageModel(qaModel);
             
             // 构建消息
