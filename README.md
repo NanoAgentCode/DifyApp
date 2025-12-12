@@ -66,8 +66,11 @@ DifyApp/
 ├── front/                        # 前端项目（Vue 3）
 │   ├── src/
 │   │   ├── api/                  # API接口封装
+│   │   │   ├── auth.js           # 认证API（包含token验证）
 │   │   │   ├── drawio.js         # AI绘图API
 │   │   │   └── ...               # 其他API
+│   │   ├── config/               # 配置文件
+│   │   │   └── api.js            # API配置（后端地址配置）
 │   │   ├── components/            # 公共组件
 │   │   ├── layouts/               # 布局组件（管理端/用户端/应用端）
 │   │   ├── views/                 # 页面组件
@@ -78,14 +81,19 @@ DifyApp/
 │   │   │   │   ├── AIDrawIO.vue  # 用户端AI绘图页面
 │   │   │   │   └── ...           # 其他用户端页面
 │   │   │   └── ...               # 其他页面
-│   │   ├── router/                # 路由配置
+│   │   ├── router/                # 路由配置（包含token验证守卫）
 │   │   ├── utils/                 # 工具函数
+│   │   │   └── request.js        # HTTP请求封装（包含响应拦截器）
 │   │   ├── App.vue                # 根组件
 │   │   └── main.js                # 入口文件
+│   ├── src-tauri/                # Tauri配置（如果使用Tauri）
+│   │   ├── tauri.conf.json       # Tauri配置文件
+│   │   └── ...                   # Tauri相关文件
 │   ├── public/                   # 静态资源
 │   ├── index.html                # HTML模板
 │   ├── package.json              # 前端依赖配置
 │   ├── vite.config.js            # Vite配置
+│   ├── .env                      # 环境变量配置（后端API地址）
 │   └── README.md                 # 前端说明文档
 ├── src/main/
 │   ├── java/com/github/app/dify/
@@ -507,6 +515,39 @@ yarn dev
 
 前端开发服务器运行在 `http://localhost:3000`
 
+#### Tauri 应用配置（如果使用 Tauri 打包）
+
+如果项目使用 Tauri 打包为桌面应用，需要配置后端 API 地址：
+
+**方式一：使用环境变量（推荐）**
+
+在 `front` 目录下创建 `.env` 文件：
+
+```env
+# 后端 API 地址
+# 开发环境：留空则使用 Vite 代理（http://localhost:8081）
+# 生产环境（Tauri 打包后）：配置实际的后端地址
+# 例如：http://localhost:8081 或 http://192.168.1.100:8081
+VITE_API_BASE_URL=http://localhost:8081
+```
+
+**方式二：直接修改配置文件**
+
+编辑 `front/src/config/api.js` 文件，修改 `defaultBaseURL` 的值：
+
+```javascript
+const defaultBaseURL = 'http://your-backend-ip:port'
+```
+
+**配置说明：**
+- 开发环境：如果未配置 `VITE_API_BASE_URL`，会自动使用 Vite 代理（`vite.config.js` 中配置的 `/api` 代理到 `http://localhost:8081`）
+- 生产环境（Tauri 打包后）：必须配置 `VITE_API_BASE_URL` 或修改 `api.js` 中的默认值，否则会使用 `http://localhost:8081`
+- 配置优先级：环境变量 > 配置文件默认值 > 开发环境代理
+
+**Tauri 安全配置：**
+
+Tauri 配置文件中 CSP 设置为 `null`，允许访问外部后端 API。如需更严格的安全策略，可以配置具体的 CSP 规则。
+
 ### 8. 访问应用
 
 - **后端 API**: http://localhost:8081
@@ -647,6 +688,9 @@ yarn dev
   - 用户登录
   - 用户注册
   - 密码修改
+  - **Token 验证机制**：路由守卫会自动验证 token 有效性，防止未授权访问
+  - **安全防护**：即使手动在 localStorage 中添加 token，如果 token 无效也会被拒绝访问
+  - **自动清理**：token 无效时自动清除登录信息并跳转到登录页
 
 - ✅ **管理端界面**
   - 应用列表、创建、编辑、删除
@@ -700,6 +744,21 @@ yarn dev
   - **表格表头固定**：会话历史管理等表格支持表头固定，提升用户体验
 
 ## 配置说明
+
+### 前端配置
+
+#### Tauri 后端 API 配置
+
+如果使用 Tauri 打包为桌面应用，需要配置后端 API 地址。详细配置说明请参考"快速开始"章节中的"Tauri 应用配置"部分。
+
+#### 前端认证安全
+
+前端实现了完善的认证安全机制：
+
+- **Token 验证**：访问需要认证的页面时，路由守卫会自动调用后端 API 验证 token 是否有效
+- **验证缓存**：验证结果缓存 5 分钟，避免重复请求，提升性能
+- **自动清理**：token 无效时自动清除登录信息和验证缓存，并跳转到登录页
+- **防止绕过**：即使手动在 localStorage 中添加 token，如果 token 无效也会被拒绝访问
 
 ### 数据库配置
 
