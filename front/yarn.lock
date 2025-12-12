@@ -87,6 +87,28 @@
   resolved "https://registry.npmmirror.com/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.53.3.tgz"
   integrity sha512-UhTd8u31dXadv0MopwGgNOBpUVROFKWVQgAg5N1ESyCz8AuBcMqm4AuTjrwgQKGDfoFuz02EuMRHQIw/frmYKQ==
 
+"@tauri-apps/cli-win32-x64-msvc@2.9.6":
+  version "2.9.6"
+  resolved "https://registry.npmmirror.com/@tauri-apps/cli-win32-x64-msvc/-/cli-win32-x64-msvc-2.9.6.tgz"
+  integrity sha512-ldWuWSSkWbKOPjQMJoYVj9wLHcOniv7diyI5UAJ4XsBdtaFB0pKHQsqw/ItUma0VXGC7vB4E9fZjivmxur60aw==
+
+"@tauri-apps/cli@^2.9.6":
+  version "2.9.6"
+  resolved "https://registry.npmmirror.com/@tauri-apps/cli/-/cli-2.9.6.tgz"
+  integrity sha512-3xDdXL5omQ3sPfBfdC8fCtDKcnyV7OqyzQgfyT5P3+zY6lcPqIYKQBvUasNvppi21RSdfhy44ttvJmftb0PCDw==
+  optionalDependencies:
+    "@tauri-apps/cli-darwin-arm64" "2.9.6"
+    "@tauri-apps/cli-darwin-x64" "2.9.6"
+    "@tauri-apps/cli-linux-arm-gnueabihf" "2.9.6"
+    "@tauri-apps/cli-linux-arm64-gnu" "2.9.6"
+    "@tauri-apps/cli-linux-arm64-musl" "2.9.6"
+    "@tauri-apps/cli-linux-riscv64-gnu" "2.9.6"
+    "@tauri-apps/cli-linux-x64-gnu" "2.9.6"
+    "@tauri-apps/cli-linux-x64-musl" "2.9.6"
+    "@tauri-apps/cli-win32-arm64-msvc" "2.9.6"
+    "@tauri-apps/cli-win32-ia32-msvc" "2.9.6"
+    "@tauri-apps/cli-win32-x64-msvc" "2.9.6"
+
 "@types/d3-scale-chromatic@^3.0.0":
   version "3.1.0"
   resolved "https://registry.npmmirror.com/@types/d3-scale-chromatic/-/d3-scale-chromatic-3.1.0.tgz"

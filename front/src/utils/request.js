@@ -1,9 +1,10 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '@/router'
+import { getBaseURL } from '@/config/api'
 
 const request = axios.create({
-  baseURL: '',
+  baseURL: getBaseURL(),
   // 设置超时时间为10分钟（600000毫秒），以支持长时间运行的Workflow任务
   timeout: 600000
 })
@@ -39,6 +40,10 @@ request.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('userInfo')
+      // 清除 token 验证缓存
+      if (window.clearTokenCache) {
+        window.clearTokenCache()
+      }
       const errorMessage = error.response.data?.error || '登录已过期，请重新登录'
       ElMessage.error(errorMessage)
       if (router.currentRoute.value.path !== '/login' && router.currentRoute.value.path !== '/register') {
@@ -53,6 +58,10 @@ request.interceptors.response.use(
       if (errorMessage.includes('禁用') || errorMessage.includes('待审核')) {
         localStorage.removeItem('token')
         localStorage.removeItem('userInfo')
+        // 清除 token 验证缓存
+        if (window.clearTokenCache) {
+          window.clearTokenCache()
+        }
         ElMessage.error(errorMessage)
         if (router.currentRoute.value.path !== '/login' && router.currentRoute.value.path !== '/register') {
           router.push('/login')

@@ -85,6 +85,11 @@ const handleLogin = async () => {
           password: loginForm.password
         })
         
+        // 清除旧的 token 验证缓存
+        if (window.clearTokenCache) {
+          window.clearTokenCache()
+        }
+        
         // 保存token和用户信息
         localStorage.setItem('token', response.token)
         localStorage.setItem('userInfo', JSON.stringify({

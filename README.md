@@ -135,7 +135,7 @@ DifyApp/
 ## 环境要求
 
 ### 必需环境
-- JDK 1.8 或更高版本
+- JDK 21 或更高版本（推荐使用 LTS 版本）
 - Maven 3.6+
 - PostgreSQL 15
 - MinIO (对象存储服务)

@@ -1,5 +1,6 @@
 import {createRouter, createWebHistory} from 'vue-router'
 import {ElMessage} from 'element-plus'
+import {validateToken} from '@/api/auth'
 
 const routes = [
     {
@@ -221,12 +222,94 @@ const router = createRouter({
     routes
 })
 
+// Token 验证缓存，避免重复验证
+let tokenValidationCache = {
+    isValid: null,
+    timestamp: null,
+    cacheDuration: 5 * 60 * 1000 // 缓存5分钟
+}
+
+// 清除 token 验证缓存
+function clearTokenCache() {
+    tokenValidationCache.isValid = null
+    tokenValidationCache.timestamp = null
+}
+
+// 将清除缓存的函数暴露到全局，供其他模块使用
+if (typeof window !== 'undefined') {
+    window.clearTokenCache = clearTokenCache
+}
+
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
     const token = localStorage.getItem('token')
     const userInfoStr = localStorage.getItem('userInfo')
     const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
     const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin)
+
+    // 如果访问不需要认证的页面，直接通过
+    if (!requiresAuth && to.path !== '/login' && to.path !== '/register') {
+        next()
+        return
+    }
+
+    // 如果需要认证但没有 token，直接跳转到登录页
+    if (requiresAuth && !token) {
+        ElMessage.warning('请先登录')
+        next('/login')
+        return
+    }
+
+    // 如果有 token 且需要认证，验证 token 是否有效
+    if (token && requiresAuth) {
+        // 检查缓存
+        const now = Date.now()
+        const cacheValid = tokenValidationCache.isValid !== null && 
+                          tokenValidationCache.timestamp !== null &&
+                          (now - tokenValidationCache.timestamp) < tokenValidationCache.cacheDuration
+
+        if (!cacheValid) {
+            // 缓存无效，进行验证
+            try {
+                const isValid = await validateToken()
+                tokenValidationCache.isValid = isValid
+                tokenValidationCache.timestamp = now
+
+                if (!isValid) {
+                    // Token 无效，清除登录信息并跳转到登录页
+                    localStorage.removeItem('token')
+                    localStorage.removeItem('userInfo')
+                    clearTokenCache()
+                    ElMessage.error('登录已过期，请重新登录')
+                    if (to.path !== '/login' && to.path !== '/register') {
+                        next('/login')
+                        return
+                    }
+                }
+            } catch (error) {
+                // 验证过程中出错，清除 token 并跳转
+                console.error('Token 验证失败', error)
+                localStorage.removeItem('token')
+                localStorage.removeItem('userInfo')
+                clearTokenCache()
+                ElMessage.error('登录验证失败，请重新登录')
+                if (to.path !== '/login' && to.path !== '/register') {
+                    next('/login')
+                    return
+                }
+            }
+        } else if (tokenValidationCache.isValid === false) {
+            // 缓存显示 token 无效
+            localStorage.removeItem('token')
+            localStorage.removeItem('userInfo')
+            clearTokenCache()
+            ElMessage.error('登录已过期，请重新登录')
+            if (to.path !== '/login' && to.path !== '/register') {
+                next('/login')
+                return
+            }
+        }
+    }
 
     // 检查用户状态（如果已登录）
     if (token && userInfoStr) {
@@ -237,6 +320,7 @@ router.beforeEach((to, from, next) => {
                 // 待审核状态，清除登录信息并跳转到登录页
                 localStorage.removeItem('token')
                 localStorage.removeItem('userInfo')
+                clearTokenCache()
                 ElMessage.warning('账号待审核，请联系管理员')
                 if (to.path !== '/login') {
                     next('/login')
@@ -246,6 +330,7 @@ router.beforeEach((to, from, next) => {
                 // 已禁用状态，清除登录信息并跳转到登录页
                 localStorage.removeItem('token')
                 localStorage.removeItem('userInfo')
+                clearTokenCache()
                 ElMessage.error('账号已被禁用，请联系管理员')
                 if (to.path !== '/login') {
                     next('/login')
@@ -254,14 +339,18 @@ router.beforeEach((to, from, next) => {
             }
         } catch (e) {
             console.error('解析用户信息失败', e)
+            // 解析失败，清除无效数据
+            localStorage.removeItem('token')
+            localStorage.removeItem('userInfo')
+            clearTokenCache()
+            if (requiresAuth && to.path !== '/login') {
+                next('/login')
+                return
+            }
         }
     }
 
-    if (requiresAuth && !token) {
-        // 需要登录但没有token，跳转到登录页
-        ElMessage.warning('请先登录')
-        next('/login')
-    } else if (requiresAdmin) {
+    if (requiresAdmin) {
         // 需要管理员权限
         if (!userInfoStr) {
             ElMessage.warning('请先登录')
@@ -275,12 +364,14 @@ router.beforeEach((to, from, next) => {
                 ElMessage.warning('账号待审核，请联系管理员')
                 localStorage.removeItem('token')
                 localStorage.removeItem('userInfo')
+                clearTokenCache()
                 next('/login')
                 return
             } else if (userInfo.status === 2) {
                 ElMessage.error('账号已被禁用，请联系管理员')
                 localStorage.removeItem('token')
                 localStorage.removeItem('userInfo')
+                clearTokenCache()
                 next('/login')
                 return
             }
@@ -304,6 +395,7 @@ router.beforeEach((to, from, next) => {
                 if (userInfo.status === 0 || userInfo.status === 2) {
                     localStorage.removeItem('token')
                     localStorage.removeItem('userInfo')
+                    clearTokenCache()
                     next()
                     return
                 }

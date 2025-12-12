@@ -23,6 +23,33 @@ export function login(data) {
 }
 
 /**
+ * 验证 token 是否有效
+ * 通过调用需要认证的 API 来验证 token
+ */
+export async function validateToken() {
+  try {
+    // 调用获取用户列表接口，只获取第一页的第一条数据来验证 token
+    // 如果 token 有效，会返回数据；如果无效，会返回 401
+    await request({
+      url: '/api/auth/users',
+      method: 'get',
+      params: {
+        page: 1,
+        pageSize: 1
+      }
+    })
+    return true
+  } catch (error) {
+    // 如果是 401 错误，说明 token 无效
+    if (error.response && error.response.status === 401) {
+      return false
+    }
+    // 其他错误（如网络错误）也认为 token 可能无效
+    return false
+  }
+}
+
+/**
  * 管理员审核用户（激活用户）
  */
 export function approveUser(userId) {
