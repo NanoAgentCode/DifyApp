@@ -32,8 +32,12 @@
           @change="handleFilter"
         >
           <el-option label="全部" value="" />
-          <el-option label="帮助配置" value="help" />
-          <el-option label="系统配置" value="system" />
+          <el-option
+            v-for="group in availableGroups"
+            :key="group.value"
+            :label="group.label"
+            :value="group.value"
+          />
         </el-select>
       </div>
 
@@ -83,12 +87,30 @@
       width="600px"
     >
       <el-form :model="form" label-width="120px" ref="formRef">
-        <el-form-item label="配置键" prop="configKey" :rules="[{ required: true, message: '请输入配置键' }]">
-          <el-input
+        <el-form-item label="配置键" prop="configKey" :rules="[{ required: true, message: '请选择配置键' }]">
+          <el-select
             v-model="form.configKey"
-            placeholder="例如：help.knowledgeBaseId"
-            :disabled="!!editingConfig"
-          />
+            :placeholder="editingConfig ? '当前配置键' : availableConfigKeys.length === 0 ? '所有配置键已配置' : '请选择配置键'"
+            style="width: 100%"
+            :disabled="!!editingConfig || availableConfigKeys.length === 0"
+            filterable
+            @change="handleConfigKeyChange"
+          >
+            <el-option
+              v-for="item in availableConfigKeys"
+              :key="item.key"
+              :label="item.label"
+              :value="item.key"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>{{ item.label }}</span>
+                <span style="color: #909399; font-size: 12px; margin-left: 10px;">{{ item.description }}</span>
+              </div>
+            </el-option>
+            <el-option v-if="!editingConfig && availableConfigKeys.length === 0" disabled value="">
+              <span style="color: #909399;">所有预定义配置键已配置</span>
+            </el-option>
+          </el-select>
         </el-form-item>
         <!-- 全局主题色配置特殊处理 -->
         <el-form-item 
@@ -188,6 +210,66 @@ import { industrialThemes, getThemeById } from '@/utils/themes'
 import { GLOBAL_THEME_CONFIG_KEY } from '@/utils/globalTheme'
 import { applyGlobalTheme } from '@/utils/globalTheme'
 
+// 预定义配置键列表
+const predefinedConfigKeys = [
+  {
+    key: 'help.knowledgeBaseId',
+    label: 'help.knowledgeBaseId',
+    description: '用户手册智能问答绑定的知识库ID',
+    group: 'help',
+    type: 'number'
+  },
+  {
+    key: 'help.modelId',
+    label: 'help.modelId',
+    description: '用户手册智能问答使用的模型ID',
+    group: 'help',
+    type: 'number'
+  },
+  {
+    key: 'drawio.defaultModelId',
+    label: 'drawio.defaultModelId',
+    description: 'AI绘图默认使用的问答模型ID',
+    group: 'system',
+    type: 'number'
+  },
+  {
+    key: 'system.globalTheme',
+    label: 'system.globalTheme',
+    description: '全局主题色配置，从预设主题中选择',
+    group: 'system',
+    type: 'string'
+  },
+  {
+    key: 'dify.api.defaultBaseUrl',
+    label: 'dify.api.defaultBaseUrl',
+    description: 'Dify API 默认Base URL',
+    group: 'dify',
+    type: 'string'
+  },
+  {
+    key: 'dify.api.timeout',
+    label: 'dify.api.timeout',
+    description: 'Dify API 默认超时时间（毫秒）',
+    group: 'dify',
+    type: 'number'
+  },
+  {
+    key: 'dify.api.connectTimeout',
+    label: 'dify.api.connectTimeout',
+    description: 'Dify API 连接超时时间（毫秒）',
+    group: 'dify',
+    type: 'number'
+  },
+  {
+    key: 'dify.api.fileUrlPrefix',
+    label: 'dify.api.fileUrlPrefix',
+    description: 'Dify API 文件URL前缀（用于拼接相对路径的文件URL）',
+    group: 'dify',
+    type: 'string'
+  }
+]
+
 const loading = ref(false)
 const saving = ref(false)
 const configList = ref([])
@@ -208,10 +290,55 @@ const form = ref({
 // 主题相关
 const selectedTheme = ref('element') // 默认使用饿了么蓝
 
+// 获取已配置的配置键集合
+const configuredKeys = computed(() => {
+  return new Set(configList.value.map(config => config.configKey))
+})
+
+// 获取可用的配置键列表（过滤掉已配置的）
+const availableConfigKeys = computed(() => {
+  if (editingConfig.value) {
+    // 编辑模式下，显示当前配置键（即使不是预定义的也显示）
+    const currentKey = editingConfig.value.configKey
+    const predefined = predefinedConfigKeys.find(item => item.key === currentKey)
+    if (predefined) {
+      return [predefined]
+    }
+    // 如果不是预定义的配置键，创建一个临时项用于显示
+    return [{
+      key: currentKey,
+      label: currentKey,
+      description: '自定义配置键',
+      group: editingConfig.value.configGroup || '',
+      type: editingConfig.value.configType || 'string'
+    }]
+  } else {
+    // 添加模式下，过滤掉已配置的键
+    return predefinedConfigKeys.filter(item => !configuredKeys.value.has(item.key))
+  }
+})
+
 // 判断是否是全局主题色配置
 const isGlobalThemeConfig = computed(() => {
   return form.value.configKey === GLOBAL_THEME_CONFIG_KEY
 })
+
+// 配置键变化处理
+const handleConfigKeyChange = (configKey) => {
+  const predefined = predefinedConfigKeys.find(item => item.key === configKey)
+  if (predefined) {
+    // 自动填充配置分组和配置类型
+    if (!form.value.configGroup) {
+      form.value.configGroup = predefined.group
+    }
+    if (!form.value.configType) {
+      form.value.configType = predefined.type
+    }
+    if (!form.value.description) {
+      form.value.description = predefined.description
+    }
+  }
+}
 
 // 监听配置键变化，初始化主题选择
 watch(() => form.value.configKey, (newKey) => {
@@ -247,6 +374,57 @@ watch(() => form.value.configKey, (newKey) => {
     }
   }
 }, { immediate: true })
+
+// 获取可用的分组列表（从配置列表中提取，去重）
+const availableGroups = computed(() => {
+  const groups = new Set()
+  
+  // 从配置列表中提取所有分组
+  configList.value.forEach(config => {
+    if (config.configGroup && config.configGroup.trim()) {
+      groups.add(config.configGroup.trim())
+    }
+  })
+  
+  // 转换为数组并排序
+  const groupArray = Array.from(groups).sort()
+  
+  // 分组名称映射（用于显示中文标签）
+  const groupLabelMap = {
+    'help': '帮助配置',
+    'system': '系统配置',
+    'dify': 'Dify配置'
+  }
+  
+  // 返回分组选项，优先显示已知分组，然后显示其他分组
+  const knownGroups = []
+  const otherGroups = []
+  
+  groupArray.forEach(group => {
+    const option = {
+      value: group,
+      label: groupLabelMap[group] || group
+    }
+    if (groupLabelMap[group]) {
+      knownGroups.push(option)
+    } else {
+      otherGroups.push(option)
+    }
+  })
+  
+  // 已知分组按固定顺序排列
+  const orderedKnownGroups = []
+  const knownOrder = ['help', 'system', 'dify']
+  knownOrder.forEach(key => {
+    const found = knownGroups.find(g => g.value === key)
+    if (found) {
+      orderedKnownGroups.push(found)
+    }
+  })
+  
+  // 合并：已知分组（按顺序）+ 其他分组（按字母顺序）
+  return [...orderedKnownGroups, ...otherGroups]
+})
 
 // 过滤后的配置列表
 const filteredConfigList = computed(() => {

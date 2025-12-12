@@ -65,19 +65,6 @@ spring:
       max-request-size: 200MB
       # 文件写入磁盘的阈值（超过此大小会写入临时文件）
       file-size-threshold: 2MB
-
-# Dify配置
-dify:
-  api:
-    # 默认Dify API Base URL
-    default-base-url: http://localhost:80
-    # 默认超时时间（毫秒）
-    timeout: 30000
-    # 连接超时时间（毫秒）
-    connect-timeout: 10000
-    # 文件URL前缀（用于拼接相对路径的文件URL）
-    file-url-prefix: http://localhost:80
-
 # JWT配置
 jwt:
   # JWT密钥（生产环境请修改为更安全的密钥，至少32个字符以确保256位安全性）

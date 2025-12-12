@@ -1,5 +1,6 @@
 package com.github.app.dify.system.service.impl;
 
+import com.github.app.dify.system.config.DifyConfig;
 import com.github.app.dify.system.domain.SystemConfig;
 import com.github.app.dify.system.repository.SystemConfigRepository;
 import com.github.app.dify.system.req.UpdateSystemConfigReq;
@@ -9,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.Date;
@@ -24,8 +26,14 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     
     private static final Logger logger = LoggerFactory.getLogger(SystemConfigServiceImpl.class);
     
+    // Dify 配置键前缀
+    private static final String DIFY_CONFIG_PREFIX = "dify.api.";
+    
     @Autowired
     private SystemConfigRepository systemConfigRepository;
+    
+    @Autowired
+    private ApplicationContext applicationContext;
     
     @Override
     public String getConfigValue(String configKey) {
@@ -92,6 +100,11 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         
         logger.info("系统配置保存成功 - 键: {}, ID: {}", config.getConfigKey(), config.getId());
         
+        // 如果更新的是 Dify 相关配置，重新加载 DifyConfig
+        if (config.getConfigKey() != null && config.getConfigKey().startsWith(DIFY_CONFIG_PREFIX)) {
+            reloadDifyConfig();
+        }
+        
         return convertToResp(config);
     }
     
@@ -107,6 +120,22 @@ public class SystemConfigServiceImpl implements SystemConfigService {
             logger.info("删除系统配置 - 键: {}", configKey);
         } else {
             logger.warn("要删除的配置不存在 - 键: {}", configKey);
+        }
+    }
+    
+    /**
+     * 重新加载 Dify 配置
+     */
+    private void reloadDifyConfig() {
+        try {
+            DifyConfig difyConfig = applicationContext.getBean(DifyConfig.class);
+            if (difyConfig != null) {
+                difyConfig.reload();
+                logger.info("Dify 配置已重新加载");
+            }
+        } catch (Exception e) {
+            // DifyConfig 可能不存在，忽略错误
+            logger.debug("重新加载 Dify 配置失败（可能 DifyConfig 未初始化）: {}", e.getMessage());
         }
     }
     
