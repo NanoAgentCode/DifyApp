@@ -24,6 +24,23 @@
             v-html="getRenderedContent(message, index)"
           ></div>
           
+          <!-- 重新生成按钮（仅助手消息且已完成时显示） -->
+          <div 
+            v-if="message.type === 'assistant' && !message.isLoading && message.content && onRegenerate"
+            class="message-actions"
+          >
+            <el-button
+              size="small"
+              type="primary"
+              text
+              :disabled="sending"
+              @click="handleRegenerate(index)"
+            >
+              <el-icon><Refresh /></el-icon>
+              重新生成
+            </el-button>
+          </div>
+          
           <div class="message-time">{{ message.time }}</div>
         </div>
       </div>
@@ -33,15 +50,33 @@
 
 <script setup>
 import { ref, watch, nextTick, computed } from 'vue'
-import { User, Service, Loading } from '@element-plus/icons-vue'
+import { User, Service, Loading, Refresh } from '@element-plus/icons-vue'
 import { renderMarkdown } from '@/composables/useMarkdown'
 
 const props = defineProps({
   messages: {
     type: Array,
     default: () => []
+  },
+  sending: {
+    type: Boolean,
+    default: false
+  },
+  onRegenerate: {
+    type: Function,
+    default: null
   }
 })
+
+const emit = defineEmits(['regenerate'])
+
+const handleRegenerate = (index) => {
+  if (props.onRegenerate) {
+    props.onRegenerate(index)
+  } else {
+    emit('regenerate', index)
+  }
+}
 
 const chatHistoryRef = ref(null)
 // 缓存渲染结果，避免频繁重新渲染
@@ -280,6 +315,16 @@ defineExpose({
   align-items: center;
   gap: 8px;
   color: #909399;
+}
+
+.message-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+.message-item.user .message-actions {
+  justify-content: flex-end;
 }
 
 .message-time {

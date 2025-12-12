@@ -213,6 +213,23 @@
                     v-html="renderMarkdown(message.content)"
                   ></div>
                   
+                  <!-- 重新生成按钮（仅助手消息且已完成时显示） -->
+                  <div 
+                    v-if="message.type === 'assistant' && !message.isLoading && message.content"
+                    class="message-actions"
+                  >
+                    <el-button
+                      size="small"
+                      type="primary"
+                      text
+                      :disabled="sending"
+                      @click="handleRegenerate(index)"
+                    >
+                      <el-icon><Refresh /></el-icon>
+                      重新生成
+                    </el-button>
+                  </div>
+                  
                   <!-- 来源文档 -->
                   <div v-if="message.sources && message.sources.length > 0" class="message-sources">
                     <el-collapse>
@@ -311,7 +328,8 @@ import {
   Star,
   Search,
   Plus,
-  Warning
+  Warning,
+  Refresh
 } from '@element-plus/icons-vue'
 import { getModelStyle } from '@/utils/modelColor'
 import { renderMarkdown } from '@/composables/useMarkdown'
@@ -357,6 +375,7 @@ const {
   handleSend,
   handleClearHistory,
   handleNewConversation,
+  handleRegenerate,
   scrollToBottom,
   loadConversationHistory,
   cleanup
@@ -1023,6 +1042,16 @@ html {
   border-bottom-left-radius: 2px;
   border: 1px solid #e4e7ed;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.message-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+.message-item.user .message-actions {
+  justify-content: flex-end;
 }
 
 .message-time {

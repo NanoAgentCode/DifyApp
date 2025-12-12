@@ -24,6 +24,8 @@
         <!-- 对话历史 -->
         <MessageList
           :messages="chatHistory"
+          :sending="sending"
+          :on-regenerate="handleRegenerate"
           ref="messageListRef"
         />
 
@@ -474,6 +476,84 @@ const handleClearHistory = () => {
   chatHistory.value = []
   conversationId.value = null
   ElMessage.success('已清空对话历史')
+}
+
+// 重新生成响应
+const handleRegenerate = async (messageIndex) => {
+  if (sending.value || messageIndex < 0 || messageIndex >= chatHistory.value.length) {
+    return
+  }
+
+  const assistantMessage = chatHistory.value[messageIndex]
+  if (assistantMessage.type !== 'assistant' || assistantMessage.isLoading) {
+    return
+  }
+
+  // 找到对应的用户消息（应该是前一条消息）
+  if (messageIndex === 0 || chatHistory.value[messageIndex - 1].type !== 'user') {
+    ElMessage.warning('无法找到对应的用户消息')
+    return
+  }
+
+  const userMessage = chatHistory.value[messageIndex - 1]
+  const userQuestion = userMessage.content
+
+  // 移除当前的助手消息
+  chatHistory.value.splice(messageIndex, 1)
+
+  // 滚动到底部
+  await nextTick()
+  scrollToBottom(true)
+
+  // 添加新的AI回复占位
+  const aiMessageIndex = chatHistory.value.length
+  chatHistory.value.push({
+    type: 'assistant',
+    content: '',
+    time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+    isLoading: true
+  })
+
+  currentStreamingMessage.value = aiMessageIndex
+  sending.value = true
+
+  // 构建历史对话（排除刚移除的助手消息和当前占位的AI消息）
+  const history = chatHistory.value
+    .slice(0, -1) // 排除当前占位的AI消息
+    .filter(msg => !msg.isLoading)
+    .map(msg => ({
+      role: msg.type === 'user' ? 'user' : 'assistant',
+      content: msg.content
+    }))
+
+  const userInfo = getUserInfo()
+  const userId = userInfo ? userInfo.userId : null
+
+  try {
+    const currentConversationId = conversationId.value
+    console.log('重新生成响应，当前 conversationId:', currentConversationId)
+
+    if (useStream.value) {
+      // 流式响应
+      await handleStreamResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value, enableBrowserSearch.value)
+    } else {
+      // 非流式响应
+      await handleNormalResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value, enableBrowserSearch.value)
+    }
+  } catch (error) {
+    console.error('重新生成响应失败', error)
+    ElMessage.error('重新生成响应失败：' + (error.message || '未知错误'))
+    // 移除失败的AI消息
+    if (chatHistory.value[aiMessageIndex]) {
+      chatHistory.value[aiMessageIndex].content = '抱歉，重新生成答案时发生错误，请重试。'
+      chatHistory.value[aiMessageIndex].isLoading = false
+    }
+  } finally {
+    sending.value = false
+    currentStreamingMessage.value = null
+    await nextTick()
+    scrollToBottom(false)
+  }
 }
 
 // 加载历史对话记录

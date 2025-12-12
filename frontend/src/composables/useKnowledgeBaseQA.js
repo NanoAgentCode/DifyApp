@@ -588,6 +588,104 @@ export function useKnowledgeBaseQA(options = {}) {
     })
   }
 
+  // 重新生成响应
+  const handleRegenerate = async (messageIndex) => {
+    if (sending.value || messageIndex < 0 || messageIndex >= chatHistory.value.length) {
+      return
+    }
+
+    const assistantMessage = chatHistory.value[messageIndex]
+    if (assistantMessage.type !== 'assistant' || assistantMessage.isLoading) {
+      return
+    }
+
+    // 找到对应的用户消息（应该是前一条消息）
+    if (messageIndex === 0 || chatHistory.value[messageIndex - 1].type !== 'user') {
+      ElMessage.warning('无法找到对应的用户消息')
+      return
+    }
+
+    const userMessage = chatHistory.value[messageIndex - 1]
+    const userQuestion = userMessage.content
+
+    // 检查知识库、向量化模型和向量库状态
+    if (!selectedKB.value) {
+      ElMessage.warning('请先选择知识库')
+      return
+    }
+
+    if (!isEmbeddingModelEnabled(selectedKB.value.embeddingModelId)) {
+      const modelName = getEmbeddingModelName(selectedKB.value.embeddingModelId) || '默认向量化模型'
+      const message = isAdmin
+        ? `该知识库使用的向量化模型"${modelName}"已被禁用，无法进行问答。请在管理端大模型管理页面启用该向量化模型。`
+        : `该知识库使用的向量化模型"${modelName}"已被禁用，无法进行问答。请联系管理员启用该向量化模型。`
+      ElMessage.warning(message)
+      return
+    }
+
+    if (!isVectorStoreTypeEnabled(selectedKB.value.vectorStoreType)) {
+      const vectorStoreName = getVectorStoreTypeName(selectedKB.value.vectorStoreType)
+      const message = isAdmin
+        ? `该知识库使用的向量库类型"${vectorStoreName}"已被禁用，无法进行问答。请在管理端向量库管理中启用该类型的向量库配置。`
+        : `该知识库使用的向量库类型"${vectorStoreName}"已被禁用，无法进行问答。请联系管理员在向量库管理中启用该类型的向量库配置。`
+      ElMessage.warning(message)
+      return
+    }
+
+    if (!isKnowledgeBaseActive(selectedKB.value.status)) {
+      const message = isAdmin
+        ? '该知识库已被禁用，无法进行问答。请在管理端知识库管理中启用该知识库。'
+        : '该知识库已被禁用，无法进行问答。请联系管理员在知识库管理中启用该知识库。'
+      ElMessage.warning(message)
+      return
+    }
+
+    // 移除当前的助手消息
+    chatHistory.value.splice(messageIndex, 1)
+
+    // 滚动到底部
+    await nextTick()
+    scrollToBottom(true)
+
+    sending.value = true
+
+    try {
+      // 构建历史对话（排除刚移除的助手消息）
+      const maxHistoryRounds = 10
+      const historyMessages = chatHistory.value.slice()
+      const limitedHistory = historyMessages.slice(-maxHistoryRounds * 2).map(msg => ({
+        role: msg.type === 'user' ? 'user' : 'assistant',
+        content: msg.content
+      }))
+
+      const history = []
+      for (let i = 0; i < limitedHistory.length; i++) {
+        const msg = limitedHistory[i]
+        if (msg.role && msg.content) {
+          history.push(msg)
+        }
+      }
+
+      if (useStream.value) {
+        await handleStreamResponse(userQuestion, history)
+      } else {
+        await handleNormalResponse(userQuestion, history)
+      }
+    } catch (error) {
+      handleError(error, '重新生成响应失败', true, () => {
+        chatHistory.value.push({
+          type: 'assistant',
+          content: '抱歉，重新生成答案时发生错误，请重试。',
+          time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+        })
+      })
+    } finally {
+      sending.value = false
+      currentStreamingMessage.value = null
+      scrollToBottom(false)
+    }
+  }
+
   // 滚动到底部
   const scrollToBottom = (force = false) => {
     nextTick(() => {
@@ -698,6 +796,7 @@ export function useKnowledgeBaseQA(options = {}) {
     handleSend,
     handleClearHistory,
     handleNewConversation,
+    handleRegenerate,
     scrollToBottom,
     loadConversationHistory,
     renderMarkdown, // 暴露 renderMarkdown

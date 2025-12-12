@@ -354,21 +354,46 @@ export function renderMarkdown(content) {
     let html = marked.parse(processedContent)
 
     // 为代码块添加 hljs 类（marked 不会自动添加）
-    // 处理 <pre><code> 结构，为 <code> 元素添加 hljs 类
-    // 使用更宽松的匹配模式，处理 <pre> 和 <code> 之间可能有换行符和空白的情况
-    html = html.replace(/<pre[^>]*>\s*<code(?:\s+class="([^"]*)")?[^>]*>/g, (match, existingClass) => {
-      if (existingClass) {
-        // 如果已有 class 属性，检查是否已包含 hljs
-        if (existingClass.includes('hljs')) {
-          return match // 已包含 hljs，不需要添加
+    // 使用 DOM 操作确保可靠性，避免正则表达式匹配问题
+    if (typeof document !== 'undefined') {
+      // 创建一个临时容器来解析 HTML
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = html
+      
+      // 查找所有 <pre><code> 结构
+      const preElements = tempDiv.querySelectorAll('pre')
+      preElements.forEach(pre => {
+        const codeElement = pre.querySelector('code')
+        if (codeElement) {
+          // 检查是否已有 class 属性
+          const existingClass = codeElement.getAttribute('class')
+          if (existingClass) {
+            // 如果已有 class，检查是否包含 hljs
+            if (!existingClass.includes('hljs')) {
+              codeElement.setAttribute('class', existingClass + ' hljs')
+            }
+          } else {
+            // 没有 class 属性，直接添加 hljs
+            codeElement.setAttribute('class', 'hljs')
+          }
         }
-        // 添加 hljs 到现有类名
-        return match.replace(/class="([^"]*)"/, `class="$1 hljs"`)
-      } else {
-        // 没有 class 属性，直接添加
-        return match.replace(/<code([^>]*)>/, '<code$1 class="hljs">')
-      }
-    })
+      })
+      
+      // 获取处理后的 HTML
+      html = tempDiv.innerHTML
+    } else {
+      // 如果 document 不可用（SSR 环境），使用正则表达式作为后备方案
+      html = html.replace(/<pre[^>]*>\s*<code(?:\s+class="([^"]*)")?[^>]*>/g, (match, existingClass) => {
+        if (existingClass) {
+          if (existingClass.includes('hljs')) {
+            return match
+          }
+          return match.replace(/class="([^"]*)"/, `class="$1 hljs"`)
+        } else {
+          return match.replace(/<code([^>]*)>/, '<code$1 class="hljs">')
+        }
+      })
+    }
 
     // 处理 mermaid 图表
     html = html.replace(/```mermaid\n([\s\S]*?)\n```/g, (match, code) => {
