@@ -353,6 +353,23 @@ export function renderMarkdown(content) {
     // 渲染 Markdown
     let html = marked.parse(processedContent)
 
+    // 为代码块添加 hljs 类（marked 不会自动添加）
+    // 处理 <pre><code> 结构，为 <code> 元素添加 hljs 类
+    // 使用更宽松的匹配模式，处理 <pre> 和 <code> 之间可能有换行符和空白的情况
+    html = html.replace(/<pre[^>]*>\s*<code(?:\s+class="([^"]*)")?[^>]*>/g, (match, existingClass) => {
+      if (existingClass) {
+        // 如果已有 class 属性，检查是否已包含 hljs
+        if (existingClass.includes('hljs')) {
+          return match // 已包含 hljs，不需要添加
+        }
+        // 添加 hljs 到现有类名
+        return match.replace(/class="([^"]*)"/, `class="$1 hljs"`)
+      } else {
+        // 没有 class 属性，直接添加
+        return match.replace(/<code([^>]*)>/, '<code$1 class="hljs">')
+      }
+    })
+
     // 处理 mermaid 图表
     html = html.replace(/```mermaid\n([\s\S]*?)\n```/g, (match, code) => {
       const id = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
