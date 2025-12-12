@@ -46,6 +46,11 @@ spring:
     password: NaP2emL-bM2Lljjau_mz # 如果使用用户名密码认证
     connection-timeout: 30s
     socket-timeout: 30s
+  # 禁用 Spring Data Elasticsearch Repository 扫描（我们只使用 RestClient，不使用 Repository）
+  data:
+    elasticsearch:
+      repositories:
+        enabled: false
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher
