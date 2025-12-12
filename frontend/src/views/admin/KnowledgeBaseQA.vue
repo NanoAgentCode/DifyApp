@@ -316,7 +316,7 @@ import {
   Loading,
   Star,
   Search,
-  Warning
+  Warning,
   Refresh
 } from '@element-plus/icons-vue'
 import { getModelStyle } from '@/utils/modelColor'

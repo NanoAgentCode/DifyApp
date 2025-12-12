@@ -142,6 +142,12 @@ const routes = [
                 name: 'AIDrawIO',
                 component: () => import('@/views/admin/AIDrawIO.vue'),
                 meta: {title: 'AI 绘图', requiresAuth: true, requiresAdmin: true}
+            },
+            {
+                path: 'prompts',
+                name: 'PromptManagement',
+                component: () => import('@/views/admin/PromptManagement.vue'),
+                meta: {title: '提示词管理', requiresAuth: true, requiresAdmin: true}
             }
         ]
     },
