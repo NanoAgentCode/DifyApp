@@ -45,7 +45,8 @@ export function renderMarkdown(content) {
     const formulaMatches = []
     const blockPlaceholder = '___KATEX_BLOCK_PLACEHOLDER___'
     
-    // 先标记块级公式 $$...$$（必须优先处理，避免被行内公式匹配）
+    // 先标记块级公式 $$...$$ 和 [ ... ]（必须优先处理，避免被行内公式匹配）
+    // 处理 $$...$$ 格式
     let processedContent = content.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
       const index = formulaMatches.length
       formulaMatches.push({ 
@@ -56,29 +57,259 @@ export function renderMarkdown(content) {
       return blockPlaceholder + index + blockPlaceholder
     })
     
-    // 处理括号格式的公式：( ... )（如果包含 LaTeX 命令）
-    // 必须在处理 $...$ 之前，避免冲突
-    processedContent = processedContent.replace(/\(([^)]+?)\)/g, (match, formula) => {
-      // 如果已经被处理过（包含占位符），跳过
-      if (match.includes(blockPlaceholder)) return match
+    // 处理 [ ... ] 格式的块级公式（支持嵌套方括号）
+    const bracketPairs = []
+    let bracketPos = 0
+    while (bracketPos < processedContent.length) {
+      const leftBracketPos = processedContent.indexOf('[', bracketPos)
+      if (leftBracketPos === -1) break
       
-      // 检查是否包含 LaTeX 命令（如 \times, \ldots, \sum, \frac 等）
-      if (/\\[a-zA-Z]+/.test(formula)) {
-        const trimmed = formula.trim()
-        if (!trimmed) return match
-        
-        try {
-          return katex.renderToString(trimmed, {
-            displayMode: false,
-            throwOnError: false
-          })
-        } catch (e) {
-          // 如果渲染失败，返回原文本
-          return match
+      // 跳过已经被处理过的位置（包含占位符）
+      if (processedContent.substring(Math.max(0, leftBracketPos - 20), leftBracketPos + 20).includes(blockPlaceholder)) {
+        bracketPos = leftBracketPos + 1
+        continue
+      }
+      
+      // 检查前面是否有反斜杠（如果是转义的，跳过）
+      if (leftBracketPos > 0 && processedContent[leftBracketPos - 1] === '\\') {
+        bracketPos = leftBracketPos + 1
+        continue
+      }
+      
+      // 查找匹配的右方括号
+      let depth = 1
+      let rightBracketPos = leftBracketPos + 1
+      
+      while (rightBracketPos < processedContent.length && depth > 0) {
+        const char = processedContent[rightBracketPos]
+        // 检查是否有转义的反斜杠
+        if (char === '\\' && rightBracketPos + 1 < processedContent.length) {
+          rightBracketPos += 2
+          continue
+        }
+        if (char === '[') {
+          depth++
+        } else if (char === ']') {
+          depth--
+        }
+        if (depth > 0) {
+          rightBracketPos++
         }
       }
-      return match
-    })
+      
+      // 如果找到了匹配的右方括号
+      if (depth === 0) {
+        const formula = processedContent.substring(leftBracketPos + 1, rightBracketPos)
+        const trimmed = formula.trim()
+        
+        // 检查是否包含 LaTeX 命令（如 \times, \ldots, \sum, \frac, \geq, \cdots 等）
+        if (trimmed && /\\[a-zA-Z]+/.test(trimmed)) {
+          bracketPairs.push({
+            start: leftBracketPos,
+            end: rightBracketPos + 1,
+            formula: trimmed,
+            original: `[${formula}]`
+          })
+        }
+        bracketPos = rightBracketPos + 1
+      } else {
+        bracketPos = leftBracketPos + 1
+      }
+    }
+    
+    // 从后往前替换方括号公式，避免位置偏移
+    for (let i = bracketPairs.length - 1; i >= 0; i--) {
+      const pair = bracketPairs[i]
+      try {
+        // 清理公式
+        let finalFormula = pair.formula.trim()
+        
+        // 移除 HTML 实体
+        finalFormula = finalFormula
+          .replace(/&#x27;/g, "'")
+          .replace(/&#39;/g, "'")
+          .replace(/&quot;/g, '"')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&amp;/g, '&')
+        
+        // 移除末尾的反斜杠
+        finalFormula = finalFormula.replace(/\\+$/, '')
+        
+        // 修复多余的转义
+        finalFormula = finalFormula.replace(/([^\\])\\\\([^a-zA-Z\\])/g, '$1\\$2')
+        finalFormula = finalFormula.trim()
+        
+        const rendered = katex.renderToString(finalFormula, {
+          displayMode: true, // 块级公式使用 displayMode
+          throwOnError: false
+        })
+        const index = formulaMatches.length
+        formulaMatches.push({ 
+          type: 'block', 
+          original: pair.original, 
+          formula: finalFormula 
+        })
+        processedContent = processedContent.substring(0, pair.start) + 
+                          blockPlaceholder + index + blockPlaceholder + 
+                          processedContent.substring(pair.end)
+      } catch (e) {
+        console.warn('KaTeX 渲染失败（方括号块级公式）:', e, '公式:', pair.formula)
+      }
+    }
+    
+    // 处理括号格式的公式：( ... )（如果包含 LaTeX 命令）
+    // 必须在处理 $...$ 之前，避免冲突
+    // 使用函数来匹配平衡的括号，支持嵌套括号
+    const parenPlaceholder = '___KATEX_PAREN_PLACEHOLDER___'
+    const parenMatches = []
+    
+    // 查找所有括号对（从后往前查找，优先处理最外层括号，避免位置偏移）
+    const parenPairs = []
+    
+    // 从后往前查找所有右括号，然后向前查找匹配的左括号
+    let searchPos = processedContent.length - 1
+    while (searchPos >= 0) {
+      const rightParenPos = processedContent.lastIndexOf(')', searchPos)
+      if (rightParenPos === -1) break
+      
+      // 跳过已经被处理过的位置（包含占位符）
+      if (processedContent.substring(Math.max(0, rightParenPos - 20), Math.min(processedContent.length, rightParenPos + 20)).includes(blockPlaceholder) ||
+          processedContent.substring(Math.max(0, rightParenPos - 20), Math.min(processedContent.length, rightParenPos + 20)).includes(parenPlaceholder)) {
+        searchPos = rightParenPos - 1
+        continue
+      }
+      
+      // 检查前面是否有反斜杠（如果是转义的，跳过）
+      if (rightParenPos > 0 && processedContent[rightParenPos - 1] === '\\') {
+        searchPos = rightParenPos - 1
+        continue
+      }
+      
+      // 从右括号向前查找匹配的左括号
+      let depth = 1
+      let leftParenPos = rightParenPos - 1
+      
+      while (leftParenPos >= 0 && depth > 0) {
+        const char = processedContent[leftParenPos]
+        // 检查是否有转义的反斜杠
+        if (char === '\\' && leftParenPos > 0 && processedContent[leftParenPos - 1] !== '\\') {
+          leftParenPos--
+          continue
+        }
+        if (char === ')') {
+          depth++
+        } else if (char === '(') {
+          depth--
+        }
+        if (depth > 0) {
+          leftParenPos--
+        }
+      }
+      
+      // 如果找到了匹配的左括号
+      if (depth === 0 && leftParenPos >= 0) {
+        // 检查前面是否有反斜杠（如果是转义的，跳过）
+        if (leftParenPos > 0 && processedContent[leftParenPos - 1] === '\\') {
+          searchPos = rightParenPos - 1
+          continue
+        }
+        
+        const formula = processedContent.substring(leftParenPos + 1, rightParenPos)
+        
+        // 清理公式：移除可能的转义字符和多余空白
+        let cleanedFormula = formula.trim()
+        
+        // 移除开头和结尾的反斜杠（可能是转义字符）
+        cleanedFormula = cleanedFormula.replace(/^\\+/, '').replace(/\\+$/, '')
+        
+        // 检查是否包含 LaTeX 命令（如 \times, \ldots, \sum, \frac, \geq 等）
+        if (/\\[a-zA-Z]+/.test(cleanedFormula)) {
+          if (cleanedFormula) {
+            // 检查这个括号对是否已经被其他括号对包含（避免重复处理）
+            let isNested = false
+            for (const existingPair of parenPairs) {
+              if (leftParenPos > existingPair.start && rightParenPos < existingPair.end) {
+                isNested = true
+                break
+              }
+            }
+            
+            if (!isNested) {
+              parenPairs.push({
+                start: leftParenPos,
+                end: rightParenPos + 1,
+                formula: cleanedFormula,
+                original: `(${formula})`
+              })
+            }
+          }
+        }
+      }
+      
+      searchPos = rightParenPos - 1
+    }
+    
+    // 按起始位置排序，确保从后往前替换
+    parenPairs.sort((a, b) => b.start - a.start)
+    
+    // 从后往前替换，避免位置偏移
+    for (let i = parenPairs.length - 1; i >= 0; i--) {
+      const pair = parenPairs[i]
+      try {
+        // 再次清理公式，确保没有多余的空白或转义字符
+        let finalFormula = pair.formula.trim()
+        
+        // 移除 HTML 实体（如果存在）
+        finalFormula = finalFormula
+          .replace(/&#x27;/g, "'")
+          .replace(/&#39;/g, "'")
+          .replace(/&quot;/g, '"')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&amp;/g, '&')
+        
+        // 移除末尾的反斜杠（可能是转义字符）
+        finalFormula = finalFormula.replace(/\\+$/, '')
+        
+        // 确保 LaTeX 命令格式正确
+        // 修复可能的转义问题：将 \\ 转换为单个 \（但保留 LaTeX 命令中的 \）
+        // 注意：不要替换 LaTeX 命令中的反斜杠，只处理多余的转义
+        // 匹配：非反斜杠字符 + 两个反斜杠 + 非字母字符，替换为：非反斜杠字符 + 单个反斜杠 + 非字母字符
+        finalFormula = finalFormula.replace(/([^\\])\\\\([^a-zA-Z\\])/g, '$1\\$2')
+        
+        // 再次 trim，确保没有多余的空白
+        finalFormula = finalFormula.trim()
+        
+        const rendered = katex.renderToString(finalFormula, {
+          displayMode: false,
+          throwOnError: false
+        })
+        const placeholder = parenPlaceholder + parenMatches.length + parenPlaceholder
+        parenMatches.push({
+          original: pair.original,
+          rendered: rendered
+        })
+        processedContent = processedContent.substring(0, pair.start) + 
+                          placeholder + 
+                          processedContent.substring(pair.end)
+      } catch (e) {
+        // 如果渲染失败，记录错误但继续处理其他公式
+        console.warn('KaTeX 渲染失败（括号公式）:', e, '公式:', pair.formula)
+      }
+    }
+    
+    // 恢复括号公式占位符
+    processedContent = processedContent.replace(
+      new RegExp(parenPlaceholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\d+)' + parenPlaceholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), 
+      (match, index) => {
+        const parenMatch = parenMatches[parseInt(index)]
+        if (parenMatch) {
+          return parenMatch.rendered
+        }
+        return match
+      }
+    )
     
     // 处理行内公式 $...$（不包含换行符）
     processedContent = processedContent.replace(/\$([^$\n]+?)\$/g, (match, formula) => {
@@ -178,4 +409,5 @@ export function renderMarkdown(content) {
 export function cleanupMarkdown() {
   // 可以在这里清理 mermaid 实例等
 }
+
 
