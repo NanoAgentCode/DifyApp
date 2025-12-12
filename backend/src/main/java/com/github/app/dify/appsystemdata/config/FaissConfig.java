@@ -109,10 +109,24 @@ public class FaissConfig {
     }
     
     /**
-     * 获取实际使用的基础路径
+     * 获取实际使用的基础路径（转换为绝对路径）
      */
     public String getBasePath() {
-        return actualBasePath != null ? actualBasePath : basePath;
+        String path = actualBasePath != null ? actualBasePath : basePath;
+        // 如果是相对路径，转换为绝对路径（基于项目根目录）
+        if (path.startsWith("./") || (!path.startsWith("/") && !path.matches("^[A-Za-z]:.*"))) {
+            // 获取项目根目录（backend目录的父目录）
+            String projectRoot = System.getProperty("user.dir");
+            // 如果当前工作目录是backend，需要向上一级
+            if (projectRoot.endsWith("backend")) {
+                projectRoot = new File(projectRoot).getParent();
+            }
+            // 移除相对路径前缀
+            String cleanPath = path.replaceFirst("^\\./", "");
+            path = Paths.get(projectRoot, cleanPath).toAbsolutePath().normalize().toString();
+            logger.debug("转换相对路径为绝对路径: {} -> {}", actualBasePath != null ? actualBasePath : basePath, path);
+        }
+        return path;
     }
     
     /**

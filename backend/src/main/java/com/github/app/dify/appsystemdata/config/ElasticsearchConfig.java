@@ -6,8 +6,8 @@ import com.github.app.dify.appknowledgebase.repository.VectorDatabaseRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 import jakarta.annotation.PostConstruct;
@@ -16,10 +16,9 @@ import java.util.Map;
 import java.util.Optional;
 /**
  * Elasticsearch配置类
- * 优先从数据库读取配置，如果数据库没有配置则使用application.yml的配置
+ * 优先从数据库读取配置，如果数据库没有配置则使用 Spring Boot 标准配置 (spring.elasticsearch.*)
  */
 @Configuration
-@ConfigurationProperties(prefix = "elasticsearch")
 @DependsOn("vectorDatabaseRepository")
 public class ElasticsearchConfig implements CommandLineRunner {
     
@@ -31,12 +30,21 @@ public class ElasticsearchConfig implements CommandLineRunner {
     @Autowired(required = false)
     private VectorDatabaseRepository vectorDatabaseRepository;
     
-    // 默认值（从application.yml读取，如果数据库没有配置则使用这些值）
-    private String url = "http://localhost:9200";
-    private String apiKey;
+    // 默认值（从 Spring Boot 标准配置 spring.elasticsearch.* 读取）
+    @Value("${spring.elasticsearch.uris:http://localhost:9200}")
+    private String uris;
+    
+    @Value("${spring.elasticsearch.username:}")
     private String username;
+    
+    @Value("${spring.elasticsearch.password:}")
     private String password;
-    private int timeout = 30000;
+    
+    @Value("${spring.elasticsearch.connection-timeout:30s}")
+    private String connectionTimeout;
+    
+    // API Key 不在 Spring Boot 标准配置中，保留为空（如果需要，可以从数据库读取）
+    private String apiKey;
     
     // 实际使用的配置值（从数据库读取或使用默认值）
     private String actualUrl;
@@ -45,25 +53,39 @@ public class ElasticsearchConfig implements CommandLineRunner {
     private String actualPassword;
     private int actualTimeout;
     
-    // Setter方法（Spring Boot需要从application.yml读取）
-    public void setUrl(String url) {
-        this.url = url;
+    /**
+     * 从 Spring Boot 配置的 URIs 中提取第一个 URL
+     */
+    private String getUrlFromUris() {
+        if (uris == null || uris.trim().isEmpty()) {
+            return "http://localhost:9200";
+        }
+        // Spring Boot 的 uris 可以是逗号分隔的多个 URI，取第一个
+        String[] uriArray = uris.split(",");
+        return uriArray[0].trim();
     }
     
-    public void setApiKey(String apiKey) {
-        this.apiKey = apiKey;
-    }
-    
-    public void setUsername(String username) {
-        this.username = username;
-    }
-    
-    public void setPassword(String password) {
-        this.password = password;
-    }
-    
-    public void setTimeout(int timeout) {
-        this.timeout = timeout;
+    /**
+     * 从 connection-timeout 字符串转换为毫秒数
+     */
+    private int getTimeoutFromString(String timeoutStr) {
+        if (timeoutStr == null || timeoutStr.trim().isEmpty()) {
+            return 30000;
+        }
+        try {
+            // 支持格式：30s, 30000ms, 30
+            String trimmed = timeoutStr.trim().toLowerCase();
+            if (trimmed.endsWith("s")) {
+                return Integer.parseInt(trimmed.substring(0, trimmed.length() - 1)) * 1000;
+            } else if (trimmed.endsWith("ms")) {
+                return Integer.parseInt(trimmed.substring(0, trimmed.length() - 2));
+            } else {
+                return Integer.parseInt(trimmed);
+            }
+        } catch (Exception e) {
+            logger.warn("解析超时时间失败: {}, 使用默认值 30000ms", timeoutStr);
+            return 30000;
+        }
     }
     
     /**
@@ -79,12 +101,12 @@ public class ElasticsearchConfig implements CommandLineRunner {
      */
     private void loadConfigFromDatabase() {
         if (vectorDatabaseRepository == null) {
-            logger.debug("VectorDatabaseRepository未注入，使用application.yml配置");
-            actualUrl = url;
+            logger.debug("VectorDatabaseRepository未注入，使用 Spring Boot 标准配置");
+            actualUrl = getUrlFromUris();
             actualApiKey = apiKey;
             actualUsername = username;
             actualPassword = password;
-            actualTimeout = timeout;
+            actualTimeout = getTimeoutFromString(connectionTimeout);
             return;
         }
         
@@ -127,20 +149,20 @@ public class ElasticsearchConfig implements CommandLineRunner {
                 return;
             }
             
-            // 数据库没有配置，使用application.yml的默认值
-            actualUrl = url;
+            // 数据库没有配置，使用 Spring Boot 标准配置的默认值
+            actualUrl = getUrlFromUris();
             actualApiKey = apiKey;
             actualUsername = username;
             actualPassword = password;
-            actualTimeout = timeout;
-            logger.info("数据库中没有Elasticsearch配置，使用application.yml配置 - URL: {}", actualUrl);
+            actualTimeout = getTimeoutFromString(connectionTimeout);
+            logger.info("数据库中没有Elasticsearch配置，使用 Spring Boot 标准配置 - URL: {}", actualUrl);
         } catch (Exception e) {
-            logger.warn("从数据库加载Elasticsearch配置失败，使用application.yml配置: {}", e.getMessage(), e);
-            actualUrl = url;
+            logger.warn("从数据库加载Elasticsearch配置失败，使用 Spring Boot 标准配置: {}", e.getMessage(), e);
+            actualUrl = getUrlFromUris();
             actualApiKey = apiKey;
             actualUsername = username;
             actualPassword = password;
-            actualTimeout = timeout;
+            actualTimeout = getTimeoutFromString(connectionTimeout);
         }
     }
     
@@ -176,7 +198,7 @@ public class ElasticsearchConfig implements CommandLineRunner {
      * 获取实际使用的URL
      */
     public String getUrl() {
-        return actualUrl != null ? actualUrl : url;
+        return actualUrl != null ? actualUrl : getUrlFromUris();
     }
     
     /**
@@ -201,10 +223,10 @@ public class ElasticsearchConfig implements CommandLineRunner {
     }
     
     /**
-     * 获取实际使用的超时时间
+     * 获取实际使用的超时时间（毫秒）
      */
     public int getTimeout() {
-        return actualTimeout > 0 ? actualTimeout : timeout;
+        return actualTimeout > 0 ? actualTimeout : getTimeoutFromString(connectionTimeout);
     }
     
     @Override
