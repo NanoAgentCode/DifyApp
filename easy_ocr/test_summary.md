@@ -104,3 +104,4 @@ Invoke-RestMethod -Uri "http://localhost:8000/ocr" -Method Post -Body $body -Con
 1. 首次启动时，EasyOCR 需要下载模型文件（约 500MB），可能需要几分钟
 2. 模型下载完成后会缓存在容器内，后续启动会更快
 3. 建议使用包含清晰文字的图片进行测试，以获得最佳识别效果
+
