@@ -75,8 +75,8 @@ jwt:
 # MinIO配置
 minio:
   endpoint: http://localhost:9000
-  access-key: minioadmin
-  secret-key: minioadmin
+  access-key: rustfsadmin
+  secret-key: rustfsadmin
   bucket-name: knowledge-base
 
 # Qdrant配置

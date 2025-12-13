@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: rustfs-server
+    ports:
+      - "9000:9000"  # S3 API端口
+      - "9001:9001"  # 控制台端口（如果启用）
+    environment:
+      # 访问密钥（默认：rustfsadmin）
+      - RUSTFS_ACCESS_KEY=rustfsadmin
+      # 密钥（默认：rustfsadmin，生产环境请修改）
+      - RUSTFS_SECRET_KEY=rustfsadmin
+      # 启用控制台（可选）
+      - RUSTFS_CONSOLE_ENABLE=true
+      # 服务器域名（可选，用于虚拟主机模式）
+      # - RUSTFS_SERVER_DOMAINS=example.com
+      # 监听地址（默认：:9000）
+      - RUSTFS_ADDRESS=:9000
+    volumes:
+      # 数据存储目录（请根据实际情况修改路径）
+      - ./data:/data
+      # 如果需要TLS，可以挂载证书目录
+      # - ./certs:/certs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    # 资源限制（根据实际情况调整）
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    command:
+      - /data
+
+volumes:
+  rustfs-data:
+    driver: local
