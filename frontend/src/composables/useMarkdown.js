@@ -2,25 +2,34 @@
  * Markdown 渲染 Composables
  * 统一处理 Markdown 渲染逻辑
  */
-import { marked } from 'marked'
+import { Marked } from 'marked'
+import { markedHighlight } from 'marked-highlight'
 import hljs from 'highlight.js'
 import '@/styles/vscode-dark.css' // VS Code Dark+ 主题
 import katex from 'katex'
 import 'katex/dist/katex.css'
 import mermaid from 'mermaid'
 
-// 配置 marked
-marked.setOptions({
-  highlight: function(code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        return hljs.highlight(code, { language: lang }).value
-      } catch (err) {
-        console.error('代码高亮失败:', err)
+// 配置 marked v17 使用新的 API
+const marked = new Marked(
+  markedHighlight({
+    langPrefix: 'hljs language-',
+    highlight(code, lang) {
+      if (lang && hljs.getLanguage(lang)) {
+        try {
+          return hljs.highlight(code, { language: lang }).value
+        } catch (err) {
+          console.error('代码高亮失败:', err)
+          return hljs.highlightAuto(code).value
+        }
       }
+      return hljs.highlightAuto(code).value
     }
-    return hljs.highlightAuto(code).value
-  },
+  })
+)
+
+// 设置其他选项
+marked.setOptions({
   breaks: true,
   gfm: true
 })
@@ -353,7 +362,7 @@ export function renderMarkdown(content) {
     // 渲染 Markdown
     let html = marked.parse(processedContent)
 
-    // 为代码块添加 hljs 类（marked 不会自动添加）
+    // marked-highlight 会自动添加 hljs 类，但为了确保兼容性，检查并确保所有代码块都有 hljs 类
     // 使用 DOM 操作确保可靠性，避免正则表达式匹配问题
     if (typeof document !== 'undefined') {
       // 创建一个临时容器来解析 HTML
@@ -366,15 +375,11 @@ export function renderMarkdown(content) {
         const codeElement = pre.querySelector('code')
         if (codeElement) {
           // 检查是否已有 class 属性
-          const existingClass = codeElement.getAttribute('class')
-          if (existingClass) {
-            // 如果已有 class，检查是否包含 hljs
-            if (!existingClass.includes('hljs')) {
-              codeElement.setAttribute('class', existingClass + ' hljs')
-            }
-          } else {
-            // 没有 class 属性，直接添加 hljs
-            codeElement.setAttribute('class', 'hljs')
+          const existingClass = codeElement.getAttribute('class') || ''
+          // 确保包含 hljs 类（marked-highlight 应该已经添加了，但为了保险起见）
+          if (!existingClass.includes('hljs')) {
+            const newClass = existingClass ? `${existingClass} hljs` : 'hljs'
+            codeElement.setAttribute('class', newClass)
           }
         }
       })

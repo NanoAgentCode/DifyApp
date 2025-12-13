@@ -127,7 +127,7 @@
 import { ref, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { User, Service, Loading, ChatLineRound, Link, UploadFilled, Close, Refresh, Setting } from '@element-plus/icons-vue'
-import { marked } from 'marked'
+import { renderMarkdown } from '@/composables/useMarkdown'
 import { chat, chatStream } from '@/api/chat'
 import { knowledgeBaseQA, knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
 import { getAvailableQAModels, getAvailableQAModelsForRAG } from '@/api/model'
@@ -233,15 +233,7 @@ const loadDefaultModel = async () => {
   }
 }
 
-// 渲染 Markdown
-const renderMarkdown = (text) => {
-  if (!text) return ''
-  try {
-    return marked.parse(text)
-  } catch (e) {
-    return text
-  }
-}
+// 渲染 Markdown（使用统一的 renderMarkdown 函数）
 
 // 滚动到底部
 const scrollToBottom = () => {

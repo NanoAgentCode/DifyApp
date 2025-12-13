@@ -17,6 +17,7 @@
     "highlight.js": "^11.11.1",
     "katex": "^0.16.9",
     "marked": "^17.0.0",
+    "marked-highlight": "^2.2.3",
     "mermaid": "^10.6.1",
     "pinia": "^2.1.7",
     "vue": "^3.3.4",

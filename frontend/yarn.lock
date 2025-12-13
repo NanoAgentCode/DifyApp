@@ -924,7 +924,12 @@ magic-string@^0.30.21:
   dependencies:
     "@jridgewell/sourcemap-codec" "^1.5.5"
 
-marked@^17.0.0:
+marked-highlight@^2.2.3:
+  version "2.2.3"
+  resolved "https://registry.npmjs.org/marked-highlight/-/marked-highlight-2.2.3.tgz"
+  integrity sha512-FCfZRxW/msZAiasCML4isYpxyQWKEEx44vOgdn5Kloae+Qc3q4XR7WjpKKf8oMLk7JP9ZCRd2vhtclJFdwxlWQ==
+
+marked@^17.0.0, "marked@>=4 <18":
   version "17.0.0"
   resolved "https://registry.npmmirror.com/marked/-/marked-17.0.0.tgz"
   integrity sha512-KkDYEWEEiYJw/KC+DVm1zzlpMQSMIu6YRltkcCvwheCp8HWPXCk9JwOmHJKBlGfzcpzcIt6x3sMnTsRm/51oDg==
