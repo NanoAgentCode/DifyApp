@@ -702,9 +702,11 @@ onMounted(() => {
   padding: 0.2em 0.4em;
   margin: 0;
   font-size: 85%;
-  background-color: rgba(27, 31, 35, 0.05);
+  background-color: rgba(64, 158, 255, 0.15) !important; /* 浅蓝色背景，提高对比度 */
+  color: #303133 !important; /* 深色文字，确保可读性 */
   border-radius: 3px;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  border: 1px solid rgba(64, 158, 255, 0.2); /* 添加边框增强可见性 */
 }
 
 .message-text :deep(pre) {

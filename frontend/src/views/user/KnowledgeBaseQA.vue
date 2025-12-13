@@ -873,15 +873,19 @@ html {
 }
 
 .message-text :deep(code) {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(64, 158, 255, 0.15) !important; /* 浅蓝色背景，提高对比度 */
+  color: #303133 !important; /* 深色文字，确保可读性 */
   padding: 2px 6px;
   border-radius: 3px;
   font-family: 'Courier New', monospace;
   font-size: 0.9em;
+  border: 1px solid rgba(64, 158, 255, 0.2); /* 添加边框增强可见性 */
 }
 
 .message-item.assistant .message-text :deep(code) {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(64, 158, 255, 0.2) !important; /* 稍深的蓝色背景 */
+  color: #303133 !important;
+  border: 1px solid rgba(64, 158, 255, 0.3);
 }
 
 .message-text :deep(pre) {

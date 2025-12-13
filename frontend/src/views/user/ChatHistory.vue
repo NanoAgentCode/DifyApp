@@ -561,11 +561,13 @@ const {
 }
 
 .message-content code {
-  background-color: #f4f4f4;
+  background-color: rgba(64, 158, 255, 0.15) !important; /* 浅蓝色背景，提高对比度 */
+  color: #303133 !important; /* 深色文字，确保可读性 */
   padding: 2px 6px;
   border-radius: 3px;
   font-family: 'Courier New', monospace;
   font-size: 0.9em;
+  border: 1px solid rgba(64, 158, 255, 0.2); /* 添加边框增强可见性 */
 }
 
 /* Markdown样式 */
