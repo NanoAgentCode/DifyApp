@@ -2,12 +2,21 @@ import request from '@/utils/request'
 
 /**
  * 智能问答（非流式）
+ * @param {string} question - 问题
+ * @param {string} conversationId - 对话ID
+ * @param {number} userId - 用户ID
+ * @param {Array} history - 对话历史
+ * @param {number} modelId - 模型ID
+ * @param {boolean} enableBrowserSearch - 是否启用浏览器搜索
+ * @param {File[]} files - 附件文件列表（可选）
  */
-export function chat(question, conversationId, userId, history, modelId, enableBrowserSearch = false) {
-  return request({
-    url: '/api/chat',
-    method: 'post',
-    data: {
+export function chat(question, conversationId, userId, history, modelId, enableBrowserSearch = false, files = []) {
+  // 如果有附件，使用multipart/form-data
+  if (files && files.length > 0) {
+    const formData = new FormData()
+    
+    // 添加请求数据
+    const requestData = {
       question,
       conversationId,
       userId,
@@ -16,31 +25,69 @@ export function chat(question, conversationId, userId, history, modelId, enableB
       modelId,
       enableBrowserSearch
     }
-  })
+    formData.append('request', JSON.stringify(requestData))
+    
+    // 添加文件
+    files.forEach(file => {
+      formData.append('files', file)
+    })
+    
+    // 获取JWT token
+    const token = localStorage.getItem('token')
+    const headers = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    
+    return fetch('/api/chat', {
+      method: 'POST',
+      headers: headers,
+      credentials: 'include',
+      body: formData
+    }).then(response => {
+      if (!response.ok) {
+        return response.json().then(err => Promise.reject(err))
+      }
+      return response.json()
+    })
+  } else {
+    // 没有附件，使用原来的JSON方式
+    return request({
+      url: '/api/chat',
+      method: 'post',
+      data: {
+        question,
+        conversationId,
+        userId,
+        history,
+        stream: false,
+        modelId,
+        enableBrowserSearch
+      }
+    })
+  }
 }
 
 /**
  * 智能问答（流式）
+ * @param {string} question - 问题
+ * @param {string} conversationId - 对话ID
+ * @param {number} userId - 用户ID
+ * @param {Array} history - 对话历史
+ * @param {number} modelId - 模型ID
+ * @param {boolean} enableBrowserSearch - 是否启用浏览器搜索
+ * @param {File[]} files - 附件文件列表（可选）
  */
-export function chatStream(question, conversationId, userId, history, modelId, enableBrowserSearch = false) {
+export function chatStream(question, conversationId, userId, history, modelId, enableBrowserSearch = false, files = []) {
   // 获取JWT token
   const token = localStorage.getItem('token')
   
-  const headers = {
-    'Content-Type': 'application/json',
-    'Accept': 'text/event-stream'
-  }
-  
-  // 添加认证token
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-  
-  return fetch('/api/chat/stream', {
-    method: 'POST',
-    headers: headers,
-    credentials: 'include', // 包含cookies
-    body: JSON.stringify({
+  // 如果有附件，使用multipart/form-data
+  if (files && files.length > 0) {
+    const formData = new FormData()
+    
+    // 添加请求数据
+    const requestData = {
       question,
       conversationId,
       userId,
@@ -48,8 +95,56 @@ export function chatStream(question, conversationId, userId, history, modelId, e
       stream: true,
       modelId,
       enableBrowserSearch
+    }
+    formData.append('request', JSON.stringify(requestData))
+    
+    // 添加文件
+    files.forEach(file => {
+      formData.append('files', file)
     })
-  })
+    
+    const headers = {
+      'Accept': 'text/event-stream'
+    }
+    
+    // 添加认证token
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    
+    return fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: headers,
+      credentials: 'include',
+      body: formData
+    })
+  } else {
+    // 没有附件，使用原来的JSON方式
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'text/event-stream'
+    }
+    
+    // 添加认证token
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    
+    return fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: headers,
+      credentials: 'include',
+      body: JSON.stringify({
+        question,
+        conversationId,
+        userId,
+        history,
+        stream: true,
+        modelId,
+        enableBrowserSearch
+      })
+    })
+  }
 }
 
 /**

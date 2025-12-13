@@ -38,6 +38,12 @@ public class QAModelResp {
     @Schema(description = "是否默认")
     private Boolean isDefault;
     
+    @Schema(description = "是否支持多模态")
+    private Boolean supportsMultimodal;
+    
+    @Schema(description = "是否支持视觉输入")
+    private Boolean supportsVision;
+    
     @Schema(description = "创建时间")
     private Date createTime;
     
@@ -138,5 +144,21 @@ public class QAModelResp {
 
     public void setUpdateTime(Date updateTime) {
         this.updateTime = updateTime;
+    }
+
+    public Boolean getSupportsMultimodal() {
+        return supportsMultimodal;
+    }
+
+    public void setSupportsMultimodal(Boolean supportsMultimodal) {
+        this.supportsMultimodal = supportsMultimodal;
+    }
+
+    public Boolean getSupportsVision() {
+        return supportsVision;
+    }
+
+    public void setSupportsVision(Boolean supportsVision) {
+        this.supportsVision = supportsVision;
     }
 }

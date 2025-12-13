@@ -74,8 +74,24 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
             logger.info("已更新状态为向量化中 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
             
             // 1. 使用LangChain4j加载文档
-            logger.info("开始加载文档 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
-            Document document = tikaDocumentLoader.load(file);
+            logger.info("开始加载文档 - 知识库ID: {}, 文档ID: {}, 文件名: {}", 
+                    knowledgeBaseId, documentId, file.getOriginalFilename());
+            Document document;
+            try {
+                document = tikaDocumentLoader.load(file);
+            } catch (RuntimeException e) {
+                // 捕获文档加载异常（如OCR结果为空）
+                logger.error("文档加载失败 - 知识库ID: {}, 文档ID: {}, 错误: {}", 
+                        knowledgeBaseId, documentId, e.getMessage());
+                // 更新状态为失败（3）
+                doc.setVectorizedStatus(3);
+                doc.setVectorizedError(e.getMessage());
+                doc.setUpdateTime(new java.util.Date());
+                documentRepository.save(doc);
+                return;
+            }
+            
+            // 双重检查（虽然TikaDocumentLoader已经检查过，但为了安全起见）
             if (document.text() == null || document.text().trim().isEmpty()) {
                 logger.warn("文档内容为空，跳过向量化 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
                 // 更新状态为失败（3）

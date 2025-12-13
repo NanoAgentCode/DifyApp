@@ -35,8 +35,32 @@ public class ModelLanguageModelFactory {
     
     private static final Logger logger = LoggerFactory.getLogger(ModelLanguageModelFactory.class);
     
+    // 使用ThreadLocal存储当前请求的图片数据（用于多模态支持）
+    private static final ThreadLocal<List<com.github.app.dify.chat.req.ChatRequest.ImageData>> imageDataContext = new ThreadLocal<>();
+    
     @Autowired
     private ObjectMapper objectMapper;
+    
+    /**
+     * 设置当前请求的图片数据
+     */
+    public void setImageData(List<com.github.app.dify.chat.req.ChatRequest.ImageData> imageData) {
+        imageDataContext.set(imageData);
+    }
+    
+    /**
+     * 清除当前请求的图片数据
+     */
+    public void clearImageData() {
+        imageDataContext.remove();
+    }
+    
+    /**
+     * 获取当前请求的图片数据
+     */
+    private List<com.github.app.dify.chat.req.ChatRequest.ImageData> getImageData() {
+        return imageDataContext.get();
+    }
     
     /**
      * 创建非流式聊天模型
@@ -107,7 +131,7 @@ public class ModelLanguageModelFactory {
                 try {
                     WebClient client = getWebClient(qaModel);
                     
-                    // 构建请求体
+                    // 构建请求体（支持多模态）
                     Map<String, Object> requestBody = buildRequestBody(messages, qaModel);
                     requestBody.put("stream", true);
                     
@@ -203,19 +227,59 @@ public class ModelLanguageModelFactory {
      * 构建请求体
      */
     private Map<String, Object> buildRequestBody(List<ChatMessage> messages, QAModel qaModel) {
+        // 从ThreadLocal获取图片数据
+        List<com.github.app.dify.chat.req.ChatRequest.ImageData> imageDataList = getImageData();
         Map<String, Object> requestBody = new HashMap<>();
         
+        // 检查是否支持多模态
+        boolean supportsMultimodal = qaModel != null && 
+                                    Boolean.TRUE.equals(qaModel.getSupportsMultimodal()) &&
+                                    Boolean.TRUE.equals(qaModel.getSupportsVision());
+        boolean hasImages = imageDataList != null && !imageDataList.isEmpty();
+        boolean useMultimodal = supportsMultimodal && hasImages;
+        
         // 转换消息格式
-        List<Map<String, String>> apiMessages = new ArrayList<>();
+        List<Map<String, Object>> apiMessages = new ArrayList<>();
         for (ChatMessage message : messages) {
-            Map<String, String> apiMessage = new HashMap<>();
+            Map<String, Object> apiMessage = new HashMap<>();
             
             if (message instanceof SystemMessage) {
                 apiMessage.put("role", "system");
                 apiMessage.put("content", ((SystemMessage) message).text());
             } else if (message instanceof UserMessage) {
                 apiMessage.put("role", "user");
-                apiMessage.put("content", ((UserMessage) message).singleText());
+                
+                // 如果是最后一条用户消息且支持多模态，构建多模态消息
+                if (useMultimodal && message == messages.get(messages.size() - 1)) {
+                    // 构建多模态消息格式（OpenAI Vision API格式）
+                    List<Map<String, Object>> contentList = new ArrayList<>();
+                    
+                    // 添加文本内容
+                    String textContent = ((UserMessage) message).singleText();
+                    if (textContent != null && !textContent.trim().isEmpty()) {
+                        Map<String, Object> textItem = new HashMap<>();
+                        textItem.put("type", "text");
+                        textItem.put("text", textContent);
+                        contentList.add(textItem);
+                    }
+                    
+                    // 添加图片内容
+                    for (com.github.app.dify.chat.req.ChatRequest.ImageData imageData : imageDataList) {
+                        Map<String, Object> imageItem = new HashMap<>();
+                        imageItem.put("type", "image_url");
+                        Map<String, String> imageUrl = new HashMap<>();
+                        // 使用base64格式：data:image/png;base64,{base64_data}
+                        imageUrl.put("url", "data:" + imageData.getMimeType() + ";base64," + imageData.getBase64());
+                        imageItem.put("image_url", imageUrl);
+                        contentList.add(imageItem);
+                    }
+                    
+                    apiMessage.put("content", contentList);
+                    logger.debug("构建多模态消息，包含 {} 张图片", imageDataList.size());
+                } else {
+                    // 普通文本消息
+                    apiMessage.put("content", ((UserMessage) message).singleText());
+                }
             } else if (message instanceof AiMessage) {
                 apiMessage.put("role", "assistant");
                 apiMessage.put("content", ((AiMessage) message).text());

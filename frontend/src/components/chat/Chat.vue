@@ -46,6 +46,37 @@
 
         <!-- 输入区域 -->
         <div class="input-area">
+          <!-- 已选择的附件预览 -->
+          <div v-if="selectedFiles.length > 0" class="attachments-preview">
+            <div
+              v-for="(file, index) in selectedFiles"
+              :key="index"
+              class="attachment-item"
+            >
+              <el-image
+                v-if="isImageFile(file)"
+                :src="getFilePreview(file)"
+                :preview-src-list="[getFilePreview(file)]"
+                fit="contain"
+                class="attachment-preview-image"
+                loading="lazy"
+                :preview-teleported="true"
+                :z-index="3000"
+              />
+              <div class="attachment-info">
+                <span class="attachment-name" :title="file.name">{{ file.name }}</span>
+                <span class="attachment-size">{{ formatFileSize(file.size) }}</span>
+              </div>
+              <el-button
+                type="danger"
+                :icon="Delete"
+                size="small"
+                text
+                @click="removeFile(index)"
+                :disabled="sending"
+              />
+            </div>
+          </div>
           <el-input
             v-model="question"
             type="textarea"
@@ -60,6 +91,22 @@
               <span class="tips-text">按 Ctrl + Enter 或 Enter 发送</span>
             </div>
             <div class="input-buttons">
+              <el-upload
+                :action="''"
+                :auto-upload="false"
+                :show-file-list="false"
+                :on-change="handleFileSelect"
+                :accept="'image/*'"
+                :disabled="sending"
+                multiple
+              >
+                <template #trigger>
+                  <el-button :disabled="sending">
+                    <el-icon><Picture /></el-icon>
+                    上传图片
+                  </el-button>
+                </template>
+              </el-upload>
               <el-button
                 v-if="showNewConversationButton"
                 @click="handleNewConversation"
@@ -77,7 +124,7 @@
               </div>
               <el-button
                 type="primary"
-                :disabled="!question.trim() || sending"
+                :disabled="(!question.trim() && selectedFiles.length === 0) || sending"
                 @click="handleSend"
                 :loading="sending"
               >
@@ -95,7 +142,7 @@
 <script setup>
 import { ref, nextTick, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Delete, Plus, Promotion } from '@element-plus/icons-vue'
+import { Delete, Plus, Promotion, Picture } from '@element-plus/icons-vue'
 import { chat, chatStream, getConversationMessages } from '@/api/chat'
 import { getAvailableQAModels } from '@/api/model'
 import { getPrompts } from '@/api/prompt'
@@ -135,6 +182,7 @@ const selectedModelId = ref(null)
 const availablePrompts = ref([])
 const selectedPromptId = ref(null)
 const selectedPrompt = ref(null)
+const selectedFiles = ref([])
 
 // 获取用户信息
 const getUserInfo = () => {
@@ -169,8 +217,53 @@ const scrollToBottom = (force = false) => {
   })
 }
 
+// 处理文件选择
+const handleFileSelect = (file) => {
+  // 检查文件类型
+  if (!file.raw.type.startsWith('image/')) {
+    ElMessage.warning('只能上传图片文件')
+    return
+  }
+  
+  // 检查文件大小（限制10MB）
+  if (file.raw.size > 10 * 1024 * 1024) {
+    ElMessage.warning('图片大小不能超过10MB')
+    return
+  }
+  
+  // 添加到已选择文件列表
+  selectedFiles.value.push(file.raw)
+}
+
+// 移除文件
+const removeFile = (index) => {
+  selectedFiles.value.splice(index, 1)
+}
+
+// 判断是否为图片文件
+const isImageFile = (file) => {
+  return file.type && file.type.startsWith('image/')
+}
+
+// 获取文件预览URL
+const getFilePreview = (file) => {
+  return URL.createObjectURL(file)
+}
+
+// 注意：图片缩放样式已通过CSS类 attachment-preview-image 实现
+// 这里不再需要 getImageStyle 函数，但保留以备将来扩展使用
+
+// 格式化文件大小
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+}
+
 const handleSend = async () => {
-  if (!question.value.trim() || sending.value) {
+  if ((!question.value.trim() && selectedFiles.value.length === 0) || sending.value) {
     return
   }
 
@@ -182,15 +275,32 @@ const handleSend = async () => {
     userQuestion = selectedPrompt.value.content + "\n\n" + userQuestion
   }
   
+  // 构建用户消息内容（包含附件信息）
+  let userMessageContent = userQuestion
+  if (selectedFiles.value.length > 0) {
+    const fileNames = selectedFiles.value.map(f => f.name).join('、')
+    userMessageContent = `[已上传 ${selectedFiles.value.length} 张图片: ${fileNames}]\n\n${userQuestion}`
+  }
+  
   // 添加用户消息
   chatHistory.value.push({
     type: 'user',
-    content: userQuestion,
-    time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    content: userMessageContent,
+    time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+    files: selectedFiles.value.map(f => ({
+      name: f.name,
+      size: f.size,
+      type: f.type,
+      preview: getFilePreview(f)
+    }))
   })
 
-  // 清空输入框
+  // 保存当前选择的文件（用于发送）
+  const filesToSend = [...selectedFiles.value]
+  
+  // 清空输入框和文件列表
   question.value = ''
+  selectedFiles.value = []
   
   // 滚动到底部（强制滚动，因为这是新消息）
   await nextTick()
@@ -226,10 +336,10 @@ const handleSend = async () => {
     
     if (useStream.value) {
       // 流式响应
-      await handleStreamResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value, enableBrowserSearch.value)
+      await handleStreamResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value, enableBrowserSearch.value, filesToSend)
     } else {
       // 非流式响应
-      await handleNormalResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value, enableBrowserSearch.value)
+      await handleNormalResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value, enableBrowserSearch.value, filesToSend)
     }
   } catch (error) {
     console.error('发送消息失败', error)
@@ -248,7 +358,7 @@ const handleSend = async () => {
 }
 
 // 处理流式响应
-const handleStreamResponse = async (question, requestConversationId, userId, history, aiMessageIndex, modelId, enableBrowserSearch) => {
+const handleStreamResponse = async (question, requestConversationId, userId, history, aiMessageIndex, modelId, enableBrowserSearch, files = []) => {
   let reader = null
   let response = null
   
@@ -283,7 +393,7 @@ const handleStreamResponse = async (question, requestConversationId, userId, his
   }
   
   try {
-    response = await chatStream(question, requestConversationId, userId, history, modelId, enableBrowserSearch)
+    response = await chatStream(question, requestConversationId, userId, history, modelId, enableBrowserSearch, files)
     
     if (!response.ok) {
       const errorText = await response.text().catch(() => '未知错误')
@@ -458,9 +568,9 @@ const handleStreamResponse = async (question, requestConversationId, userId, his
 }
 
 // 处理非流式响应
-const handleNormalResponse = async (question, requestConversationId, userId, history, aiMessageIndex, modelId, enableBrowserSearch) => {
+const handleNormalResponse = async (question, requestConversationId, userId, history, aiMessageIndex, modelId, enableBrowserSearch, files = []) => {
   try {
-    const response = await chat(question, requestConversationId, userId, history, modelId, enableBrowserSearch)
+    const response = await chat(question, requestConversationId, userId, history, modelId, enableBrowserSearch, files)
     if (chatHistory.value[aiMessageIndex]) {
       chatHistory.value[aiMessageIndex].content = response.answer || '抱歉，未能生成答案。'
       chatHistory.value[aiMessageIndex].isLoading = false
@@ -485,6 +595,7 @@ const handleNewConversation = () => {
   chatHistory.value = []
   conversationId.value = null
   question.value = ''
+  selectedFiles.value = []
   sending.value = false
   currentStreamingMessage.value = null
   ElMessage.success('已开启新对话')
@@ -500,6 +611,7 @@ const handleClearHistory = () => {
   
   chatHistory.value = []
   conversationId.value = null
+  selectedFiles.value = []
   ElMessage.success('已清空对话历史')
 }
 
@@ -560,10 +672,10 @@ const handleRegenerate = async (messageIndex) => {
 
     if (useStream.value) {
       // 流式响应
-      await handleStreamResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value, enableBrowserSearch.value)
+      await handleStreamResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value, enableBrowserSearch.value, filesToSend)
     } else {
       // 非流式响应
-      await handleNormalResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value, enableBrowserSearch.value)
+      await handleNormalResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value, enableBrowserSearch.value, filesToSend)
     }
   } catch (error) {
     console.error('重新生成响应失败', error)
@@ -742,5 +854,86 @@ onMounted(async () => {
 
 .tips-text {
   font-size: 12px;
+}
+
+.attachments-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px;
+  background: #f5f7fa;
+  border-radius: 4px;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #e4e7ed;
+  max-width: 100%;
+}
+
+.attachment-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.attachment-image {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+/* 图片预览样式 - 聊天界面适配 */
+.attachment-preview-image {
+  max-width: 200px !important;
+  max-height: 200px !important;
+  width: auto !important;
+  height: auto !important;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: block;
+}
+
+.attachment-preview-image:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* el-image 内部图片元素样式 */
+:deep(.attachment-preview-image .el-image__inner) {
+  max-width: 200px !important;
+  max-height: 200px !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+}
+
+.attachment-icon {
+  font-size: 24px;
+  color: #909399;
+}
+
+.attachment-name {
+  font-size: 12px;
+  color: #606266;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.attachment-size {
+  font-size: 11px;
+  color: #909399;
 }
 </style>

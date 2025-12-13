@@ -106,6 +106,20 @@ public class QAModel implements Serializable {
     private Boolean isDefault;
     
     /**
+     * 是否支持多模态：true-支持, false-不支持
+     */
+    @Schema(description = "是否支持多模态：true-支持, false-不支持")
+    @Column(name = "supports_multimodal")
+    private Boolean supportsMultimodal;
+    
+    /**
+     * 是否支持视觉输入：true-支持, false-不支持
+     */
+    @Schema(description = "是否支持视觉输入：true-支持, false-不支持")
+    @Column(name = "supports_vision")
+    private Boolean supportsVision;
+    
+    /**
      * 创建时间
      */
     @Schema(description = "创建时间")
@@ -229,5 +243,21 @@ public class QAModel implements Serializable {
 
     public void setDeleted(Integer deleted) {
         this.deleted = deleted;
+    }
+
+    public Boolean getSupportsMultimodal() {
+        return supportsMultimodal;
+    }
+
+    public void setSupportsMultimodal(Boolean supportsMultimodal) {
+        this.supportsMultimodal = supportsMultimodal;
+    }
+
+    public Boolean getSupportsVision() {
+        return supportsVision;
+    }
+
+    public void setSupportsVision(Boolean supportsVision) {
+        this.supportsVision = supportsVision;
     }
 }

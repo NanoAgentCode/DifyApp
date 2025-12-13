@@ -10,6 +10,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableAsync;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 
 /**
  * DifyApp 主应用类
@@ -57,15 +58,11 @@ public class DifyAppApplication {
         System.setProperty("user.country", "CN");
         
         // 设置标准输出和错误输出的编码（Java 8兼容方式）
-        try {
-            PrintStream utf8Out = new PrintStream(System.out, true, "UTF-8");
-            PrintStream utf8Err = new PrintStream(System.err, true, "UTF-8");
-            System.setOut(utf8Out);
-            System.setErr(utf8Err);
-        } catch (java.io.UnsupportedEncodingException e) {
-            // UTF-8应该总是支持的，但如果失败也不影响程序运行
-        }
-        
+        PrintStream utf8Out = new PrintStream(System.out, true, StandardCharsets.UTF_8);
+        PrintStream utf8Err = new PrintStream(System.err, true, StandardCharsets.UTF_8);
+        System.setOut(utf8Out);
+        System.setErr(utf8Err);
+
         SpringApplication.run(DifyAppApplication.class, args);
     }
 

@@ -1,0 +1,6 @@
+flask==3.0.0
+flask-cors==4.0.0
+pillow==10.1.0
+requests==2.31.0
+numpy>=1.21.0  # EasyOCR依赖，但显式声明以确保可用
+PyMuPDF>=1.23.0  # PDF处理库，用于将PDF转换为图片

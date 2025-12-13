@@ -31,6 +31,12 @@ public class ChatRequest {
     @Schema(description = "是否启用浏览器检索（MCP协议）")
     private Boolean enableBrowserSearch;
     
+    @Schema(description = "图片OCR识别结果（由后端自动填充，前端无需传递）")
+    private String ocrText;
+    
+    @Schema(description = "图片数据列表（base64编码，用于多模态模型）")
+    private List<ImageData> images;
+    
     public String getQuestion() {
         return question;
     }
@@ -85,6 +91,49 @@ public class ChatRequest {
     
     public void setEnableBrowserSearch(Boolean enableBrowserSearch) {
         this.enableBrowserSearch = enableBrowserSearch;
+    }
+    
+    public String getOcrText() {
+        return ocrText;
+    }
+    
+    public void setOcrText(String ocrText) {
+        this.ocrText = ocrText;
+    }
+    
+    public List<ImageData> getImages() {
+        return images;
+    }
+    
+    public void setImages(List<ImageData> images) {
+        this.images = images;
+    }
+    
+    /**
+     * 图片数据
+     */
+    public static class ImageData {
+        @Schema(description = "图片base64编码数据")
+        private String base64;
+        
+        @Schema(description = "图片MIME类型")
+        private String mimeType;
+        
+        public String getBase64() {
+            return base64;
+        }
+        
+        public void setBase64(String base64) {
+            this.base64 = base64;
+        }
+        
+        public String getMimeType() {
+            return mimeType;
+        }
+        
+        public void setMimeType(String mimeType) {
+            this.mimeType = mimeType;
+        }
     }
     
     /**

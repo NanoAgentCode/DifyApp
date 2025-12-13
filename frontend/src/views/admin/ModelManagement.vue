@@ -26,7 +26,16 @@
               style="width: 100%"
               :row-class-name="getQARowClassName"
             >
-              <el-table-column prop="name" label="模型名称" min-width="150" show-overflow-tooltip />
+              <el-table-column prop="name" label="模型名称" min-width="150" show-overflow-tooltip>
+                <template #default="{ row }">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span>{{ row.name }}</span>
+                    <el-tag v-if="row.supportsMultimodal && row.supportsVision" type="success" size="small">
+                      多模态
+                    </el-tag>
+                  </div>
+                </template>
+              </el-table-column>
               <el-table-column prop="provider" label="提供商" width="100" align="center">
                 <template #default="{ row }">
                   <el-tag :type="getProviderTagType(row.provider)">
@@ -392,6 +401,28 @@
         <el-form-item label="启用状态">
           <el-switch v-model="currentModel.enabled" />
         </el-form-item>
+
+        <!-- 多模态支持配置（仅问答模型） -->
+        <template v-if="dialogType === 'qa'">
+          <el-form-item label="支持多模态">
+            <el-switch v-model="currentModel.supportsMultimodal" />
+            <div class="form-tip">
+              <el-icon><InfoFilled /></el-icon>
+              <span>开启后，模型可以处理文本和图片等多种输入格式（如 Qwen-VL、GPT-4 Vision 等）</span>
+            </div>
+          </el-form-item>
+
+          <el-form-item label="支持视觉输入" v-if="currentModel.supportsMultimodal">
+            <el-switch 
+              v-model="currentModel.supportsVision" 
+              :disabled="!currentModel.supportsMultimodal"
+            />
+            <div class="form-tip">
+              <el-icon><InfoFilled /></el-icon>
+              <span>开启后，上传的图片将直接发送给模型进行视觉理解，而不是使用OCR识别。需要先开启"支持多模态"。</span>
+            </div>
+          </el-form-item>
+        </template>
       </el-form>
 
       <template #footer>
@@ -555,7 +586,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   InfoFilled,
@@ -621,7 +652,9 @@ const currentModel = reactive({
   apiKey: '',
   model: '',
   useFor: 'both', // 'chat', 'rag', 'both'
-  enabled: true
+  enabled: true,
+  supportsMultimodal: false,
+  supportsVision: false
 })
 const modelFormRef = ref(null)
 
@@ -844,15 +877,32 @@ const loadConfig = async () => {
 
 // 添加模型
 const handleAddModel = () => {
+  // 重置表单
+  Object.assign(currentModel, {
+    id: null,
+    name: '',
+    provider: 'openai',
+    providerType: '',
+    apiUrl: '',
+    apiKey: '',
+    model: '',
+    useFor: 'both',
+    enabled: true,
+    supportsMultimodal: false,
+    supportsVision: false
+  })
   dialogTitle.value = '添加问答模型'
   currentModel.id = null
   currentModel.name = ''
   currentModel.provider = 'openai'
+  currentModel.providerType = ''
   currentModel.apiUrl = ''
   currentModel.apiKey = ''
   currentModel.model = ''
   currentModel.useFor = 'both'
   currentModel.enabled = true
+  currentModel.supportsMultimodal = false
+  currentModel.supportsVision = false
   dialogVisible.value = true
 }
 
@@ -862,11 +912,14 @@ const handleEditModel = (row) => {
   currentModel.id = row.id
   currentModel.name = row.name
   currentModel.provider = row.provider
+  currentModel.providerType = row.providerType || ''
   currentModel.apiUrl = row.apiUrl
   currentModel.apiKey = row.apiKey || ''
   currentModel.model = row.model
   currentModel.useFor = row.useFor || 'both'
   currentModel.enabled = row.enabled !== false
+  currentModel.supportsMultimodal = row.supportsMultimodal || false
+  currentModel.supportsVision = row.supportsVision || false
   dialogVisible.value = true
 }
 
@@ -888,7 +941,9 @@ const handleSaveModel = async () => {
       apiKey: currentModel.apiKey,
       model: currentModel.model,
       useFor: currentModel.useFor,
-      enabled: currentModel.enabled
+      enabled: currentModel.enabled,
+      supportsMultimodal: currentModel.supportsMultimodal || false,
+      supportsVision: currentModel.supportsVision || false
     }
     
     if (currentModel.id) {
@@ -1245,6 +1300,13 @@ const handleTestEmbeddingModel = async (row) => {
     row.testing = false
   }
 }
+
+// 监听多模态开关，当关闭时自动关闭视觉输入
+watch(() => currentModel.supportsMultimodal, (newVal) => {
+  if (!newVal) {
+    currentModel.supportsVision = false
+  }
+})
 
 onMounted(() => {
   loadConfig()

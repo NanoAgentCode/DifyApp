@@ -25,6 +25,22 @@ public class TikaDocumentLoader {
     public Document load(MultipartFile file) {
         try {
             String text = documentParserService.parseDocument(file);
+            
+            // 检查文本是否为空
+            if (text == null || text.trim().isEmpty()) {
+                String fileName = file.getOriginalFilename();
+                String contentType = file.getContentType();
+                
+                // 如果是图片文件，说明OCR识别结果为空
+                if (contentType != null && contentType.startsWith("image/")) {
+                    logger.warn("图片文件OCR识别结果为空 - 文件名: {}, 类型: {}", fileName, contentType);
+                    throw new RuntimeException("图片OCR识别结果为空，无法进行向量化。可能原因：1) 图片中没有可识别的文字内容；2) 图片质量较差（模糊、对比度低等）；3) OCR服务异常。请检查图片内容或OCR服务状态。");
+                } else {
+                    logger.warn("文档解析结果为空 - 文件名: {}, 类型: {}", fileName, contentType);
+                    throw new RuntimeException("文档解析结果为空，无法进行向量化。请检查文档内容。");
+                }
+            }
+            
             Document document = Document.from(text);
             
             // 添加metadata
@@ -37,6 +53,10 @@ public class TikaDocumentLoader {
             return document;
         } catch (Exception e) {
             logger.error("文档加载失败 - 文件名: {}", file.getOriginalFilename(), e);
+            // 如果已经是RuntimeException，直接抛出；否则包装
+            if (e instanceof RuntimeException) {
+                throw e;
+            }
             throw new RuntimeException("文档加载失败: " + e.getMessage(), e);
         }
     }
@@ -47,6 +67,13 @@ public class TikaDocumentLoader {
     public Document load(InputStream inputStream, String fileName) {
         try {
             String text = documentParserService.parseDocument(inputStream, fileName);
+            
+            // 检查文本是否为空
+            if (text == null || text.trim().isEmpty()) {
+                logger.warn("文档解析结果为空 - 文件名: {}", fileName);
+                throw new RuntimeException("文档解析结果为空，无法进行向量化。请检查文档内容。");
+            }
+            
             Document document = Document.from(text);
             
             // 添加metadata
@@ -57,6 +84,10 @@ public class TikaDocumentLoader {
             return document;
         } catch (Exception e) {
             logger.error("文档加载失败 - 文件名: {}", fileName, e);
+            // 如果已经是RuntimeException，直接抛出；否则包装
+            if (e instanceof RuntimeException) {
+                throw e;
+            }
             throw new RuntimeException("文档加载失败: " + e.getMessage(), e);
         }
     }

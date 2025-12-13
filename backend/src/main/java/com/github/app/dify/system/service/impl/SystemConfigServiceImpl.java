@@ -1,6 +1,7 @@
 package com.github.app.dify.system.service.impl;
 
 import com.github.app.dify.system.config.DifyConfig;
+import com.github.app.dify.system.config.OcrConfig;
 import com.github.app.dify.system.domain.SystemConfig;
 import com.github.app.dify.system.repository.SystemConfigRepository;
 import com.github.app.dify.system.req.UpdateSystemConfigReq;
@@ -28,6 +29,9 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     
     // Dify 配置键前缀
     private static final String DIFY_CONFIG_PREFIX = "dify.api.";
+    
+    // OCR 配置键前缀
+    private static final String OCR_CONFIG_PREFIX = "ocr.service.";
     
     @Autowired
     private SystemConfigRepository systemConfigRepository;
@@ -105,6 +109,11 @@ public class SystemConfigServiceImpl implements SystemConfigService {
             reloadDifyConfig();
         }
         
+        // 如果更新的是 OCR 相关配置，重新加载 OcrConfig
+        if (config.getConfigKey() != null && config.getConfigKey().startsWith(OCR_CONFIG_PREFIX)) {
+            reloadOcrConfig();
+        }
+        
         return convertToResp(config);
     }
     
@@ -136,6 +145,22 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         } catch (Exception e) {
             // DifyConfig 可能不存在，忽略错误
             logger.debug("重新加载 Dify 配置失败（可能 DifyConfig 未初始化）: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * 重新加载 OCR 配置
+     */
+    private void reloadOcrConfig() {
+        try {
+            OcrConfig ocrConfig = applicationContext.getBean(OcrConfig.class);
+            if (ocrConfig != null) {
+                ocrConfig.reload();
+                logger.info("OCR 配置已重新加载");
+            }
+        } catch (Exception e) {
+            // OcrConfig 可能不存在，忽略错误
+            logger.debug("重新加载 OCR 配置失败（可能 OcrConfig 未初始化）: {}", e.getMessage());
         }
     }
     

@@ -255,6 +255,20 @@ const predefinedConfigKeys = [
     type: 'number'
   },
   {
+    key: 'ocr.service.url',
+    label: 'ocr.service.url',
+    description: 'EasyOCR服务地址（如：http://localhost:8000）',
+    group: 'ocr',
+    type: 'string'
+  },
+  {
+    key: 'ocr.service.timeout',
+    label: 'ocr.service.timeout',
+    description: 'EasyOCR服务请求超时时间（毫秒，默认：30000）',
+    group: 'ocr',
+    type: 'number'
+  },
+  {
     key: 'dify.api.connectTimeout',
     label: 'dify.api.connectTimeout',
     description: 'Dify API 连接超时时间（毫秒）',
@@ -377,23 +391,24 @@ watch(() => form.value.configKey, (newKey) => {
 
 // 获取可用的分组列表（从配置列表中提取，去重）
 const availableGroups = computed(() => {
-  const groups = new Set()
+  const groupsSet = new Set()
   
   // 从配置列表中提取所有分组
   configList.value.forEach(config => {
     if (config.configGroup && config.configGroup.trim()) {
-      groups.add(config.configGroup.trim())
+      groupsSet.add(config.configGroup.trim())
     }
   })
   
   // 转换为数组并排序
-  const groupArray = Array.from(groups).sort()
+  const groupArray = Array.from(groupsSet).sort()
   
   // 分组名称映射（用于显示中文标签）
   const groupLabelMap = {
     'help': '帮助配置',
     'system': '系统配置',
-    'dify': 'Dify配置'
+    'dify': 'Dify配置',
+    'ocr': 'OCR服务'
   }
   
   // 返回分组选项，优先显示已知分组，然后显示其他分组
@@ -414,7 +429,7 @@ const availableGroups = computed(() => {
   
   // 已知分组按固定顺序排列
   const orderedKnownGroups = []
-  const knownOrder = ['help', 'system', 'dify']
+  const knownOrder = ['help', 'system', 'dify', 'ocr']
   knownOrder.forEach(key => {
     const found = knownGroups.find(g => g.value === key)
     if (found) {

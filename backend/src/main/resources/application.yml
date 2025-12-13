@@ -132,6 +132,12 @@ rag:
 # - 模型配置（LLM和Embedding）已迁移到数据库，请在管理端"大模型管理"页面配置
 # - ConfigurableDocumentSplitter 使用 rag.chunk-size 和 rag.chunk-overlap 配置
 
+# OCR服务配置
+ocr:
+  service:
+    url: http://localhost:8000  # EasyOCR服务地址
+    timeout: 30000               # 请求超时时间（毫秒）
+
 # MCP (Model Context Protocol) 配置（自定义配置属性，通过 McpConfig 类绑定）
 mcp:
   # 浏览器搜索服务配置

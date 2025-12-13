@@ -236,6 +236,19 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             qaModel.setModel(modelInfo.getModel());
             qaModel.setUseFor(modelInfo.getUseFor() != null ? modelInfo.getUseFor() : "both");
             qaModel.setEnabled(modelInfo.getEnabled() != null ? modelInfo.getEnabled() : true);
+            
+            // 动态判断是否支持多模态和视觉输入
+            if (modelInfo.getSupportsMultimodal() != null) {
+                qaModel.setSupportsMultimodal(modelInfo.getSupportsMultimodal());
+            } else {
+                qaModel.setSupportsMultimodal(detectSupportsMultimodal(modelInfo.getModel(), modelInfo.getName()));
+            }
+            
+            if (modelInfo.getSupportsVision() != null) {
+                qaModel.setSupportsVision(modelInfo.getSupportsVision());
+            } else {
+                qaModel.setSupportsVision(detectSupportsVision(modelInfo.getModel(), modelInfo.getName()));
+            }
             qaModel.setIsDefault(false);
             qaModel.setCreateTime(now);
             qaModel.setUpdateTime(now);
@@ -293,6 +306,21 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             }
             if (modelInfo.getEnabled() != null) {
                 qaModel.setEnabled(modelInfo.getEnabled());
+            }
+            
+            // 动态判断是否支持多模态和视觉输入（如果用户没有明确指定，则根据模型名称自动判断）
+            if (modelInfo.getSupportsMultimodal() != null) {
+                qaModel.setSupportsMultimodal(modelInfo.getSupportsMultimodal());
+            } else {
+                // 如果模型名称或标识发生变化，重新检测
+                qaModel.setSupportsMultimodal(detectSupportsMultimodal(qaModel.getModel(), qaModel.getName()));
+            }
+            
+            if (modelInfo.getSupportsVision() != null) {
+                qaModel.setSupportsVision(modelInfo.getSupportsVision());
+            } else {
+                // 如果模型名称或标识发生变化，重新检测
+                qaModel.setSupportsVision(detectSupportsVision(qaModel.getModel(), qaModel.getName()));
             }
             qaModel.setUpdateTime(now);
             
@@ -508,6 +536,52 @@ public class ModelConfigServiceImpl implements ModelConfigService {
         } else {
             throw new RuntimeException("不支持的模型类型: " + type);
         }
+    }
+    
+    /**
+     * 根据模型名称和标识检测是否支持多模态
+     * 
+     * @param model 模型标识（如：Qwen/Qwen3-VL-235B-A22B-Instruct）
+     * @param name 模型名称
+     * @return true表示支持多模态，false表示不支持
+     */
+    private boolean detectSupportsMultimodal(String model, String name) {
+        if (model == null && name == null) {
+            return false;
+        }
+        
+        String modelLower = model != null ? model.toLowerCase() : "";
+        String nameLower = name != null ? name.toLowerCase() : "";
+        
+        // 检测常见的多模态模型标识
+        return modelLower.contains("qwen-vl") 
+            || modelLower.contains("qwen2-vl")
+            || modelLower.contains("qwen3-vl")
+            || modelLower.contains("gpt-4-vision")
+            || modelLower.contains("gpt-4o")
+            || modelLower.contains("claude-3")
+            || modelLower.contains("claude-3.5")
+            || modelLower.contains("gemini-pro-vision")
+            || modelLower.contains("gemini-1.5")
+            || modelLower.contains("gemini-2.0")
+            || nameLower.contains("qwen-vl")
+            || nameLower.contains("qwen2-vl")
+            || nameLower.contains("qwen3-vl")
+            || nameLower.contains("视觉")
+            || nameLower.contains("vision")
+            || nameLower.contains("multimodal");
+    }
+    
+    /**
+     * 根据模型名称和标识检测是否支持视觉输入
+     * 
+     * @param model 模型标识（如：Qwen/Qwen3-VL-235B-A22B-Instruct）
+     * @param name 模型名称
+     * @return true表示支持视觉输入，false表示不支持
+     */
+    private boolean detectSupportsVision(String model, String name) {
+        // 视觉输入需要同时支持多模态
+        return detectSupportsMultimodal(model, name);
     }
     
     /**

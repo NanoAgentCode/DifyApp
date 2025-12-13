@@ -104,7 +104,7 @@ public class ChatServiceImpl implements ChatService {
             }
             
             // 构建消息列表（包含历史对话）
-            List<ChatMessage> messages = buildMessages(request, browserSearchContext);
+            List<ChatMessage> messages = buildMessages(request, browserSearchContext, qaModel);
             
             // 记录历史对话信息
             if (request.getHistory() != null && !request.getHistory().isEmpty()) {
@@ -117,47 +117,65 @@ public class ChatServiceImpl implements ChatService {
             messages = contextCompressionService.compressContext(messages, kbRequest);
             logger.debug("压缩后的消息列表大小: {}", messages.size());
             
-            // 调用LLM生成答案
-            Response<AiMessage> response = chatLanguageModel.generate(messages);
-            String answer = response.content().text();
-            
-            // 保存历史记录
-            Long conversationId = null;
-            if (userId != null) {
-                try {
-                    Long requestConversationId = null;
-                    if (request.getConversationId() != null && !request.getConversationId().trim().isEmpty()) {
-                        try {
-                            requestConversationId = Long.parseLong(request.getConversationId());
-                        } catch (NumberFormatException e) {
-                            logger.warn("无效的conversationId: {}", request.getConversationId());
-                        }
-                    }
-                    conversationId = chatHistoryService.getOrCreateConversation(
-                            userId, requestConversationId, 1, null, null, request.getQuestion());
-                    logger.info("非流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}", 
-                            requestConversationId, conversationId);
-                    chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
-                    chatHistoryService.saveMessage(conversationId, "assistant", answer);
-                } catch (Exception e) {
-                    logger.error("保存历史记录失败", e);
-                    // 不抛出异常，避免影响主流程
+            // 设置图片数据到ThreadLocal（用于多模态支持）
+            try {
+                if (request.getImages() != null && !request.getImages().isEmpty()) {
+                    modelLanguageModelFactory.setImageData(request.getImages());
+                    logger.info("已设置图片数据到模型工厂，图片数量: {}", request.getImages().size());
                 }
+                
+                // 调用LLM生成答案
+                Response<AiMessage> response = chatLanguageModel.generate(messages);
+                String answer = response.content().text();
+                
+                // 构建响应（包含保存历史记录）
+                return buildChatResponse(answer, request, userId, null);
+            } finally {
+                // 清除ThreadLocal数据
+                modelLanguageModelFactory.clearImageData();
             }
-            
-            // 构建响应
-            ChatResponse chatResponse = new ChatResponse();
-            chatResponse.setAnswer(answer);
-            chatResponse.setConversationId(conversationId);
-            
-            logger.info("智能问答完成 - 问题: {}", request.getQuestion());
-            
-            return chatResponse;
             
         } catch (Exception e) {
             logger.error("智能问答失败", e);
             throw new RuntimeException("智能问答失败: " + e.getMessage(), e);
         }
+    }
+    
+    /**
+     * 构建聊天响应
+     */
+    private ChatResponse buildChatResponse(String answer, ChatRequest request, Long userId, Long conversationId) {
+        // 保存历史记录
+        if (userId != null && conversationId == null) {
+            try {
+                Long requestConversationId = null;
+                if (request.getConversationId() != null && !request.getConversationId().trim().isEmpty()) {
+                    try {
+                        requestConversationId = Long.parseLong(request.getConversationId());
+                    } catch (NumberFormatException e) {
+                        logger.warn("无效的conversationId: {}", request.getConversationId());
+                    }
+                }
+                conversationId = chatHistoryService.getOrCreateConversation(
+                        userId, requestConversationId, 1, null, null, request.getQuestion());
+                logger.info("非流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}", 
+                        requestConversationId, conversationId);
+                chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
+                chatHistoryService.saveMessage(conversationId, "assistant", answer);
+            } catch (Exception e) {
+                logger.error("保存历史记录失败", e);
+                // 不抛出异常，避免影响主流程
+            }
+        }
+        
+        // 构建响应
+        ChatResponse chatResponse = new ChatResponse();
+        chatResponse.setAnswer(answer);
+        chatResponse.setConversationId(conversationId);
+        
+        logger.info("智能问答完成 - 问题: {}", request.getQuestion());
+        
+        return chatResponse;
     }
     
     @Override
@@ -206,16 +224,26 @@ public class ChatServiceImpl implements ChatService {
             }
             
             // 构建消息列表（包含历史对话）
-            List<ChatMessage> messages = buildMessages(request, browserSearchContext);
+            List<ChatMessage> messages = buildMessages(request, browserSearchContext, qaModel);
             
             // 应用上下文压缩策略（转换为KnowledgeBaseQARequest格式以复用压缩逻辑）
             com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest kbRequest = convertToKBQARequest(request);
             messages = contextCompressionService.compressContext(messages, kbRequest);
             logger.debug("压缩后的消息列表大小（流式）: {}", messages.size());
             
+            // 设置图片数据到ThreadLocal（用于多模态支持）
+            if (request.getImages() != null && !request.getImages().isEmpty()) {
+                modelLanguageModelFactory.setImageData(request.getImages());
+                logger.info("已设置图片数据到模型工厂（流式），图片数量: {}", request.getImages().size());
+            }
+            
             // 调用流式LLM生成答案
             logger.info("开始调用流式LLM生成答案 - 消息数量: {}", messages.size());
             Flux<String> tokenFlux = streamingChatLanguageModel.generateStream(messages)
+                    .doFinally(signalType -> {
+                        // 清除ThreadLocal数据
+                        modelLanguageModelFactory.clearImageData();
+                    })
                     .doOnSubscribe(subscription -> {
                         logger.info("开始订阅token流");
                     })
@@ -322,12 +350,37 @@ public class ChatServiceImpl implements ChatService {
     /**
      * 构建消息列表（包含历史对话和浏览器检索结果）
      */
-    private List<ChatMessage> buildMessages(ChatRequest request, String browserSearchContext) {
+    private List<ChatMessage> buildMessages(ChatRequest request, String browserSearchContext, QAModel qaModel) {
         List<ChatMessage> messages = new ArrayList<>();
+        
+        // 检查模型是否支持视觉输入
+        boolean supportsVision = qaModel != null && 
+                                Boolean.TRUE.equals(qaModel.getSupportsVision()) &&
+                                Boolean.TRUE.equals(qaModel.getSupportsMultimodal());
         
         // 构建系统消息
         StringBuilder systemMessageBuilder = new StringBuilder();
         systemMessageBuilder.append("你是一个专业的AI助手，能够回答各种问题，特别擅长编程和技术问题。\n\n");
+        
+        // 如果模型支持视觉输入，添加图片处理说明
+        if (supportsVision) {
+            systemMessageBuilder.append("【视觉能力说明】\n");
+            systemMessageBuilder.append("你具备视觉理解能力，可以直接处理和分析用户上传的图片。当用户上传图片时，你应该：\n");
+            systemMessageBuilder.append("1. 仔细观察图片中的所有内容，包括文字、图表、代码、界面元素等\n");
+            systemMessageBuilder.append("2. 准确识别图片中的文字内容（包括代码、公式、表格等）\n");
+            systemMessageBuilder.append("3. 理解图片的上下文和意图，提供准确、详细的分析\n");
+            systemMessageBuilder.append("4. 对于代码截图，能够识别代码语言、逻辑结构，并提供专业的代码分析\n");
+            systemMessageBuilder.append("5. 对于图表、流程图等，能够描述其结构和含义\n");
+            systemMessageBuilder.append("6. 对于界面截图，能够识别UI元素、布局和功能\n");
+            systemMessageBuilder.append("7. 如果图片中包含问题或需求，直接基于图片内容进行回答，无需用户额外描述\n");
+            systemMessageBuilder.append("8. 回答时应该详细、准确，充分利用图片中的所有信息\n");
+            systemMessageBuilder.append("9. 不要告诉用户你无法处理图片，因为你具备视觉理解能力，可以直接分析图片内容\n\n");
+        } else {
+            // 模型不支持视觉输入，智能问答不支持图片处理
+            systemMessageBuilder.append("【图片处理说明】\n");
+            systemMessageBuilder.append("注意：智能问答功能不支持图片处理。如果用户上传了图片，系统会提示用户选择支持视觉输入的模型。\n");
+            systemMessageBuilder.append("你只能处理文本输入，无法直接处理图片。\n\n");
+        }
         
         // 如果启用了MCP支持，添加时间信息和地理位置信息
         int currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
@@ -446,6 +499,12 @@ public class ChatServiceImpl implements ChatService {
         } else {
             // MCP支持已关闭，直接使用原始问题
             userMessageContent = request.getQuestion();
+        }
+        
+        // 确保消息内容不为空
+        if (userMessageContent == null || userMessageContent.trim().isEmpty()) {
+            userMessageContent = "请帮我分析这些内容。";
+            logger.warn("用户问题为空，使用默认问题");
         }
         
         // 添加当前问题（包含检索结果）

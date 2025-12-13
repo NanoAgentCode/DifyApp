@@ -116,6 +116,12 @@ public class ModelConfigRequest {
         
         @Schema(description = "是否启用")
         private Boolean enabled;
+        
+        @Schema(description = "是否支持多模态（qa模型专用）")
+        private Boolean supportsMultimodal;
+        
+        @Schema(description = "是否支持视觉输入（qa模型专用）")
+        private Boolean supportsVision;
 
         public Long getId() {
             return id;
@@ -203,6 +209,22 @@ public class ModelConfigRequest {
 
         public void setEnabled(Boolean enabled) {
             this.enabled = enabled;
+        }
+
+        public Boolean getSupportsMultimodal() {
+            return supportsMultimodal;
+        }
+
+        public void setSupportsMultimodal(Boolean supportsMultimodal) {
+            this.supportsMultimodal = supportsMultimodal;
+        }
+
+        public Boolean getSupportsVision() {
+            return supportsVision;
+        }
+
+        public void setSupportsVision(Boolean supportsVision) {
+            this.supportsVision = supportsVision;
         }
     }
 }
