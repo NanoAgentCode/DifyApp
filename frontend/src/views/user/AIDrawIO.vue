@@ -388,16 +388,40 @@ const initMermaid = async () => {
         htmlLabels: true,
         curve: 'basis'
       },
+      mindmap: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        padding: 10,
+        maxNodeWidth: 200
+      },
       themeVariables: {
         primaryColor: '#409eff',
         primaryTextColor: '#303133',
         primaryBorderColor: '#409eff',
         lineColor: '#606266',
         secondaryColor: '#ecf5ff',
-        tertiaryColor: '#f5f7fa'
+        tertiaryColor: '#f5f7fa',
+        // Mindmap 专用颜色变量 - 匹配 markmap 风格
+        cScale0: '#409eff',         // 蓝色 - 主分支
+        cScale1: '#FF9800',         // 橙色 - 分支1
+        cScale2: '#4CAF50',         // 绿色 - 分支2
+        cScale3: '#FF5252',         // 红色 - 分支3
+        cScale4: '#9370DB',         // 紫色 - 分支4
+        cScale5: '#FFD700',         // 黄色 - 分支5
+        cScale6: '#1976D2',         // 深蓝色 - 分支6
+        cScale7: '#808080',         // 灰色 - 分支7
+        // 兼容旧的颜色变量
+        lightBlue: '#409eff',
+        yellow: '#FFD700',
+        purple: '#9370DB',
+        red: '#FF5252',
+        green: '#4CAF50',
+        orange: '#FF9800',
+        darkBlue: '#1976D2',
+        gray: '#808080'
       }
     })
-    
+
     mermaidInitialized = true
     console.log('Mermaid 初始化完成')
   } catch (e) {
@@ -424,7 +448,7 @@ const renderMermaid = async (mermaidCode) => {
 
   try {
     let codeToRender = mermaidCode.trim()
-    
+
     // 对于架构图的处理（简化版）
     if (selectedDiagramType.value === 'architecture') {
       codeToRender = codeToRender.replace(/^(flowchart|graph)\s+(LR|TD|BT|RL)/i, '$1 TD')
@@ -434,12 +458,55 @@ const renderMermaid = async (mermaidCode) => {
         codeToRender = codeToRender.replace(/^(flowchart|graph)/i, '$1 TD')
       }
     }
+
+    // 对于思维导图的特殊处理，确保使用正确的mindmap语法
+    if (selectedDiagramType.value === 'mindmap') {
+      // 确保mindmap使用正确的语法格式
+      if (!codeToRender.startsWith('mindmap')) {
+        console.warn('检测到思维导图代码不以mindmap开头，尝试修复')
+        if (codeToRender.includes('root((') || codeToRender.includes('root')) {
+          codeToRender = 'mindmap\n' + codeToRender.replace(/^mindmap\s*\n?/, '').trim()
+        }
+      }
+
+      // 清理可能存在的样式标记（mindmap不支持）
+      codeToRender = codeToRender.replace(/:::[a-zA-Z0-9_-]+/g, '')
+      codeToRender = codeToRender.replace(/classDef\s+[a-zA-Z0-9_-]+\s+.*$/gm, '')
+      codeToRender = codeToRender.replace(/class\s+[a-zA-Z0-9_-]+\s+[a-zA-Z0-9_-]+/g, '')
+    }
     
     const id = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     mermaidContainer.value.innerHTML = ''
     await nextTick()
     const { svg } = await mermaid.render(id, codeToRender)
     mermaidContainer.value.innerHTML = svg
+    
+    // 对于思维导图，应用额外的样式优化
+    if (selectedDiagramType.value === 'mindmap') {
+      await nextTick()
+      const svgElement = mermaidContainer.value.querySelector('svg')
+      if (svgElement) {
+        // 添加 mindmap 类名以便应用样式
+        svgElement.classList.add('mindmap-svg')
+        
+        // 优化连接线的平滑度
+        const paths = svgElement.querySelectorAll('path')
+        paths.forEach(path => {
+          if (path.getAttribute('d') && path.getAttribute('d').includes('C')) {
+            // 确保使用平滑曲线
+            path.setAttribute('stroke-linecap', 'round')
+            path.setAttribute('stroke-linejoin', 'round')
+          }
+        })
+        
+        // 优化节点圆圈
+        const circles = svgElement.querySelectorAll('circle')
+        circles.forEach(circle => {
+          circle.setAttribute('stroke-width', '2')
+        })
+      }
+    }
+    
     currentDiagramJson.value = codeToRender
     hasDiagram.value = true
     ElMessage.success('图表渲染成功')
@@ -1089,6 +1156,106 @@ onMounted(async () => {
   max-width: none;
   height: auto;
   display: block;
+}
+
+/* Mindmap 专用样式 - 匹配 markmap 风格 */
+.mermaid-container :deep(.mindmap-node) {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* 思维导图节点样式 */
+.mermaid-container :deep(.nodeLabel) {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+}
+
+/* 思维导图根节点样式 */
+.mermaid-container :deep(.root-node) {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+/* 思维导图连接线样式 - 平滑曲线 */
+.mermaid-container :deep(.mindmap path) {
+  stroke-width: 2px;
+  fill: none;
+  transition: stroke-width 0.3s ease;
+}
+
+.mermaid-container :deep(.mindmap path:hover) {
+  stroke-width: 3px;
+}
+
+/* 思维导图节点圆圈样式 */
+.mermaid-container :deep(.mindmap circle) {
+  stroke-width: 2px;
+  transition: r 0.3s ease;
+}
+
+.mermaid-container :deep(.mindmap circle:hover) {
+  r: 6;
+}
+
+/* 思维导图文本样式 */
+.mermaid-container :deep(.mindmap text) {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  fill: #303133;
+}
+
+/* 思维导图根节点文本 */
+.mermaid-container :deep(.mindmap .root text) {
+  font-weight: 600;
+  font-size: 16px;
+  fill: #409eff;
+}
+
+/* 思维导图 SVG 整体样式 */
+.mermaid-container :deep(.mindmap-svg) {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* 思维导图节点文本容器 */
+.mermaid-container :deep(.mindmap .nodeLabel) {
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+/* 思维导图连接线 - 更平滑的曲线 */
+.mermaid-container :deep(.mindmap-svg path) {
+  stroke-width: 2.5px;
+  fill: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+/* 思维导图节点圆圈 - 更明显的视觉效果 */
+.mermaid-container :deep(.mindmap-svg circle) {
+  stroke-width: 2.5px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+/* 思维导图文本 - 更好的可读性 */
+.mermaid-container :deep(.mindmap-svg text) {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  fill: #303133;
+  text-rendering: geometricPrecision;
+}
+
+/* 思维导图根节点特殊样式 */
+.mermaid-container :deep(.mindmap-svg .root circle) {
+  stroke-width: 3px;
+  r: 8;
+}
+
+.mermaid-container :deep(.mindmap-svg .root text) {
+  font-weight: 600;
+  font-size: 16px;
+  fill: #409eff;
 }
 
 .mermaid-error {
