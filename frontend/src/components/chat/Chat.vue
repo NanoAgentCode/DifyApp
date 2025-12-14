@@ -45,7 +45,16 @@
         />
 
         <!-- 输入区域 -->
-        <div class="input-area">
+        <div class="input-area" @dragover="handleDragOver" @dragleave="handleDragLeave" @drop="handleDrop">
+          <!-- 拖拽提示层 -->
+          <div class="drag-overlay" v-show="isDragOver" @drop="handleOverlayDrop" @dragover="handleOverlayDragOver">
+            <div class="drag-overlay-content">
+              <el-icon class="drag-icon"><Picture /></el-icon>
+              <div class="drag-text">释放鼠标上传图片</div>
+              <div class="drag-tip">支持 PNG、JPG、JPEG、GIF 格式</div>
+            </div>
+          </div>
+
           <!-- 已选择的附件预览 -->
           <div v-if="selectedFiles.length > 0" class="attachments-preview">
             <div
@@ -77,6 +86,8 @@
               />
             </div>
           </div>
+
+
           <el-input
             v-model="question"
             type="textarea"
@@ -86,27 +97,12 @@
             @keydown.enter.exact.prevent="handleSend"
             :disabled="sending"
           />
+
           <div class="input-actions">
             <div class="input-tips">
               <span class="tips-text">按 Ctrl + Enter 或 Enter 发送</span>
             </div>
             <div class="input-buttons">
-              <el-upload
-                :action="''"
-                :auto-upload="false"
-                :show-file-list="false"
-                :on-change="handleFileSelect"
-                :accept="'image/*'"
-                :disabled="sending"
-                multiple
-              >
-                <template #trigger>
-                  <el-button :disabled="sending">
-                    <el-icon><Picture /></el-icon>
-                    上传图片
-                  </el-button>
-                </template>
-              </el-upload>
               <el-button
                 v-if="showNewConversationButton"
                 @click="handleNewConversation"
@@ -183,6 +179,7 @@ const availablePrompts = ref([])
 const selectedPromptId = ref(null)
 const selectedPrompt = ref(null)
 const selectedFiles = ref([])
+const isDragOver = ref(false)
 
 // 获取用户信息
 const getUserInfo = () => {
@@ -260,6 +257,91 @@ const formatFileSize = (bytes) => {
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+}
+
+// 拖拽事件处理
+const handleDragOver = (event) => {
+  if (!sending.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    isDragOver.value = true
+  }
+}
+
+const handleDragLeave = (event) => {
+  if (!sending.value) {
+    event.preventDefault()
+    event.stopPropagation()
+
+    // 检查是否真的离开了输入区域（而不是进入了子元素）
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = event.clientX
+    const y = event.clientY
+
+    // 如果鼠标位置在元素外部，才隐藏覆盖层
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      isDragOver.value = false
+    }
+  }
+}
+
+const handleDrop = (event) => {
+  if (!sending.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    isDragOver.value = false
+
+    // 处理拖拽的文件
+    const files = event.dataTransfer.files
+    if (files && files.length > 0) {
+      // 过滤出图片文件
+      const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'))
+
+      if (imageFiles.length > 0) {
+        // 模拟文件选择事件
+        imageFiles.forEach(file => {
+          handleFileSelect({ raw: file })
+        })
+        ElMessage.success(`已添加 ${imageFiles.length} 张图片`)
+      } else {
+        ElMessage.warning('请拖拽图片文件')
+      }
+    }
+  }
+}
+
+// 遮罩层上的拖拽事件处理
+const handleOverlayDragOver = (event) => {
+  if (!sending.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    // 保持遮罩层显示状态
+  }
+}
+
+const handleOverlayDrop = (event) => {
+  if (!sending.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    isDragOver.value = false
+
+    // 处理拖拽的文件
+    const files = event.dataTransfer.files
+    if (files && files.length > 0) {
+      // 过滤出图片文件
+      const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'))
+
+      if (imageFiles.length > 0) {
+        // 模拟文件选择事件
+        imageFiles.forEach(file => {
+          handleFileSelect({ raw: file })
+        })
+        ElMessage.success(`已添加 ${imageFiles.length} 张图片`)
+      } else {
+        ElMessage.warning('请拖拽图片文件')
+      }
+    }
+  }
 }
 
 const handleSend = async () => {
@@ -829,6 +911,9 @@ onMounted(async () => {
   border-top: 1px solid #e4e7ed;
   background: white;
   flex-shrink: 0;
+  position: relative; /* 为遮罩层提供定位基准 */
+  border-radius: 8px; /* 配合遮罩层圆角 */
+  overflow: hidden; /* 确保遮罩层不会溢出 */
 }
 
 .input-actions {
@@ -935,5 +1020,48 @@ onMounted(async () => {
 .attachment-size {
   font-size: 11px;
   color: #909399;
+}
+
+
+/* 拖拽覆盖层样式 */
+.drag-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px dashed #cccccc;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  transition: all 0.3s ease;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.drag-overlay-content {
+  text-align: center;
+  color: white;
+}
+
+.drag-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.9;
+}
+
+.drag-text {
+  font-size: 18px;
+  font-weight: 500;
+  opacity: 0.9;
+  margin-bottom: 8px;
+}
+
+.drag-tip {
+  font-size: 14px;
+  opacity: 0.8;
 }
 </style>
