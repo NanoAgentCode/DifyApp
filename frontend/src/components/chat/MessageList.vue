@@ -246,7 +246,17 @@ defineExpose({
   display: flex;
   gap: 12px;
   /* 只在首次添加时应用动画，更新时不应用 */
-  animation: fadeIn 0.3s;
+}
+
+/* 用户消息：右对齐，从右侧滑入动画 */
+.message-item.user {
+  flex-direction: row-reverse;
+  animation: slideInFromRight 0.4s ease-out;
+}
+
+/* 助手消息：左对齐，从左向右动画 */
+.message-item.assistant {
+  animation: slideInFromLeft 0.4s ease-out;
 }
 
 /* 流式输出中的消息不应用动画，避免闪烁 */
@@ -254,19 +264,26 @@ defineExpose({
   animation: none;
 }
 
-@keyframes fadeIn {
+@keyframes slideInFromLeft {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateX(-30px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(0);
   }
 }
 
-.message-item.user {
-  flex-direction: row-reverse;
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .message-avatar {
@@ -294,6 +311,18 @@ defineExpose({
   flex: 1;
   min-width: 0;
   max-width: 70%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 用户消息内容右对齐 */
+.message-item.user .message-content {
+  align-items: flex-end;
+}
+
+/* 助手消息内容左对齐 */
+.message-item.assistant .message-content {
+  align-items: flex-start;
 }
 
 .message-text {
@@ -335,6 +364,10 @@ defineExpose({
 }
 
 .message-item.user .message-time {
+  text-align: right;
+}
+
+.message-item.assistant .message-time {
   text-align: left;
 }
 

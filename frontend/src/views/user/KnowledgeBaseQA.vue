@@ -812,11 +812,39 @@ html {
 .message-item {
   display: flex;
   gap: 12px;
-  animation: fadeIn 0.3s;
 }
 
+/* 用户消息：右对齐，从右侧滑入动画 */
 .message-item.user {
   flex-direction: row-reverse;
+  animation: slideInFromRight 0.4s ease-out;
+}
+
+/* 助手消息：左对齐，从左向右动画 */
+.message-item.assistant {
+  animation: slideInFromLeft 0.4s ease-out;
+}
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .message-avatar {
@@ -843,14 +871,20 @@ html {
 .message-content {
   width: 70%;
   max-width: 70%;
-  min-width: 70%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
+/* 用户消息内容右对齐 */
 .message-item.user .message-content {
   align-items: flex-end;
+}
+
+/* 助手消息内容左对齐 */
+.message-item.assistant .message-content {
+  align-items: flex-start;
 }
 
 .message-text {
@@ -1224,16 +1258,6 @@ html {
   margin-left: 8px;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 /* 知识库摘要tooltip样式 - 移除黑色边框 */
 :deep(.kb-summary-tooltip) {

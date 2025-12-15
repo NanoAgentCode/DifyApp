@@ -618,12 +618,38 @@ onMounted(() => {
   display: flex;
 }
 
+/* 用户消息：右对齐，从右侧滑入动画 */
 .message.user {
   justify-content: flex-end;
+  animation: slideInFromRight 0.4s ease-out;
 }
 
+/* 助手消息：左对齐，从左向右动画 */
 .message.assistant {
   justify-content: flex-start;
+  animation: slideInFromLeft 0.4s ease-out;
+}
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .message-content {

@@ -698,26 +698,40 @@ const handleConfig = () => {
 .message-item {
   display: flex;
   gap: 12px;
-  animation: fadeIn 0.3s ease-in;
   width: 100%;
 }
 
+/* 用户消息：右对齐，从右侧滑入动画 */
 .message-item.user {
   justify-content: flex-end;
+  animation: slideInFromRight 0.4s ease-out;
 }
 
+/* 助手消息：左对齐，从左向右动画 */
 .message-item.assistant {
   justify-content: flex-start;
+  animation: slideInFromLeft 0.4s ease-out;
 }
 
-@keyframes fadeIn {
+@keyframes slideInFromLeft {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateX(-30px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
@@ -745,15 +759,17 @@ const handleConfig = () => {
 .message-content {
   flex: 0 1 auto;
   min-width: 0;
-  max-width: calc(100% - 48px);
+  max-width: 70%;
   display: flex;
   flex-direction: column;
 }
 
+/* 用户消息内容右对齐 */
 .message-item.user .message-content {
   align-items: flex-end;
 }
 
+/* 助手消息内容左对齐 */
 .message-item.assistant .message-content {
   align-items: flex-start;
 }

@@ -748,6 +748,10 @@ const handleRegenerate = async (messageIndex) => {
   const userInfo = getUserInfo()
   const userId = userInfo ? userInfo.userId : null
 
+  // 重新生成时，无法获取原始文件，使用空数组
+  // 注意：如果原始消息包含文件，这些文件信息只用于显示，无法重新发送
+  const filesToSend = []
+
   try {
     const currentConversationId = conversationId.value
     console.log('重新生成响应，当前 conversationId:', currentConversationId)
