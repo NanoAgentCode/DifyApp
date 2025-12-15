@@ -81,11 +81,13 @@ const routes = [
                 path: 'kb-qa',
                 name: 'KnowledgeBaseQA',
                 component: () => import('@/views/admin/KnowledgeBaseQA.vue'),
-                meta: {title: '知识检索', requiresAuth: true, requiresAdmin: true}
+                meta: {title: '知识问答', requiresAuth: true, requiresAdmin: true}
             },
             {
                 path: 'knowledge-base',
-                redirect: '/admin/kb-qa'
+                name: 'KnowledgeBaseManagement',
+                component: () => import('@/views/admin/KnowledgeBaseManagement.vue'),
+                meta: {title: '知识管理', requiresAuth: true, requiresAdmin: true}
             },
             {
                 path: 'knowledge-base/:kbId/documents',

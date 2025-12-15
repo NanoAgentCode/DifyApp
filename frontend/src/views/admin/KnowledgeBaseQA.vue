@@ -1,10 +1,6 @@
 <template>
   <div class="knowledge-base-qa">
-
-      <el-tabs v-model="activeTab" type="border-card">
-        <!-- 知识检索 -->
-        <el-tab-pane label="知识问答" name="qa">
-          <div class="qa-container">
+    <div class="qa-container">
         <!-- 左侧：知识库选择 -->
         <div class="left-panel">
           <div class="panel-title">
@@ -292,15 +288,7 @@
           </div>
         </div>
       </div>
-        </el-tab-pane>
-
-        <!-- 知识管理 -->
-        <el-tab-pane label="知识管理" name="management">
-          <KnowledgeBaseManagement />
-        </el-tab-pane>
-      </el-tabs>
-
-  </div>
+    </div>
 </template>
 
 <script setup>
@@ -322,9 +310,6 @@ import {
 import { getModelStyle } from '@/utils/modelColor'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { useKnowledgeBaseQA } from '@/composables/useKnowledgeBaseQA'
-import KnowledgeBaseManagement from './KnowledgeBaseManagement.vue'
-
-const activeTab = ref('qa')
 
 // 使用知识库问答 composable（管理员版本，不启用对话历史）
 const {
@@ -480,34 +465,6 @@ html {
   flex-direction: column;
   padding: 0;
   min-height: 0;
-}
-
-:deep(.el-tabs) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  height: 100%;
-}
-
-:deep(.el-tabs__content) {
-  flex: 1;
-  overflow: hidden;
-  padding: 16px;
-  min-height: 0;
-}
-
-:deep(.el-tab-pane) {
-  height: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
 .qa-container {
