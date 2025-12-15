@@ -1,17 +1,10 @@
 <template>
   <div class="knowledge-base-qa">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>知识库问答</span>
-          <el-button type="primary" @click="handleClearHistory">
-            <el-icon><Delete /></el-icon>
-            清空历史
-          </el-button>
-        </div>
-      </template>
 
-      <div class="qa-container">
+      <el-tabs v-model="activeTab" type="border-card">
+        <!-- 知识库问答 -->
+        <el-tab-pane label="知识库问答" name="qa">
+          <div class="qa-container">
         <!-- 左侧：知识库选择 -->
         <div class="left-panel">
           <div class="panel-title">
@@ -299,12 +292,19 @@
           </div>
         </div>
       </div>
-    </el-card>
+        </el-tab-pane>
+
+        <!-- 知识库管理 -->
+        <el-tab-pane label="知识库管理" name="management">
+          <KnowledgeBaseManagement />
+        </el-tab-pane>
+      </el-tabs>
+
   </div>
 </template>
 
 <script setup>
-import { nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import {
   Delete,
   Folder,
@@ -322,6 +322,9 @@ import {
 import { getModelStyle } from '@/utils/modelColor'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { useKnowledgeBaseQA } from '@/composables/useKnowledgeBaseQA'
+import KnowledgeBaseManagement from './KnowledgeBaseManagement.vue'
+
+const activeTab = ref('qa')
 
 // 使用知识库问答 composable（管理员版本，不启用对话历史）
 const {
@@ -455,7 +458,7 @@ html {
 
 .knowledge-base-qa {
   padding: 0;
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -466,10 +469,36 @@ html {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  border: none;
+  box-shadow: none;
 }
 
 :deep(.el-card__body) {
   flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  min-height: 0;
+}
+
+:deep(.el-tabs) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+
+:deep(.el-tabs__content) {
+  flex: 1;
+  overflow: hidden;
+  padding: 16px;
+  min-height: 0;
+}
+
+:deep(.el-tab-pane) {
+  height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -483,20 +512,23 @@ html {
 
 .qa-container {
   display: flex;
-  gap: 20px;
+  gap: 16px;
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  height: 100%;
 }
 
 .left-panel {
-  width: 280px;
-  background: #f5f7fa;
-  border-radius: 4px;
+  width: 300px;
+  background: #fff;
+  border-radius: 8px;
   padding: 16px;
   flex-shrink: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  border: 1px solid #e4e7ed;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 /* 隐藏左侧面板滚动条 */
@@ -523,9 +555,10 @@ html {
   gap: 8px;
   font-weight: 600;
   color: #303133;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   padding-bottom: 12px;
   border-bottom: 1px solid #e4e7ed;
+  font-size: 15px;
 }
 
 .kb-search {
@@ -676,10 +709,11 @@ html {
   display: flex;
   flex-direction: column;
   background: white;
-  border-radius: 4px;
+  border-radius: 8px;
   overflow: hidden;
   min-height: 0;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e4e7ed;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .empty-state {
@@ -709,10 +743,11 @@ html {
 
 .kb-header {
   padding: 16px 20px;
-  background: #f5f7fa;
+  background: #f8f9fa;
   border-bottom: 1px solid #e4e7ed;
   flex-shrink: 0;
   z-index: 10;
+  border-radius: 8px 8px 0 0;
 }
 
 .kb-header-info {
@@ -1214,12 +1249,12 @@ html {
 .input-area {
   padding: 16px 20px;
   border-top: 1px solid #e4e7ed;
-  background: #fafafa;
+  background: #f8f9fa;
   flex-shrink: 0;
   position: sticky;
-  bottom: 10px;
+  bottom: 0;
   z-index: 20;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+  border-radius: 0 0 8px 8px;
 }
 
 .input-actions {

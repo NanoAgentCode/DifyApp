@@ -1,58 +1,56 @@
 <template>
   <div class="knowledge-base-management">
     <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>知识库管理</span>
+      <!-- 搜索栏 -->
+      <div class="search-bar">
+        <div class="search-left">
+          <el-input
+            v-model="searchKeyword"
+            placeholder="搜索知识库名称或描述"
+            clearable
+            style="width: 300px"
+            @input="handleSearch"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+          <el-select
+            v-model="filterVectorStoreType"
+            placeholder="筛选向量库"
+            clearable
+            style="width: 150px"
+            @change="handleFilter"
+          >
+            <el-option label="全部" value="" />
+            <el-option label="Qdrant" value="qdrant" />
+            <el-option label="FAISS" value="faiss" />
+            <el-option label="Milvus" value="milvus" />
+            <el-option label="Chroma" value="chroma" />
+            <el-option label="Weaviate" value="weaviate" />
+          </el-select>
+          <el-select
+            v-model="filterStatus"
+            placeholder="筛选状态"
+            clearable
+            style="width: 150px"
+            @change="handleFilter"
+          >
+            <el-option label="全部" value="" />
+            <el-option label="启用" value="active" />
+            <el-option label="禁用" value="inactive" />
+          </el-select>
+        </div>
+        <div class="search-right">
           <el-button type="primary" @click="handleCreate">
             <el-icon><Plus /></el-icon>
             创建知识库
           </el-button>
         </div>
-      </template>
-
-      <!-- 搜索栏 -->
-      <div class="search-bar">
-        <el-input
-          v-model="searchKeyword"
-          placeholder="搜索知识库名称或描述"
-          clearable
-          style="width: 300px"
-          @input="handleSearch"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
-        <el-select
-          v-model="filterVectorStoreType"
-          placeholder="筛选向量库"
-          clearable
-          style="width: 150px; margin-left: 10px"
-          @change="handleFilter"
-        >
-          <el-option label="全部" value="" />
-          <el-option label="Qdrant" value="qdrant" />
-          <el-option label="FAISS" value="faiss" />
-          <el-option label="Milvus" value="milvus" />
-          <el-option label="Chroma" value="chroma" />
-          <el-option label="Weaviate" value="weaviate" />
-        </el-select>
-        <el-select
-          v-model="filterStatus"
-          placeholder="筛选状态"
-          clearable
-          style="width: 150px; margin-left: 10px"
-          @change="handleFilter"
-        >
-          <el-option label="全部" value="" />
-          <el-option label="启用" value="active" />
-          <el-option label="禁用" value="inactive" />
-        </el-select>
       </div>
 
       <!-- 知识库列表 -->
-      <div class="table-container">
+      <div class="table-container" style="padding: 0 20px;">
         <el-table
           :data="knowledgeBases"
           v-loading="loading"
@@ -165,7 +163,7 @@
       </div>
 
       <!-- 分页 -->
-      <div class="pagination">
+      <div class="pagination" style="padding: 0 20px 20px 20px;">
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
@@ -1281,31 +1279,33 @@ const getVectorDatabaseDocumentCount = (db) => {
   margin: 0;
 }
 
-:deep(.el-card__header) {
-  flex-shrink: 0;
-  padding: 18px 20px;
-}
-
 :deep(.el-card__body) {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 20px;
+  padding: 0;
   min-height: 0;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
 .search-bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 20px;
   flex-shrink: 0;
+  padding: 20px 20px 0 20px;
+}
+
+.search-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-right {
+  display: flex;
+  align-items: center;
 }
 
 .kb-name-cell {

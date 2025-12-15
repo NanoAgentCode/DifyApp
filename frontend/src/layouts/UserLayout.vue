@@ -315,7 +315,7 @@ const handlePasswordChangeSuccess = () => {
 }
 
 .aside {
-  background: #fff;
+  background: #f5f7fa;
   border-right: 1px solid #e4e7ed;
   transition: width 0.3s ease;
   height: calc(100vh - 60px); /* 减去header高度 */
@@ -331,6 +331,10 @@ const handlePasswordChangeSuccess = () => {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  background: #fff;
+  margin: 8px;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .main {

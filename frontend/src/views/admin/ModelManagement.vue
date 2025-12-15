@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>大模型管理</span>
+          <span>LLM管理</span>
         </div>
       </template>
 

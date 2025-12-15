@@ -347,7 +347,7 @@ const uploadData = computed(() => {
 const loadKnowledgeBase = async () => {
   if (!kbId.value) {
     ElMessage.error('知识库ID不存在')
-    router.push('/admin/knowledge-base')
+    router.push('/admin/kb-qa')
     return
   }
   
@@ -356,7 +356,7 @@ const loadKnowledgeBase = async () => {
     currentKB.value = kb
   } catch (error) {
     ElMessage.error('加载知识库信息失败：' + (error.message || '未知错误'))
-    router.push('/admin/knowledge-base')
+    router.push('/admin/kb-qa')
   }
 }
 
@@ -735,7 +735,7 @@ const formatDate = (date) => {
 }
 
 const goBack = () => {
-  router.push('/admin/knowledge-base')
+  router.push('/admin/kb-qa')
 }
 
 onMounted(() => {

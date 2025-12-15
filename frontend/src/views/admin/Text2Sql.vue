@@ -1,12 +1,6 @@
 <template>
   <div class="text2sql-container">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>高级功能</span>
-        </div>
-      </template>
-
+    
       <el-tabs v-model="activeTab" type="border-card">
       <el-tab-pane label="智能框图" name="aiDrawio">
         <AIDrawIO />
@@ -224,7 +218,7 @@
         <DataSourceManagement />
       </el-tab-pane>
       </el-tabs>
-    </el-card>
+  
   </div>
 </template>
 

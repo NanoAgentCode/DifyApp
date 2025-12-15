@@ -1,54 +1,52 @@
 <template>
   <div class="app-list">
     <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>应用列表</span>
+      <!-- 搜索栏 -->
+      <div class="search-bar">
+        <div class="search-left">
+          <el-input
+            v-model="searchKeyword"
+            placeholder="搜索应用名称或描述"
+            clearable
+            style="width: 300px"
+            @input="handleSearch"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+          <el-select
+            v-model="filterType"
+            placeholder="筛选类型"
+            clearable
+            style="width: 150px"
+            @change="handleFilter"
+          >
+            <el-option label="全部" value="" />
+            <el-option label="Chat Flow" :value="1" />
+            <el-option label="Workflow" :value="2" />
+          </el-select>
+          <el-select
+            v-model="filterStatus"
+            placeholder="筛选状态"
+            clearable
+            style="width: 150px"
+            @change="handleFilter"
+          >
+            <el-option label="全部" value="" />
+            <el-option label="启用" :value="1" />
+            <el-option label="禁用" :value="0" />
+          </el-select>
+        </div>
+        <div class="search-right">
           <el-button type="primary" @click="handleCreate">
             <el-icon><Plus /></el-icon>
             创建应用
           </el-button>
         </div>
-      </template>
-
-      <!-- 搜索栏 -->
-      <div class="search-bar">
-        <el-input
-          v-model="searchKeyword"
-          placeholder="搜索应用名称或描述"
-          clearable
-          style="width: 300px"
-          @input="handleSearch"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
-        <el-select
-          v-model="filterType"
-          placeholder="筛选类型"
-          clearable
-          style="width: 150px; margin-left: 10px"
-          @change="handleFilter"
-        >
-          <el-option label="全部" value="" />
-          <el-option label="Chat Flow" :value="1" />
-          <el-option label="Workflow" :value="2" />
-        </el-select>
-        <el-select
-          v-model="filterStatus"
-          placeholder="筛选状态"
-          clearable
-          style="width: 150px; margin-left: 10px"
-          @change="handleFilter"
-        >
-          <el-option label="全部" value="" />
-          <el-option label="启用" :value="1" />
-          <el-option label="禁用" :value="0" />
-        </el-select>
       </div>
 
-      <div class="table-container">
+      <div class="table-container" style="padding: 0 20px;">
         <el-table 
           :data="appList" 
           v-loading="loading" 
@@ -102,7 +100,7 @@
       </div>
       
       <!-- 分页 -->
-      <div class="pagination">
+      <div class="pagination" style="padding: 0 20px 20px 20px;">
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
@@ -270,31 +268,33 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 
-:deep(.el-card__header) {
-  flex-shrink: 0;
-  padding: 18px 20px;
-}
-
 :deep(.el-card__body) {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 20px;
+  padding: 0;
   min-height: 0;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
 .search-bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 20px;
   flex-shrink: 0;
+  padding: 20px 20px 0 20px;
+}
+
+.search-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-right {
+  display: flex;
+  align-items: center;
 }
 
 .table-container {

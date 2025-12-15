@@ -45,10 +45,6 @@
             <el-icon><Document /></el-icon>
             <span>知识库问答</span>
           </el-menu-item>
-          <el-menu-item v-if="isAdmin" index="/admin/knowledge-base">
-            <el-icon><Folder /></el-icon>
-            <span>知识库管理</span>
-          </el-menu-item>
           <el-menu-item index="/admin/apps">
             <el-icon><List /></el-icon>
             <span>应用列表</span>
@@ -61,7 +57,7 @@
           <!-- 系统管理 -->
           <el-menu-item v-if="isAdmin" index="/admin/models">
             <el-icon><Setting /></el-icon>
-            <span>大模型管理</span>
+            <span>LLM管理</span>
           </el-menu-item>
           <!-- 记录查看 -->
           <!-- 用户管理 -->
@@ -568,7 +564,7 @@ const handleHelpButtonClick = () => {
 }
 
 .aside {
-  background: #fff;
+  background: #f5f7fa;
   border-right: 1px solid #e4e7ed;
   overflow-y: auto;
   overflow-x: hidden;
@@ -585,6 +581,10 @@ const handleHelpButtonClick = () => {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  background: #fff;
+  margin: 8px;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .main {
