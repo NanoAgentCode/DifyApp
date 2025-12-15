@@ -138,7 +138,7 @@
             </el-dropdown>
           </template>
         </el-table-column>
-        <el-table-column label="知识库管理" min-width="130" align="center">
+        <el-table-column label="知识管理" min-width="130" align="center">
           <template #default="{ row }">
             <el-dropdown 
               trigger="click" 
@@ -147,7 +147,7 @@
               @visible-change="handleKbDropdownVisibleChange(row, $event)"
             >
               <el-button type="success" size="small" :loading="row.loadingKbs" plain>
-                知识库管理
+                知识管理
                 <el-icon class="el-icon--right"><ArrowDown /></el-icon>
               </el-button>
               <template #dropdown>

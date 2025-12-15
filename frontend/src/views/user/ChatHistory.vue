@@ -27,7 +27,7 @@
         </el-input>
         <el-select v-model="selectedType" placeholder="会话类型" clearable style="width: 150px; margin-left: 10px" @change="handleSearch">
           <el-option label="普通聊天" :value="1" />
-          <el-option label="知识库问答" :value="2" />
+          <el-option label="知识检索" :value="2" />
         </el-select>
         <el-button type="primary" @click="handleSearch" style="margin-left: 10px">
           搜索
@@ -95,7 +95,7 @@
                 
                 <div class="conversation-info-row">
                   <el-tag size="small" :type="conv.type === 1 ? 'primary' : 'success'">
-                    {{ conv.type === 1 ? '普通聊天' : '知识库问答' }}
+                    {{ conv.type === 1 ? '普通聊天' : '知识检索' }}
                   </el-tag>
                   <el-tag type="info" size="small">{{ conv.messageCount || 0 }} 轮对话</el-tag>
                 </div>
@@ -157,7 +157,7 @@
         <div class="detail-header">
           <div class="detail-info">
             <el-tag :type="conversationDetail.conversation.type === 1 ? 'primary' : 'success'" size="small">
-              {{ conversationDetail.conversation.type === 1 ? '普通聊天' : '知识库问答' }}
+              {{ conversationDetail.conversation.type === 1 ? '普通聊天' : '知识检索' }}
             </el-tag>
             <span class="detail-meta">
               {{ conversationDetail.messages.length }} 条消息 · 

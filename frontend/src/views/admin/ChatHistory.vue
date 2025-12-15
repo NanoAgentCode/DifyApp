@@ -22,7 +22,7 @@
         </el-input>
         <el-select v-model="selectedType" placeholder="会话类型" clearable style="width: 150px; margin-left: 10px">
           <el-option label="普通聊天" :value="1" />
-          <el-option label="知识库问答" :value="2" />
+          <el-option label="知识检索" :value="2" />
         </el-select>
         <el-button type="primary" @click="handleSearch" style="margin-left: 10px">
           搜索
@@ -55,7 +55,7 @@
         <el-table-column label="类型" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.type === 1 ? 'primary' : 'success'" size="small">
-              {{ row.type === 1 ? '普通聊天' : '知识库问答' }}
+              {{ row.type === 1 ? '普通聊天' : '知识检索' }}
             </el-tag>
           </template>
         </el-table-column>

@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>知识库问答</span>
+          <span>知识检索</span>
           <el-button type="primary" @click="handleClearHistory">
             <el-icon><Delete /></el-icon>
             清空历史
@@ -36,7 +36,7 @@
             <div v-if="displayedKnowledgeBases.length === 0 && !kbSearchKeyword" class="empty-kb-list">
               <el-icon><Document /></el-icon>
               <p>暂无可用知识库</p>
-              <p class="empty-tip">请先在知识库管理中创建知识库</p>
+              <p class="empty-tip">请先在知识管理中创建知识库</p>
             </div>
             <div v-else-if="displayedKnowledgeBases.length === 0 && kbSearchKeyword" class="empty-kb-list">
               <el-icon><Search /></el-icon>
@@ -182,7 +182,7 @@
                 style="margin-top: 10px;"
               >
                 <template #title>
-                  <span>该知识库已被禁用，无法进行问答。请联系管理员在知识库管理中启用该知识库。</span>
+                  <span>该知识库已被禁用，无法进行检索。请联系管理员在知识管理中启用该知识库。</span>
                 </template>
               </el-alert>
             </div>

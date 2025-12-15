@@ -35,27 +35,63 @@
           router
           class="menu"
         >
-          <el-menu-item index="/user/chat">
+          <el-tooltip v-if="isCollapse" content="智能问答" placement="right" :show-after="200">
+            <el-menu-item index="/user/chat">
+              <el-icon><ChatLineRound /></el-icon>
+              <span>智能问答</span>
+            </el-menu-item>
+          </el-tooltip>
+          <el-menu-item v-else index="/user/chat">
             <el-icon><ChatLineRound /></el-icon>
             <span>智能问答</span>
           </el-menu-item>
-          <el-menu-item index="/user/kb-qa">
+          <el-tooltip v-if="isCollapse" content="知识检索" placement="right" :show-after="200">
+            <el-menu-item index="/user/kb-qa">
+              <el-icon><Document /></el-icon>
+              <span>知识检索</span>
+            </el-menu-item>
+          </el-tooltip>
+          <el-menu-item v-else index="/user/kb-qa">
             <el-icon><Document /></el-icon>
-            <span>知识库问答</span>
+            <span>知识检索</span>
           </el-menu-item>
-          <el-menu-item index="/user/knowledge-base">
+          <el-tooltip v-if="isCollapse" content="知识管理" placement="right" :show-after="200">
+            <el-menu-item index="/user/knowledge-base">
+              <el-icon><Folder /></el-icon>
+              <span>知识管理</span>
+            </el-menu-item>
+          </el-tooltip>
+          <el-menu-item v-else index="/user/knowledge-base">
             <el-icon><Folder /></el-icon>
-            <span>知识库管理</span>
+            <span>知识管理</span>
           </el-menu-item>
-          <el-menu-item index="/user/apps">
+          <el-tooltip v-if="isCollapse" content="智能应用" placement="right" :show-after="200">
+            <el-menu-item index="/user/apps">
+              <el-icon><List /></el-icon>
+              <span>智能应用</span>
+            </el-menu-item>
+          </el-tooltip>
+          <el-menu-item v-else index="/user/apps">
             <el-icon><List /></el-icon>
             <span>智能应用</span>
           </el-menu-item>
-          <el-menu-item index="/user/ai-drawio">
+          <el-tooltip v-if="isCollapse" content="智能框图" placement="right" :show-after="200">
+            <el-menu-item index="/user/ai-drawio">
+              <el-icon><DataAnalysis /></el-icon>
+              <span>智能框图</span>
+            </el-menu-item>
+          </el-tooltip>
+          <el-menu-item v-else index="/user/ai-drawio">
             <el-icon><DataAnalysis /></el-icon>
             <span>智能框图</span>
           </el-menu-item>
-          <el-menu-item index="/user/chat-history">
+          <el-tooltip v-if="isCollapse" content="会话历史" placement="right" :show-after="200">
+            <el-menu-item index="/user/chat-history">
+              <el-icon><Clock /></el-icon>
+              <span>会话历史</span>
+            </el-menu-item>
+          </el-tooltip>
+          <el-menu-item v-else index="/user/chat-history">
             <el-icon><Clock /></el-icon>
             <span>会话历史</span>
           </el-menu-item>

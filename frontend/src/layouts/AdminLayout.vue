@@ -36,40 +36,88 @@
           class="menu"
         >
           <!-- 核心功能 -->
-          <el-menu-item index="/admin/chat">
+          <el-tooltip v-if="isCollapse" content="智能问答" placement="right" :show-after="200">
+            <el-menu-item index="/admin/chat">
+              <el-icon><ChatLineRound /></el-icon>
+              <span>智能问答</span>
+            </el-menu-item>
+          </el-tooltip>
+          <el-menu-item v-else index="/admin/chat">
             <el-icon><ChatLineRound /></el-icon>
             <span>智能问答</span>
           </el-menu-item>
           <!-- 知识库相关 -->
-          <el-menu-item v-if="isAdmin" index="/admin/kb-qa">
+          <el-tooltip v-if="isAdmin && isCollapse" content="知识检索" placement="right" :show-after="200">
+            <el-menu-item index="/admin/kb-qa">
+              <el-icon><Document /></el-icon>
+              <span>知识检索</span>
+            </el-menu-item>
+          </el-tooltip>
+          <el-menu-item v-else-if="isAdmin" index="/admin/kb-qa">
             <el-icon><Document /></el-icon>
-            <span>知识库问答</span>
+            <span>知识检索</span>
           </el-menu-item>
-          <el-menu-item index="/admin/apps">
+          <el-tooltip v-if="isCollapse" content="应用列表" placement="right" :show-after="200">
+            <el-menu-item index="/admin/apps">
+              <el-icon><List /></el-icon>
+              <span>应用列表</span>
+            </el-menu-item>
+          </el-tooltip>
+          <el-menu-item v-else index="/admin/apps">
             <el-icon><List /></el-icon>
             <span>应用列表</span>
           </el-menu-item>
           <!-- 工具 -->
-          <el-menu-item v-if="isAdmin" index="/admin/text2sql">
+          <el-tooltip v-if="isAdmin && isCollapse" content="高级功能" placement="right" :show-after="200">
+            <el-menu-item index="/admin/text2sql">
+              <el-icon><Search /></el-icon>
+              <span>高级功能</span>
+            </el-menu-item>
+          </el-tooltip>
+          <el-menu-item v-else-if="isAdmin" index="/admin/text2sql">
             <el-icon><Search /></el-icon>
             <span>高级功能</span>
           </el-menu-item>
           <!-- 系统管理 -->
-          <el-menu-item v-if="isAdmin" index="/admin/models">
+          <el-tooltip v-if="isAdmin && isCollapse" content="LLM管理" placement="right" :show-after="200">
+            <el-menu-item index="/admin/models">
+              <el-icon><Setting /></el-icon>
+              <span>LLM管理</span>
+            </el-menu-item>
+          </el-tooltip>
+          <el-menu-item v-else-if="isAdmin" index="/admin/models">
             <el-icon><Setting /></el-icon>
             <span>LLM管理</span>
           </el-menu-item>
           <!-- 记录查看 -->
           <!-- 用户管理 -->
-          <el-menu-item v-if="isAdmin" index="/admin/users">
+          <el-tooltip v-if="isAdmin && isCollapse" content="用户管理" placement="right" :show-after="200">
+            <el-menu-item index="/admin/users">
+              <el-icon><User /></el-icon>
+              <span>用户管理</span>
+            </el-menu-item>
+          </el-tooltip>
+          <el-menu-item v-else-if="isAdmin" index="/admin/users">
             <el-icon><User /></el-icon>
             <span>用户管理</span>
           </el-menu-item>
-          <el-menu-item v-if="isAdmin" index="/admin/chat-history">
+          <el-tooltip v-if="isAdmin && isCollapse" content="会话历史" placement="right" :show-after="200">
+            <el-menu-item index="/admin/chat-history">
+              <el-icon><Clock /></el-icon>
+              <span>会话历史</span>
+            </el-menu-item>
+          </el-tooltip>
+          <el-menu-item v-else-if="isAdmin" index="/admin/chat-history">
             <el-icon><Clock /></el-icon>
             <span>会话历史</span>
           </el-menu-item>
-          <el-menu-item v-if="isAdmin" index="/admin/system-config">
+          <el-tooltip v-if="isAdmin && isCollapse" content="系统配置" placement="right" :show-after="200">
+            <el-menu-item index="/admin/system-config">
+              <el-icon><Tools /></el-icon>
+              <span>系统配置</span>
+            </el-menu-item>
+          </el-tooltip>
+          <el-menu-item v-else-if="isAdmin" index="/admin/system-config">
             <el-icon><Tools /></el-icon>
             <span>系统配置</span>
           </el-menu-item>

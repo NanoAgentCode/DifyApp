@@ -81,7 +81,7 @@ const routes = [
                 path: 'kb-qa',
                 name: 'KnowledgeBaseQA',
                 component: () => import('@/views/admin/KnowledgeBaseQA.vue'),
-                meta: {title: '知识库问答', requiresAuth: true, requiresAdmin: true}
+                meta: {title: '知识检索', requiresAuth: true, requiresAdmin: true}
             },
             {
                 path: 'knowledge-base',
@@ -172,13 +172,13 @@ const routes = [
                 path: 'kb-qa',
                 name: 'UserKnowledgeBaseQA',
                 component: () => import('@/views/user/KnowledgeBaseQA.vue'),
-                meta: {title: '知识库问答', requiresAuth: true}
+                meta: {title: '知识检索', requiresAuth: true}
             },
             {
                 path: 'knowledge-base',
                 name: 'UserKnowledgeBaseManagement',
                 component: () => import('@/views/user/KnowledgeBaseManagement.vue'),
-                meta: {title: '知识库管理', requiresAuth: true}
+                meta: {title: '知识管理', requiresAuth: true}
             },
             {
                 path: 'knowledge-base/:kbId/documents',

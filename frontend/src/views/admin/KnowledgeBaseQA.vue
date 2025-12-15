@@ -2,8 +2,8 @@
   <div class="knowledge-base-qa">
 
       <el-tabs v-model="activeTab" type="border-card">
-        <!-- 知识库问答 -->
-        <el-tab-pane label="知识库问答" name="qa">
+        <!-- 知识检索 -->
+        <el-tab-pane label="知识问答" name="qa">
           <div class="qa-container">
         <!-- 左侧：知识库选择 -->
         <div class="left-panel">
@@ -29,7 +29,7 @@
             <div v-if="displayedKnowledgeBases.length === 0 && !kbSearchKeyword" class="empty-kb-list">
               <el-icon><Document /></el-icon>
               <p>暂无可用知识库</p>
-              <p class="empty-tip">请先在知识库管理中创建知识库</p>
+              <p class="empty-tip">请先在知识管理中创建知识库</p>
             </div>
             <div v-else-if="displayedKnowledgeBases.length === 0 && kbSearchKeyword" class="empty-kb-list">
               <el-icon><Search /></el-icon>
@@ -175,7 +175,7 @@
                 style="margin-top: 10px;"
               >
                 <template #title>
-                  <span>该知识库已被禁用，无法进行问答。请在知识库管理中启用该知识库。</span>
+                  <span>该知识库已被禁用，无法进行检索。请在知识管理中启用该知识库。</span>
                 </template>
               </el-alert>
             </div>
@@ -294,8 +294,8 @@
       </div>
         </el-tab-pane>
 
-        <!-- 知识库管理 -->
-        <el-tab-pane label="知识库管理" name="management">
+        <!-- 知识管理 -->
+        <el-tab-pane label="知识管理" name="management">
           <KnowledgeBaseManagement />
         </el-tab-pane>
       </el-tabs>

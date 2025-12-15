@@ -8,7 +8,7 @@
       </template>
 
       <el-tabs v-model="activeTab" type="border-card">
-        <!-- 问答模型配置（智能问答和知识库问答） -->
+        <!-- 问答模型配置（智能问答和知识检索） -->
         <el-tab-pane label="问答模型" name="qa">
           <div class="model-list-section">
             <div class="section-header">
@@ -75,7 +75,7 @@
                     type="success"
                     size="small"
                   >
-                    仅知识库问答
+                    仅知识检索
                   </el-tag>
                   <el-tag
                     v-else-if="row.useFor === 'both'"
@@ -414,7 +414,7 @@
         <el-form-item label="使用场景" prop="useFor">
           <el-radio-group v-model="currentModel.useFor">
             <el-radio label="chat">仅用于智能问答</el-radio>
-            <el-radio label="rag">仅用于知识库问答</el-radio>
+            <el-radio label="rag">仅用于知识检索</el-radio>
             <el-radio label="both">两者都使用</el-radio>
           </el-radio-group>
         </el-form-item>
@@ -885,7 +885,7 @@ const loadConfig = async () => {
       } else if (data.rag) {
         models.push({
           id: models.length + 1,
-          name: data.rag.name || '默认模型（知识库问答）',
+          name: data.rag.name || '默认模型（知识检索）',
           provider: data.rag.providerType || data.rag.provider || 'openai',
           apiUrl: data.rag.apiUrl || '',
           apiKey: data.rag.apiKey || '',
