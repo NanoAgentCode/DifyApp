@@ -18,7 +18,7 @@ const handleClick = () => {
 .help-floating-button {
   position: fixed;
   bottom: 30px;
-  left: 30px;
+  left: 0;
   width: 56px;
   height: 56px;
   background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
@@ -31,15 +31,16 @@ const handleClick = () => {
   transition: all 0.3s ease;
   z-index: 1000;
   color: white;
+  transform: translateX(-50%);
 }
 
 .help-floating-button:hover {
-  transform: scale(1.1);
+  transform: translateX(0) scale(1.1);
   box-shadow: 0 6px 16px rgba(64, 158, 255, 0.6);
 }
 
 .help-floating-button:active {
-  transform: scale(0.95);
+  transform: translateX(0) scale(0.95);
 }
 </style>
 

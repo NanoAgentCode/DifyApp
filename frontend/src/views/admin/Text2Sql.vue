@@ -1,6 +1,13 @@
 <template>
   <div class="text2sql-container">
-    <el-tabs v-model="activeTab" class="sql-tabs">
+    <el-card>
+      <template #header>
+        <div class="card-header">
+          <span>高级功能</span>
+        </div>
+      </template>
+
+      <el-tabs v-model="activeTab" type="border-card">
       <el-tab-pane label="智能框图" name="aiDrawio">
         <AIDrawIO />
       </el-tab-pane>
@@ -216,7 +223,8 @@
       <el-tab-pane label="数据源管理" name="dataSource">
         <DataSourceManagement />
       </el-tab-pane>
-    </el-tabs>
+      </el-tabs>
+    </el-card>
   </div>
 </template>
 
@@ -415,26 +423,43 @@ const showTableSchema = async () => {
   flex-direction: column;
 }
 
-.sql-tabs {
+:deep(.el-card) {
   height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.sql-tabs :deep(.el-tabs__header) {
-  margin: 0 0 20px 0;
-  flex-shrink: 0;
-}
-
-.sql-tabs :deep(.el-tabs__content) {
+:deep(.el-card__body) {
   flex: 1;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  padding: 20px;
+  min-height: 0;
 }
 
-.sql-tabs :deep(.el-tab-pane) {
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+:deep(.el-tabs) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:deep(.el-tabs__content) {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px;
+}
+
+:deep(.el-tab-pane) {
   height: 100%;
   overflow: hidden;
   display: flex;
