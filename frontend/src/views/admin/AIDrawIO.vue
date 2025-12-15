@@ -4,7 +4,7 @@
       <!-- 左侧工具栏 -->
       <el-aside width="300px" class="toolbar-panel">
         <div class="toolbar-header">
-          <h3>AI 绘图助手</h3>
+          <h3>智能框图助手</h3>
         </div>
         
         <!-- 图表类型选择 -->

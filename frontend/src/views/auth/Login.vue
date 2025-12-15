@@ -103,11 +103,11 @@ const handleLogin = async () => {
         
         // 根据角色跳转
         if (response.role === 1) {
-          // 管理员跳转到管理端
-          router.push('/admin/apps')
+          // 管理员跳转到智能问答
+          router.push('/admin/chat')
         } else {
-          // 普通用户跳转到用户端应用列表
-          router.push('/user/apps')
+          // 普通用户跳转到智能问答
+          router.push('/user/chat')
         }
       } catch (error) {
         ElMessage.error(error.response?.data?.error || error.message || '登录失败')

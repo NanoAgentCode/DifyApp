@@ -229,7 +229,7 @@ const predefinedConfigKeys = [
   {
     key: 'drawio.defaultModelId',
     label: 'drawio.defaultModelId',
-    description: 'AI绘图默认使用的问答模型ID',
+    description: '智能框图默认使用的问答模型ID',
     group: 'system',
     type: 'number'
   },

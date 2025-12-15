@@ -12,6 +12,16 @@
         <el-tab-pane label="问答模型" name="qa">
           <div class="model-list-section">
             <div class="section-header">
+              <el-input
+                v-model="qaSearchKeyword"
+                placeholder="搜索模型名称、标识、提供商或API地址"
+                clearable
+                style="width: 300px"
+              >
+                <template #prefix>
+                  <el-icon><Search /></el-icon>
+                </template>
+              </el-input>
               <el-button type="primary" @click="handleAddModel">
                 <el-icon><Plus /></el-icon>
                 添加模型
@@ -19,7 +29,7 @@
             </div>
 
             <el-table
-              :data="qaModelList"
+              :data="filteredQAModelList"
               v-loading="loading.qa"
               stripe
               border
@@ -147,6 +157,16 @@
         <el-tab-pane label="向量化模型" name="embedding">
           <div class="model-list-section">
             <div class="section-header">
+              <el-input
+                v-model="embeddingSearchKeyword"
+                placeholder="搜索模型名称、标识、提供商或API地址"
+                clearable
+                style="width: 300px"
+              >
+                <template #prefix>
+                  <el-icon><Search /></el-icon>
+                </template>
+              </el-input>
               <el-button type="primary" @click="handleAddEmbeddingModel">
                 <el-icon><Plus /></el-icon>
                 添加模型
@@ -154,7 +174,7 @@
             </div>
 
             <el-table
-              :data="embeddingModelList"
+              :data="filteredEmbeddingModelList"
               v-loading="loading.embedding"
               stripe
               border
@@ -246,18 +266,15 @@
           </div>
         </el-tab-pane>
 
+        <!-- 向量数据库 -->
+        <el-tab-pane label="向量数据库" name="vectorDatabase">
+          <VectorDatabaseManagement />
+        </el-tab-pane>
+
         <!-- 提示词管理 -->
         <el-tab-pane label="提示词管理" name="prompt">
           <div class="prompt-section">
             <div class="section-header">
-              <el-button type="primary" @click="handleCreatePrompt">
-                <el-icon><Plus /></el-icon>
-                创建提示词
-              </el-button>
-            </div>
-
-            <!-- 搜索栏 -->
-            <div class="search-bar">
               <el-input
                 v-model="promptSearchKeyword"
                 placeholder="搜索提示词标题或内容"
@@ -269,6 +286,10 @@
                   <el-icon><Search /></el-icon>
                 </template>
               </el-input>
+              <el-button type="primary" @click="handleCreatePrompt">
+                <el-icon><Plus /></el-icon>
+                创建提示词
+              </el-button>
             </div>
 
             <!-- 提示词列表 -->
@@ -603,6 +624,7 @@ import {
 } from '@element-plus/icons-vue'
 import { getModelConfig, updateModelConfig, testModelConnection } from '@/api/model'
 import { getModelStyle } from '@/utils/modelColor'
+import VectorDatabaseManagement from './VectorDatabaseManagement.vue'
 import {
   getPrompts,
   createPrompt,
@@ -620,6 +642,41 @@ const loading = reactive({
 
 const qaModelList = ref([])
 const embeddingModelList = ref([])
+
+// 查询关键词
+const qaSearchKeyword = ref('')
+const embeddingSearchKeyword = ref('')
+
+// 过滤后的列表
+const filteredQAModelList = computed(() => {
+  if (!qaSearchKeyword.value.trim()) {
+    return qaModelList.value
+  }
+  const keyword = qaSearchKeyword.value.toLowerCase().trim()
+  return qaModelList.value.filter(model => {
+    return (
+      model.name?.toLowerCase().includes(keyword) ||
+      model.model?.toLowerCase().includes(keyword) ||
+      model.provider?.toLowerCase().includes(keyword) ||
+      model.apiUrl?.toLowerCase().includes(keyword)
+    )
+  })
+})
+
+const filteredEmbeddingModelList = computed(() => {
+  if (!embeddingSearchKeyword.value.trim()) {
+    return embeddingModelList.value
+  }
+  const keyword = embeddingSearchKeyword.value.toLowerCase().trim()
+  return embeddingModelList.value.filter(model => {
+    return (
+      model.name?.toLowerCase().includes(keyword) ||
+      model.model?.toLowerCase().includes(keyword) ||
+      model.provider?.toLowerCase().includes(keyword) ||
+      model.apiUrl?.toLowerCase().includes(keyword)
+    )
+  })
+})
 
 // 提示词管理相关
 const prompts = ref([])
@@ -1470,8 +1527,10 @@ const formatPromptTime = (time) => {
 
 .section-header {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
+  gap: 12px;
 }
 
 .config-section {
@@ -1554,12 +1613,10 @@ const formatPromptTime = (time) => {
 
 .prompt-section .section-header {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
-}
-
-.prompt-section .search-bar {
-  margin-bottom: 20px;
+  gap: 12px;
 }
 
 .prompt-section .table-container {

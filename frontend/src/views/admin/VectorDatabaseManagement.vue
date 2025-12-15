@@ -1,19 +1,24 @@
 <template>
   <div class="vector-database-management">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>向量数据库</span>
-          <el-button type="primary" @click="handleAdd">
-            <el-icon><Plus /></el-icon>
-            添加配置
-          </el-button>
-        </div>
-      </template>
-
-      <div class="config-list-section">
+    <div class="config-list-section">
+      <div class="section-header">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="搜索配置名称、类型或连接地址"
+          clearable
+          style="width: 300px"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        <el-button type="primary" @click="handleAdd">
+          <el-icon><Plus /></el-icon>
+          添加配置
+        </el-button>
+      </div>
         <el-table
-          :data="configList"
+          :data="filteredConfigList"
           v-loading="loading"
           stripe
           border
@@ -103,7 +108,6 @@
           </el-table-column>
         </el-table>
       </div>
-    </el-card>
 
     <!-- 添加/编辑对话框 -->
     <el-dialog
@@ -305,7 +309,8 @@ import {
   Edit,
   Delete,
   Link,
-  QuestionFilled
+  QuestionFilled,
+  Search
 } from '@element-plus/icons-vue'
 import { 
   getVectorDatabaseList, 
@@ -317,6 +322,23 @@ const loading = ref(false)
 const saving = ref(false)
 const configList = ref([])
 const defaultConfigId = ref(null) // 用于响应式更新单选按钮状态
+const searchKeyword = ref('')
+
+// 过滤后的配置列表
+const filteredConfigList = computed(() => {
+  if (!searchKeyword.value.trim()) {
+    return configList.value
+  }
+  const keyword = searchKeyword.value.toLowerCase().trim()
+  return configList.value.filter(config => {
+    return (
+      config.name?.toLowerCase().includes(keyword) ||
+      config.type?.toLowerCase().includes(keyword) ||
+      config.url?.toLowerCase().includes(keyword) ||
+      getTypeLabel(config.type)?.toLowerCase().includes(keyword)
+    )
+  })
+})
 
 // 对话框相关
 const dialogVisible = ref(false)
@@ -649,14 +671,16 @@ onMounted(() => {
   padding: 0;
 }
 
-.card-header {
+.section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 20px;
+  gap: 12px;
 }
 
 .config-list-section {
-  margin-top: 20px;
+  padding: 0;
 }
 
 .action-buttons {

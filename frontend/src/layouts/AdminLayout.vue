@@ -54,26 +54,14 @@
             <span>应用列表</span>
           </el-menu-item>
           <!-- 工具 -->
-          <el-menu-item v-if="isAdmin" index="/admin/ai-drawio">
-            <el-icon><DataAnalysis /></el-icon>
-            <span>AI 绘图</span>
-          </el-menu-item>
           <el-menu-item v-if="isAdmin" index="/admin/text2sql">
             <el-icon><Search /></el-icon>
-            <span>SQL 生成</span>
-          </el-menu-item>
-          <el-menu-item v-if="isAdmin" index="/admin/data-sources">
-            <el-icon><Connection /></el-icon>
-            <span>数据源管理</span>
+            <span>高级功能</span>
           </el-menu-item>
           <!-- 系统管理 -->
           <el-menu-item v-if="isAdmin" index="/admin/models">
             <el-icon><Setting /></el-icon>
             <span>大模型管理</span>
-          </el-menu-item>
-          <el-menu-item v-if="isAdmin" index="/admin/vector-databases">
-            <el-icon><Box /></el-icon>
-            <span>向量数据库</span>
           </el-menu-item>
           <!-- 记录查看 -->
           <!-- 用户管理 -->
@@ -213,22 +201,30 @@ const MIN_WIDTH_FOR_SIDEBAR = 1024
 // 检查窗口大小并自动调整侧边栏
 const checkAndAutoCollapse = () => {
   const windowWidth = window.innerWidth
-  // 如果窗口宽度小于阈值，自动折叠侧边栏
+  // 如果窗口宽度小于阈值，且用户没有手动展开，则自动折叠侧边栏
   if (windowWidth < MIN_WIDTH_FOR_SIDEBAR) {
-    if (!isCollapse.value) {
+    const manualExpand = localStorage.getItem('adminMenuManualExpand') === 'true'
+    if (!isCollapse.value && !manualExpand) {
       isCollapse.value = true
       // 不保存到localStorage，因为这是自动行为
     }
+  } else {
+    // 窗口宽度足够时，清除手动展开标志
+    localStorage.removeItem('adminMenuManualExpand')
   }
 }
 
 // 切换收缩状态
 const toggleCollapse = () => {
   isCollapse.value = !isCollapse.value
-  // 只有在手动切换时才保存状态到本地存储
-  // 如果当前窗口宽度足够，才保存用户的手动选择
-  if (window.innerWidth >= MIN_WIDTH_FOR_SIDEBAR) {
-    localStorage.setItem('adminMenuCollapse', String(isCollapse.value))
+  // 手动切换时，保存用户的选择到本地存储
+  // 无论窗口大小，都保存用户的手动选择
+  localStorage.setItem('adminMenuCollapse', String(isCollapse.value))
+  // 如果用户手动展开，设置一个标志，暂时忽略自动折叠
+  if (!isCollapse.value) {
+    localStorage.setItem('adminMenuManualExpand', 'true')
+  } else {
+    localStorage.removeItem('adminMenuManualExpand')
   }
 }
 
@@ -281,16 +277,15 @@ const loadConfigFromDB = async () => {
 
 // 从本地存储恢复收缩状态和知识库配置
 onMounted(async () => {
-  // 先检查窗口大小，决定是否自动折叠
-  checkAndAutoCollapse()
-  
-  // 如果窗口宽度足够，才从本地存储恢复用户的手动选择
-  if (window.innerWidth >= MIN_WIDTH_FOR_SIDEBAR) {
-    const savedCollapse = localStorage.getItem('adminMenuCollapse')
-    if (savedCollapse !== null) {
-      isCollapse.value = savedCollapse === 'true'
-    }
+  // 先从本地存储恢复用户的手动选择
+  const savedCollapse = localStorage.getItem('adminMenuCollapse')
+  if (savedCollapse !== null) {
+    isCollapse.value = savedCollapse === 'true'
   }
+  
+  // 然后检查窗口大小，决定是否需要自动折叠
+  // 如果用户手动展开且窗口宽度足够，则保持展开状态
+  checkAndAutoCollapse()
   
   const userInfoStr = localStorage.getItem('userInfo')
   if (userInfoStr) {
@@ -577,10 +572,11 @@ const handleHelpButtonClick = () => {
   border-right: 1px solid #e4e7ed;
   overflow-y: auto;
   overflow-x: hidden;
-  transition: width 0.3s;
+  transition: width 0.3s ease;
   height: calc(100vh - 60px); /* 减去header高度 */
   display: flex;
   flex-direction: column;
+  flex-shrink: 0; /* 防止侧边栏被压缩 */
 }
 
 .menu {
@@ -598,6 +594,9 @@ const handleHelpButtonClick = () => {
   height: calc(100vh - 60px); /* 减去header高度 */
   display: flex;
   flex-direction: column;
+  transition: margin-left 0.3s ease; /* 添加过渡效果 */
+  flex: 1; /* 允许主内容区域自动调整 */
+  min-width: 0; /* 允许主内容区域缩小 */
 }
 
 .main-content {
@@ -633,9 +632,9 @@ const handleHelpButtonClick = () => {
     height: calc(100vh - 50px);
   }
 
-  /* 小屏幕默认折叠侧边栏 */
+  /* 小屏幕默认折叠侧边栏，但允许手动展开 */
   .aside {
-    width: 64px !important;
+    /* 移除 !important，允许手动展开时覆盖 */
   }
 
   .main {

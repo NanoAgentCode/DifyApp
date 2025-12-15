@@ -1,6 +1,11 @@
 <template>
   <div class="text2sql-container">
-    <el-row :gutter="20" class="text2sql-row">
+    <el-tabs v-model="activeTab" class="sql-tabs">
+      <el-tab-pane label="智能框图" name="aiDrawio">
+        <AIDrawIO />
+      </el-tab-pane>
+      <el-tab-pane label="SQL 生成" name="sql">
+        <el-row :gutter="20" class="text2sql-row">
       <!-- 左侧：查询表单 -->
       <el-col :span="10" class="left-panel">
         <el-card class="query-card">
@@ -207,15 +212,31 @@
         <el-button @click="schemaDialogVisible = false">关闭</el-button>
       </template>
     </el-dialog>
+      </el-tab-pane>
+      <el-tab-pane label="数据源管理" name="dataSource">
+        <DataSourceManagement />
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getDataSourceList } from '@/api/dataSource'
 import { getTableList, executeText2SqlQuery, getTableSchema } from '@/api/text2sql'
 import { getModelConfig } from '@/api/model'
+import DataSourceManagement from './DataSourceManagement.vue'
+import AIDrawIO from './AIDrawIO.vue'
+
+const activeTab = ref('aiDrawio')
+
+// 监听选项卡切换，当切换到SQL生成tab时刷新数据源列表
+watch(activeTab, (newTab) => {
+  if (newTab === 'sql') {
+    loadDataSources()
+  }
+})
 
 const dataSources = ref([])
 const tables = ref([])
@@ -388,6 +409,32 @@ const showTableSchema = async () => {
 <style scoped>
 .text2sql-container {
   padding: 0;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.sql-tabs {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sql-tabs :deep(.el-tabs__header) {
+  margin: 0 0 20px 0;
+  flex-shrink: 0;
+}
+
+.sql-tabs :deep(.el-tabs__content) {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.sql-tabs :deep(.el-tab-pane) {
   height: 100%;
   overflow: hidden;
   display: flex;

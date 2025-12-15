@@ -143,7 +143,7 @@ const routes = [
                 path: 'ai-drawio',
                 name: 'AIDrawIO',
                 component: () => import('@/views/admin/AIDrawIO.vue'),
-                meta: {title: 'AI 绘图', requiresAuth: true, requiresAdmin: true}
+                meta: {title: '智能框图', requiresAuth: true, requiresAdmin: true}
             },
         ]
     },
@@ -206,7 +206,7 @@ const routes = [
                 path: 'ai-drawio',
                 name: 'UserAIDrawIO',
                 component: () => import('@/views/user/AIDrawIO.vue'),
-                meta: {title: 'AI 绘图', requiresAuth: true}
+                meta: {title: '智能框图', requiresAuth: true}
             }
         ]
     },
