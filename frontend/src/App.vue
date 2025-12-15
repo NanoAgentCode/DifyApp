@@ -69,5 +69,85 @@ body.el-popup-parent--hidden {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
 }
+
+/* 小屏幕全局适配 (1024x768及以下) */
+@media (max-width: 1024px) {
+  /* 减小表格字体和间距 */
+  :deep(.el-table) {
+    font-size: 13px;
+  }
+
+  :deep(.el-table th),
+  :deep(.el-table td) {
+    padding: 8px 6px;
+  }
+
+  /* 减小卡片内边距 */
+  :deep(.el-card__body) {
+    padding: 12px;
+  }
+
+  /* 减小按钮和输入框尺寸 */
+  :deep(.el-button) {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  :deep(.el-input__inner),
+  :deep(.el-textarea__inner) {
+    font-size: 13px;
+  }
+
+  /* 减小对话框内边距 */
+  :deep(.el-dialog__body) {
+    padding: 16px;
+  }
+
+  /* 减小表单标签和输入框间距 */
+  :deep(.el-form-item__label) {
+    font-size: 13px;
+    padding-bottom: 4px;
+  }
+
+  :deep(.el-form-item) {
+    margin-bottom: 16px;
+  }
+}
+
+/* 超小屏幕全局适配 (768px及以下) */
+@media (max-width: 768px) {
+  /* 进一步减小字体 */
+  :deep(.el-table) {
+    font-size: 12px;
+  }
+
+  :deep(.el-table th),
+  :deep(.el-table td) {
+    padding: 6px 4px;
+  }
+
+  :deep(.el-card__body) {
+    padding: 8px;
+  }
+
+  :deep(.el-button) {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  :deep(.el-dialog__body) {
+    padding: 12px;
+  }
+
+  :deep(.el-form-item) {
+    margin-bottom: 12px;
+  }
+
+  /* 对话框在小屏幕上全屏显示 */
+  :deep(.el-dialog) {
+    width: 95% !important;
+    margin: 5vh auto !important;
+  }
+}
 </style>
 

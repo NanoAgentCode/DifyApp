@@ -1264,5 +1264,99 @@ html {
   border: none !important;
   border-color: transparent !important;
 }
+
+/* 小屏幕适配 (1024x768及以下) */
+@media (max-width: 1024px) {
+  .qa-container {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .left-panel {
+    width: 100%;
+    max-height: 200px;
+    padding: 12px;
+  }
+
+  .panel-title {
+    font-size: 14px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+  }
+
+  .kb-item {
+    padding: 6px 10px;
+    min-height: 40px;
+  }
+
+  .kb-name {
+    font-size: 13px;
+  }
+
+  .kb-docs {
+    font-size: 11px;
+  }
+
+  .right-panel {
+    min-height: 0;
+  }
+
+  .kb-header {
+    padding: 12px 16px;
+  }
+
+  .kb-header-name {
+    font-size: 14px;
+  }
+
+  .kb-header-desc {
+    font-size: 11px;
+  }
+
+  .chat-history-content {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .message-content {
+    width: 85%;
+    max-width: 85%;
+  }
+
+  .input-area {
+    padding: 12px 16px;
+  }
+}
+
+/* 超小屏幕适配 (768px及以下) */
+@media (max-width: 768px) {
+  .left-panel {
+    max-height: 150px;
+    padding: 8px;
+  }
+
+  .kb-header {
+    padding: 8px 12px;
+  }
+
+  .chat-history-content {
+    padding: 8px;
+    gap: 10px;
+  }
+
+  .message-content {
+    width: 90%;
+    max-width: 90%;
+  }
+
+  .message-text {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+
+  .input-area {
+    padding: 8px 12px;
+  }
+}
 </style>
 

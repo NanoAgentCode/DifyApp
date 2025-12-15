@@ -86,7 +86,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { User, ArrowDown, List, Folder, ChatLineRound, Fold, Expand, Clock, Document, DataAnalysis } from '@element-plus/icons-vue'
@@ -113,11 +113,34 @@ const helpModelId = ref(null)
 // 导航菜单收缩状态
 const isCollapse = ref(false)
 
+// 侧边栏正常显示的最小宽度（侧边栏200px + 主内容最小宽度600px）
+const MIN_WIDTH_FOR_SIDEBAR = 1024
+
+// 检查窗口大小并自动调整侧边栏
+const checkAndAutoCollapse = () => {
+  const windowWidth = window.innerWidth
+  // 如果窗口宽度小于阈值，自动折叠侧边栏
+  if (windowWidth < MIN_WIDTH_FOR_SIDEBAR) {
+    if (!isCollapse.value) {
+      isCollapse.value = true
+      // 不保存到localStorage，因为这是自动行为
+    }
+  }
+}
+
 // 切换收缩状态
 const toggleCollapse = () => {
   isCollapse.value = !isCollapse.value
-  // 保存状态到本地存储
-  localStorage.setItem('userMenuCollapse', String(isCollapse.value))
+  // 只有在手动切换时才保存状态到本地存储
+  // 如果当前窗口宽度足够，才保存用户的手动选择
+  if (window.innerWidth >= MIN_WIDTH_FOR_SIDEBAR) {
+    localStorage.setItem('userMenuCollapse', String(isCollapse.value))
+  }
+}
+
+// 窗口大小变化监听器
+const handleResize = () => {
+  checkAndAutoCollapse()
 }
 
 // 从数据库加载配置
@@ -159,9 +182,15 @@ const loadConfigFromDB = async () => {
 }
 
 onMounted(async () => {
-  const savedCollapse = localStorage.getItem('userMenuCollapse')
-  if (savedCollapse !== null) {
-    isCollapse.value = savedCollapse === 'true'
+  // 先检查窗口大小，决定是否自动折叠
+  checkAndAutoCollapse()
+  
+  // 如果窗口宽度足够，才从本地存储恢复用户的手动选择
+  if (window.innerWidth >= MIN_WIDTH_FOR_SIDEBAR) {
+    const savedCollapse = localStorage.getItem('userMenuCollapse')
+    if (savedCollapse !== null) {
+      isCollapse.value = savedCollapse === 'true'
+    }
   }
   
   const userInfoStr = localStorage.getItem('userInfo')
@@ -175,6 +204,14 @@ onMounted(async () => {
   
   // 从数据库加载配置
   await loadConfigFromDB()
+  
+  // 添加窗口大小变化监听
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  // 移除窗口大小变化监听
+  window.removeEventListener('resize', handleResize)
 })
 
 const handleCommand = (command) => {
@@ -304,6 +341,56 @@ const handlePasswordChangeSuccess = () => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+/* 小屏幕适配 (1024x768及以下) */
+@media (max-width: 1024px) {
+  .header {
+    padding: 0 12px;
+    height: 50px;
+  }
+
+  .header-left h2 {
+    font-size: 16px;
+  }
+
+  .collapse-btn {
+    font-size: 16px;
+    padding: 6px;
+  }
+
+  .user-info {
+    font-size: 14px;
+    padding: 4px 8px;
+  }
+
+  .aside {
+    height: calc(100vh - 50px);
+  }
+
+  /* 小屏幕默认折叠侧边栏 */
+  .aside {
+    width: 64px !important;
+  }
+
+  .main {
+    height: calc(100vh - 50px);
+  }
+
+  .main-content {
+    padding: 12px;
+  }
+}
+
+/* 超小屏幕适配 (768px及以下) */
+@media (max-width: 768px) {
+  .header-left h2 {
+    font-size: 14px;
+  }
+
+  .main-content {
+    padding: 8px;
+  }
 }
 </style>
 

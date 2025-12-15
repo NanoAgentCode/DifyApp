@@ -1068,4 +1068,70 @@ onMounted(async () => {
   font-size: 14px;
   opacity: 0.8;
 }
+
+/* 小屏幕适配 (1024x768及以下) */
+@media (max-width: 1024px) {
+  :deep(.el-card__header) {
+    padding: 12px 16px;
+  }
+
+  .card-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .card-header-left h3 {
+    font-size: 16px;
+  }
+
+  .chat-container {
+    padding: 12px 16px;
+  }
+
+  .input-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .input-tips {
+    font-size: 11px;
+  }
+
+  .message-content {
+    max-width: 85%;
+  }
+}
+
+/* 超小屏幕适配 (768px及以下) */
+@media (max-width: 768px) {
+  :deep(.el-card__header) {
+    padding: 8px 12px;
+  }
+
+  .card-header-left h3 {
+    font-size: 14px;
+  }
+
+  .chat-container {
+    padding: 8px 12px;
+  }
+
+  .message-content {
+    max-width: 90%;
+    padding: 10px 14px;
+  }
+
+  .input-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .input-buttons {
+    width: 100%;
+  }
+
+  .input-buttons .el-button {
+    flex: 1;
+  }
+}
 </style>
