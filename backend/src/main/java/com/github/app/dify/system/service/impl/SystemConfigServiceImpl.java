@@ -153,10 +153,23 @@ public class SystemConfigServiceImpl implements SystemConfigService {
      */
     private void reloadOcrConfig() {
         try {
+            // 重新加载 OcrConfig
             OcrConfig ocrConfig = applicationContext.getBean(OcrConfig.class);
             if (ocrConfig != null) {
                 ocrConfig.reload();
                 logger.info("OCR 配置已重新加载");
+            }
+            
+            // 重新初始化 OcrServiceImpl 的 RestTemplate
+            try {
+                com.github.app.dify.chat.service.OcrService ocrService = 
+                    applicationContext.getBean(com.github.app.dify.chat.service.OcrService.class);
+                if (ocrService instanceof com.github.app.dify.chat.service.impl.OcrServiceImpl) {
+                    ((com.github.app.dify.chat.service.impl.OcrServiceImpl) ocrService).reload();
+                    logger.info("OCR 服务 RestTemplate 已重新初始化");
+                }
+            } catch (Exception e) {
+                logger.debug("重新初始化 OCR 服务失败（可能 OcrService 未初始化）: {}", e.getMessage());
             }
         } catch (Exception e) {
             // OcrConfig 可能不存在，忽略错误

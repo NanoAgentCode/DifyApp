@@ -14,6 +14,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +23,7 @@ import java.util.Map;
 /**
  * OCR服务实现类
  * 调用本地EasyOCR服务进行图片文字识别
+ * 配置从系统配置中读取（通过OcrConfig）
  */
 @Service
 public class OcrServiceImpl implements OcrService {
@@ -33,8 +35,18 @@ public class OcrServiceImpl implements OcrService {
     
     private RestTemplate restTemplate;
     
-    @org.springframework.beans.factory.annotation.Autowired
+    /**
+     * 初始化RestTemplate（在OcrConfig加载配置后执行）
+     */
+    @PostConstruct
     public void init() {
+        initRestTemplate();
+    }
+    
+    /**
+     * 初始化RestTemplate（支持配置更新后重新初始化）
+     */
+    private void initRestTemplate() {
         // 使用OcrConfig中的配置
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(ocrConfig.getTimeout());
@@ -42,6 +54,14 @@ public class OcrServiceImpl implements OcrService {
         this.restTemplate = new RestTemplate(factory);
         logger.info("OCR服务初始化完成 - URL: {}, 超时时间: {}ms", 
                 ocrConfig.getServiceUrl(), ocrConfig.getTimeout());
+    }
+    
+    /**
+     * 重新初始化RestTemplate（用于配置更新后刷新）
+     */
+    public void reload() {
+        initRestTemplate();
+        logger.info("OCR服务配置已重新加载");
     }
     
     @Override

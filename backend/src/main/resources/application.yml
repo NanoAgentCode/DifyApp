@@ -115,7 +115,7 @@ spring:
       repositories:
         enabled: false
 
-# RAG配置（仅保留非模型相关配置，模型配置已迁移到数据库）
+# RAG配置
 rag:
   chunk-size: 500
   chunk-overlap: 50
@@ -127,16 +127,6 @@ rag:
   max-history-rounds: 10  # 最大历史对话轮数（滑动窗口策略，每轮包含一问一答）
   max-history-tokens: 2000  # 最大历史对话token数（用于判断是否需要压缩）
   enable-summary: false  # 是否启用总结压缩（需要额外调用LLM，会增加延迟和成本）
-
-# 注意：
-# - 模型配置（LLM和Embedding）已迁移到数据库，请在管理端"大模型管理"页面配置
-# - ConfigurableDocumentSplitter 使用 rag.chunk-size 和 rag.chunk-overlap 配置
-
-# OCR服务配置
-ocr:
-  service:
-    url: http://localhost:8000  # EasyOCR服务地址
-    timeout: 30000               # 请求超时时间（毫秒）
 
 # MCP (Model Context Protocol) 配置（自定义配置属性，通过 McpConfig 类绑定）
 mcp:
