@@ -5,6 +5,7 @@ import com.github.app.dify.system.config.OcrConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
@@ -16,7 +17,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -86,10 +86,11 @@ public class OcrServiceImpl implements OcrService {
             String ocrUrl = ocrConfig.getServiceUrl() + "/ocr";
             logger.debug("调用OCR服务URL: {}", ocrUrl);
             
-            ResponseEntity<Map> response = restTemplate.postForEntity(
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     ocrUrl,
+                    HttpMethod.POST,
                     requestEntity,
-                    Map.class
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
             );
             
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
@@ -144,7 +145,12 @@ public class OcrServiceImpl implements OcrService {
             String healthUrl = ocrConfig.getServiceUrl() + "/health";
             logger.debug("检查OCR服务健康状态: {}", healthUrl);
             
-            ResponseEntity<Map> response = restTemplate.getForEntity(healthUrl, Map.class);
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    healthUrl,
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
             
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 Map<String, Object> result = response.getBody();
