@@ -352,7 +352,8 @@ const getTypeName = (type) => {
     postgresql: 'PostgreSQL',
     mysql: 'MySQL',
     oracle: 'Oracle',
-    mongodb: 'MongoDB'
+    mongodb: 'MongoDB',
+    neo4j: 'Neo4j'
   }
   return typeMap[type] || type
 }

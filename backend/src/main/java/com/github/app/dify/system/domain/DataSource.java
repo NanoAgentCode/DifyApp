@@ -43,11 +43,11 @@ public class DataSource implements Serializable {
     private String description;
     
     /**
-     * 数据库类型：postgresql, mysql, oracle, mongodb
+     * 数据库类型：postgresql, mysql, oracle, mongodb, neo4j
      */
     @NotBlank(message="[数据库类型]不能为空")
     @Size(max= 20,message="编码长度不能超过20")
-    @Schema(description = "数据库类型：postgresql, mysql, oracle, mongodb")
+    @Schema(description = "数据库类型：postgresql, mysql, oracle, mongodb, neo4j")
     @Length(max= 20,message="编码长度不能超过20")
     @Column(name = "type", columnDefinition = "VARCHAR(20)")
     private String type;

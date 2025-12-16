@@ -2,6 +2,8 @@ package com.github.app.dify.system.service;
 
 import com.github.app.dify.system.domain.DataSource;
 import com.mongodb.client.MongoDatabase;
+import org.neo4j.driver.Driver;
+import org.neo4j.driver.Session;
 import java.sql.Connection;
 import java.sql.SQLException;
 /**
@@ -23,6 +25,20 @@ public interface DatabaseConnectionService {
      * @return MongoDB 数据库
      */
     MongoDatabase getMongoDatabase(DataSource dataSource);
+    
+    /**
+     * 获取 Neo4j 驱动
+     * @param dataSource 数据源配置
+     * @return Neo4j 驱动
+     */
+    Driver getNeo4jDriver(DataSource dataSource);
+    
+    /**
+     * 获取 Neo4j 会话
+     * @param dataSource 数据源配置
+     * @return Neo4j 会话
+     */
+    Session getNeo4jSession(DataSource dataSource);
     
     /**
      * 测试数据库连接

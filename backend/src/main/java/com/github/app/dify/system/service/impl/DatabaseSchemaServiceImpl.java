@@ -8,6 +8,9 @@ import com.github.app.dify.system.service.DatabaseConnectionService;
 import com.github.app.dify.system.service.DatabaseSchemaService;
 import com.github.app.dify.system.util.DatabaseDriverManager;
 import com.mongodb.client.MongoDatabase;
+import org.neo4j.driver.Session;
+import org.neo4j.driver.Result;
+import org.neo4j.driver.Record;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +52,8 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
         try {
             if (dbType == DatabaseDriverManager.DatabaseType.MONGODB) {
                 return getMongoCollectionList(dataSource);
+            } else if (dbType == DatabaseDriverManager.DatabaseType.NEO4J) {
+                return getNeo4jNodeLabelList(dataSource);
             } else {
                 return getJdbcTableList(dataSource, dbType);
             }
@@ -88,6 +93,8 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
         try {
             if (dbType == DatabaseDriverManager.DatabaseType.MONGODB) {
                 schemaInfo = getMongoSchema(dataSource, tableName);
+            } else if (dbType == DatabaseDriverManager.DatabaseType.NEO4J) {
+                schemaInfo = getNeo4jSchema(dataSource, tableName);
             } else {
                 schemaInfo = getJdbcSchema(dataSource, dbType, tableName);
             }
@@ -170,6 +177,24 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
     private List<String> getMongoCollectionList(DataSource dataSource) {
         MongoDatabase database = connectionService.getMongoDatabase(dataSource);
         return database.listCollectionNames().into(new ArrayList<>());
+    }
+    
+    /**
+     * 获取 Neo4j 节点标签列表
+     */
+    private List<String> getNeo4jNodeLabelList(DataSource dataSource) {
+        List<String> labels = new ArrayList<>();
+        try (Session session = connectionService.getNeo4jSession(dataSource)) {
+            Result result = session.run("CALL db.labels()");
+            for (Record record : result.list()) {
+                String label = record.get(0).asString();
+                labels.add(label);
+            }
+        } catch (Exception e) {
+            logger.error("获取 Neo4j 节点标签列表失败 - 数据源ID: {}", dataSource.getId(), e);
+            throw new RuntimeException("获取 Neo4j 节点标签列表失败: " + e.getMessage(), e);
+        }
+        return labels;
     }
     
     /**
@@ -283,6 +308,67 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
         }
         
         schema.put("fields", fields);
+        
+        return schema;
+    }
+    
+    /**
+     * 获取 Neo4j 节点标签结构
+     */
+    private Map<String, Object> getNeo4jSchema(DataSource dataSource, String nodeLabel) {
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("nodeLabel", nodeLabel);
+        schema.put("databaseType", "neo4j");
+        
+        List<Map<String, Object>> properties = new ArrayList<>();
+        List<Map<String, Object>> relationshipTypes = new ArrayList<>();
+        
+        try (Session session = connectionService.getNeo4jSession(dataSource)) {
+            // 获取节点属性
+            String propertyQuery = String.format(
+                "MATCH (n:`%s`) " +
+                "WITH keys(n) AS keys " +
+                "UNWIND keys AS key " +
+                "WITH DISTINCT key " +
+                "MATCH (n:`%s`) " +
+                "WHERE n[key] IS NOT NULL " +
+                "WITH key, head(collect(type(n[key]))) AS type " +
+                "RETURN key, type " +
+                "ORDER BY key",
+                nodeLabel, nodeLabel
+            );
+            
+            Result propertyResult = session.run(propertyQuery);
+            for (Record record : propertyResult.list()) {
+                Map<String, Object> property = new HashMap<>();
+                property.put("name", record.get("key").asString());
+                property.put("type", record.get("type").asString());
+                properties.add(property);
+            }
+            
+            // 获取关系类型
+            String relationshipQuery = String.format(
+                "MATCH (n:`%s`)-[r]->() " +
+                "RETURN DISTINCT type(r) AS relationshipType " +
+                "UNION " +
+                "MATCH (n:`%s`)<-[r]-() " +
+                "RETURN DISTINCT type(r) AS relationshipType",
+                nodeLabel, nodeLabel
+            );
+            
+            Result relationshipResult = session.run(relationshipQuery);
+            for (Record record : relationshipResult.list()) {
+                Map<String, Object> relType = new HashMap<>();
+                relType.put("name", record.get("relationshipType").asString());
+                relationshipTypes.add(relType);
+            }
+        } catch (Exception e) {
+            logger.error("获取 Neo4j 节点标签结构失败 - 数据源ID: {}, 节点标签: {}", dataSource.getId(), nodeLabel, e);
+            throw new RuntimeException("获取 Neo4j 节点标签结构失败: " + e.getMessage(), e);
+        }
+        
+        schema.put("properties", properties);
+        schema.put("relationshipTypes", relationshipTypes);
         
         return schema;
     }

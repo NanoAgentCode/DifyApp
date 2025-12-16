@@ -95,7 +95,8 @@ const getTypeName = (type) => {
     postgresql: 'PostgreSQL',
     mysql: 'MySQL',
     oracle: 'Oracle',
-    mongodb: 'MongoDB'
+    mongodb: 'MongoDB',
+    neo4j: 'Neo4j'
   }
   return typeMap[type] || type
 }
@@ -105,7 +106,8 @@ const getTypeTag = (type) => {
     postgresql: 'primary',
     mysql: 'success',
     oracle: 'warning',
-    mongodb: 'info'
+    mongodb: 'info',
+    neo4j: 'danger'
   }
   return tagMap[type] || ''
 }

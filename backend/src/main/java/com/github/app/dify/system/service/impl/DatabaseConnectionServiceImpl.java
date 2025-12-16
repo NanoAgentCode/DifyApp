@@ -7,6 +7,10 @@ import com.github.app.dify.auth.util.PasswordEncryptionUtil;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
+import org.neo4j.driver.Driver;
+import org.neo4j.driver.GraphDatabase;
+import org.neo4j.driver.Session;
+import org.neo4j.driver.AuthTokens;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +42,9 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
     // MongoDB 客户端缓存
     private final Map<Long, MongoClient> mongoClientCache = new ConcurrentHashMap<>();
     
+    // Neo4j 驱动缓存
+    private final Map<Long, Driver> neo4jDriverCache = new ConcurrentHashMap<>();
+    
     // 数据源访问频率统计（用于决定是否使用连接池）
     private final Map<Long, Integer> accessFrequency = new ConcurrentHashMap<>();
     
@@ -59,6 +66,10 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
         
         if (dbType == DatabaseDriverManager.DatabaseType.MONGODB) {
             throw new UnsupportedOperationException("MongoDB 不支持 JDBC 连接，请使用 getMongoDatabase 方法");
+        }
+        
+        if (dbType == DatabaseDriverManager.DatabaseType.NEO4J) {
+            throw new UnsupportedOperationException("Neo4j 不支持 JDBC 连接，请使用 getNeo4jSession 方法");
         }
         
         // 更新访问频率
@@ -105,6 +116,53 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
         }
         
         return mongoClient.getDatabase(databaseName);
+    }
+    
+    /**
+     * 获取 Neo4j 驱动
+     * @param dataSource 数据源配置
+     * @return Neo4j 驱动
+     */
+    @Override
+    public Driver getNeo4jDriver(DataSource dataSource) {
+        if (dataSource == null) {
+            throw new IllegalArgumentException("数据源不能为空");
+        }
+        
+        DatabaseDriverManager.DatabaseType dbType = DatabaseDriverManager.DatabaseType.fromString(dataSource.getType());
+        if (dbType != DatabaseDriverManager.DatabaseType.NEO4J) {
+            throw new IllegalArgumentException("数据源类型不是 Neo4j");
+        }
+        
+        // 更新访问频率
+        updateAccessFrequency(dataSource.getId());
+        
+        // 获取或创建 Neo4j 驱动
+        return neo4jDriverCache.computeIfAbsent(dataSource.getId(), id -> {
+            String password = passwordEncryptionUtil.decrypt(dataSource.getPassword());
+            String uri = driverManager.buildJdbcUrl(dbType, dataSource.getHost(), dataSource.getPort(), dataSource.getDatabase());
+            
+            String username = dataSource.getUsername() != null ? dataSource.getUsername() : "";
+            password = password != null ? password : "";
+            
+            logger.info("创建 Neo4j 驱动 - 数据源ID: {}, URI: {}", id, maskConnectionString(uri));
+            return GraphDatabase.driver(uri, AuthTokens.basic(username, password));
+        });
+    }
+    
+    /**
+     * 获取 Neo4j 会话
+     * @param dataSource 数据源配置
+     * @return Neo4j 会话
+     */
+    @Override
+    public Session getNeo4jSession(DataSource dataSource) {
+        Driver driver = getNeo4jDriver(dataSource);
+        String database = dataSource.getDatabase();
+        if (database != null && !database.isEmpty()) {
+            return driver.session(org.neo4j.driver.SessionConfig.forDatabase(database));
+        }
+        return driver.session();
     }
     
     /**
@@ -239,6 +297,8 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
             
             if (dbType == DatabaseDriverManager.DatabaseType.MONGODB) {
                 return testMongoConnection(dataSource, passwordEncrypted);
+            } else if (dbType == DatabaseDriverManager.DatabaseType.NEO4J) {
+                return testNeo4jConnection(dataSource, passwordEncrypted);
             } else {
                 return testJdbcConnection(dataSource, dbType, passwordEncrypted);
             }
@@ -297,6 +357,52 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
     }
     
     /**
+     * 测试 Neo4j 连接
+     */
+    private boolean testNeo4jConnection(DataSource dataSource, boolean passwordEncrypted) {
+        try {
+            Driver driver = getNeo4jDriverForTest(dataSource, passwordEncrypted);
+            try (Session session = driver.session()) {
+                // 执行一个简单的查询来测试连接
+                session.run("RETURN 1 AS test").consume();
+                return true;
+            } finally {
+                driver.close();
+            }
+        } catch (Exception e) {
+            logger.error("Neo4j 连接测试失败", e);
+            return false;
+        }
+    }
+    
+    /**
+     * 获取 Neo4j 驱动（用于测试，支持未加密密码）
+     */
+    private Driver getNeo4jDriverForTest(DataSource dataSource, boolean passwordEncrypted) {
+        if (dataSource == null) {
+            throw new IllegalArgumentException("数据源不能为空");
+        }
+        
+        DatabaseDriverManager.DatabaseType dbType = DatabaseDriverManager.DatabaseType.fromString(dataSource.getType());
+        if (dbType != DatabaseDriverManager.DatabaseType.NEO4J) {
+            throw new IllegalArgumentException("数据源类型不是 Neo4j");
+        }
+        
+        String password;
+        if (passwordEncrypted) {
+            password = passwordEncryptionUtil.decrypt(dataSource.getPassword());
+        } else {
+            password = dataSource.getPassword();
+        }
+        
+        String uri = driverManager.buildJdbcUrl(dbType, dataSource.getHost(), dataSource.getPort(), dataSource.getDatabase());
+        String username = dataSource.getUsername() != null ? dataSource.getUsername() : "";
+        password = password != null ? password : "";
+        
+        return GraphDatabase.driver(uri, AuthTokens.basic(username, password));
+    }
+    
+    /**
      * 获取MongoDB数据库（用于测试，支持未加密密码）
      */
     private MongoDatabase getMongoDatabaseForTest(DataSource dataSource, boolean passwordEncrypted) {
@@ -344,6 +450,12 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
         if (mongoClient != null) {
             mongoClient.close();
             logger.info("关闭 MongoDB 客户端 - 数据源ID: {}", dataSourceId);
+        }
+        
+        Driver neo4jDriver = neo4jDriverCache.remove(dataSourceId);
+        if (neo4jDriver != null) {
+            neo4jDriver.close();
+            logger.info("关闭 Neo4j 驱动 - 数据源ID: {}", dataSourceId);
         }
         
         accessFrequency.remove(dataSourceId);

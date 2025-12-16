@@ -36,6 +36,7 @@
           <el-option label="MySQL" value="mysql" />
           <el-option label="Oracle" value="oracle" />
           <el-option label="MongoDB" value="mongodb" />
+          <el-option label="Neo4j" value="neo4j" />
         </el-select>
         <el-select
           v-model="filterStatus"
@@ -100,11 +101,12 @@
           <el-input v-model="formData.description" type="textarea" :rows="3" placeholder="请输入描述" />
         </el-form-item>
         <el-form-item label="数据库类型" prop="type">
-          <el-select v-model="formData.type" placeholder="请选择数据库类型" style="width: 100%">
+          <el-select v-model="formData.type" placeholder="请选择数据库类型" style="width: 100%" @change="handleTypeChange">
             <el-option label="PostgreSQL" value="postgresql" />
             <el-option label="MySQL" value="mysql" />
             <el-option label="Oracle" value="oracle" />
             <el-option label="MongoDB" value="mongodb" />
+            <el-option label="Neo4j" value="neo4j" />
           </el-select>
         </el-form-item>
         <el-form-item label="主机地址" prop="host">
@@ -180,6 +182,22 @@ const formData = ref({
   status: 1
 })
 
+// 数据库类型对应的默认端口
+const defaultPorts = {
+  postgresql: 5432,
+  mysql: 3306,
+  oracle: 1521,
+  mongodb: 27017,
+  neo4j: 7687
+}
+
+// 处理数据库类型变化，自动更新默认端口
+const handleTypeChange = (type) => {
+  if (defaultPorts[type]) {
+    formData.value.port = defaultPorts[type]
+  }
+}
+
 const formRules = {
   name: [{ required: true, message: '请输入数据源名称', trigger: 'blur' }],
   type: [{ required: true, message: '请选择数据库类型', trigger: 'change' }],
@@ -236,7 +254,7 @@ const handleCreate = () => {
     description: '',
     type: 'postgresql',
     host: '',
-    port: 5432,
+    port: defaultPorts.postgresql,
     database: '',
     username: '',
     password: '',
@@ -383,7 +401,8 @@ const getTypeName = (type) => {
     postgresql: 'PostgreSQL',
     mysql: 'MySQL',
     oracle: 'Oracle',
-    mongodb: 'MongoDB'
+    mongodb: 'MongoDB',
+    neo4j: 'Neo4j'
   }
   return typeMap[type] || type
 }
@@ -393,7 +412,8 @@ const getTypeTag = (type) => {
     postgresql: 'primary',
     mysql: 'success',
     oracle: 'warning',
-    mongodb: 'info'
+    mongodb: 'info',
+    neo4j: 'danger'
   }
   return tagMap[type] || ''
 }

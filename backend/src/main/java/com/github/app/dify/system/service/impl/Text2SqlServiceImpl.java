@@ -20,6 +20,9 @@ import org.bson.Document;
 import org.bson.conversions.Bson;
 import com.mongodb.client.model.Filters;
 import static com.mongodb.client.model.Aggregates.*;
+import org.neo4j.driver.Session;
+import org.neo4j.driver.Result;
+import org.neo4j.driver.Record;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,11 +86,14 @@ public class Text2SqlServiceImpl implements Text2SqlService {
             // 获取表结构信息（使用指定的表）
             String schemaInfo = getSchemaInfo(dataSource, tableNames);
             
-            // 生成查询语句（SQL或MongoDB查询）
+            // 生成查询语句（SQL、MongoDB查询或Cypher查询）
             String query;
             if (dbType == DatabaseDriverManager.DatabaseType.MONGODB) {
                 query = generateMongoQuery(dataSource, question, schemaInfo, modelId);
                 logger.info("生成的MongoDB查询 - 数据源ID: {}, 问题: {}, 查询: {}", dataSourceId, question, query);
+            } else if (dbType == DatabaseDriverManager.DatabaseType.NEO4J) {
+                query = generateCypher(dataSource, question, schemaInfo, modelId);
+                logger.info("生成的Cypher查询 - 数据源ID: {}, 问题: {}, 查询: {}", dataSourceId, question, query);
             } else {
                 query = generateSql(dataSource, question, schemaInfo, modelId);
                 logger.info("生成的SQL - 数据源ID: {}, SQL: {}", dataSourceId, query);
@@ -119,7 +125,7 @@ public class Text2SqlServiceImpl implements Text2SqlService {
             // 表名列表必须不为空（已在executeQuery中验证）
             List<String> targetTables = tableNames;
             
-            // MongoDB 使用不同的结构
+            // MongoDB 和 Neo4j 使用不同的结构
             if (dbType == DatabaseDriverManager.DatabaseType.MONGODB) {
                 // 获取所有集合的结构
                 List<Map<String, Object>> collectionSchemas = new ArrayList<>();
@@ -135,6 +141,25 @@ public class Text2SqlServiceImpl implements Text2SqlService {
                 StringBuilder schemaBuilder = new StringBuilder();
                 schemaBuilder.append("集合结构信息：\n");
                 for (Map<String, Object> schema : collectionSchemas) {
+                    schemaBuilder.append(objectMapper.writeValueAsString(schema)).append("\n");
+                }
+                
+                return schemaBuilder.toString();
+            } else if (dbType == DatabaseDriverManager.DatabaseType.NEO4J) {
+                // 获取所有节点标签的结构
+                List<Map<String, Object>> nodeLabelSchemas = new ArrayList<>();
+                
+                for (String nodeLabel : targetTables) {
+                    String schemaJson = schemaService.getTableSchema(dataSource, nodeLabel, false);
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> schema = objectMapper.readValue(schemaJson, Map.class);
+                    nodeLabelSchemas.add(schema);
+                }
+                
+                // 构建节点标签结构信息
+                StringBuilder schemaBuilder = new StringBuilder();
+                schemaBuilder.append("节点标签结构信息：\n");
+                for (Map<String, Object> schema : nodeLabelSchemas) {
                     schemaBuilder.append(objectMapper.writeValueAsString(schema)).append("\n");
                 }
                 
@@ -291,6 +316,47 @@ public class Text2SqlServiceImpl implements Text2SqlService {
     }
     
     /**
+     * 生成 Cypher 查询
+     */
+    private String generateCypher(DataSource dataSource, String question, String schemaInfo, Long modelId) {
+        // 构建提示词
+        String prompt = buildCypherPrompt(dataSource, question, schemaInfo);
+        
+        // 获取问答模型
+        com.github.app.dify.knowledgebase.domain.QAModel qaModel;
+        try {
+            if (modelId != null) {
+                qaModel = modelConfigService.getQAModelById(modelId);
+            } else {
+                qaModel = modelConfigService.getDefaultQAModelForRAG();
+            }
+        } catch (Exception e) {
+            logger.error("获取问答模型失败，使用默认模型 - modelId: {}", modelId, e);
+            qaModel = modelConfigService.getDefaultQAModelForRAG();
+        }
+        
+        // 创建 LLM 模型
+        ChatLanguageModel chatModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+        
+        // 构建系统消息
+        SystemMessage systemMessage = new SystemMessage(buildSystemPrompt(dataSource.getType()));
+        
+        // 构建用户消息
+        UserMessage userMessage = new UserMessage(prompt);
+        
+        // 调用 LLM 生成 Cypher 查询
+        Response<dev.langchain4j.data.message.AiMessage> response = chatModel.generate(
+                Arrays.asList(systemMessage, userMessage));
+        
+        String cypher = response.content().text();
+        
+        // 清理查询（移除可能的代码块标记）
+        cypher = cleanCypher(cypher);
+        
+        return cypher;
+    }
+    
+    /**
      * 构建系统提示词
      */
     private String buildSystemPrompt(String databaseType) {
@@ -349,6 +415,23 @@ public class Text2SqlServiceImpl implements Text2SqlService {
             sb.append("- 日期时间使用 TO_DATE 函数\n");
             sb.append("- 注意大小写敏感性\n");
             sb.append("- 重要：SQL语句末尾不要加分号（;），PreparedStatement 不支持分号\n");
+        }
+        
+        // Neo4j 特殊要求
+        if ("neo4j".equalsIgnoreCase(databaseType)) {
+            sb.append("\n");
+            sb.append("Neo4j 特殊要求（使用 Cypher 查询语言）：\n");
+            sb.append("- 使用 Cypher 查询语言，不是 SQL\n");
+            sb.append("- 节点使用括号表示，如 (n:Person) 或 (p:Person {name: 'John'})\n");
+            sb.append("- 关系使用方括号和箭头表示，如 -[r:KNOWS]-> 或 <-[r:KNOWS]-\n");
+            sb.append("- 使用 MATCH 子句匹配节点和关系，如 MATCH (n:Person)-[r:KNOWS]->(m:Person)\n");
+            sb.append("- 使用 WHERE 子句进行过滤，如 WHERE n.age > 30\n");
+            sb.append("- 使用 RETURN 子句返回结果，如 RETURN n.name, n.age\n");
+            sb.append("- 使用 LIMIT 限制结果数量，如 LIMIT 10\n");
+            sb.append("- 属性访问使用点号，如 n.name, n.age\n");
+            sb.append("- 字符串使用单引号，如 'John'\n");
+            sb.append("- 支持聚合函数：COUNT, SUM, AVG, MAX, MIN\n");
+            sb.append("- 分组使用 WITH ... GROUP BY，如 WITH n.age AS age, COUNT(n) AS count GROUP BY age\n");
         }
         
         return sb.toString();
@@ -508,6 +591,54 @@ public class Text2SqlServiceImpl implements Text2SqlService {
         }
         
         return query.trim();
+    }
+    
+    /**
+     * 构建 Cypher 查询提示词
+     */
+    private String buildCypherPrompt(DataSource dataSource, String question, String schemaInfo) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("数据库信息：\n");
+        sb.append("数据库类型: Neo4j\n");
+        sb.append("数据库名称: ").append(dataSource.getDatabase() != null ? dataSource.getDatabase() : "default").append("\n");
+        sb.append("\n");
+        sb.append("节点标签结构信息（JSON格式，包含属性、关系类型等）：\n");
+        sb.append(schemaInfo);
+        sb.append("\n");
+        sb.append("重要提示：\n");
+        sb.append("- 只能使用上面节点标签结构信息中列出的属性名和关系类型\n");
+        sb.append("- 如果节点标签结构信息中没有某个属性，说明该属性不存在，绝对不要使用它\n");
+        sb.append("- 使用正确的节点标签名称（区分大小写）\n");
+        sb.append("- 使用正确的关系类型名称（区分大小写）\n");
+        sb.append("\n");
+        sb.append("用户问题：\n");
+        sb.append(question);
+        sb.append("\n");
+        sb.append("请根据以上信息生成 Cypher 查询语句（只使用节点标签结构信息中提供的属性和关系类型，返回有效的 Cypher 语句）：");
+        return sb.toString();
+    }
+    
+    /**
+     * 清理 Cypher 查询（移除代码块标记等）
+     */
+    private String cleanCypher(String cypher) {
+        if (cypher == null) {
+            return null;
+        }
+        
+        cypher = cypher.trim();
+        
+        // 移除可能的代码块标记
+        if (cypher.startsWith("```cypher")) {
+            cypher = cypher.substring(9);
+        } else if (cypher.startsWith("```")) {
+            cypher = cypher.substring(3);
+        }
+        if (cypher.endsWith("```")) {
+            cypher = cypher.substring(0, cypher.length() - 3);
+        }
+        
+        return cypher.trim();
     }
     
     /**
@@ -1518,6 +1649,8 @@ public class Text2SqlServiceImpl implements Text2SqlService {
     private QueryResult executeSql(DataSource dataSource, DatabaseDriverManager.DatabaseType dbType, String sql) {
         if (dbType == DatabaseDriverManager.DatabaseType.MONGODB) {
             return executeMongoQuery(dataSource, sql);
+        } else if (dbType == DatabaseDriverManager.DatabaseType.NEO4J) {
+            return executeNeo4jQuery(dataSource, sql);
         } else {
             return executeJdbcQuery(dataSource, sql);
         }
@@ -1579,6 +1712,75 @@ public class Text2SqlServiceImpl implements Text2SqlService {
             }
             
             throw new RuntimeException("执行SQL查询失败: " + errorMessage, e);
+        }
+        
+        return result;
+    }
+    
+    /**
+     * 执行 Neo4j Cypher 查询
+     */
+    private QueryResult executeNeo4jQuery(DataSource dataSource, String cypher) {
+        QueryResult result = new QueryResult();
+        List<String> columns = new ArrayList<>();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        
+        try (Session session = connectionService.getNeo4jSession(dataSource)) {
+            Result queryResult = session.run(cypher);
+            
+            // 获取列信息（从第一条记录获取键）
+            boolean firstRecord = true;
+            while (queryResult.hasNext()) {
+                Record record = queryResult.next();
+                
+                if (firstRecord) {
+                    // 从第一条记录获取所有键作为列名
+                    for (String key : record.keys()) {
+                        columns.add(key);
+                    }
+                    firstRecord = false;
+                }
+                
+                // 构建行数据
+                Map<String, Object> row = new LinkedHashMap<>();
+                for (String key : columns) {
+                    Object value = record.get(key).asObject();
+                    // 处理 Neo4j 的特殊类型
+                    if (value instanceof org.neo4j.driver.types.Node) {
+                        org.neo4j.driver.types.Node node = (org.neo4j.driver.types.Node) value;
+                        Map<String, Object> nodeMap = new HashMap<>();
+                        nodeMap.put("id", node.elementId());
+                        List<String> labels = new ArrayList<>();
+                        for (String label : node.labels()) {
+                            labels.add(label);
+                        }
+                        nodeMap.put("labels", labels);
+                        nodeMap.put("properties", node.asMap());
+                        value = nodeMap;
+                    } else if (value instanceof org.neo4j.driver.types.Relationship) {
+                        org.neo4j.driver.types.Relationship rel = (org.neo4j.driver.types.Relationship) value;
+                        Map<String, Object> relMap = new HashMap<>();
+                        relMap.put("id", rel.elementId());
+                        relMap.put("type", rel.type());
+                        relMap.put("startNodeId", rel.startNodeElementId());
+                        relMap.put("endNodeId", rel.endNodeElementId());
+                        relMap.put("properties", rel.asMap());
+                        value = relMap;
+                    } else if (value instanceof org.neo4j.driver.types.Path) {
+                        // Path 类型转换为字符串表示
+                        value = value.toString();
+                    }
+                    row.put(key, value);
+                }
+                rows.add(row);
+            }
+            
+            result.setColumns(columns);
+            result.setRows(rows);
+            result.setRowCount(rows.size());
+        } catch (Exception e) {
+            logger.error("执行 Cypher 查询失败 - Cypher: {}", cypher, e);
+            throw new RuntimeException("执行 Cypher 查询失败: " + e.getMessage(), e);
         }
         
         return result;
