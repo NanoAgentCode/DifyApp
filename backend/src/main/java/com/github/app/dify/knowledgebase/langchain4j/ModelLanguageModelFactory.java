@@ -3,6 +3,7 @@ package com.github.app.dify.knowledgebase.langchain4j;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.system.config.ProviderType;
 import com.github.app.dify.knowledgebase.domain.QAModel;
+import com.github.app.dify.chat.req.ChatRequest;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -36,7 +37,7 @@ public class ModelLanguageModelFactory {
     private static final Logger logger = LoggerFactory.getLogger(ModelLanguageModelFactory.class);
     
     // 使用ThreadLocal存储当前请求的图片数据（用于多模态支持）
-    private static final ThreadLocal<List<com.github.app.dify.chat.req.ChatRequest.ImageData>> imageDataContext = new ThreadLocal<>();
+    private static final ThreadLocal<List<ChatRequest.ImageData>> imageDataContext = new ThreadLocal<>();
     
     @Autowired
     private ObjectMapper objectMapper;
@@ -44,7 +45,7 @@ public class ModelLanguageModelFactory {
     /**
      * 设置当前请求的图片数据
      */
-    public void setImageData(List<com.github.app.dify.chat.req.ChatRequest.ImageData> imageData) {
+    public void setImageData(List<ChatRequest.ImageData> imageData) {
         imageDataContext.set(imageData);
     }
     
@@ -264,18 +265,22 @@ public class ModelLanguageModelFactory {
                     }
                     
                     // 添加图片内容
-                    for (com.github.app.dify.chat.req.ChatRequest.ImageData imageData : imageDataList) {
-                        Map<String, Object> imageItem = new HashMap<>();
-                        imageItem.put("type", "image_url");
-                        Map<String, String> imageUrl = new HashMap<>();
-                        // 使用base64格式：data:image/png;base64,{base64_data}
-                        imageUrl.put("url", "data:" + imageData.getMimeType() + ";base64," + imageData.getBase64());
-                        imageItem.put("image_url", imageUrl);
-                        contentList.add(imageItem);
+                    int imageCount = 0;
+                    if (imageDataList != null) {
+                        for (ChatRequest.ImageData imageData : imageDataList) {
+                            Map<String, Object> imageItem = new HashMap<>();
+                            imageItem.put("type", "image_url");
+                            Map<String, String> imageUrl = new HashMap<>();
+                            // 使用base64格式：data:image/png;base64,{base64_data}
+                            imageUrl.put("url", "data:" + imageData.getMimeType() + ";base64," + imageData.getBase64());
+                            imageItem.put("image_url", imageUrl);
+                            contentList.add(imageItem);
+                            imageCount++;
+                        }
                     }
                     
                     apiMessage.put("content", contentList);
-                    logger.debug("构建多模态消息，包含 {} 张图片", imageDataList.size());
+                    logger.debug("构建多模态消息，包含 {} 张图片", imageCount);
                 } else {
                     // 普通文本消息
                     apiMessage.put("content", ((UserMessage) message).singleText());
@@ -294,7 +299,7 @@ public class ModelLanguageModelFactory {
         requestBody.put("max_tokens", 2000);
         
         // 添加模型名称
-        if (qaModel.getModel() != null && !qaModel.getModel().trim().isEmpty()) {
+        if (qaModel != null && qaModel.getModel() != null && !qaModel.getModel().trim().isEmpty()) {
             requestBody.put("model", qaModel.getModel());
         }
         
