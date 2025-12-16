@@ -8,6 +8,8 @@ import com.github.app.dify.knowledgebase.service.RagRetrievalService;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
+import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
+import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,9 +88,12 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
             // 直接使用EmbeddingStore检索，这样可以获取完整的相似度分数
             // 检索更多结果用于调试和过滤
             int maxResults = effectiveTopK * 3; // 检索更多结果
-            @SuppressWarnings("deprecation")
-            List<EmbeddingMatch<TextSegment>> matches = embeddingStore.findRelevant(
-                    queryEmbedding, maxResults); // 先不设置阈值，获取所有结果
+            EmbeddingSearchRequest searchRequest = EmbeddingSearchRequest.builder()
+                    .queryEmbedding(queryEmbedding)
+                    .maxResults(maxResults)
+                    .build();
+            EmbeddingSearchResult<TextSegment> searchResult = embeddingStore.search(searchRequest);
+            List<EmbeddingMatch<TextSegment>> matches = searchResult.matches(); // 先不设置阈值，获取所有结果
             
             logger.info("RAG检索原始结果 - 知识库ID: {}, 查询: {}, 原始结果数量: {}, 配置topK: {} (知识库配置: {}, 全局配置: {}), 相似度阈值: {}", 
                     knowledgeBaseId, query, matches.size(), effectiveTopK, topK, ragConfig.getTopK(), ragConfig.getSimilarityThreshold());

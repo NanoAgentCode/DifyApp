@@ -4,6 +4,8 @@ import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
+import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
+import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -144,12 +146,12 @@ public class ChromaEmbeddingStore implements EmbeddingStore<TextSegment> {
     }
     
     @Override
-    public List<EmbeddingMatch<TextSegment>> findRelevant(Embedding referenceEmbedding, int maxResults) {
-        return findRelevant(referenceEmbedding, maxResults, 0.0);
-    }
-    
-    @Override
-    public List<EmbeddingMatch<TextSegment>> findRelevant(Embedding referenceEmbedding, int maxResults, double minScore) {
+    public EmbeddingSearchResult<TextSegment> search(EmbeddingSearchRequest embeddingSearchRequest) {
+        Embedding referenceEmbedding = embeddingSearchRequest.queryEmbedding();
+        int maxResults = embeddingSearchRequest.maxResults();
+        Double minScore = embeddingSearchRequest.minScore();
+        double effectiveMinScore = minScore != null ? minScore : 0.0;
+        
         List<Float> queryVector = convertEmbeddingToFloatList(referenceEmbedding);
         
         // 检索
@@ -159,7 +161,7 @@ public class ChromaEmbeddingStore implements EmbeddingStore<TextSegment> {
         // 转换为EmbeddingMatch
         List<EmbeddingMatch<TextSegment>> matches = new ArrayList<>();
         for (VectorStoreStrategy.SearchResult result : searchResults) {
-            if (result.getScore() >= minScore) {
+            if (result.getScore() >= effectiveMinScore) {
                 TextSegment segment = TextSegment.from(result.getText());
                 if (result.getDocumentId() != null) {
                     segment.metadata().put("documentId", result.getDocumentId().toString());
@@ -178,7 +180,7 @@ public class ChromaEmbeddingStore implements EmbeddingStore<TextSegment> {
             }
         }
         
-        return matches;
+        return new EmbeddingSearchResult<>(matches);
     }
     
     /**

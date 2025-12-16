@@ -15,6 +15,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <spring-boot.version>3.2.0</spring-boot.version>
+        <!-- 禁用 Spring Boot OSS 支持结束警告 -->
+        <spring.boot.support.end-date>disabled</spring.boot.support.end-date>
     </properties>
     <dependencies>
 
@@ -283,6 +285,9 @@
                     <release>17</release>
                     <encoding>UTF-8</encoding>
                     <parameters>true</parameters>
+                    <compilerArgs>
+                        <arg>-Xlint:deprecation</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
             <plugin>
@@ -292,6 +297,9 @@
                 <configuration>
                     <mainClass>com.github.app.dify.DifyAppApplication</mainClass>
                     <skip>true</skip>
+                    <jvmArguments>
+                        -Dspring.boot.support.end-date=disabled
+                    </jvmArguments>
                 </configuration>
                 <executions>
                     <execution>
