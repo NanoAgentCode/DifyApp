@@ -49,22 +49,22 @@
           <!-- 知识库相关 -->
           <el-tooltip v-if="isAdmin && isCollapse" content="知识问答" placement="right" :show-after="200">
             <el-menu-item index="/admin/kb-qa">
-              <el-icon><ChatLineRound /></el-icon>
+              <el-icon><Document /></el-icon>
               <span>知识问答</span>
             </el-menu-item>
           </el-tooltip>
           <el-menu-item v-else-if="isAdmin" index="/admin/kb-qa">
-            <el-icon><ChatLineRound /></el-icon>
+            <el-icon><Document /></el-icon>
             <span>知识问答</span>
           </el-menu-item>
           <el-tooltip v-if="isAdmin && isCollapse" content="知识管理" placement="right" :show-after="200">
             <el-menu-item index="/admin/knowledge-base">
-              <el-icon><Document /></el-icon>
+              <el-icon><Folder /></el-icon>
               <span>知识管理</span>
             </el-menu-item>
           </el-tooltip>
           <el-menu-item v-else-if="isAdmin" index="/admin/knowledge-base">
-            <el-icon><Document /></el-icon>
+            <el-icon><Folder /></el-icon>
             <span>知识管理</span>
           </el-menu-item>
           <el-tooltip v-if="isCollapse" content="应用列表" placement="right" :show-after="200">
