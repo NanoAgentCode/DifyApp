@@ -90,9 +90,9 @@
         </el-table-column>
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="handleDetail(row.id)">详情</el-button>
+            <el-button size="small" type="info" @click="handleDetail(row.id)">详情</el-button>
             <el-button size="small" type="primary" @click="handleEdit(row.id)">编辑</el-button>
-            <el-button size="small" type="success" @click="handleUse(row)">使用</el-button>
+            <el-button size="small" type="primary" @click="handleUse(row)">使用</el-button>
             <el-button size="small" type="danger" @click="handleDelete(row.id)">删除</el-button>
           </template>
         </el-table-column>

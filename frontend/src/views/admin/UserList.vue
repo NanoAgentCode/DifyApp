@@ -146,7 +146,7 @@
               :popper-options="{ strategy: 'fixed', modifiers: [{ name: 'preventOverflow', options: { boundary: 'viewport', padding: 10 } }] }"
               @visible-change="handleKbDropdownVisibleChange(row, $event)"
             >
-              <el-button type="success" size="small" :loading="row.loadingKbs" plain>
+              <el-button type="primary" size="small" :loading="row.loadingKbs" plain>
                 知识管理
                 <el-icon class="el-icon--right"><ArrowDown /></el-icon>
               </el-button>

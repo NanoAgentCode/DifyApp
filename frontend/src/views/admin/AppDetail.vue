@@ -8,7 +8,7 @@
             <span>应用详情</span>
           </div>
           <div>
-            <el-button @click="handleEdit">编辑</el-button>
+            <el-button type="primary" @click="handleEdit">编辑</el-button>
             <el-button type="primary" @click="handleUse">使用</el-button>
           </div>
         </div>

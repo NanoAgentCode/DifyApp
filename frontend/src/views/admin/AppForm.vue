@@ -99,7 +99,7 @@
                 <el-icon><DocumentCopy /></el-icon>
                 从JSON导入
               </el-button>
-              <el-button @click="exportToJson" size="small" type="success">
+              <el-button @click="exportToJson" size="small" type="info">
                 <el-icon><Download /></el-icon>
                 导出JSON
               </el-button>
