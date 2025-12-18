@@ -1,9 +1,16 @@
 -- ============================================
--- DifyApp 数据库完整初始化脚本
+-- DifyApp 数据库完整初始化脚本（融合版）
 -- PostgreSQL 15
 -- ============================================
 -- 说明：此脚本包含所有数据库表的创建语句，按执行顺序排列
 -- 适用于全新安装或完整重建数据库
+-- 
+-- 本脚本已融合以下迁移脚本的内容：
+-- 1. add_summary_column.sql - 知识库摘要字段（已包含在KNOWLEDGE_BASE表定义中）
+-- 2. migration_add_multimodal_support.sql - 多模态支持字段（已包含在QA_MODEL表定义中）
+-- 3. init_ocr_config.sql - OCR服务配置初始化（已包含在初始化数据部分）
+--
+-- 对于现有数据库的升级，请使用对应的迁移脚本
 
 -- 创建数据库（如果不存在）
 -- 注意：需要在PostgreSQL中手动执行，或者使用psql命令行工具
@@ -196,6 +203,8 @@ CREATE TABLE "QA_MODEL" (
     use_for VARCHAR(20) NOT NULL,
     enabled BOOLEAN DEFAULT TRUE,
     is_default BOOLEAN DEFAULT FALSE,
+    supports_multimodal BOOLEAN DEFAULT FALSE,
+    supports_vision BOOLEAN DEFAULT FALSE,
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted INTEGER DEFAULT 0
@@ -212,6 +221,8 @@ COMMENT ON COLUMN "QA_MODEL".model IS '模型标识';
 COMMENT ON COLUMN "QA_MODEL".use_for IS '使用场景：chat-仅智能问答, rag-仅知识库问答, both-两者都使用';
 COMMENT ON COLUMN "QA_MODEL".enabled IS '是否启用：true-启用, false-禁用';
 COMMENT ON COLUMN "QA_MODEL".is_default IS '是否默认：true-默认, false-非默认';
+COMMENT ON COLUMN "QA_MODEL".supports_multimodal IS '是否支持多模态：true-支持, false-不支持';
+COMMENT ON COLUMN "QA_MODEL".supports_vision IS '是否支持视觉输入：true-支持, false-不支持';
 COMMENT ON COLUMN "QA_MODEL".create_time IS '创建时间';
 COMMENT ON COLUMN "QA_MODEL".update_time IS '更新时间';
 COMMENT ON COLUMN "QA_MODEL".deleted IS '是否删除：0-未删除，1-已删除';
@@ -654,8 +665,45 @@ VALUES (
 ) ON CONFLICT (username) DO NOTHING;
 
 -- ============================================
+-- 17. 初始化OCR服务配置
+-- ============================================
+-- 插入OCR服务配置（如果不存在）
+INSERT INTO "SYSTEM_CONFIG" (config_key, config_value, description, config_group, config_type, create_time, update_time, deleted, creator, creator_id)
+VALUES 
+    (
+        'ocr.service.url',
+        'http://localhost:8000',
+        'EasyOCR服务地址（如：http://localhost:8000）',
+        'ocr',
+        'string',
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP,
+        0,
+        'system',
+        NULL
+    ),
+    (
+        'ocr.service.timeout',
+        '30000',
+        'EasyOCR服务请求超时时间（毫秒，默认：30000）',
+        'ocr',
+        'number',
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP,
+        0,
+        'system',
+        NULL
+    )
+ON CONFLICT (config_key) DO NOTHING;
+
+-- ============================================
 -- 脚本执行完成
 -- ============================================
 -- 所有表已创建完成，可以开始使用系统
 -- 注意：如果表已存在，DROP TABLE语句会删除旧表及其数据，请谨慎使用
+-- 
+-- 本脚本已包含以下迁移内容：
+-- 1. 知识库摘要字段（summary）- 已包含在KNOWLEDGE_BASE表定义中
+-- 2. 多模态支持字段（supports_multimodal, supports_vision）- 已包含在QA_MODEL表定义中
+-- 3. OCR服务配置初始化 - 已包含在初始化数据部分
 
