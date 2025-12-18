@@ -1,7 +1,6 @@
 package com.github.app.dify.system.controller;
 
 import com.github.app.dify.common.controller.BaseController;
-import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.NotFoundException;
 import com.github.app.dify.system.req.CreatePromptReq;
 import com.github.app.dify.system.req.UpdatePromptReq;
