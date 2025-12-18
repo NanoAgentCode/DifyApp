@@ -1,5 +1,8 @@
 package com.github.app.dify.system.controller;
 
+import com.github.app.dify.common.controller.BaseController;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.NotFoundException;
 import com.github.app.dify.system.req.CreateDataSourceReq;
 import com.github.app.dify.system.req.UpdateDataSourceReq;
 import com.github.app.dify.system.resp.DataSourceResp;
@@ -7,25 +10,21 @@ import com.github.app.dify.system.service.DataSourceService;
 import com.github.app.dify.system.service.DatabaseSchemaService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 /**
  * 数据源控制器
  */
 @Tag(name = "数据源管理")
 @RestController
 @RequestMapping("/api/data-sources")
-public class DataSourceController {
-    
-    private static final Logger logger = LoggerFactory.getLogger(DataSourceController.class);
+public class DataSourceController extends BaseController {
     
     @Autowired
     private DataSourceService dataSourceService;
@@ -38,29 +37,27 @@ public class DataSourceController {
      */
     @Operation(summary = "创建数据源")
     @PostMapping
-    public ResponseEntity<?> createDataSource(
+    public ResponseEntity<DataSourceResp> createDataSource(
             @Validated @RequestBody CreateDataSourceReq req,
             @RequestParam(required = false, defaultValue = "false") Boolean force,
             HttpServletRequest request) {
         logger.info("接收到创建数据源请求 - 名称: {}, 类型: {}, 强制创建: {}", req.getName(), req.getType(), force);
+        
+        Long userId = getUserId(request);
+        String username = getUsername(request);
+        Object roleObj = request.getAttribute("role");
+        Integer role = roleObj instanceof Integer ? (Integer) roleObj : null;
+        
         try {
-            Long userId = (Long) request.getAttribute("userId");
-            String username = (String) request.getAttribute("username");
-            Integer role = (Integer) request.getAttribute("role");
-            
             DataSourceResp resp = dataSourceService.createDataSource(req, userId, username, role, force);
             return ResponseEntity.ok(resp);
         } catch (Exception e) {
-            logger.error("创建数据源失败", e);
+            // 如果是重复名称错误，返回409 Conflict
             if (e.getMessage() != null && e.getMessage().startsWith("DUPLICATE_NAME:")) {
-                Map<String, Object> errorResponse = new HashMap<>();
-                errorResponse.put("error", e.getMessage().substring("DUPLICATE_NAME:".length()));
-                errorResponse.put("code", "DUPLICATE_NAME");
-                return ResponseEntity.status(409).body(errorResponse);
+                String errorMsg = e.getMessage().substring("DUPLICATE_NAME:".length());
+                throw new BusinessException(errorMsg, 409);
             }
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("error", e.getMessage() != null ? e.getMessage() : "创建数据源失败");
-            return ResponseEntity.badRequest().body(errorResponse);
+            throw new BusinessException(e.getMessage() != null ? e.getMessage() : "创建数据源失败");
         }
     }
     
@@ -72,13 +69,11 @@ public class DataSourceController {
     public ResponseEntity<DataSourceResp> updateDataSource(
             @PathVariable Long id,
             @Validated @RequestBody UpdateDataSourceReq req) {
-        try {
-            DataSourceResp resp = dataSourceService.updateDataSource(id, req);
-            return ResponseEntity.ok(resp);
-        } catch (Exception e) {
-            logger.error("更新数据源失败", e);
-            return ResponseEntity.badRequest().build();
+        DataSourceResp resp = dataSourceService.updateDataSource(id, req);
+        if (resp == null) {
+            throw new NotFoundException("数据源不存在: " + id);
         }
+        return ResponseEntity.ok(resp);
     }
     
     /**
@@ -87,13 +82,11 @@ public class DataSourceController {
     @Operation(summary = "根据ID获取数据源")
     @GetMapping("/{id}")
     public ResponseEntity<DataSourceResp> getDataSourceById(@PathVariable Long id) {
-        try {
-            DataSourceResp resp = dataSourceService.getDataSourceById(id);
-            return ResponseEntity.ok(resp);
-        } catch (Exception e) {
-            logger.error("获取数据源失败", e);
-            return ResponseEntity.notFound().build();
+        DataSourceResp resp = dataSourceService.getDataSourceById(id);
+        if (resp == null) {
+            throw new NotFoundException("数据源不存在: " + id);
         }
+        return ResponseEntity.ok(resp);
     }
     
     /**
@@ -102,13 +95,8 @@ public class DataSourceController {
     @Operation(summary = "删除数据源")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteDataSource(@PathVariable Long id) {
-        try {
-            dataSourceService.deleteDataSource(id);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            logger.error("删除数据源失败", e);
-            return ResponseEntity.badRequest().build();
-        }
+        dataSourceService.deleteDataSource(id);
+        return ResponseEntity.ok().build();
     }
     
     /**
@@ -116,30 +104,24 @@ public class DataSourceController {
      */
     @Operation(summary = "获取数据源列表")
     @GetMapping
-    public ResponseEntity<?> listDataSources(
+    public ResponseEntity<List<DataSourceResp>> listDataSources(
             @RequestParam(required = false) Integer tenantId,
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) Long userId,
             HttpServletRequest request) {
-        try {
-            Long currentUserId = (Long) request.getAttribute("userId");
-            Integer userRole = (Integer) request.getAttribute("role");
-            
-            if (userId == null && currentUserId != null) {
-                userId = currentUserId;
-            }
-            
-            List<DataSourceResp> resp = dataSourceService.listDataSources(
-                    tenantId, status, keyword, type, userId, userRole);
-            return ResponseEntity.ok(resp);
-        } catch (Exception e) {
-            logger.error("获取数据源列表失败", e);
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("error", e.getMessage() != null ? e.getMessage() : "获取数据源列表失败");
-            return ResponseEntity.badRequest().body(errorResponse);
+        Long currentUserId = getUserId(request);
+        Object roleObj = request.getAttribute("role");
+        Integer userRole = roleObj instanceof Integer ? (Integer) roleObj : null;
+        
+        if (userId == null) {
+            userId = currentUserId;
         }
+        
+        List<DataSourceResp> resp = dataSourceService.listDataSources(
+                tenantId, status, keyword, type, userId, userRole);
+        return ResponseEntity.ok(resp);
     }
     
     /**

@@ -1,13 +1,14 @@
 package com.github.app.dify.knowledgebase.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.app.dify.common.controller.BaseController;
+import com.github.app.dify.common.exception.ForbiddenException;
 import com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest;
 import com.github.app.dify.knowledgebase.resp.KnowledgeBaseQAResponse;
 import com.github.app.dify.knowledgebase.service.KnowledgeBaseQAService;
+import com.github.app.dify.knowledgebase.service.DocumentVectorizationService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -16,15 +17,14 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import jakarta.servlet.http.HttpServletRequest;
+
 /**
  * 知识库问答控制器
  */
 @Tag(name = "知识库问答")
 @RestController
 @RequestMapping("/api/knowledge-bases/{kbId}/qa")
-public class KnowledgeBaseQAController {
-    
-    private static final Logger logger = LoggerFactory.getLogger(KnowledgeBaseQAController.class);
+public class KnowledgeBaseQAController extends BaseController {
     
     @Autowired
     private KnowledgeBaseQAService knowledgeBaseQAService;
@@ -33,7 +33,7 @@ public class KnowledgeBaseQAController {
     private ObjectMapper objectMapper;
     
     @Autowired(required = false)
-    private com.github.app.dify.knowledgebase.service.DocumentVectorizationService documentVectorizationService;
+    private DocumentVectorizationService documentVectorizationService;
     
     /**
      * 知识库问答（非流式）
@@ -44,23 +44,19 @@ public class KnowledgeBaseQAController {
             @PathVariable Long kbId,
             @Validated @RequestBody KnowledgeBaseQARequest request,
             HttpServletRequest httpRequest) {
+        logger.info("接收到知识库问答请求 - 知识库ID: {}, 问题: {}", kbId, request.getQuestion());
+        Long userId = getUserId(httpRequest);
+        Object roleObj = httpRequest.getAttribute("role");
+        Integer userRole = roleObj instanceof Integer ? (Integer) roleObj : null;
+        
         try {
-            logger.info("接收到知识库问答请求 - 知识库ID: {}, 问题: {}", kbId, request.getQuestion());
-            Long userId = (Long) httpRequest.getAttribute("userId");
-            Integer userRole = (Integer) httpRequest.getAttribute("role");
             KnowledgeBaseQAResponse response = knowledgeBaseQAService.answer(kbId, request, userId, userRole);
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
-            logger.warn("知识库问答权限验证失败 - 知识库ID: {}, 用户ID: {}, 错误: {}", 
-                    kbId, httpRequest.getAttribute("userId"), e.getMessage());
-            KnowledgeBaseQAResponse errorResponse = new KnowledgeBaseQAResponse();
-            errorResponse.setAnswer("错误: " + e.getMessage());
-            return ResponseEntity.status(403).body(errorResponse);
-        } catch (Exception e) {
-            logger.error("知识库问答失败 - 知识库ID: {}", kbId, e);
-            KnowledgeBaseQAResponse errorResponse = new KnowledgeBaseQAResponse();
-            errorResponse.setAnswer("知识库问答失败: " + e.getMessage());
-            return ResponseEntity.badRequest().body(errorResponse);
+            if (e.getMessage() != null && e.getMessage().contains("权限")) {
+                throw new ForbiddenException(e.getMessage());
+            }
+            throw e;
         }
     }
     

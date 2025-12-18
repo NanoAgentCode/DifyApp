@@ -1,13 +1,13 @@
 package com.github.app.dify.chat.controller;
 
+import com.github.app.dify.common.controller.BaseController;
+import com.github.app.dify.common.exception.ForbiddenException;
 import com.github.app.dify.chat.req.ChatHistoryRequest;
 import com.github.app.dify.chat.resp.*;
 import com.github.app.dify.chat.service.ChatHistoryService;
 import com.github.app.dify.common.resp.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+
 /**
  * 管理员会话历史管理控制器
  * 会话（Conversation）：一个完整的对话会话，包含多轮问答
@@ -24,12 +25,20 @@ import java.util.Map;
 @Tag(name = "管理员-会话历史管理")
 @RestController
 @RequestMapping("/api/admin/chat/history")
-public class AdminChatHistoryController {
-    
-    private static final Logger logger = LoggerFactory.getLogger(AdminChatHistoryController.class);
+public class AdminChatHistoryController extends BaseController {
     
     @Autowired
     private ChatHistoryService chatHistoryService;
+    
+    /**
+     * 检查是否为管理员
+     */
+    private void checkAdmin(HttpServletRequest request) {
+        Object roleObj = request.getAttribute("role");
+        if (!(roleObj instanceof Integer) || (Integer) roleObj != 1) {
+            throw new ForbiddenException("需要管理员权限");
+        }
+    }
     
     /**
      * 获取所有会话列表（管理员端）
@@ -45,29 +54,21 @@ public class AdminChatHistoryController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Date startTime,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Date endTime,
             HttpServletRequest httpRequest) {
-        try {
-            Integer role = (Integer) httpRequest.getAttribute("role");
-            if (role == null || role != 1) {
-                return ResponseEntity.status(403).build(); // 非管理员
-            }
-            
-            // 构建请求对象
-            ChatHistoryRequest request = new ChatHistoryRequest();
-            request.setPage(page);
-            request.setSize(size);
-            request.setKeyword(keyword);
-            request.setType(type);
-            request.setUserId(userId);
-            request.setStartTime(startTime);
-            request.setEndTime(endTime);
-            
-            PageResponse<ChatConversationResponse> response = 
-                    chatHistoryService.getAllConversations(request);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            logger.error("获取对话列表失败", e);
-            return ResponseEntity.badRequest().build();
-        }
+        checkAdmin(httpRequest);
+        
+        // 构建请求对象
+        ChatHistoryRequest request = new ChatHistoryRequest();
+        request.setPage(page);
+        request.setSize(size);
+        request.setKeyword(keyword);
+        request.setType(type);
+        request.setUserId(userId);
+        request.setStartTime(startTime);
+        request.setEndTime(endTime);
+        
+        PageResponse<ChatConversationResponse> response = 
+                chatHistoryService.getAllConversations(request);
+        return ResponseEntity.ok(response);
     }
     
     /**
@@ -77,18 +78,9 @@ public class AdminChatHistoryController {
     @GetMapping("/statistics")
     public ResponseEntity<ChatHistoryStatisticsResponse> getStatistics(
             HttpServletRequest httpRequest) {
-        try {
-            Integer role = (Integer) httpRequest.getAttribute("role");
-            if (role == null || role != 1) {
-                return ResponseEntity.status(403).build(); // 非管理员
-            }
-            
-            ChatHistoryStatisticsResponse response = chatHistoryService.getStatistics();
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            logger.error("获取统计信息失败", e);
-            return ResponseEntity.badRequest().build();
-        }
+        checkAdmin(httpRequest);
+        ChatHistoryStatisticsResponse response = chatHistoryService.getStatistics();
+        return ResponseEntity.ok(response);
     }
     
     /**
@@ -99,19 +91,10 @@ public class AdminChatHistoryController {
     public ResponseEntity<Void> deleteConversation(
             @PathVariable Long id,
             HttpServletRequest httpRequest) {
-        try {
-            Integer role = (Integer) httpRequest.getAttribute("role");
-            if (role == null || role != 1) {
-                return ResponseEntity.status(403).build(); // 非管理员
-            }
-            
-            Long userId = (Long) httpRequest.getAttribute("userId");
-            chatHistoryService.deleteConversation(id, userId, true);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            logger.error("删除对话失败", e);
-            return ResponseEntity.badRequest().build();
-        }
+        checkAdmin(httpRequest);
+        Long userId = getUserId(httpRequest);
+        chatHistoryService.deleteConversation(id, userId, true);
+        return ResponseEntity.ok().build();
     }
     
     /**
@@ -122,22 +105,14 @@ public class AdminChatHistoryController {
     public ResponseEntity<Void> batchDeleteConversations(
             @RequestBody Map<String, List<Long>> request,
             HttpServletRequest httpRequest) {
-        try {
-            Integer role = (Integer) httpRequest.getAttribute("role");
-            if (role == null || role != 1) {
-                return ResponseEntity.status(403).build(); // 非管理员
-            }
-            
-            List<Long> conversationIds = request.get("ids");
-            if (conversationIds == null || conversationIds.isEmpty()) {
-                return ResponseEntity.badRequest().build();
-            }
-            
-            chatHistoryService.batchDeleteConversations(conversationIds);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            logger.error("批量删除对话失败", e);
-            return ResponseEntity.badRequest().build();
+        checkAdmin(httpRequest);
+        
+        List<Long> conversationIds = request.get("ids");
+        if (conversationIds == null || conversationIds.isEmpty()) {
+            throw new com.github.app.dify.common.exception.BusinessException("会话ID列表不能为空");
         }
+        
+        chatHistoryService.batchDeleteConversations(conversationIds);
+        return ResponseEntity.ok().build();
     }
 }

@@ -1,5 +1,8 @@
 package com.github.app.dify.chat.controller;
 
+import com.github.app.dify.common.controller.BaseController;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.NotFoundException;
 import com.github.app.dify.system.config.DifyConfig;
 import com.github.app.dify.chat.req.CreateAiAppReq;
 import com.github.app.dify.chat.req.ChatFlowRequest;
@@ -11,8 +14,6 @@ import com.github.app.dify.chat.service.AiAppService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
@@ -23,15 +24,14 @@ import reactor.core.publisher.Mono;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 /**
  * AI应用控制器
  */
 @Tag(name = "AI应用管理")
 @RestController
 @RequestMapping("/api/ai-apps")
-public class AiAppController {
-    
-    private static final Logger logger = LoggerFactory.getLogger(AiAppController.class);
+public class AiAppController extends BaseController {
     
     @Autowired
     private AiAppService aiAppService;
@@ -45,7 +45,6 @@ public class AiAppController {
     @Operation(summary = "创建AI应用")
     @PostMapping
     public ResponseEntity<AiAppResp> createAiApp(@Validated @RequestBody CreateAiAppReq req) {
-        // 记录接收到的请求数据
         logger.info("接收到创建应用请求 - 名称: {}, API Key: {}, 类型: {}", 
                 req.getName(), req.getAppId(), req.getType());
         AiAppResp resp = aiAppService.createAiApp(req);
@@ -59,12 +58,11 @@ public class AiAppController {
     @PutMapping("/{id}")
     public ResponseEntity<AiAppResp> updateAiApp(@PathVariable Long id, 
                                                   @Validated @RequestBody UpdateAiAppReq req) {
-        try {
-            AiAppResp resp = aiAppService.updateAiApp(id, req);
-            return ResponseEntity.ok(resp);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+        AiAppResp resp = aiAppService.updateAiApp(id, req);
+        if (resp == null) {
+            throw new NotFoundException("AI应用不存在: " + id);
         }
+        return ResponseEntity.ok(resp);
     }
     
     /**
@@ -73,12 +71,11 @@ public class AiAppController {
     @Operation(summary = "根据ID获取AI应用")
     @GetMapping("/{id}")
     public ResponseEntity<AiAppResp> getAiAppById(@PathVariable Long id) {
-        try {
-            AiAppResp resp = aiAppService.getAiAppById(id);
-            return ResponseEntity.ok(resp);
-        } catch (Exception e) {
-            return ResponseEntity.notFound().build();
+        AiAppResp resp = aiAppService.getAiAppById(id);
+        if (resp == null) {
+            throw new NotFoundException("AI应用不存在: " + id);
         }
+        return ResponseEntity.ok(resp);
     }
     
     /**
@@ -87,12 +84,8 @@ public class AiAppController {
     @Operation(summary = "删除AI应用")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteAiApp(@PathVariable Long id) {
-        try {
-            aiAppService.deleteAiApp(id);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
-        }
+        aiAppService.deleteAiApp(id);
+        return ResponseEntity.ok().build();
     }
     
     /**
@@ -145,7 +138,8 @@ public class AiAppController {
                 return ResponseEntity.ok(resp);
             }
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            logger.error("获取应用列表失败", e);
+            throw new BusinessException("获取应用列表失败: " + e.getMessage());
         }
     }
     
@@ -158,7 +152,10 @@ public class AiAppController {
                                                     @Validated @RequestBody ChatFlowRequest request) {
         return aiAppService.chat(id, request)
                 .map(ResponseEntity::ok)
-                .onErrorReturn(ResponseEntity.badRequest().build());
+                .onErrorResume(error -> {
+                    logger.error("调用Chat Flow失败", error);
+                    return Mono.just(ResponseEntity.badRequest().build());
+                });
     }
     
     /**
