@@ -1,10 +1,9 @@
-package com.github.app.dify.knowledgebase.service.impl;
+package com.github.app.dify.knowledgebase.service.strategy;
 
 import com.github.app.dify.system.config.MilvusConfig;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
 import com.github.app.dify.knowledgebase.repository.KnowledgeBaseRepository;
-import com.github.app.dify.knowledgebase.repository.VectorDatabaseRepository;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.DataType;
 import io.milvus.param.ConnectParam;
@@ -37,8 +36,6 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
     @Autowired
     private MilvusConfig milvusConfig;
     
-    @Autowired(required = false)
-    private VectorDatabaseRepository vectorDatabaseRepository;
     
     @Autowired(required = false)
     private KnowledgeBaseRepository knowledgeBaseRepository;

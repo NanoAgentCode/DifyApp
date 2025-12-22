@@ -1,4 +1,4 @@
-package com.github.app.dify.knowledgebase.service.impl;
+package com.github.app.dify.knowledgebase.service.strategy;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

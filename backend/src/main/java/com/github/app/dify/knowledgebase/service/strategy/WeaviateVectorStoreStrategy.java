@@ -1,8 +1,7 @@
-package com.github.app.dify.knowledgebase.service.impl;
+package com.github.app.dify.knowledgebase.service.strategy;
 
 import com.github.app.dify.system.config.WeaviateConfig;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
-import com.github.app.dify.knowledgebase.repository.VectorDatabaseRepository;
 import com.github.app.dify.knowledgebase.repository.KnowledgeBaseRepository;
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
 import org.slf4j.Logger;
@@ -17,7 +16,6 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.core.publisher.Mono;
 import java.time.Duration;
 import java.util.*;
-import java.util.Optional;
 import java.util.UUID;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -38,8 +36,6 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
     @Autowired
     private WeaviateConfig weaviateConfig;
     
-    @Autowired(required = false)
-    private VectorDatabaseRepository vectorDatabaseRepository;
     
     @Autowired(required = false)
     private KnowledgeBaseRepository knowledgeBaseRepository;

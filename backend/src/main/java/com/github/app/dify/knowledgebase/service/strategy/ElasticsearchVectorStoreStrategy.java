@@ -1,4 +1,4 @@
-package com.github.app.dify.knowledgebase.service.impl;
+package com.github.app.dify.knowledgebase.service.strategy;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.mapping.TypeMapping;
@@ -16,7 +16,6 @@ import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import com.github.app.dify.system.config.ElasticsearchConfig;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
-import com.github.app.dify.knowledgebase.repository.VectorDatabaseRepository;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -44,9 +43,6 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
     
     @Autowired
     private ElasticsearchConfig elasticsearchConfig;
-    
-    @Autowired(required = false)
-    private VectorDatabaseRepository vectorDatabaseRepository;
     
     @Autowired
     private com.github.app.dify.knowledgebase.util.VectorDatabaseConfigHelper configHelper;

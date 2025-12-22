@@ -1,4 +1,4 @@
-package com.github.app.dify.knowledgebase.service.impl;
+package com.github.app.dify.knowledgebase.service.strategy;
 
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
