@@ -8,6 +8,7 @@
 		}
 	],
 	"settings": {
-		"powershell.cwd": "backend"
+		"powershell.cwd": "backend",
+		"java.compile.nullAnalysis.mode": "automatic"
 	}
 }

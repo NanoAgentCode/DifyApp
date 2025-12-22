@@ -236,7 +236,7 @@ const {
 
 <style scoped>
 .chat-history {
-  padding: 20px;
+  padding: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -247,6 +247,7 @@ const {
   flex-direction: column;
   height: 100%;
   flex: 1;
+  margin: 0;
 }
 
 .chat-history :deep(.el-card__body) {
@@ -255,6 +256,7 @@ const {
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  padding: 20px;
 }
 
 .card-header {
