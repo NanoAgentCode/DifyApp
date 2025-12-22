@@ -1,7 +1,6 @@
 package com.github.app.dify.knowledgebase.service.impl;
 
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
-import com.github.app.dify.knowledgebase.repository.VectorDatabaseRepository;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,8 +24,8 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
         return "pgvector";
     }
     
-    @Autowired(required = false)
-    private VectorDatabaseRepository vectorDatabaseRepository;
+    @Autowired
+    private com.github.app.dify.knowledgebase.util.VectorDatabaseConfigHelper configHelper;
     
     // 为每个知识库缓存数据库连接
     private final Map<Long, Connection> connectionCache = new ConcurrentHashMap<>();
@@ -43,35 +42,17 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
         String currentUsername;
         String currentPassword;
         
-        VectorDatabase config = getConfigByType("pgvector");
+        VectorDatabase config = configHelper.getConfigByType("pgvector");
         if (config != null) {
             currentUrl = config.getUrl();
-            // 从extraConfig中解析username和password
-            currentUsername = null;
-            currentPassword = null;
-            if (config.getExtraConfig() != null && !config.getExtraConfig().trim().isEmpty()) {
-                try {
-                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> extraConfig = mapper.readValue(config.getExtraConfig(), Map.class);
-                    if (extraConfig.containsKey("username")) {
-                        currentUsername = (String) extraConfig.get("username");
-                    }
-                    if (extraConfig.containsKey("password")) {
-                        currentPassword = (String) extraConfig.get("password");
-                    }
-                } catch (Exception e) {
-                    logger.debug("解析extraConfig失败: {}", e.getMessage());
-                }
-            }
-            
-            // 如果没有从extraConfig获取到，尝试从apiKey（向后兼容）
-            if (currentUsername == null && config.getApiKey() != null && !config.getApiKey().trim().isEmpty()) {
-                if (config.getApiKey().contains(":")) {
-                    String[] parts = config.getApiKey().split(":", 2);
-                    currentUsername = parts[0];
-                    currentPassword = parts.length > 1 ? parts[1] : "";
-                }
+            // 使用工具类提取用户名和密码
+            String[] credentials = configHelper.extractUsernamePassword(config);
+            if (credentials != null) {
+                currentUsername = credentials[0];
+                currentPassword = credentials[1];
+            } else {
+                currentUsername = null;
+                currentPassword = null;
             }
         } else {
             throw new RuntimeException("未找到pgvector配置，请先在向量库管理中配置pgvector");
@@ -155,31 +136,6 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
         return conn;
     }
     
-    /**
-     * 根据类型获取配置
-     */
-    private VectorDatabase getConfigByType(String type) {
-        if (vectorDatabaseRepository == null) {
-            return null;
-        }
-        try {
-            Optional<VectorDatabase> defaultConfig = vectorDatabaseRepository.findDefaultEnabledByType(type);
-            if (defaultConfig.isPresent()) {
-                return defaultConfig.get();
-            }
-            List<VectorDatabase> enabledConfigs = vectorDatabaseRepository.findAllEnabledByType(type);
-            if (!enabledConfigs.isEmpty()) {
-                return enabledConfigs.get(0);
-            }
-            List<VectorDatabase> allConfigs = vectorDatabaseRepository.findByType(type);
-            if (!allConfigs.isEmpty()) {
-                return allConfigs.get(0);
-            }
-        } catch (Exception e) {
-            logger.warn("获取{}配置失败: {}", type, e.getMessage());
-        }
-        return null;
-    }
     
     /**
      * 获取表名

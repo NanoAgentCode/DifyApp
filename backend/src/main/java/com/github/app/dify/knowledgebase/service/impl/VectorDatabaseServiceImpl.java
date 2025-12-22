@@ -51,6 +51,9 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
     @Autowired(required = false)
     private FaissConfig faissConfig;
     
+    @Autowired
+    private com.github.app.dify.knowledgebase.util.VectorDatabaseConfigHelper vectorDatabaseConfigHelper;
+    
     @Autowired(required = false)
     private com.github.app.dify.system.config.WeaviateConfig weaviateConfig;
     
@@ -737,24 +740,10 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
                 .baseUrl(url)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
         
-        // 解析extraConfig获取username和password
-        String username = null;
-        String password = null;
-        if (extraConfig != null && !extraConfig.trim().isEmpty()) {
-            try {
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                @SuppressWarnings("unchecked")
-                Map<String, Object> config = mapper.readValue(extraConfig, Map.class);
-                if (config.containsKey("username")) {
-                    username = (String) config.get("username");
-                }
-                if (config.containsKey("password")) {
-                    password = (String) config.get("password");
-                }
-            } catch (Exception e) {
-                logger.debug("解析extraConfig失败: {}", e.getMessage());
-            }
-        }
+        // 使用工具类解析extraConfig获取username和password
+        String[] credentialsArray = vectorDatabaseConfigHelper.parseUsernamePasswordFromExtraConfig(extraConfig);
+        String username = credentialsArray != null ? credentialsArray[0] : null;
+        String password = credentialsArray != null ? credentialsArray[1] : null;
         
         // 配置认证：优先使用username/password（Basic Auth），其次使用API Key
         if (username != null && password != null && 
@@ -886,24 +875,10 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
      * 测试PgVector连接
      */
     private void testPgVectorConnection(String url, String apiKey, String extraConfig, int timeout) {
-        // 解析extraConfig获取username和password
-        String username = null;
-        String password = null;
-        if (extraConfig != null && !extraConfig.trim().isEmpty()) {
-            try {
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                @SuppressWarnings("unchecked")
-                Map<String, Object> config = mapper.readValue(extraConfig, Map.class);
-                if (config.containsKey("username")) {
-                    username = (String) config.get("username");
-                }
-                if (config.containsKey("password")) {
-                    password = (String) config.get("password");
-                }
-            } catch (Exception e) {
-                logger.debug("解析extraConfig失败: {}", e.getMessage());
-            }
-        }
+        // 使用工具类解析extraConfig获取username和password
+        String[] credentials = vectorDatabaseConfigHelper.parseUsernamePasswordFromExtraConfig(extraConfig);
+        String username = credentials != null ? credentials[0] : null;
+        String password = credentials != null ? credentials[1] : null;
         
         // 如果没有从extraConfig获取到用户名密码，尝试从apiKey字段获取（向后兼容）
         if (username == null && apiKey != null && !apiKey.trim().isEmpty()) {

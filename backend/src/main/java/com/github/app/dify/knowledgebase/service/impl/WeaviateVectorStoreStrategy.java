@@ -2,6 +2,9 @@ package com.github.app.dify.knowledgebase.service.impl;
 
 import com.github.app.dify.system.config.WeaviateConfig;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
+import com.github.app.dify.knowledgebase.repository.VectorDatabaseRepository;
+import com.github.app.dify.knowledgebase.repository.KnowledgeBaseRepository;
+import com.github.app.dify.knowledgebase.domain.VectorDatabase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,10 +39,13 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
     private WeaviateConfig weaviateConfig;
     
     @Autowired(required = false)
-    private com.github.app.dify.knowledgebase.repository.VectorDatabaseRepository vectorDatabaseRepository;
+    private VectorDatabaseRepository vectorDatabaseRepository;
     
     @Autowired(required = false)
-    private com.github.app.dify.knowledgebase.repository.KnowledgeBaseRepository knowledgeBaseRepository;
+    private KnowledgeBaseRepository knowledgeBaseRepository;
+    
+    @Autowired
+    private com.github.app.dify.knowledgebase.util.VectorDatabaseConfigHelper configHelper;
     
     // 为每个知识库缓存WebClient（因为不同知识库可能使用不同的配置）
     private final Map<Long, WebClient> clientCache = new HashMap<>();
@@ -58,7 +64,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
         String currentApiKey;
         
         // 使用 WeaviateConfig 或数据库中的 weaviate 配置
-        com.github.app.dify.knowledgebase.domain.VectorDatabase config = getConfigByType("weaviate");
+        VectorDatabase config = configHelper.getConfigByType("weaviate");
         if (config != null) {
             currentUrl = config.getUrl();
             currentApiKey = config.getApiKey();
@@ -122,41 +128,10 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
     }
     
     /**
-     * 根据类型获取配置
-     */
-    private com.github.app.dify.knowledgebase.domain.VectorDatabase getConfigByType(String type) {
-        if (vectorDatabaseRepository == null) {
-            return null;
-        }
-        try {
-            // 先尝试查找默认的启用配置
-            Optional<com.github.app.dify.knowledgebase.domain.VectorDatabase> defaultConfig = vectorDatabaseRepository.findDefaultEnabledByType(type);
-            if (defaultConfig.isPresent()) {
-                return defaultConfig.get();
-            }
-            
-            // 如果没有默认配置，尝试查找第一个启用的配置
-            List<com.github.app.dify.knowledgebase.domain.VectorDatabase> enabledConfigs = vectorDatabaseRepository.findAllEnabledByType(type);
-            if (!enabledConfigs.isEmpty()) {
-                return enabledConfigs.get(0);
-            }
-            
-            // 如果连启用的配置都没有，尝试查找任何配置（包括未启用的）
-            List<com.github.app.dify.knowledgebase.domain.VectorDatabase> allConfigs = vectorDatabaseRepository.findByType(type);
-            if (!allConfigs.isEmpty()) {
-                return allConfigs.get(0);
-            }
-        } catch (Exception e) {
-            logger.warn("获取{}配置失败: {}", type, e.getMessage());
-        }
-        return null;
-    }
-    
-    /**
      * 获取指定知识库的超时时间
      */
     private int getTimeout(Long knowledgeBaseId) {
-        com.github.app.dify.knowledgebase.domain.VectorDatabase config = getConfigByType("weaviate");
+        com.github.app.dify.knowledgebase.domain.VectorDatabase config = configHelper.getConfigByType("weaviate");
         if (config != null && config.getTimeout() != null) {
             return config.getTimeout();
         }

@@ -48,6 +48,9 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
     @Autowired(required = false)
     private VectorDatabaseRepository vectorDatabaseRepository;
     
+    @Autowired
+    private com.github.app.dify.knowledgebase.util.VectorDatabaseConfigHelper configHelper;
+    
     // 为每个知识库缓存Elasticsearch客户端
     private final Map<Long, ElasticsearchClient> clientCache = new HashMap<>();
     private final Map<Long, String> lastUrlCache = new HashMap<>();
@@ -65,25 +68,15 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
         String currentUsername = null;
         String currentPassword = null;
         
-        VectorDatabase config = getConfigByType("elasticsearch");
+        VectorDatabase config = configHelper.getConfigByType("elasticsearch");
         if (config != null) {
             currentUrl = config.getUrl();
             currentApiKey = config.getApiKey();
-            // 从extraConfig中解析username和password
-            if (config.getExtraConfig() != null && !config.getExtraConfig().trim().isEmpty()) {
-                try {
-                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> extraConfig = mapper.readValue(config.getExtraConfig(), Map.class);
-                    if (extraConfig.containsKey("username")) {
-                        currentUsername = (String) extraConfig.get("username");
-                    }
-                    if (extraConfig.containsKey("password")) {
-                        currentPassword = (String) extraConfig.get("password");
-                    }
-                } catch (Exception e) {
-                    logger.debug("解析extraConfig失败: {}", e.getMessage());
-                }
+            // 使用工具类提取用户名和密码
+            String[] credentials = configHelper.extractUsernamePassword(config);
+            if (credentials != null) {
+                currentUsername = credentials[0];
+                currentPassword = credentials[1];
             }
         } else {
             currentUrl = elasticsearchConfig.getUrl();
@@ -189,31 +182,6 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
         return client;
     }
     
-    /**
-     * 根据类型获取配置
-     */
-    private VectorDatabase getConfigByType(String type) {
-        if (vectorDatabaseRepository == null) {
-            return null;
-        }
-        try {
-            Optional<VectorDatabase> defaultConfig = vectorDatabaseRepository.findDefaultEnabledByType(type);
-            if (defaultConfig.isPresent()) {
-                return defaultConfig.get();
-            }
-            List<VectorDatabase> enabledConfigs = vectorDatabaseRepository.findAllEnabledByType(type);
-            if (!enabledConfigs.isEmpty()) {
-                return enabledConfigs.get(0);
-            }
-            List<VectorDatabase> allConfigs = vectorDatabaseRepository.findByType(type);
-            if (!allConfigs.isEmpty()) {
-                return allConfigs.get(0);
-            }
-        } catch (Exception e) {
-            logger.warn("获取{}配置失败: {}", type, e.getMessage());
-        }
-        return null;
-    }
     
     /**
      * 确保索引存在

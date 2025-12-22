@@ -43,6 +43,9 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
     @Autowired(required = false)
     private KnowledgeBaseRepository knowledgeBaseRepository;
     
+    @Autowired
+    private com.github.app.dify.knowledgebase.util.VectorDatabaseConfigHelper configHelper;
+    
     // 为每个知识库缓存Milvus客户端（因为不同知识库可能使用不同的配置）
     private final Map<Long, MilvusServiceClient> clientCache = new HashMap<>();
     private final Map<Long, String> lastHostCache = new HashMap<>();
@@ -61,7 +64,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
         String currentApiKey;
         
         // 使用 MilvusConfig 或数据库中的 milvus 配置
-        VectorDatabase config = getConfigByType("milvus");
+        VectorDatabase config = configHelper.getConfigByType("milvus");
         if (config != null) {
             currentUrl = config.getUrl();
             currentApiKey = config.getApiKey();
@@ -160,36 +163,6 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
         }
     }
     
-    /**
-     * 根据类型获取配置
-     */
-    private VectorDatabase getConfigByType(String type) {
-        if (vectorDatabaseRepository == null) {
-            return null;
-        }
-        try {
-            // 先尝试查找默认的启用配置
-            Optional<VectorDatabase> defaultConfig = vectorDatabaseRepository.findDefaultEnabledByType(type);
-            if (defaultConfig.isPresent()) {
-                return defaultConfig.get();
-            }
-            
-            // 如果没有默认配置，尝试查找第一个启用的配置
-            List<VectorDatabase> enabledConfigs = vectorDatabaseRepository.findAllEnabledByType(type);
-            if (!enabledConfigs.isEmpty()) {
-                return enabledConfigs.get(0);
-            }
-            
-            // 如果连启用的配置都没有，尝试查找任何配置（包括未启用的）
-            List<VectorDatabase> allConfigs = vectorDatabaseRepository.findByType(type);
-            if (!allConfigs.isEmpty()) {
-                return allConfigs.get(0);
-            }
-        } catch (Exception e) {
-            logger.warn("获取{}配置失败: {}", type, e.getMessage());
-        }
-        return null;
-    }
     
     
     /**
