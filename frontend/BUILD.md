@@ -32,6 +32,33 @@ cargo --version
 
 确保已安装 Node.js 16+ 和 npm/yarn。
 
+## 打包流程
+
+```mermaid
+flowchart TD
+    A[开始] --> B[安装依赖<br/>npm install]
+    B --> C[配置API地址<br/>.env 或 api.js]
+    C --> D{选择模式}
+    D -->|开发测试| E[开发模式<br/>npm run tauri:dev]
+    D -->|生产打包| F[构建前端<br/>npm run build]
+    F --> G[打包客户端<br/>npm run tauri:build]
+    G --> H{打包类型}
+    H -->|NSIS安装包| I[生成 .exe 安装包]
+    H -->|可执行文件| J[生成 app.exe]
+    E --> K[测试应用]
+    I --> L[分发安装包]
+    J --> L
+    K --> M[结束]
+    L --> M
+    
+    style A fill:#42b983,stroke:#333,stroke-width:2px,color:#fff
+    style M fill:#42b983,stroke:#333,stroke-width:2px,color:#fff
+    style E fill:#ffc107,stroke:#333,stroke-width:2px,color:#000
+    style G fill:#2196f3,stroke:#333,stroke-width:2px,color:#fff
+    style I fill:#4caf50,stroke:#333,stroke-width:2px,color:#fff
+    style J fill:#4caf50,stroke:#333,stroke-width:2px,color:#fff
+```
+
 ## 打包步骤
 
 ### 1. 安装依赖
