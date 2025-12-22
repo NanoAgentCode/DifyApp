@@ -138,6 +138,7 @@
             <el-option label="Chroma" value="chroma" />
             <el-option label="Weaviate" value="weaviate" />
             <el-option label="Elasticsearch" value="elasticsearch" />
+            <el-option label="PgVector" value="pgvector" />
           </el-select>
         </el-form-item>
 
@@ -180,10 +181,19 @@
                 <QuestionFilled />
               </el-icon>
             </el-tooltip>
+            <el-tooltip
+              v-if="currentConfig.type === 'pgvector'"
+              content="PgVector 使用 PostgreSQL JDBC 连接，URL 格式为 jdbc:postgresql://host:port/database（例如：jdbc:postgresql://localhost:5432/vectordb）"
+              placement="top"
+            >
+              <el-icon style="margin-left: 4px; color: #909399; cursor: help;">
+                <QuestionFilled />
+              </el-icon>
+            </el-tooltip>
           </template>
           <el-input
             v-model="currentConfig.url"
-            :placeholder="currentConfig.type === 'faiss' ? '例如: ./data/faiss 或 /path/to/faiss' : (currentConfig.type === 'chroma' ? '例如: http://localhost:8000' : (currentConfig.type === 'weaviate' ? '例如: http://localhost:8080' : (currentConfig.type === 'elasticsearch' ? '例如: http://localhost:9200' : '例如: http://localhost:6333 或 http://localhost:19530')))"
+            :placeholder="currentConfig.type === 'faiss' ? '例如: ./data/faiss 或 /path/to/faiss' : (currentConfig.type === 'chroma' ? '例如: http://localhost:8000' : (currentConfig.type === 'weaviate' ? '例如: http://localhost:8080' : (currentConfig.type === 'elasticsearch' ? '例如: http://localhost:9200' : (currentConfig.type === 'pgvector' ? '例如: jdbc:postgresql://localhost:5432/vectordb' : '例如: http://localhost:6333 或 http://localhost:19530'))))"
           />
         </el-form-item>
 
@@ -220,8 +230,41 @@
           </el-form-item>
         </template>
         
+        <!-- PgVector 用户名密码认证 -->
+        <template v-if="currentConfig.type === 'pgvector'">
+          <el-form-item prop="username">
+            <template #label>
+              <span>用户名/密码</span>
+              <el-tooltip
+                content="PgVector 需要 PostgreSQL 数据库的用户名和密码"
+                placement="top"
+              >
+                <el-icon style="margin-left: 4px; color: #909399; cursor: help;">
+                  <QuestionFilled />
+                </el-icon>
+              </el-tooltip>
+            </template>
+            <el-row :gutter="12">
+              <el-col :span="12">
+                <el-input
+                  v-model="currentConfig.username"
+                  placeholder="用户名（必填）"
+                />
+              </el-col>
+              <el-col :span="12">
+                <el-input
+                  v-model="currentConfig.password"
+                  type="password"
+                  show-password
+                  placeholder="密码（必填）"
+                />
+              </el-col>
+            </el-row>
+          </el-form-item>
+        </template>
+        
         <!-- 其他数据库的 API Key -->
-        <el-form-item label="API Key" prop="apiKey" v-if="currentConfig.type !== 'faiss' && currentConfig.type !== 'elasticsearch'">
+        <el-form-item label="API Key" prop="apiKey" v-if="currentConfig.type !== 'faiss' && currentConfig.type !== 'elasticsearch' && currentConfig.type !== 'pgvector'">
           <el-input
             v-model="currentConfig.apiKey"
             type="password"
@@ -260,6 +303,15 @@
             style="width: 100%"
             placeholder="默认30000"
           />
+          <el-tooltip
+            v-if="currentConfig.type === 'pgvector'"
+            content="PgVector 连接超时时间（毫秒），PostgreSQL 连接超时会在内部转换为秒"
+            placement="top"
+          >
+            <el-icon style="margin-left: 4px; color: #909399; cursor: help;">
+              <QuestionFilled />
+            </el-icon>
+          </el-tooltip>
         </el-form-item>
 
         <el-form-item label="描述" prop="description">
@@ -395,7 +447,8 @@ const getTypeTagType = (type) => {
     faiss: 'success',
     chroma: 'info',
     weaviate: 'success',
-    elasticsearch: 'danger'
+    elasticsearch: 'danger',
+    pgvector: 'info'
   }
   return map[type] || 'info'
 }
@@ -408,7 +461,8 @@ const getTypeLabel = (type) => {
     faiss: 'FAISS',
     chroma: 'Chroma',
     weaviate: 'Weaviate',
-    elasticsearch: 'Elasticsearch'
+    elasticsearch: 'Elasticsearch',
+    pgvector: 'PgVector'
   }
   return map[type] || type
 }
@@ -469,8 +523,8 @@ const handleEdit = (row) => {
   currentConfig.enabled = row.enabled !== false
   currentConfig.allowCreateKnowledgeBase = row.allowCreateKnowledgeBase !== undefined ? row.allowCreateKnowledgeBase : true
   
-  // 解析 extraConfig 获取用户名和密码（针对 Elasticsearch）
-  if (row.type === 'elasticsearch' && row.extraConfig) {
+  // 解析 extraConfig 获取用户名和密码（针对 Elasticsearch 和 PgVector）
+  if ((row.type === 'elasticsearch' || row.type === 'pgvector') && row.extraConfig) {
     try {
       const extraConfig = JSON.parse(row.extraConfig)
       currentConfig.username = extraConfig.username || ''
@@ -498,9 +552,9 @@ const handleSave = async () => {
     
     const action = isEdit.value ? 'update' : 'add'
     
-    // 构建 extraConfig（针对 Elasticsearch 的用户名密码）
+    // 构建 extraConfig（针对 Elasticsearch 和 PgVector 的用户名密码）
     let extraConfig = null
-    if (currentConfig.type === 'elasticsearch' && 
+    if ((currentConfig.type === 'elasticsearch' || currentConfig.type === 'pgvector') && 
         (currentConfig.username || currentConfig.password)) {
       extraConfig = JSON.stringify({
         username: currentConfig.username || '',
@@ -647,8 +701,8 @@ const handleTest = async (row) => {
       timeout: row.timeout || 30000
     }
     
-    // 对于 Elasticsearch，传递 extraConfig（包含用户名密码）
-    if (row.type === 'elasticsearch' && row.extraConfig) {
+    // 对于 Elasticsearch 和 PgVector，传递 extraConfig（包含用户名密码）
+    if ((row.type === 'elasticsearch' || row.type === 'pgvector') && row.extraConfig) {
       testData.extraConfig = row.extraConfig
     }
     

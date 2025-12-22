@@ -302,7 +302,7 @@ CREATE TABLE "VECTOR_DATABASE" (
 COMMENT ON TABLE "VECTOR_DATABASE" IS '向量数据库配置表';
 COMMENT ON COLUMN "VECTOR_DATABASE".id IS '配置编号';
 COMMENT ON COLUMN "VECTOR_DATABASE".name IS '配置名称';
-COMMENT ON COLUMN "VECTOR_DATABASE".type IS '数据库类型：qdrant-Qdrant向量数据库，milvus-Milvus向量数据库，faiss-FAISS本地文件存储，chroma-Chroma向量数据库，weaviate-Weaviate向量数据库，elasticsearch-Elasticsearch向量数据库';
+COMMENT ON COLUMN "VECTOR_DATABASE".type IS '数据库类型：qdrant-Qdrant向量数据库，milvus-Milvus向量数据库，faiss-FAISS本地文件存储，chroma-Chroma向量数据库，weaviate-Weaviate向量数据库，elasticsearch-Elasticsearch向量数据库，pgvector-PgVector向量数据库（PostgreSQL扩展）';
 COMMENT ON COLUMN "VECTOR_DATABASE".url IS '连接地址（URL或路径）';
 COMMENT ON COLUMN "VECTOR_DATABASE".api_key IS 'API Key（可选）';
 COMMENT ON COLUMN "VECTOR_DATABASE".timeout IS '超时时间（毫秒）';

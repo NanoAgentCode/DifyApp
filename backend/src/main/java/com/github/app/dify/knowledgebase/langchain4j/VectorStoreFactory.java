@@ -10,7 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 /**
  * 向量存储工厂类
- * 根据知识库的vector_store_type配置选择创建Qdrant、FAISS、Milvus、Chroma、Weaviate或Elasticsearch EmbeddingStore
+ * 根据知识库的vector_store_type配置选择创建Qdrant、FAISS、Milvus、Chroma、Weaviate、Elasticsearch或PgVector EmbeddingStore
  */
 @Component
 public class VectorStoreFactory {
@@ -91,6 +91,8 @@ public class VectorStoreFactory {
             return ChromaEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
         } else if ("weaviate".equals(strategyType)) {
             return WeaviateEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
+        } else if ("pgvector".equals(strategyType)) {
+            return PgVectorEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
         } else {
             // 默认使用Qdrant
             return QdrantEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
@@ -100,7 +102,7 @@ public class VectorStoreFactory {
     /**
      * 获取知识库的向量存储类型
      * @param knowledgeBaseId 知识库ID
-     * @return 向量存储类型（qdrant、faiss、milvus、chroma、weaviate、elasticsearch），默认为qdrant
+     * @return 向量存储类型（qdrant、faiss、milvus、chroma、weaviate、elasticsearch、pgvector），默认为qdrant
      */
     private String getVectorStoreType(Long knowledgeBaseId) {
         try {

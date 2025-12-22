@@ -133,6 +133,8 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
                 testWeaviateConnection(url, apiKey, timeout);
             } else if ("elasticsearch".equalsIgnoreCase(type)) {
                 testElasticsearchConnection(url, apiKey, extraConfig, timeout);
+            } else if ("pgvector".equalsIgnoreCase(type)) {
+                testPgVectorConnection(url, apiKey, extraConfig, timeout);
             } else {
                 throw new RuntimeException("不支持的数据库类型: " + type);
             }
@@ -877,6 +879,124 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
             throw new RuntimeException(
                 String.format("Elasticsearch健康检查返回空响应。已尝试端点: %s。请检查Elasticsearch服务是否正在运行。", 
                     String.join(", ", healthEndpoints)));
+        }
+    }
+    
+    /**
+     * 测试PgVector连接
+     */
+    private void testPgVectorConnection(String url, String apiKey, String extraConfig, int timeout) {
+        // 解析extraConfig获取username和password
+        String username = null;
+        String password = null;
+        if (extraConfig != null && !extraConfig.trim().isEmpty()) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                @SuppressWarnings("unchecked")
+                Map<String, Object> config = mapper.readValue(extraConfig, Map.class);
+                if (config.containsKey("username")) {
+                    username = (String) config.get("username");
+                }
+                if (config.containsKey("password")) {
+                    password = (String) config.get("password");
+                }
+            } catch (Exception e) {
+                logger.debug("解析extraConfig失败: {}", e.getMessage());
+            }
+        }
+        
+        // 如果没有从extraConfig获取到用户名密码，尝试从apiKey字段获取（向后兼容）
+        if (username == null && apiKey != null && !apiKey.trim().isEmpty()) {
+            // apiKey 可能包含 "username:password" 格式
+            if (apiKey.contains(":")) {
+                String[] parts = apiKey.split(":", 2);
+                username = parts[0];
+                password = parts.length > 1 ? parts[1] : "";
+            }
+        }
+        
+        // 验证URL格式
+        if (url == null || url.trim().isEmpty()) {
+            throw new RuntimeException("PgVector URL 不能为空，请配置有效的 JDBC URL（例如：jdbc:postgresql://localhost:5432/vectordb）");
+        }
+        
+        String jdbcUrl = url.trim();
+        if (!jdbcUrl.startsWith("jdbc:postgresql://")) {
+            // 如果不是完整的JDBC URL，尝试自动转换
+            if (jdbcUrl.startsWith("http://") || jdbcUrl.startsWith("https://")) {
+                throw new RuntimeException(
+                    String.format("PgVector URL 必须是 JDBC 格式，当前配置为: %s。请配置为 JDBC URL（例如：jdbc:postgresql://localhost:5432/vectordb）", 
+                        jdbcUrl));
+            } else if (jdbcUrl.contains("://")) {
+                // 可能是 postgresql://host:port/db 格式，转换为 jdbc:postgresql://host:port/db
+                jdbcUrl = jdbcUrl.replaceFirst("^postgresql://", "jdbc:postgresql://");
+            } else {
+                // 假设是 host:port/db 格式
+                jdbcUrl = "jdbc:postgresql://" + jdbcUrl;
+            }
+        }
+        
+        // 验证用户名和密码
+        if (username == null || username.trim().isEmpty()) {
+            throw new RuntimeException("PgVector 需要用户名，请在 extraConfig 中配置 {\"username\":\"your_username\",\"password\":\"your_password\"}");
+        }
+        
+        // 测试数据库连接
+        java.sql.Connection conn = null;
+        try {
+            // 加载PostgreSQL驱动
+            Class.forName("org.postgresql.Driver");
+            
+            // 设置连接超时
+            java.util.Properties props = new java.util.Properties();
+            props.setProperty("user", username);
+            if (password != null) {
+                props.setProperty("password", password);
+            }
+            props.setProperty("connectTimeout", String.valueOf(timeout / 1000)); // PostgreSQL超时单位是秒
+            
+            // 建立连接
+            conn = java.sql.DriverManager.getConnection(jdbcUrl, props);
+            
+            // 检查pgvector扩展是否已安装
+            try (java.sql.Statement stmt = conn.createStatement();
+                 java.sql.ResultSet rs = stmt.executeQuery(
+                     "SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'vector')")) {
+                
+                if (rs.next() && rs.getBoolean(1)) {
+                    logger.debug("PgVector连接测试成功，pgvector扩展已安装");
+                } else {
+                    throw new RuntimeException(
+                        "PostgreSQL连接成功，但pgvector扩展未安装。请执行以下SQL安装扩展：\n" +
+                        "CREATE EXTENSION IF NOT EXISTS vector;");
+                }
+            }
+            
+        } catch (java.sql.SQLException e) {
+            String errorMessage = e.getMessage();
+            if (errorMessage.contains("password authentication failed")) {
+                throw new RuntimeException(
+                    "PgVector连接失败: 用户名或密码错误。请检查extraConfig中的用户名和密码配置。");
+            } else if (errorMessage.contains("Connection refused") || errorMessage.contains("timeout")) {
+                throw new RuntimeException(
+                    String.format("PgVector连接失败: 无法连接到PostgreSQL服务器。请检查URL是否正确，服务器是否正在运行。URL: %s", jdbcUrl));
+            } else if (errorMessage.contains("database") && errorMessage.contains("does not exist")) {
+                throw new RuntimeException(
+                    "PgVector连接失败: 指定的数据库不存在。请检查URL中的数据库名称是否正确。");
+            } else {
+                throw new RuntimeException(
+                    String.format("PgVector连接失败: %s。请检查URL、用户名和密码是否正确。", errorMessage));
+            }
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("PostgreSQL驱动未找到，请确保已添加postgresql依赖");
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.close();
+                } catch (java.sql.SQLException e) {
+                    logger.debug("关闭连接时出错: {}", e.getMessage());
+                }
+            }
         }
     }
     

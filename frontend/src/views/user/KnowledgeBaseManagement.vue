@@ -37,6 +37,7 @@
           <el-option label="Milvus" value="milvus" />
           <el-option label="Chroma" value="chroma" />
           <el-option label="Weaviate" value="weaviate" />
+          <el-option label="PgVector" value="pgvector" />
         </el-select>
         <el-select
           v-model="filterStatus"

@@ -28,6 +28,7 @@
             <el-option label="Milvus" value="milvus" />
             <el-option label="Chroma" value="chroma" />
             <el-option label="Weaviate" value="weaviate" />
+            <el-option label="PgVector" value="pgvector" />
           </el-select>
           <el-select
             v-model="filterStatus"
@@ -585,7 +586,7 @@ const loadVectorDatabases = async () => {
   } catch (error) {
     console.error('加载向量库配置列表失败', error)
     // 如果加载失败，默认允许所有类型
-    enabledVectorStoreTypes.value = ['qdrant', 'faiss', 'milvus', 'chroma', 'weaviate', 'elasticsearch']
+    enabledVectorStoreTypes.value = ['qdrant', 'faiss', 'milvus', 'chroma', 'weaviate', 'elasticsearch', 'pgvector']
   }
 }
 
@@ -1125,7 +1126,8 @@ const getVectorStoreTypeDescription = (type) => {
     'milvus': '开源向量数据库，支持大规模向量检索，需要独立服务器，使用 gRPC 协议。',
     'chroma': '开源向量数据库，轻量级，易于部署，支持 HTTP REST API。',
     'weaviate': '开源向量数据库，支持 GraphQL 和 REST API，提供强大的语义搜索能力。',
-    'elasticsearch': '企业级分布式搜索和分析引擎，支持向量搜索、全文检索和混合搜索。具备高可用性、水平扩展能力强，适合大规模生产环境。'
+    'elasticsearch': '企业级分布式搜索和分析引擎，支持向量搜索、全文检索和混合搜索。具备高可用性、水平扩展能力强，适合大规模生产环境。',
+    'pgvector': 'PostgreSQL 的向量扩展，利用 PostgreSQL 的成熟生态和 ACID 特性，适合需要事务支持的场景。'
   }
   return descriptions[type.toLowerCase()] || ''
 }
