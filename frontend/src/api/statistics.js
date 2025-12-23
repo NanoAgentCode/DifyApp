@@ -2,11 +2,13 @@ import request from '@/utils/request'
 
 /**
  * 获取所有统计数据
+ * @param {number} days 统计天数，默认30天
  */
-export function getAllStatistics() {
+export function getAllStatistics(days = 30) {
   return request({
     url: '/api/admin/statistics',
-    method: 'get'
+    method: 'get',
+    params: { days }
   })
 }
 
@@ -62,11 +64,13 @@ export function getModelTokenStatistics() {
 
 /**
  * 获取会话历史统计（复用现有接口）
+ * @param {number} days 统计天数，默认30天
  */
-export function getChatHistoryStatistics() {
+export function getChatHistoryStatistics(days = 30) {
   return request({
     url: '/api/admin/chat/history/statistics',
-    method: 'get'
+    method: 'get',
+    params: { days }
   })
 }
 

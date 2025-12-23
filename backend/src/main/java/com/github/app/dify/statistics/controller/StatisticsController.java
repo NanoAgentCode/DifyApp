@@ -38,9 +38,11 @@ public class StatisticsController extends BaseController {
      */
     @Operation(summary = "获取所有统计数据")
     @GetMapping
-    public ResponseEntity<StatisticsResponse> getAllStatistics(HttpServletRequest request) {
+    public ResponseEntity<StatisticsResponse> getAllStatistics(
+            @RequestParam(required = false) Integer days,
+            HttpServletRequest request) {
         checkAdmin(request);
-        StatisticsResponse response = statisticsService.getAllStatistics();
+        StatisticsResponse response = statisticsService.getAllStatistics(days);
         return ResponseEntity.ok(response);
     }
     

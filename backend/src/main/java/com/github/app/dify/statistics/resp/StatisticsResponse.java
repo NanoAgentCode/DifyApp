@@ -265,8 +265,8 @@ public class StatisticsResponse {
         @Schema(description = "各模型Token使用量")
         private List<ModelTokenUsage> modelTokenUsage;
         
-        @Schema(description = "Token使用趋势（按天）")
-        private List<DailyTokenCount> tokenTrend;
+        @Schema(description = "Token使用趋势（按天，按模型分组）")
+        private List<ModelDailyTokenCount> tokenTrend;
         
         @Schema(description = "模型使用占比")
         private Map<String, Long> modelDistribution;
@@ -287,11 +287,11 @@ public class StatisticsResponse {
             this.modelTokenUsage = modelTokenUsage;
         }
 
-        public List<DailyTokenCount> getTokenTrend() {
+        public List<ModelDailyTokenCount> getTokenTrend() {
             return tokenTrend;
         }
 
-        public void setTokenTrend(List<DailyTokenCount> tokenTrend) {
+        public void setTokenTrend(List<ModelDailyTokenCount> tokenTrend) {
             this.tokenTrend = tokenTrend;
         }
 
@@ -494,6 +494,78 @@ public class StatisticsResponse {
 
         public void setDate(String date) {
             this.date = date;
+        }
+
+        public Long getTotalTokens() {
+            return totalTokens;
+        }
+
+        public void setTotalTokens(Long totalTokens) {
+            this.totalTokens = totalTokens;
+        }
+
+        public Long getPromptTokens() {
+            return promptTokens;
+        }
+
+        public void setPromptTokens(Long promptTokens) {
+            this.promptTokens = promptTokens;
+        }
+
+        public Long getCompletionTokens() {
+            return completionTokens;
+        }
+
+        public void setCompletionTokens(Long completionTokens) {
+            this.completionTokens = completionTokens;
+        }
+    }
+
+    /**
+     * 按模型分组的每日Token计数
+     */
+    @Schema(description = "按模型分组的每日Token计数")
+    public static class ModelDailyTokenCount {
+        @Schema(description = "日期")
+        private String date;
+        
+        @Schema(description = "模型ID")
+        private Long modelId;
+        
+        @Schema(description = "模型名称")
+        private String modelName;
+        
+        @Schema(description = "Token总数")
+        private Long totalTokens;
+        
+        @Schema(description = "Prompt Tokens")
+        private Long promptTokens;
+        
+        @Schema(description = "Completion Tokens")
+        private Long completionTokens;
+
+        public String getDate() {
+            return date;
+        }
+
+        public void setDate(String date) {
+            this.date = date;
+        }
+
+        public Long getModelId() {
+            return modelId;
+        }
+
+        public void setModelId(Long modelId) {
+            this.modelId = modelId;
+        }
+
+        public String getModelName() {
+            return modelName;
+        }
+
+        public void setModelName(String modelName) {
+            this.modelName = modelName;
         }
 
         public Long getTotalTokens() {

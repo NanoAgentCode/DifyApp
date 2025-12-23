@@ -79,4 +79,10 @@ public interface ChatHistoryService {
      * 获取统计信息
      */
     ChatHistoryStatisticsResponse getStatistics();
+    
+    /**
+     * 获取统计信息（支持时间范围）
+     * @param days 统计天数，默认30天
+     */
+    ChatHistoryStatisticsResponse getStatistics(Integer days);
 }

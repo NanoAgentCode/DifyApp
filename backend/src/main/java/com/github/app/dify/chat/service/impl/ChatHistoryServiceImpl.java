@@ -396,6 +396,20 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
      */
     @Override
     public ChatHistoryStatisticsResponse getStatistics() {
+        // 默认30天
+        return getStatistics(30);
+    }
+    
+    @Override
+    public ChatHistoryStatisticsResponse getStatistics(Integer days) {
+        if (days == null || days <= 0) {
+            days = 30; // 默认30天
+        }
+        // 限制最大天数为90天
+        if (days > 90) {
+            days = 90;
+        }
+        
         ChatHistoryStatisticsResponse response = new ChatHistoryStatisticsResponse();
         
         // 总对话数
@@ -462,12 +476,12 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
                 });
         response.setPopularQuestions(popularQuestions);
         
-        // 时间趋势（最近30天）
+        // 时间趋势（最近N天）
         List<ChatHistoryStatisticsResponse.DailyStatistics> dailyStats = new ArrayList<>();
         Calendar cal = Calendar.getInstance();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         
-        for (int i = 29; i >= 0; i--) {
+        for (int i = days - 1; i >= 0; i--) {
             cal.setTime(new Date());
             cal.add(Calendar.DAY_OF_MONTH, -i);
             Date date = cal.getTime();

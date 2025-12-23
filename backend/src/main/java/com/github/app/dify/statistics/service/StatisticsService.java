@@ -18,6 +18,12 @@ public interface StatisticsService {
     StatisticsResponse.UserStatistics getUserStatistics();
     
     /**
+     * 获取用户统计（支持时间范围）
+     * @param days 统计天数，默认30天
+     */
+    StatisticsResponse.UserStatistics getUserStatistics(Integer days);
+    
+    /**
      * 获取应用统计
      */
     StatisticsResponse.AppStatistics getAppStatistics();
@@ -33,8 +39,20 @@ public interface StatisticsService {
     StatisticsResponse.ModelTokenStatistics getModelTokenStatistics();
     
     /**
+     * 获取模型Token统计（支持时间范围）
+     * @param days 统计天数，默认30天
+     */
+    StatisticsResponse.ModelTokenStatistics getModelTokenStatistics(Integer days);
+    
+    /**
      * 获取所有统计数据
      */
     StatisticsResponse getAllStatistics();
+    
+    /**
+     * 获取所有统计数据（支持时间范围）
+     * @param days 统计天数，默认30天
+     */
+    StatisticsResponse getAllStatistics(Integer days);
 }
 

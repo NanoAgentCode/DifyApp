@@ -77,9 +77,10 @@ public class AdminChatHistoryController extends BaseController {
     @Operation(summary = "获取统计信息")
     @GetMapping("/statistics")
     public ResponseEntity<ChatHistoryStatisticsResponse> getStatistics(
+            @RequestParam(required = false) Integer days,
             HttpServletRequest httpRequest) {
         checkAdmin(httpRequest);
-        ChatHistoryStatisticsResponse response = chatHistoryService.getStatistics();
+        ChatHistoryStatisticsResponse response = chatHistoryService.getStatistics(days);
         return ResponseEntity.ok(response);
     }
     
