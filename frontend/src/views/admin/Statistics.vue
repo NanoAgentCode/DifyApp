@@ -486,7 +486,10 @@ const userRegistrationTrendOption = computed(() => {
       trigger: 'axis',
       axisPointer: {
         type: 'cross'
-      }
+      },
+      hideDelay: 100, // 失去焦点后延迟100ms隐藏
+      enterable: false, // 不允许鼠标进入tooltip
+      confine: true // 将tooltip限制在图表区域内
     },
     grid: {
       left: '3%',
@@ -807,7 +810,10 @@ const chatTrendChartOption = computed(() => {
       trigger: 'axis',
       axisPointer: {
         type: 'cross'
-      }
+      },
+      hideDelay: 100, // 失去焦点后延迟100ms隐藏
+      enterable: false, // 不允许鼠标进入tooltip
+      confine: true // 将tooltip限制在图表区域内
     },
     legend: {
       data: ['对话数', '消息数'],
@@ -1077,12 +1083,17 @@ const tokenTrendChartOption = computed(() => {
     const colors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399', '#606266']
     let colorIndex = 0
     
+    // 存储每个数据点的完整信息，用于tooltip
+    const dataPointMap = new Map() // key: `${modelKey}_${date}`, value: item数据
+    
     modelDataMap.forEach((modelInfo, modelKey) => {
       const modelData = []
-      dates.forEach(date => {
+      dates.forEach((date, dateIdx) => {
         const item = modelInfo.data.get(date)
         if (item) {
           modelData.push(item.totalTokens || 0)
+          // 存储数据点信息
+          dataPointMap.set(`${modelKey}_${dateIdx}`, item)
         } else {
           modelData.push(0)
         }
@@ -1102,8 +1113,8 @@ const tokenTrendChartOption = computed(() => {
         itemStyle: {
           color: colors[colorIndex % colors.length]
         },
-        // 存储每个数据点的完整信息（用于tooltip）
-        dataIndex: modelKey
+        // 存储模型key，用于tooltip查找
+        modelKey: modelKey
       })
       
       legendData.push(modelInfo.modelName)
@@ -1129,41 +1140,63 @@ const tokenTrendChartOption = computed(() => {
       lastDate: dates[dates.length - 1]
     })
     
-    // 创建tooltip formatter，需要访问modelDataMap和dates
-    const tooltipFormatter = (params) => {
-      if (!params || params.length === 0) return ''
-      
-      const dateIndex = params[0].dataIndex
-      const date = dates[dateIndex]
-      let result = `<div style="margin-bottom: 8px;"><strong>${date}</strong></div>`
-      
-      params.forEach(param => {
-        const modelName = param.seriesName
-        // 从原始数据中查找该模型在该日期的完整信息
-        const modelKey = param.series.dataIndex
-        const modelInfo = modelDataMap.get(modelKey)
-        if (modelInfo) {
-          const item = modelInfo.data.get(date)
-          if (item) {
-            result += `<div style="margin: 4px 0;">
-              <span style="display:inline-block;width:10px;height:10px;background-color:${param.color};border-radius:50%;margin-right:8px;"></span>
-              <strong>${modelName}</strong><br/>
-              &nbsp;&nbsp;总Token数: ${(item.totalTokens || 0).toLocaleString()}<br/>
-              &nbsp;&nbsp;Prompt Tokens: ${(item.promptTokens || 0).toLocaleString()}<br/>
-              &nbsp;&nbsp;Completion Tokens: ${(item.completionTokens || 0).toLocaleString()}
-            </div>`
+    // 创建tooltip formatter，将数据映射关系存储在闭包中
+    const tooltipFormatter = ((modelDataMapRef, datesRef) => {
+      return (params) => {
+        try {
+          if (!params || params.length === 0) return ''
+          
+          const dateIndex = params[0].dataIndex
+          if (dateIndex === undefined || dateIndex === null || dateIndex < 0 || dateIndex >= datesRef.length) {
+            return ''
           }
+          
+          const date = datesRef[dateIndex]
+          if (!date) return ''
+          
+          let result = `<div style="margin-bottom: 8px;"><strong>${date}</strong></div>`
+          
+          params.forEach(param => {
+            try {
+              const modelName = param.seriesName
+              // 从series中获取modelKey
+              const modelKey = param.series?.modelKey
+              if (modelKey && modelDataMapRef.has(modelKey)) {
+                const modelInfo = modelDataMapRef.get(modelKey)
+                if (modelInfo && modelInfo.data) {
+                  const item = modelInfo.data.get(date)
+                  if (item) {
+                    result += `<div style="margin: 4px 0;">
+                      <span style="display:inline-block;width:10px;height:10px;background-color:${param.color || '#409eff'};border-radius:50%;margin-right:8px;"></span>
+                      <strong>${modelName || '未知模型'}</strong><br/>
+                      &nbsp;&nbsp;总Token数: ${(item.totalTokens || 0).toLocaleString()}<br/>
+                      &nbsp;&nbsp;Prompt Tokens: ${(item.promptTokens || 0).toLocaleString()}<br/>
+                      &nbsp;&nbsp;Completion Tokens: ${(item.completionTokens || 0).toLocaleString()}
+                    </div>`
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn('Tooltip formatter error for param:', e)
+            }
+          })
+          
+          return result
+        } catch (e) {
+          console.error('Tooltip formatter error:', e)
+          return ''
         }
-      })
-      
-      return result
-    }
+      }
+    })(modelDataMap, dates)
     
     return {
     tooltip: {
       trigger: 'axis',
       axisPointer: {
-        type: 'cross'
+        type: 'cross',
+        label: {
+          backgroundColor: '#6a7985'
+        }
       },
       formatter: tooltipFormatter,
       hideDelay: 100, // 失去焦点后延迟100ms隐藏
