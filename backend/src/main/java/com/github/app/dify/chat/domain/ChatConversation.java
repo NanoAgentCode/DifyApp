@@ -76,6 +76,13 @@ public class ChatConversation implements Serializable {
     @Column(name = "deleted")
     private Integer deleted;
 
+    /**
+     * 模型ID（会话使用的模型，可选）
+     */
+    @Schema(description = "模型ID")
+    @Column(name = "model_id")
+    private Long modelId;
+
     public Long getId() {
         return id;
     }
@@ -146,5 +153,13 @@ public class ChatConversation implements Serializable {
 
     public void setDeleted(Integer deleted) {
         this.deleted = deleted;
+    }
+
+    public Long getModelId() {
+        return modelId;
+    }
+
+    public void setModelId(Long modelId) {
+        this.modelId = modelId;
     }
 }

@@ -742,6 +742,14 @@ dunder-proto@^1.0.1:
     es-errors "^1.3.0"
     gopd "^1.2.0"
 
+echarts@^6.0.0:
+  version "6.0.0"
+  resolved "https://registry.npmmirror.com/echarts/-/echarts-6.0.0.tgz"
+  integrity sha512-Tte/grDQRiETQP4xz3iZWSvoHrkCQtwqd6hs+mifXcjrCuo2iKWbajFObuLJVBlDIJlOzgQPd1hsaKt/3+OMkQ==
+  dependencies:
+    tslib "2.3.0"
+    zrender "6.0.0"
+
 element-plus@^2.4.2:
   version "2.11.8"
   resolved "https://registry.npmmirror.com/element-plus/-/element-plus-2.11.8.tgz"
@@ -1388,6 +1396,11 @@ ts-dedent@^2.2.0:
   resolved "https://registry.npmmirror.com/ts-dedent/-/ts-dedent-2.2.0.tgz"
   integrity sha512-q5W7tVM71e2xjHZTlgfTDoPF/SmqKG5hddq9SzR49CH2hayqRKJtQ4mtRlSxKaJlR/+9rEM+mnBHf7I2/BQcpQ==
 
+tslib@2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/tslib/-/tslib-2.3.0.tgz"
+  integrity sha512-N82ooyxVNm6h1riLCoyS9e3fuJ3AMG2zIZs2Gd1ATcSFjSA23Q0fzjjZeh0jbJvWVDZ0cJT8yaNNaaXHzueNjg==
+
 unist-util-stringify-position@^3.0.0:
   version "3.0.3"
   resolved "https://registry.npmmirror.com/unist-util-stringify-position/-/unist-util-stringify-position-3.0.3.tgz"
@@ -1426,6 +1439,11 @@ vue-demi@*, vue-demi@^0.14.10:
   resolved "https://registry.npmmirror.com/vue-demi/-/vue-demi-0.14.10.tgz"
   integrity sha512-nMZBOwuzabUO0nLgIcc6rycZEebF6eeUfaiQx9+WSk8e29IbLvPU9feI6tqW4kTo3hvoYAJkMh8n8D0fuISphg==
 
+vue-echarts@^8.0.1:
+  version "8.0.1"
+  resolved "https://registry.npmmirror.com/vue-echarts/-/vue-echarts-8.0.1.tgz"
+  integrity sha512-23rJTFLu1OUEGRWjJGmdGt8fP+8+ja1gVgzMYPIPaHWpXegcO1viIAaeu2H4QHESlVeHzUAHIxKXGrwjsyXAaA==
+
 vue-router@^4.2.5:
   version "4.6.3"
   resolved "https://registry.npmmirror.com/vue-router/-/vue-router-4.6.3.tgz"
@@ -1433,7 +1451,7 @@ vue-router@^4.2.5:
   dependencies:
     "@vue/devtools-api" "^6.6.4"
 
-"vue@^2.7.0 || ^3.5.11", "vue@^3.0.0-0 || ^2.6.0", vue@^3.2.0, vue@^3.2.25, vue@^3.3.4, vue@^3.5.0, vue@3.5.24:
+"vue@^2.7.0 || ^3.5.11", "vue@^3.0.0-0 || ^2.6.0", vue@^3.2.0, vue@^3.2.25, vue@^3.3.0, vue@^3.3.4, vue@^3.5.0, vue@3.5.24:
   version "3.5.24"
   resolved "https://registry.npmmirror.com/vue/-/vue-3.5.24.tgz"
   integrity sha512-uTHDOpVQTMjcGgrqFPSb8iO2m1DUvo+WbGqoXQz8Y1CeBYQ0FXf2z1gLRaBtHjlRz7zZUBHxjVB5VTLzYkvftg==
@@ -1448,3 +1466,10 @@ web-worker@^1.2.0:
   version "1.5.0"
   resolved "https://registry.npmmirror.com/web-worker/-/web-worker-1.5.0.tgz"
   integrity sha512-RiMReJrTAiA+mBjGONMnjVDP2u3p9R1vkcGz6gDIrOMT3oGuYwX2WRMYI9ipkphSuE5XKEhydbhNEJh4NY9mlw==
+
+zrender@6.0.0:
+  version "6.0.0"
+  resolved "https://registry.npmmirror.com/zrender/-/zrender-6.0.0.tgz"
+  integrity sha512-41dFXEEXuJpNecuUQq6JlbybmnHaqqpGlbH1yxnA5V9MMP4SbohSVZsJIwz+zdjQXSSlR1Vc34EgH1zxyTDvhg==
+  dependencies:
+    tslib "2.3.0"

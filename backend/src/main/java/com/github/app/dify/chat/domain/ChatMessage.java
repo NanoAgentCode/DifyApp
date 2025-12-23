@@ -55,6 +55,34 @@ public class ChatMessage implements Serializable {
     @Column(name = "create_time")
     private Date createTime;
 
+    /**
+     * 模型ID（关联使用的模型）
+     */
+    @Schema(description = "模型ID")
+    @Column(name = "model_id")
+    private Long modelId;
+
+    /**
+     * Prompt Tokens数量
+     */
+    @Schema(description = "Prompt Tokens数量")
+    @Column(name = "prompt_tokens")
+    private Long promptTokens;
+
+    /**
+     * Completion Tokens数量
+     */
+    @Schema(description = "Completion Tokens数量")
+    @Column(name = "completion_tokens")
+    private Long completionTokens;
+
+    /**
+     * 总Tokens数量
+     */
+    @Schema(description = "总Tokens数量")
+    @Column(name = "total_tokens")
+    private Long totalTokens;
+
     public Long getId() {
         return id;
     }
@@ -101,5 +129,37 @@ public class ChatMessage implements Serializable {
 
     public void setCreateTime(Date createTime) {
         this.createTime = createTime;
+    }
+
+    public Long getModelId() {
+        return modelId;
+    }
+
+    public void setModelId(Long modelId) {
+        this.modelId = modelId;
+    }
+
+    public Long getPromptTokens() {
+        return promptTokens;
+    }
+
+    public void setPromptTokens(Long promptTokens) {
+        this.promptTokens = promptTokens;
+    }
+
+    public Long getCompletionTokens() {
+        return completionTokens;
+    }
+
+    public void setCompletionTokens(Long completionTokens) {
+        this.completionTokens = completionTokens;
+    }
+
+    public Long getTotalTokens() {
+        return totalTokens;
+    }
+
+    public void setTotalTokens(Long totalTokens) {
+        this.totalTokens = totalTokens;
     }
 }

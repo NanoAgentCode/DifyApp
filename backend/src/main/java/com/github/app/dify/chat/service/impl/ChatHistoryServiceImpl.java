@@ -116,10 +116,23 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
     @Transactional
     @Override
     public void saveMessage(Long conversationId, String role, String content) {
+        saveMessage(conversationId, role, content, null, null, null, null);
+    }
+    
+    /**
+     * 保存消息（带Token信息）
+     */
+    @Transactional
+    @Override
+    public void saveMessage(Long conversationId, String role, String content, Long modelId, Long promptTokens, Long completionTokens, Long totalTokens) {
         ChatMessage message = new ChatMessage();
         message.setConversationId(conversationId);
         message.setRole(role);
         message.setContent(content);
+        message.setModelId(modelId);
+        message.setPromptTokens(promptTokens);
+        message.setCompletionTokens(completionTokens);
+        message.setTotalTokens(totalTokens);
         
         // 获取当前对话的最大sequence
         Integer maxSequence = messageRepository.getMaxSequenceByConversationId(conversationId);
@@ -128,11 +141,15 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         message.setCreateTime(new Date());
         messageRepository.save(message);
         
-        // 更新对话的更新时间
+        // 更新对话的更新时间和模型ID
         Optional<ChatConversation> conversation = conversationRepository.findById(conversationId);
         if (conversation.isPresent()) {
             ChatConversation conv = conversation.get();
             conv.setUpdateTime(new Date());
+            // 如果会话还没有模型ID，且当前消息有模型ID，则设置会话的模型ID
+            if (conv.getModelId() == null && modelId != null) {
+                conv.setModelId(modelId);
+            }
             conversationRepository.save(conv);
         }
     }

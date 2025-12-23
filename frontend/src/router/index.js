@@ -145,6 +145,12 @@ const routes = [
                 component: () => import('@/views/admin/AIDrawIO.vue'),
                 meta: {title: '智能框图', requiresAuth: true, requiresAdmin: true}
             },
+            {
+                path: 'statistics',
+                name: 'Statistics',
+                component: () => import('@/views/admin/Statistics.vue'),
+                meta: {title: '数据统计', requiresAuth: true, requiresAdmin: true}
+            },
         ]
     },
     {

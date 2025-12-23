@@ -31,6 +31,11 @@ public interface ChatHistoryService {
     void saveMessage(Long conversationId, String role, String content);
     
     /**
+     * 保存消息（带Token信息）
+     */
+    void saveMessage(Long conversationId, String role, String content, Long modelId, Long promptTokens, Long completionTokens, Long totalTokens);
+    
+    /**
      * 获取我的会话列表（分页）
      */
     PageResponse<ChatConversationResponse> getMyConversations(Long userId, ChatHistoryRequest request);

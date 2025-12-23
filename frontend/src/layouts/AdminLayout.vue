@@ -131,6 +131,16 @@
             <el-icon><Tools /></el-icon>
             <span>系统配置</span>
           </el-menu-item>
+          <el-tooltip v-if="isAdmin && isCollapse" content="数据统计" placement="right" :show-after="200">
+            <el-menu-item index="/admin/statistics">
+              <el-icon><DataAnalysis /></el-icon>
+              <span>数据统计</span>
+            </el-menu-item>
+          </el-tooltip>
+          <el-menu-item v-else-if="isAdmin" index="/admin/statistics">
+            <el-icon><DataAnalysis /></el-icon>
+            <span>数据统计</span>
+          </el-menu-item>
         </el-menu>
       </el-aside>
       <el-main class="main">

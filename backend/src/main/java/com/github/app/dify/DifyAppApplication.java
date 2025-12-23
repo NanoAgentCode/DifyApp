@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
  * - chat: AI应用与对话模块
  * - knowledgebase: 知识库模块
  * - system: 系统配置与数据源模块
+ * - statistics: 数据统计模块
  * - common: 公共组件模块
  */
 @SpringBootApplication(exclude = {
@@ -33,6 +34,7 @@ import java.nio.charset.StandardCharsets;
         "com.github.app.dify.chat",
         "com.github.app.dify.knowledgebase",
         "com.github.app.dify.system",
+        "com.github.app.dify.statistics",
         "com.github.app.dify.common",
     "com.github.app.dify"  // 保留根包以扫描主应用类和其他可能遗留的组件
 })

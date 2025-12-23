@@ -482,3 +482,22 @@ mark {
   border: 1px solid rgba(64, 158, 255, 0.2);
 }
 
+/* ========== 统一滚动条样式 ========== */
+/* 注意：滚动条样式已在 App.vue 中统一设置，这里不再重复定义 */
+/* 如果需要深色主题特定的滚动条样式，可以通过以下方式覆盖 */
+
+/* 深色主题下的滚动条样式（可选，如果 App.vue 中的样式不够） */
+@media (prefers-color-scheme: dark) {
+  * {
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+}
+

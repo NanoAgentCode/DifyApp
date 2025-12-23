@@ -43,28 +43,28 @@ body.el-popup-parent--hidden {
 }
 
 /* 全局滚动条样式 - 统一美化内容区域的滚动条 */
-/* Webkit 浏览器 (Chrome, Safari, Edge) */
-::-webkit-scrollbar {
+/* Webkit 浏览器 (Chrome, Safari, Edge) - 应用到所有元素 */
+*::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-::-webkit-scrollbar-track {
+*::-webkit-scrollbar-track {
   background: transparent;
   border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb {
+*::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 4px;
   transition: background 0.3s;
 }
 
-::-webkit-scrollbar-thumb:hover {
+*::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.3);
 }
 
-/* Firefox */
+/* Firefox - 应用到所有元素 */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.2) transparent;

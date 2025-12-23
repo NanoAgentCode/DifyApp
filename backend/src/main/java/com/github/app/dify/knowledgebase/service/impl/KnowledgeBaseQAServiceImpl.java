@@ -98,7 +98,67 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             logger.debug("压缩后的消息列表大小: {}", messages.size());
             
             // 使用langchain4j RAG生成答案（始终使用历史对话）
-            String answer = generateAnswerWithHistory(messages, knowledgeBaseId, request);
+            Response<AiMessage> aiResponse = generateAnswerWithHistory(messages, knowledgeBaseId, request);
+            String answer = aiResponse.content().text();
+            
+            // 提取token使用信息和模型ID
+            Long modelId = request.getModelId();
+            QAModel qaModel = null;
+            try {
+                if (modelId != null) {
+                    qaModel = modelConfigService.getQAModelById(modelId);
+                } else {
+                    qaModel = modelConfigService.getDefaultQAModelForRAG();
+                }
+                if (qaModel != null) {
+                    modelId = qaModel.getId();
+                }
+            } catch (Exception e) {
+                logger.debug("获取模型信息失败: {}", e.getMessage());
+            }
+            
+            Long promptTokens = null;
+            Long completionTokens = null;
+            Long totalTokens = null;
+            
+            // 尝试从Response中获取token使用信息
+            try {
+                // langchain4j的Response可能包含tokenUsage信息
+                dev.langchain4j.model.output.TokenUsage tokenUsage = aiResponse.tokenUsage();
+                
+                if (tokenUsage != null) {
+                    promptTokens = tokenUsage.inputTokenCount() != null ? 
+                            (long) tokenUsage.inputTokenCount() : null;
+                    completionTokens = tokenUsage.outputTokenCount() != null ? 
+                            (long) tokenUsage.outputTokenCount() : null;
+                    totalTokens = tokenUsage.totalTokenCount() != null ? 
+                            (long) tokenUsage.totalTokenCount() : null;
+                    logger.info("获取到Token使用信息 - Prompt: {}, Completion: {}, Total: {}", 
+                            promptTokens, completionTokens, totalTokens);
+                } else {
+                    logger.debug("Response对象中tokenUsage为null，尝试估算Token使用量");
+                    // 如果无法获取token信息，尝试基于内容估算
+                    Long[] estimated = estimateTokenUsage(request.getQuestion(), answer);
+                    promptTokens = estimated[0];
+                    completionTokens = estimated[1];
+                    totalTokens = estimated[2];
+                }
+            } catch (NoSuchMethodError e) {
+                logger.debug("Response对象不包含tokenUsage方法，尝试估算Token使用量: {}", e.getMessage());
+                // 如果方法不存在，尝试基于内容估算
+                Long[] estimated = estimateTokenUsage(request.getQuestion(), answer);
+                promptTokens = estimated[0];
+                completionTokens = estimated[1];
+                totalTokens = estimated[2];
+            } catch (Exception e) {
+                logger.warn("无法获取Token使用信息: {}", e.getMessage());
+                logger.debug("Token获取异常详情", e);
+                // 尝试基于内容估算
+                Long[] estimated = estimateTokenUsage(request.getQuestion(), answer);
+                promptTokens = estimated[0];
+                completionTokens = estimated[1];
+                totalTokens = estimated[2];
+            }
             
             // 保存历史记录
             Long conversationId = null;
@@ -116,8 +176,11 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                             userId, requestConversationId, 2, null, knowledgeBaseId, request.getQuestion());
                     logger.info("非流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}", 
                             requestConversationId, conversationId);
+                    // 保存用户消息（不需要token信息）
                     chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
-                    chatHistoryService.saveMessage(conversationId, "assistant", answer);
+                    // 保存助手消息（带token信息）
+                    chatHistoryService.saveMessage(conversationId, "assistant", answer, 
+                            modelId, promptTokens, completionTokens, totalTokens);
                 } catch (Exception e) {
                     logger.error("保存历史记录失败", e);
                     // 不抛出异常，避免影响主流程
@@ -125,10 +188,10 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             }
             
             // 构建响应
-            KnowledgeBaseQAResponse response = new KnowledgeBaseQAResponse();
-            response.setAnswer(answer);
-            response.setConversationId(conversationId != null ? conversationId.toString() : null);
-            response.setSources(retrievalResults.stream().map(r -> {
+            KnowledgeBaseQAResponse kbResponse = new KnowledgeBaseQAResponse();
+            kbResponse.setAnswer(answer);
+            kbResponse.setConversationId(conversationId != null ? conversationId.toString() : null);
+            kbResponse.setSources(retrievalResults.stream().map(r -> {
                 KnowledgeBaseQAResponse.SourceDocument source = new KnowledgeBaseQAResponse.SourceDocument();
                 source.setDocumentId(r.getDocumentId());
                 source.setChunkIndex(r.getChunkIndex());
@@ -139,7 +202,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             
             logger.info("知识库问答完成 - 知识库ID: {}, 问题: {}", knowledgeBaseId, request.getQuestion());
             
-            return response;
+            return kbResponse;
             
         } catch (Exception e) {
             logger.error("知识库问答失败 - 知识库ID: {}", knowledgeBaseId, e);
@@ -253,7 +316,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     /**
      * 使用历史对话生成答案（非流式）
      */
-    private String generateAnswerWithHistory(List<ChatMessage> messages, Long knowledgeBaseId, KnowledgeBaseQARequest request) {
+    private Response<AiMessage> generateAnswerWithHistory(List<ChatMessage> messages, Long knowledgeBaseId, KnowledgeBaseQARequest request) {
         // 获取最后一个用户消息作为查询
         String query = request.getQuestion();
         ChatMessage lastMessage = messages.get(messages.size() - 1);
@@ -327,7 +390,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
         
         // 调用LLM生成答案
         Response<AiMessage> response = chatLanguageModel.generate(messages);
-        return response.content().text();
+        return response; // 返回Response对象，以便提取token信息
     }
     
     /**
@@ -379,19 +442,27 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
         }
         
         // 获取问答模型（优先使用请求中的modelId，否则使用默认的RAG模型）
-        Long modelId = request.getModelId();
+        Long requestModelId = request.getModelId();
         QAModel qaModel;
         try {
-            if (modelId != null) {
+            if (requestModelId != null) {
                 // 使用指定的模型
-                qaModel = modelConfigService.getQAModelById(modelId);
+                qaModel = modelConfigService.getQAModelById(requestModelId);
             } else {
                 // 使用默认的RAG模型
                 qaModel = modelConfigService.getDefaultQAModelForRAG();
             }
         } catch (Exception e) {
-            logger.error("获取问答模型失败，使用默认模型 - 知识库ID: {}, modelId: {}", knowledgeBaseId, modelId, e);
+            logger.error("获取问答模型失败，使用默认模型 - 知识库ID: {}, modelId: {}", knowledgeBaseId, requestModelId, e);
             qaModel = modelConfigService.getDefaultQAModelForRAG();
+        }
+        
+        // 保存qaModel的ID，用于后续保存消息
+        final Long finalModelId = qaModel != null ? qaModel.getId() : null;
+        
+        if (qaModel == null) {
+            logger.error("无法获取问答模型，无法继续生成答案");
+            return Flux.error(new RuntimeException("无法获取问答模型"));
         }
         
         // 创建流式模型实例
@@ -482,8 +553,11 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                     Long conversationId = conversationIdRef.get();
                     if (userId != null && conversationId != null && finalAnswer != null && !finalAnswer.trim().isEmpty()) {
                         try {
-                            chatHistoryService.saveMessage(conversationId, "assistant", finalAnswer);
-                            logger.info("流式响应完成 - 保存助手消息到会话: {}", conversationId);
+                            // 流式响应通常无法直接获取token使用信息
+                            // 这里先保存modelId，token信息留空（后续可以通过其他方式补充）
+                            chatHistoryService.saveMessage(conversationId, "assistant", finalAnswer, 
+                                    finalModelId, null, null, null);
+                            logger.info("流式响应完成 - 保存助手消息到会话: {}, 模型ID: {}", conversationId, finalModelId);
                         } catch (Exception e) {
                             logger.error("保存助手消息失败（流式）", e);
                             // 不抛出异常，避免影响主流程
@@ -561,5 +635,36 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             // 私有知识库且不是创建者，直接拒绝
             throw new RuntimeException("您没有权限访问该私有知识库");
         }
+    }
+    
+    /**
+     * 估算Token使用量（基于内容长度）
+     * 这是一个简单的估算方法，实际token数可能因模型而异
+     * 一般规则：中文约1.5字符=1token，英文约4字符=1token
+     */
+    private Long[] estimateTokenUsage(String question, String answer) {
+        long promptTokens = 0;
+        long completionTokens = 0;
+        
+        // 估算prompt tokens（问题内容）
+        if (question != null && !question.isEmpty()) {
+            long chineseChars = question.chars().filter(ch -> ch >= 0x4E00 && ch <= 0x9FFF).count();
+            long otherChars = question.length() - chineseChars;
+            promptTokens = (long)(chineseChars / 1.5 + otherChars / 4);
+        }
+        
+        // 估算completion tokens（回答内容）
+        if (answer != null && !answer.isEmpty()) {
+            long chineseChars = answer.chars().filter(ch -> ch >= 0x4E00 && ch <= 0x9FFF).count();
+            long otherChars = answer.length() - chineseChars;
+            completionTokens = (long)(chineseChars / 1.5 + otherChars / 4);
+        }
+        
+        long totalTokens = promptTokens + completionTokens;
+        
+        logger.debug("估算Token使用量 - Prompt: {}, Completion: {}, Total: {}", 
+                promptTokens, completionTokens, totalTokens);
+        
+        return new Long[]{promptTokens, completionTokens, totalTokens};
     }
 }
