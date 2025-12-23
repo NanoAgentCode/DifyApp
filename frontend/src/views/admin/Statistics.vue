@@ -46,105 +46,95 @@
           </el-card>
         </div>
 
-        <!-- 用户统计 -->
+        <!-- 饼状图统计 -->
         <el-card class="chart-card" shadow="hover">
           <template #header>
-            <span>用户统计</span>
+            <span>饼状图统计</span>
           </template>
-          <div class="chart-container">
+          <div class="chart-container chart-container-pie">
             <div class="chart-item">
-              <h3>角色分布</h3>
-              <v-chart :option="userRoleChartOption" style="height: 300px" />
+              <h3>用户角色分布</h3>
+              <v-chart v-if="users?.roleDistribution && Object.keys(users.roleDistribution).length > 0" :option="userRoleChartOption" style="height: 220px" />
+              <el-empty v-else description="暂无数据" :image-size="80" />
             </div>
             <div class="chart-item">
-              <h3>状态分布</h3>
-              <v-chart :option="userStatusChartOption" style="height: 300px" />
+              <h3>用户状态分布</h3>
+              <v-chart v-if="users?.statusDistribution && Object.keys(users.statusDistribution).length > 0" :option="userStatusChartOption" style="height: 220px" />
+              <el-empty v-else description="暂无数据" :image-size="80" />
             </div>
-            <div class="chart-item full-width">
-              <h3>注册趋势（最近30天）</h3>
-              <v-chart :option="userRegistrationTrendOption" style="height: 300px" />
+            <div class="chart-item">
+              <h3>应用类型分布</h3>
+              <v-chart v-if="apps?.typeDistribution && Object.keys(apps.typeDistribution).length > 0" :option="appTypeChartOption" style="height: 220px" />
+              <el-empty v-else description="暂无数据" :image-size="80" />
+            </div>
+            <div class="chart-item">
+              <h3>知识库状态分布</h3>
+              <v-chart v-if="knowledgeBases?.statusDistribution && Object.keys(knowledgeBases.statusDistribution).length > 0" :option="kbStatusChartOption" style="height: 220px" />
+              <el-empty v-else description="暂无数据" :image-size="80" />
+            </div>
+            <div class="chart-item">
+              <h3>对话类型分布</h3>
+              <v-chart v-if="chatHistory?.typeDistribution && Object.keys(chatHistory.typeDistribution).length > 0" :option="chatTypeChartOption" style="height: 220px" />
+              <el-empty v-else description="暂无数据" :image-size="80" />
+            </div>
+            <div v-if="modelTokens?.totalTokens > 0 && modelTokens?.modelTokenUsage?.length" class="chart-item">
+              <h3>模型使用占比</h3>
+              <v-chart v-if="modelTokens?.modelDistribution && Object.keys(modelTokens.modelDistribution).length > 0" :option="modelDistributionChartOption" style="height: 220px" />
+              <el-empty v-else description="暂无数据" :image-size="80" />
             </div>
           </div>
         </el-card>
 
-        <!-- 应用统计 -->
+        <!-- 柱状图统计 -->
         <el-card class="chart-card" shadow="hover">
           <template #header>
-            <span>应用统计</span>
+            <span>柱状图统计</span>
           </template>
           <div class="chart-container">
-            <div class="chart-item">
-              <h3>类型分布</h3>
-              <v-chart :option="appTypeChartOption" style="height: 300px" />
-            </div>
             <div class="chart-item full-width">
               <h3>应用使用情况（Top 10）</h3>
-              <v-chart :option="appUsageChartOption" style="height: 300px" />
-            </div>
-          </div>
-        </el-card>
-
-        <!-- 知识库统计 -->
-        <el-card class="chart-card" shadow="hover">
-          <template #header>
-            <span>知识库统计</span>
-          </template>
-          <div class="chart-container">
-            <div class="chart-item">
-              <h3>状态分布</h3>
-              <v-chart :option="kbStatusChartOption" style="height: 300px" />
+              <v-chart v-if="apps?.appUsage && apps.appUsage.length > 0" :option="appUsageChartOption" style="height: 220px" />
+              <el-empty v-else description="暂无数据" :image-size="80" />
             </div>
             <div class="chart-item full-width">
               <h3>知识库使用情况（Top 10）</h3>
-              <v-chart :option="kbUsageChartOption" style="height: 300px" />
-            </div>
-          </div>
-        </el-card>
-
-        <!-- 会话历史统计 -->
-        <el-card class="chart-card" shadow="hover">
-          <template #header>
-            <span>会话历史统计</span>
-          </template>
-          <div class="chart-container">
-            <div class="chart-item">
-              <h3>对话类型分布</h3>
-              <v-chart :option="chatTypeChartOption" style="height: 300px" />
+              <v-chart v-if="knowledgeBases?.kbUsage && knowledgeBases.kbUsage.length > 0" :option="kbUsageChartOption" style="height: 220px" />
+              <el-empty v-else description="暂无数据" :image-size="80" />
             </div>
             <div class="chart-item full-width">
               <h3>用户对话排行（Top 10）</h3>
-              <v-chart :option="userConversationRankChartOption" style="height: 300px" />
+              <v-chart v-if="chatHistory?.userConversationRanks && chatHistory.userConversationRanks.length > 0" :option="userConversationRankChartOption" style="height: 220px" />
+              <el-empty v-else description="暂无数据" :image-size="80" />
             </div>
-            <div class="chart-item full-width">
-              <h3>时间趋势（最近30天）</h3>
-              <v-chart :option="chatTrendChartOption" style="height: 300px" />
+            <div v-if="modelTokens?.totalTokens > 0 && modelTokens?.modelTokenUsage?.length" class="chart-item full-width">
+              <h3>各模型Token使用量</h3>
+              <v-chart v-if="modelTokens?.modelTokenUsage && modelTokens.modelTokenUsage.length > 0" :option="modelTokenUsageChartOption" style="height: 220px" />
+              <el-empty v-else description="暂无数据" :image-size="80" />
             </div>
           </div>
         </el-card>
 
-        <!-- 模型Token统计 -->
+        <!-- 时间曲线统计 -->
         <el-card class="chart-card" shadow="hover">
           <template #header>
-            <span>模型Token统计</span>
+            <span>时间曲线统计</span>
           </template>
           <div class="chart-container">
-            <div v-if="modelTokens?.totalTokens === 0 || !modelTokens?.modelTokenUsage?.length" class="empty-tip">
-              <el-empty description="暂无Token统计数据，需要在消息中记录Token使用信息" />
+            <div class="chart-item full-width">
+              <h3>用户注册趋势（最近30天）</h3>
+              <v-chart v-if="users?.registrationTrend && users.registrationTrend.length > 0" :option="userRegistrationTrendOption" style="height: 220px" />
+              <el-empty v-else description="暂无数据" :image-size="80" />
             </div>
-            <template v-else>
-              <div class="chart-item full-width">
-                <h3>各模型Token使用量</h3>
-                <v-chart :option="modelTokenUsageChartOption" style="height: 300px" />
-              </div>
-              <div class="chart-item">
-                <h3>模型使用占比</h3>
-                <v-chart :option="modelDistributionChartOption" style="height: 300px" />
-              </div>
-              <div class="chart-item full-width">
-                <h3>Token使用趋势（最近30天）</h3>
-                <v-chart :option="tokenTrendChartOption" style="height: 300px" />
-              </div>
-            </template>
+            <div class="chart-item full-width">
+              <h3>会话时间趋势（最近30天）</h3>
+              <v-chart v-if="chatHistory?.dailyStatistics && chatHistory.dailyStatistics.length > 0" :option="chatTrendChartOption" style="height: 220px" />
+              <el-empty v-else description="暂无数据" :image-size="80" />
+            </div>
+            <div v-if="modelTokens?.totalTokens > 0 && modelTokens?.modelTokenUsage?.length" class="chart-item full-width">
+              <h3>Token使用趋势（最近30天）</h3>
+              <v-chart v-if="modelTokens?.tokenTrend && modelTokens.tokenTrend.length > 0" :option="tokenTrendChartOption" style="height: 220px" />
+              <el-empty v-else description="暂无数据" :image-size="80" />
+            </div>
           </div>
         </el-card>
       </div>
@@ -206,14 +196,16 @@ const userRoleChartOption = computed(() => {
       formatter: '{a} <br/>{b}: {c} ({d}%)'
     },
     legend: {
-      orient: 'vertical',
-      left: 'left'
+      orient: 'horizontal',
+      bottom: '0%',
+      left: 'center'
     },
     series: [
       {
         name: '角色分布',
         type: 'pie',
-        radius: '50%',
+        radius: '60%',
+        center: ['50%', '45%'],
         data,
         emphasis: {
           itemStyle: {
@@ -242,14 +234,16 @@ const userStatusChartOption = computed(() => {
       formatter: '{a} <br/>{b}: {c} ({d}%)'
     },
     legend: {
-      orient: 'vertical',
-      left: 'left'
+      orient: 'horizontal',
+      bottom: '0%',
+      left: 'center'
     },
     series: [
       {
         name: '状态分布',
         type: 'pie',
-        radius: '50%',
+        radius: '60%',
+        center: ['50%', '45%'],
         data,
         emphasis: {
           itemStyle: {
@@ -307,14 +301,16 @@ const appTypeChartOption = computed(() => {
       formatter: '{a} <br/>{b}: {c} ({d}%)'
     },
     legend: {
-      orient: 'vertical',
-      left: 'left'
+      orient: 'horizontal',
+      bottom: '0%',
+      left: 'center'
     },
     series: [
       {
         name: '类型分布',
         type: 'pie',
-        radius: '50%',
+        radius: '60%',
+        center: ['50%', '45%'],
         data,
         emphasis: {
           itemStyle: {
@@ -377,14 +373,16 @@ const kbStatusChartOption = computed(() => {
       formatter: '{a} <br/>{b}: {c} ({d}%)'
     },
     legend: {
-      orient: 'vertical',
-      left: 'left'
+      orient: 'horizontal',
+      bottom: '0%',
+      left: 'center'
     },
     series: [
       {
         name: '状态分布',
         type: 'pie',
-        radius: '50%',
+        radius: '60%',
+        center: ['50%', '45%'],
         data,
         emphasis: {
           itemStyle: {
@@ -447,14 +445,16 @@ const chatTypeChartOption = computed(() => {
       formatter: '{a} <br/>{b}: {c} ({d}%)'
     },
     legend: {
-      orient: 'vertical',
-      left: 'left'
+      orient: 'horizontal',
+      bottom: '0%',
+      left: 'center'
     },
     series: [
       {
         name: '对话类型',
         type: 'pie',
-        radius: '50%',
+        radius: '60%',
+        center: ['50%', '45%'],
         data,
         emphasis: {
           itemStyle: {
@@ -596,14 +596,29 @@ const modelDistributionChartOption = computed(() => {
       formatter: '{a} <br/>{b}: {c} ({d}%)'
     },
     legend: {
-      orient: 'vertical',
-      left: 'left'
+      orient: 'horizontal',
+      bottom: '0%',
+      left: 'center'
     },
     series: [
       {
         name: '模型使用',
         type: 'pie',
-        radius: '50%',
+        radius: '60%',
+        center: ['50%', '45%'],
+        avoidLabelOverlap: true,
+        itemStyle: {
+          borderRadius: 4,
+          borderColor: '#fff',
+          borderWidth: 2
+        },
+        label: {
+          show: true,
+          formatter: '{b}\n{d}%'
+        },
+        labelLine: {
+          show: true
+        },
         data,
         emphasis: {
           itemStyle: {
@@ -710,7 +725,7 @@ onMounted(() => {
 
 :deep(.el-card__header) {
   flex-shrink: 0;
-  padding: 18px 20px;
+  padding: 12px 16px;
 }
 
 :deep(.el-card__body) {
@@ -718,10 +733,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 20px;
+  padding: 12px;
   min-height: 0;
-  /* 确保底部有足够的空间，防止内容被遮挡 */
-  padding-bottom: 30px;
 }
 
 .card-header {
@@ -738,16 +751,16 @@ onMounted(() => {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
   /* 添加底部padding，防止内容被遮挡 */
-  padding-bottom: 60px;
+  padding-bottom: 20px;
   /* 确保内容区域有足够的空间 */
   box-sizing: border-box;
 }
 
 .overview-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .stat-card {
@@ -755,7 +768,7 @@ onMounted(() => {
 }
 
 .stat-item {
-  padding: 10px;
+  padding: 8px;
 }
 
 .stat-label {
@@ -765,13 +778,13 @@ onMounted(() => {
 }
 
 .stat-value {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: bold;
   color: #409eff;
 }
 
 .chart-card {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 /* 确保最后一个卡片有足够的底部空间 */
@@ -781,14 +794,56 @@ onMounted(() => {
 
 .chart-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 20px;
-  /* 确保最后一个图表有足够的底部空间 */
-  padding-bottom: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+/* 饼状图容器 - 使用3列布局，更整齐 */
+.chart-container-pie {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+/* 柱状图和时间曲线容器 - 单列布局 */
+.chart-container .chart-item.full-width {
+  background: #fafafa;
+  border-radius: 6px;
+  padding: 16px;
+  border: 1px solid #e4e7ed;
+  transition: all 0.3s;
+}
+
+.chart-container .chart-item.full-width:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-color: #c0c4cc;
+}
+
+@media (max-width: 1400px) {
+  .chart-container-pie {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .chart-container-pie {
+    grid-template-columns: 1fr;
+  }
 }
 
 .chart-item {
-  min-height: 300px;
+  /* 移除固定最小高度，让内容自适应图表高度 */
+  display: flex;
+  flex-direction: column;
+  background: #fafafa;
+  border-radius: 6px;
+  padding: 16px;
+  border: 1px solid #e4e7ed;
+  transition: all 0.3s;
+}
+
+.chart-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-color: #c0c4cc;
 }
 
 .chart-item.full-width {
@@ -796,10 +851,13 @@ onMounted(() => {
 }
 
 .chart-item h3 {
-  margin: 0 0 10px 0;
-  font-size: 16px;
+  margin: 0 0 12px 0;
+  font-size: 14px;
   font-weight: 600;
   color: #303133;
+  text-align: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e4e7ed;
 }
 
 .empty-tip {
