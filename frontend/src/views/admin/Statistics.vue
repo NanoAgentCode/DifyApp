@@ -85,32 +85,75 @@
         </el-card>
 
         <!-- 柱状图统计 -->
-        <el-card class="chart-card" shadow="hover">
+        <el-card class="chart-card bar-chart-card" shadow="hover">
           <template #header>
             <span>柱状图统计</span>
           </template>
-          <div class="chart-container">
-            <div class="chart-item full-width">
-              <h3>应用使用情况（Top 10）</h3>
-              <v-chart v-if="apps?.appUsage && apps.appUsage.length > 0" :option="appUsageChartOption" style="height: 220px" />
-              <el-empty v-else description="暂无数据" :image-size="80" />
-            </div>
-            <div class="chart-item full-width">
-              <h3>知识库使用情况（Top 10）</h3>
-              <v-chart v-if="knowledgeBases?.kbUsage && knowledgeBases.kbUsage.length > 0" :option="kbUsageChartOption" style="height: 220px" />
-              <el-empty v-else description="暂无数据" :image-size="80" />
-            </div>
-            <div class="chart-item full-width">
-              <h3>用户对话排行（Top 10）</h3>
-              <v-chart v-if="chatHistory?.userConversationRanks && chatHistory.userConversationRanks.length > 0" :option="userConversationRankChartOption" style="height: 220px" />
-              <el-empty v-else description="暂无数据" :image-size="80" />
-            </div>
-            <div v-if="modelTokens?.totalTokens > 0 && modelTokens?.modelTokenUsage?.length" class="chart-item full-width">
-              <h3>各模型Token使用量</h3>
-              <v-chart v-if="modelTokens?.modelTokenUsage && modelTokens.modelTokenUsage.length > 0" :option="modelTokenUsageChartOption" style="height: 220px" />
-              <el-empty v-else description="暂无数据" :image-size="80" />
-            </div>
-          </div>
+          <el-tabs v-model="activeBarTab" type="card" class="trend-tabs" @tab-change="handleBarTabChange">
+            <el-tab-pane label="应用统计" name="apps" :lazy="true">
+              <div class="chart-item full-width bar-chart-item">
+                <div class="chart-title-bar">
+                  <h3>应用使用情况（Top 10）</h3>
+                </div>
+                <v-chart 
+                  v-if="activeBarTab === 'apps' && apps?.appUsage && apps.appUsage.length > 0" 
+                  :key="`app-usage-${chartUpdateKey}`"
+                  :option="appUsageChartOption" 
+                  class="bar-chart"
+                  autoresize
+                />
+                <el-empty v-else description="暂无数据" :image-size="80" />
+              </div>
+            </el-tab-pane>
+            
+            <el-tab-pane label="知识库统计" name="knowledgeBases" :lazy="true">
+              <div class="chart-item full-width bar-chart-item">
+                <div class="chart-title-bar">
+                  <h3>知识库使用情况（Top 10）</h3>
+                </div>
+                <v-chart 
+                  v-if="activeBarTab === 'knowledgeBases' && knowledgeBases?.kbUsage && knowledgeBases.kbUsage.length > 0" 
+                  :key="`kb-usage-${chartUpdateKey}`"
+                  :option="kbUsageChartOption" 
+                  class="bar-chart"
+                  autoresize
+                />
+                <el-empty v-else description="暂无数据" :image-size="80" />
+              </div>
+            </el-tab-pane>
+            
+            <el-tab-pane label="用户排行" name="users" :lazy="true">
+              <div class="chart-item full-width bar-chart-item">
+                <div class="chart-title-bar">
+                  <h3>用户对话排行（Top 10）</h3>
+                </div>
+                <v-chart 
+                  v-if="activeBarTab === 'users' && chatHistory?.userConversationRanks && chatHistory.userConversationRanks.length > 0" 
+                  :key="`user-rank-${chartUpdateKey}`"
+                  :option="userConversationRankChartOption" 
+                  class="bar-chart"
+                  autoresize
+                />
+                <el-empty v-else-if="activeBarTab === 'users'" description="暂无数据" :image-size="80" />
+              </div>
+            </el-tab-pane>
+            
+            <el-tab-pane label="模型Token统计" name="modelTokens" :lazy="true">
+              <div class="chart-item full-width bar-chart-item">
+                <div class="chart-title-bar">
+                  <h3>各模型Token使用量</h3>
+                </div>
+                <v-chart 
+                  v-if="activeBarTab === 'modelTokens' && modelTokens?.modelTokenUsage && modelTokens.modelTokenUsage.length > 0" 
+                  :key="`model-token-${chartUpdateKey}`"
+                  :option="modelTokenUsageChartOption" 
+                  class="bar-chart"
+                  autoresize
+                />
+                <el-empty v-else-if="activeBarTab === 'modelTokens'" description="暂无数据" :image-size="80" />
+              </div>
+            </el-tab-pane>
+          </el-tabs>
         </el-card>
 
         <!-- 时间曲线统计 -->
@@ -273,6 +316,8 @@ const chatHistory = ref(null)
 // 时间曲线统计相关
 const timeRange = ref('30')
 const activeTrendTab = ref('users')
+// 柱状图统计相关
+const activeBarTab = ref('apps')
 // 图表强制更新key，用于在数据加载完成后强制重新渲染图表
 const chartUpdateKey = ref(0)
 
@@ -607,6 +652,13 @@ const appUsageChartOption = computed(() => {
   const names = apps.value.appUsage.map(item => item.appName)
   const counts = apps.value.appUsage.map(item => item.conversationCount)
   return {
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '12%',
+      top: '5%',
+      containLabel: true
+    },
     tooltip: {
       trigger: 'axis',
       axisPointer: {
@@ -627,7 +679,8 @@ const appUsageChartOption = computed(() => {
       {
         name: '会话数',
         type: 'bar',
-        data: counts
+        data: counts,
+        barWidth: '5%'
       }
     ]
   }
@@ -679,6 +732,13 @@ const kbUsageChartOption = computed(() => {
   const names = knowledgeBases.value.kbUsage.map(item => item.kbName)
   const counts = knowledgeBases.value.kbUsage.map(item => item.conversationCount)
   return {
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '12%',
+      top: '5%',
+      containLabel: true
+    },
     tooltip: {
       trigger: 'axis',
       axisPointer: {
@@ -699,7 +759,8 @@ const kbUsageChartOption = computed(() => {
       {
         name: '会话数',
         type: 'bar',
-        data: counts
+        data: counts,
+        barWidth: '5%'
       }
     ]
   }
@@ -751,6 +812,13 @@ const userConversationRankChartOption = computed(() => {
   const names = chatHistory.value.userConversationRanks.map(item => item.username)
   const counts = chatHistory.value.userConversationRanks.map(item => item.conversationCount)
   return {
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '8%',
+      top: '5%',
+      containLabel: true
+    },
     tooltip: {
       trigger: 'axis',
       axisPointer: {
@@ -768,7 +836,8 @@ const userConversationRankChartOption = computed(() => {
       {
         name: '对话数',
         type: 'bar',
-        data: counts
+        data: counts,
+        barWidth: '5%'
       }
     ]
   }
@@ -926,6 +995,13 @@ const modelTokenUsageChartOption = computed(() => {
   const promptTokens = modelTokens.value.modelTokenUsage.map(item => item.promptTokens || 0)
   const completionTokens = modelTokens.value.modelTokenUsage.map(item => item.completionTokens || 0)
   return {
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '12%',
+      top: '8%',
+      containLabel: true
+    },
     tooltip: {
       trigger: 'axis',
       axisPointer: {
@@ -933,7 +1009,8 @@ const modelTokenUsageChartOption = computed(() => {
       }
     },
     legend: {
-      data: ['Prompt Tokens', 'Completion Tokens']
+      data: ['Prompt Tokens', 'Completion Tokens'],
+      top: '0%'
     },
     xAxis: {
       type: 'category',
@@ -949,12 +1026,14 @@ const modelTokenUsageChartOption = computed(() => {
       {
         name: 'Prompt Tokens',
         type: 'bar',
-        data: promptTokens
+        data: promptTokens,
+        barWidth: '5%'
       },
       {
         name: 'Completion Tokens',
         type: 'bar',
-        data: completionTokens
+        data: completionTokens,
+        barWidth: '5%'
       }
     ]
   }
@@ -1313,6 +1392,17 @@ const handleTabChange = (tabName) => {
   })
 }
 
+// 柱状图Tab切换处理
+const handleBarTabChange = (tabName) => {
+  console.log('切换到柱状图Tab:', tabName)
+  // Tab切换后，等待DOM更新完成，然后强制更新图表
+  nextTick(() => {
+    setTimeout(() => {
+      chartUpdateKey.value++
+    }, 100) // 延迟100ms确保DOM完全渲染
+  })
+}
+
 // 获取趋势摘要数据
 const getTrendSummary = (type) => {
   const range = parseInt(timeRange.value)
@@ -1550,6 +1640,58 @@ onMounted(() => {
   margin-bottom: 0;
 }
 
+/* 柱状图统计卡片特殊处理，减少底部空白 */
+.bar-chart-card :deep(.el-card__body) {
+  padding: 12px;
+  padding-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.bar-chart-card .trend-tabs {
+  margin-bottom: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.bar-chart-card .trend-tabs :deep(.el-tabs__content) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 16px;
+  padding-bottom: 0;
+}
+
+.bar-chart-card .trend-tabs :deep(.el-tab-pane) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: 0;
+}
+
+/* 柱状图项样式 */
+.bar-chart-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px;
+  padding-top: 8px;
+  padding-bottom: 12px;
+}
+
+.bar-chart {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
 .chart-container {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -1567,7 +1709,7 @@ onMounted(() => {
   background: #fafafa;
   border-radius: 6px;
   padding: 16px;
-  padding-bottom: 24px;
+  padding-bottom: 16px;
   border: 1px solid #e4e7ed;
   transition: all 0.3s;
 }
@@ -1607,7 +1749,8 @@ onMounted(() => {
 
 .chart-item.full-width {
   grid-column: 1 / -1;
-  padding-bottom: 20px;
+  padding-bottom: 12px;
+  padding-top: 8px;
 }
 
 .chart-item h3 {
@@ -1693,14 +1836,19 @@ onMounted(() => {
 
 .trend-tabs :deep(.el-tabs__content) {
   padding-top: 16px;
+  padding-bottom: 0;
+}
+
+.trend-tabs :deep(.el-tab-pane) {
+  padding-bottom: 0;
 }
 
 .chart-title-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
   border-bottom: 1px solid #e4e7ed;
 }
 
