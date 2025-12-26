@@ -944,187 +944,17 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             }
             
             // 限制文档文本长度（根据评估结果调整）
-            int maxTextLength = textLength < 15000 ? textLength : 15000;
+            int maxTextLength = Math.min(textLength, 15000);
             String truncatedText = documentContent;
             if (documentContent.length() > maxTextLength) {
                 truncatedText = documentContent.substring(0, maxTextLength) + "\n\n[文档内容已截断，仅用于生成思维导图核心结构...]";
             }
             
-            // 构建提示词
-            String prompt = String.format(
-                "你是一个专业的思维导图生成助手。请仔细阅读以下文档内容，然后根据文档长度自动评估并生成一个结构化的思维导图。\n\n" +
-                "**⚠️ 重要提示：输出格式要求**\n" +
-                "1. **必须只返回纯JSON格式，不要包含任何其他文字、说明、注释或代码块标记**\n" +
-                "2. **JSON必须严格符合标准格式**：所有字符串用双引号、无尾随逗号、括号匹配、特殊字符转义\n" +
-                "3. **输出的第一行必须是 {，最后一行必须是 }**\n" +
-                "4. **不要用 ```json 或 ``` 包裹JSON**\n" +
-                "5. **确保JSON完整且可直接解析**\n\n" +
-                "**文档信息**：\n" +
-                "文档名称：%s\n" +
-                "文档长度：%d 字符\n" +
-                "内容评估：%s\n\n" +
-                "**文档内容**：\n%s\n\n" +
-                "**核心要求（非常重要）**：\n" +
-                "1. **必须严格按照上述文档的实际内容生成思维导图**\n" +
-                "2. **禁止生成通用的模板结构**（如：个人简介、工作业绩、团队管理等通用章节）\n" +
-                "3. **禁止猜测或补充文档中没有的内容**\n" +
-                "4. **思维导图的每个节点必须对应文档中实际存在的章节、段落或内容**\n" +
-                "5. **如果文档中没有某个章节，绝对不要生成该章节**\n" +
-                "6. **节点文字必须来自文档中的实际文字，不要自己编造**\n" +
-                "7. **不要生成标准的述职报告模板结构，必须基于文档的实际内容**\n\n" +
-                "**层级限制（严格遵循）**：\n" +
-                "1. **思维导图层级绝对不超过3层**（中心主题为第0层，一级节点为第1层，二级节点为第2层，三级节点为第3层）\n" +
-                "2. 根据文档长度，当前建议最大层级：%d层\n" +
-                "3. 每层节点数量建议：一级节点不超过%d个，二级节点每个一级节点下不超过%d个，三级节点每个二级节点下不超过%d个\n" +
-                "4. 如果文档内容较少，可以减少层级和节点数量\n" +
-                "5. 如果文档内容较多，必须精选最重要的内容，确保不超过层级和节点限制\n\n" +
-                "**生成规则**：\n" +
-                "1. 中心主题（第0层）使用文档名称：%s\n" +
-                "2. 一级节点（第1层）应该是文档中实际存在的主要章节标题或核心主题\n" +
-                "3. 二级节点（第2层）应该是各章节中的实际段落、要点、具体内容\n" +
-                "4. 三级节点（第3层，可选）应该是二级节点下的具体细节或子要点\n" +
-                "5. 节点名称必须使用文档中的原始文字，不要改写或概括\n" +
-                "6. 根据文档长度自动调整详细程度：短文档简化，长文档精选核心内容\n" +
-                "7. **绝对不要超过3层，如果内容很多，请合并或精选**\n\n" +
-                "**输出格式要求（极其重要，必须严格遵守）**：\n" +
-                "1. **必须只返回JSON格式的数据，不要包含任何其他文字说明、注释、解释或标记**\n" +
-                "2. **返回的JSON必须是完整、有效、可直接解析的JSON格式**\n" +
-                "3. **JSON格式严格规则（违反任何一条都会导致解析失败）**：\n" +
-                "   - 所有字符串必须用双引号(\")包裹，不能使用单引号\n" +
-                "   - 所有对象键（字段名）必须用双引号包裹，例如：\"id\"、\"topic\"、\"children\"\n" +
-                "   - 不能有任何尾随逗号（最后一个元素后不能有逗号）\n" +
-                "   - 所有括号必须匹配：每个 { 必须有对应的 }，每个 [ 必须有对应的 ]\n" +
-                "   - 字符串内的特殊字符必须转义：\\n（换行）、\\r（回车）、\\t（制表符）、\\\"（双引号）、\\\\（反斜杠）\n" +
-                "   - 不能有未闭合的字符串、数组或对象\n" +
-                "   - JSON必须完整，不能截断或省略\n" +
-                "   - 所有节点必须有 \"id\"、\"topic\" 和 \"children\" 字段\n" +
-                "   - \"children\" 字段必须是数组，即使为空也要写成 []\n" +
-                "4. **必须使用jsMind格式，严格遵循以下结构**：\n\n" +
-                "{\n" +
-                "  \"meta\": {\n" +
-                "    \"name\": \"思维导图名称\",\n" +
-                "    \"author\": \"系统\",\n" +
-                "    \"version\": \"1.0\"\n" +
-                "  },\n" +
-                "  \"format\": \"node_tree\",\n" +
-                "  \"data\": {\n" +
-                "    \"id\": \"root\",\n" +
-                "    \"topic\": \"中心主题（文档名称）\",\n" +
-                "    \"children\": [\n" +
-                "      {\n" +
-                "        \"id\": \"node1\",\n" +
-                "        \"topic\": \"一级节点1（文档中实际存在的章节标题）\",\n" +
-                "        \"children\": [\n" +
-                "          {\n" +
-                "            \"id\": \"node1-1\",\n" +
-                "            \"topic\": \"二级节点1-1（该章节中的实际内容）\",\n" +
-                "            \"children\": [\n" +
-                "              {\n" +
-                "                \"id\": \"node1-1-1\",\n" +
-                "                \"topic\": \"三级节点1-1-1（可选，具体细节）\",\n" +
-                "                \"children\": []\n" +
-                "              }\n" +
-                "            ]\n" +
-                "          }\n" +
-                "        ]\n" +
-                "      }\n" +
-                "    ]\n" +
-                "  }\n" +
-                "}\n\n" +
-                "5. **JSON格式检查清单（生成后请自行检查）**：\n" +
-                "   ✓ 是否以 { 开头，以 } 结尾？\n" +
-                "   ✓ 所有字段名是否都用双引号包裹？\n" +
-                "   ✓ 所有字符串值是否都用双引号包裹？\n" +
-                "   ✓ 是否没有尾随逗号？\n" +
-                "   ✓ 所有括号是否匹配？\n" +
-                "   ✓ 字符串内的特殊字符是否已转义？\n" +
-                "   ✓ JSON是否完整（没有截断）？\n" +
-                "   ✓ 所有节点是否都有必需的字段？\n\n" +
-                "6. **输出要求**：\n" +
-                "   - 直接输出JSON，不要用代码块包裹（不要用 ```json 或 ``` 包裹）\n" +
-                "   - 不要添加任何说明文字、注释或解释\n" +
-                "   - 不要添加任何前缀或后缀文字\n" +
-                "   - 输出的第一行必须是 {，最后一行必须是 }\n" +
-                "   - 确保JSON可以直接被 JSON.parse() 或类似方法解析\n\n" +
-                "**再次强调**：\n" +
-                "- 思维导图的内容必须100%%来自上述文档的实际内容\n" +
-                "- **层级绝对不超过3层**（中心主题+最多3层子节点）\n" +
-                "- 根据文档长度自动评估并调整详细程度\n" +
-                "- 禁止生成任何模板化的结构（如标准的述职报告、工作总结等模板）\n" +
-                "- 如果文档中没有某个内容，绝对不要生成\n" +
-                "- 节点文字必须使用文档中的原始文字\n" +
-                "- **只返回JSON，不要有任何其他文字！**\n" +
-                "- **JSON格式必须严格正确，任何格式错误都会导致解析失败！**\n\n" +
-                "**⚠️ 最后检查（输出前必须确认）**：\n" +
-                "1. 输出是否以 { 开头？\n" +
-                "2. 输出是否以 } 结尾？\n" +
-                "3. 是否没有任何说明文字、注释或代码块标记？\n" +
-                "4. 所有字符串是否都用双引号包裹？\n" +
-                "5. 是否没有尾随逗号？\n" +
-                "6. 所有括号是否匹配？\n" +
-                "7. JSON是否完整（没有截断）？\n\n" +
-                "**如果以上任何一项不符合，请修正后再输出！**",
-                fileName,
-                textLength,
-                contentAssessment,
-                truncatedText,
-                maxLevel,
-                maxNodesPerLevel,
-                maxNodesPerLevel / 2,
-                maxNodesPerLevel / 3,
-                fileName
-            );
+            // 构建提示词（优化后的简洁版本）
+            String prompt = buildMindMapPrompt(fileName, textLength, contentAssessment, truncatedText, maxLevel, maxNodesPerLevel);
             
-            // 调用大模型生成脑图
-            ChatLanguageModel chatModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
-            List<ChatMessage> messages = new ArrayList<>();
-            messages.add(new UserMessage(prompt));
-            
-            Response<AiMessage> response = chatModel.generate(messages);
-            String rawResponse = response.content().text();
-            
-            // 从响应中提取JSON部分
-            String mindMapJson = extractJsonFromResponse(rawResponse);
-            
-            // 验证并修复JSON格式
-            com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            try {
-                objectMapper.readTree(mindMapJson);
-            } catch (Exception e) {
-                logger.warn("首次JSON验证失败，尝试修复JSON格式: {}", e.getMessage());
-                // 尝试修复常见的JSON问题
-                String fixedJson = tryFixJson(mindMapJson);
-                try {
-                    objectMapper.readTree(fixedJson);
-                    mindMapJson = fixedJson; // 使用修复后的JSON
-                    logger.info("JSON修复成功");
-                } catch (Exception e2) {
-                    logger.warn("第一次修复失败，尝试更激进的修复策略: {}", e2.getMessage());
-                    // 尝试更激进的修复：删除最后一个不完整的节点
-                    String aggressiveFixed = tryAggressiveFix(fixedJson);
-                    try {
-                        objectMapper.readTree(aggressiveFixed);
-                        mindMapJson = aggressiveFixed; // 使用激进修复后的JSON
-                        logger.info("激进修复成功");
-                    } catch (Exception e3) {
-                        logger.error("生成的脑图数据不是有效的JSON格式，原始响应长度: {}, 前500字符: {}", 
-                            rawResponse.length(), 
-                            rawResponse.length() > 500 ? rawResponse.substring(0, 500) + "..." : rawResponse);
-                        logger.error("提取的JSON长度: {}, 前500字符: {}", 
-                            mindMapJson.length(), 
-                            mindMapJson.length() > 500 ? mindMapJson.substring(0, 500) + "..." : mindMapJson);
-                        logger.error("修复后的JSON长度: {}, 前500字符: {}", 
-                            fixedJson.length(), 
-                            fixedJson.length() > 500 ? fixedJson.substring(0, 500) + "..." : fixedJson);
-                        logger.error("激进修复后的JSON长度: {}, 前500字符: {}", 
-                            aggressiveFixed.length(), 
-                            aggressiveFixed.length() > 500 ? aggressiveFixed.substring(0, 500) + "..." : aggressiveFixed);
-                        throw new RuntimeException("生成的脑图数据格式错误，不是有效的JSON: " + e.getMessage() + 
-                            (e2.getMessage() != null ? "，修复后仍然失败: " + e2.getMessage() : "") +
-                            (e3.getMessage() != null ? "，激进修复后仍然失败: " + e3.getMessage() : ""));
-                    }
-                }
-            }
+            // 调用大模型生成脑图（带重试机制）
+            String mindMapJson = generateMindMapWithRetry(qaModel, prompt, fileName, documentId, 3);
             
             // 保存生成的脑图
             saveDocumentMindMap(documentId, userId, mindMapJson);
@@ -1132,9 +962,26 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             logger.info("文档脑图生成成功 - 文档ID: {}", documentId);
             return mindMapJson;
             
+        } catch (RuntimeException e) {
+            // 如果是RuntimeException，直接抛出（可能已经包含友好的错误信息）
+            logger.error("生成文档脑图失败 - 文档ID: {}", documentId, e);
+            throw e;
         } catch (Exception e) {
             logger.error("生成文档脑图失败 - 文档ID: {}", documentId, e);
-            throw new RuntimeException("生成文档脑图失败: " + e.getMessage(), e);
+            // 提供更友好的错误信息
+            String errorMessage = "生成文档脑图失败";
+            if (e.getMessage() != null) {
+                if (e.getMessage().contains("JSON") || e.getMessage().contains("格式")) {
+                    errorMessage = "生成文档脑图失败：JSON格式错误，已尝试自动修复但未成功。请稍后重试或联系管理员。";
+                } else if (e.getMessage().contains("超时") || e.getMessage().contains("timeout")) {
+                    errorMessage = "生成文档脑图失败：请求超时，请稍后重试。";
+                } else if (e.getMessage().contains("模型") || e.getMessage().contains("model")) {
+                    errorMessage = "生成文档脑图失败：模型配置错误，请检查系统配置。";
+                } else {
+                    errorMessage = "生成文档脑图失败：" + e.getMessage();
+                }
+            }
+            throw new RuntimeException(errorMessage, e);
         }
     }
     
@@ -1242,8 +1089,8 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     }
     
     /**
-     * 从大模型响应中提取JSON部分
-     * 处理可能包含说明文字的响应
+     * 从大模型响应中提取JSON部分（增强版）
+     * 处理可能包含说明文字的响应，更准确地识别JSON边界
      */
     private String extractJsonFromResponse(String response) {
         if (response == null || response.trim().isEmpty()) {
@@ -1252,9 +1099,17 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         
         String trimmed = response.trim();
         
+        // 移除可能的BOM标记
+        if (trimmed.startsWith("\uFEFF")) {
+            trimmed = trimmed.substring(1);
+        }
+        
         // 如果整个响应就是JSON（以{开头，以}结尾）
         if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-            return trimmed;
+            // 验证是否真的是完整JSON
+            if (isCompleteJson(trimmed)) {
+                return trimmed;
+            }
         }
         
         // 尝试提取JSON代码块
@@ -1273,7 +1128,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 codeStart += 1; // 跳过换行符
             }
             
-            // 查找代码块结束
+            // 查找代码块结束（从codeStart之后开始查找，避免找到开始标记）
             int codeEnd = trimmed.indexOf("```", codeStart);
             if (codeEnd != -1) {
                 String jsonContent = trimmed.substring(codeStart, codeEnd).trim();
@@ -1283,89 +1138,150 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             }
         }
         
-        // 尝试提取第一个完整的JSON对象（考虑字符串内的括号）
+        // 尝试提取第一个完整的JSON对象(考虑字符串内的括号和转义)
         int firstBrace = trimmed.indexOf("{");
         if (firstBrace != -1) {
-            int braceCount = 0;
-            int bracketCount = 0;
-            int lastBrace = -1;
-            boolean inString = false;
-            boolean escaped = false;
-            
-            for (int i = firstBrace; i < trimmed.length(); i++) {
-                char c = trimmed.charAt(i);
-                
-                if (escaped) {
-                    escaped = false;
-                    continue;
-                }
-                
-                if (c == '\\') {
-                    escaped = true;
-                    continue;
-                }
-                
-                if (c == '"') {
-                    inString = !inString;
-                    continue;
-                }
-                
-                if (inString) {
-                    continue;
-                }
-                
-                if (c == '{') {
-                    braceCount++;
-                } else if (c == '}') {
-                    braceCount--;
-                    if (braceCount == 0 && bracketCount == 0) {
-                        lastBrace = i;
-                        break;
-                    }
-                } else if (c == '[') {
-                    bracketCount++;
-                } else if (c == ']') {
-                    bracketCount--;
-                }
-            }
-            
+            // 从第一个{开始，向后查找匹配的}
+            int lastBrace = findMatchingBrace(trimmed, firstBrace);
             if (lastBrace != -1) {
                 String jsonContent = trimmed.substring(firstBrace, lastBrace + 1).trim();
                 return jsonContent;
             } else {
-                // 如果找不到完整闭合，返回从第一个 { 开始到结尾的内容（后续会尝试修复）
-                logger.warn("JSON可能被截断，提取不完整的JSON: {}", trimmed.length() > 200 ? trimmed.substring(0, 200) + "..." : trimmed);
+                // 如果找不到完整闭合，返回从第一个 { 开始到结尾的内容(后续会尝试修复)
+                logger.warn("JSON可能被截断，提取不完整的JSON，长度: {}", trimmed.length());
                 return trimmed.substring(firstBrace);
             }
         }
         
         // 如果都找不到，返回原始响应（让前端处理）
-        logger.warn("无法从响应中提取JSON，返回原始内容: {}", trimmed.length() > 200 ? trimmed.substring(0, 200) + "..." : trimmed);
+        logger.warn("无法从响应中提取JSON，返回原始内容，长度: {}", trimmed.length());
         return trimmed;
     }
     
     /**
-     * 尝试修复常见的JSON格式问题
-     * 处理未闭合的字符串、数组和对象
+     * 检查字符串是否是完整的JSON
+     */
+    private boolean isCompleteJson(String json) {
+        if (json == null || json.trim().isEmpty()) {
+            return false;
+        }
+        
+        int braceCount = 0;
+        int bracketCount = 0;
+        boolean inString = false;
+        boolean escaped = false;
+        
+        for (int i = 0; i < json.length(); i++) {
+            char c = json.charAt(i);
+            
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            
+            if (c == '\\') {
+                escaped = true;
+                continue;
+            }
+            
+            if (c == '"') {
+                inString = !inString;
+                continue;
+            }
+            
+            if (inString) {
+                continue;
+            }
+            
+            if (c == '{') {
+                braceCount++;
+            } else if (c == '}') {
+                braceCount--;
+            } else if (c == '[') {
+                bracketCount++;
+            } else if (c == ']') {
+                bracketCount--;
+            }
+        }
+        
+        return braceCount == 0 && bracketCount == 0 && !inString;
+    }
+    
+    /**
+     * 查找匹配的闭合括号位置
+     */
+    private int findMatchingBrace(String text, int startPos) {
+        int braceCount = 0;
+        int bracketCount = 0;
+        boolean inString = false;
+        boolean escaped = false;
+        
+        for (int i = startPos; i < text.length(); i++) {
+            char c = text.charAt(i);
+            
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            
+            if (c == '\\') {
+                escaped = true;
+                continue;
+            }
+            
+            if (c == '"') {
+                inString = !inString;
+                continue;
+            }
+            
+            if (inString) {
+                continue;
+            }
+            
+            if (c == '{') {
+                braceCount++;
+            } else if (c == '}') {
+                braceCount--;
+                if (braceCount == 0 && bracketCount == 0) {
+                    return i;
+                }
+            } else if (c == '[') {
+                bracketCount++;
+            } else if (c == ']') {
+                bracketCount--;
+            }
+        }
+        
+        return -1; // 未找到匹配的闭合括号
+    }
+    
+    /**
+     * 尝试修复常见的JSON格式问题（增强版）
+     * 处理未闭合的字符串、数组和对象，以及更多边界情况
      */
     private String tryFixJson(String json) {
         if (json == null || json.trim().isEmpty()) {
             return json;
         }
         
-        // 第一步：修复未闭合的字符串
-        String fixed = fixUnclosedStrings(json);
+        String fixed = json;
         
-        // 第二步：修复字段名缺少引号的问题
+        // 第一步：移除JSON注释（虽然不应该有，但LLM可能生成）
+        fixed = removeJsonComments(fixed);
+        
+        // 第二步：修复未闭合的字符串
+        fixed = fixUnclosedStrings(fixed);
+        
+        // 第三步：修复字段名缺少引号的问题
         fixed = fixUnquotedFieldNames(fixed);
         
-        // 第三步：修复未闭合的数组和对象
+        // 第四步：修复未闭合的数组和对象
         fixed = fixUnclosedBrackets(fixed);
         
-        // 第四步：修复多余的逗号
+        // 第五步：修复多余的逗号
         fixed = fixTrailingCommas(fixed);
         
-        // 第四步：确保JSON以 { 开头，以 } 结尾
+        // 第六步：确保JSON以 { 开头，以 } 结尾
         if (!fixed.startsWith("{")) {
             int firstBrace = fixed.indexOf("{");
             if (firstBrace != -1) {
@@ -1373,7 +1289,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             }
         }
         
-        // 第五步：如果JSON被截断，尝试找到最后一个有效位置并闭合
+        // 第七步：如果JSON被截断，尝试找到最后一个有效位置并闭合
         if (!fixed.endsWith("}")) {
             // 尝试找到最后一个完整的闭合括号
             int lastBrace = findLastCompleteBrace(fixed);
@@ -1386,6 +1302,78 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         }
         
         return fixed;
+    }
+    
+
+    private String removeJsonComments(String json) {
+        StringBuilder sb = new StringBuilder();
+        boolean inString = false;
+        boolean escaped = false;
+        int i = 0;
+        
+        while (i < json.length()) {
+            char c = json.charAt(i);
+            
+            if (escaped) {
+                sb.append(c);
+                escaped = false;
+                i++;
+                continue;
+            }
+            
+            if (c == '\\') {
+                sb.append(c);
+                escaped = true;
+                i++;
+                continue;
+            }
+            
+            if (c == '"') {
+                inString = !inString;
+                sb.append(c);
+                i++;
+                continue;
+            }
+            
+            if (inString) {
+                sb.append(c);
+                i++;
+                continue;
+            }
+            
+            // 检查单行注释 //
+            if (i + 1 < json.length() && c == '/' && json.charAt(i + 1) == '/') {
+                // 跳过到行尾
+                while (i < json.length() && json.charAt(i) != '\n' && json.charAt(i) != '\r') {
+                    i++;
+                }
+                // 保留换行符
+                if (i < json.length()) {
+                    sb.append(json.charAt(i));
+                    i++;
+                }
+                continue;
+            }
+            
+            // 检查多行注释 /* */
+            if (i + 1 < json.length() && c == '/' && json.charAt(i + 1) == '*') {
+                // 跳过到 */
+                i += 2;
+                while (i + 1 < json.length()) {
+                    if (json.charAt(i) == '*' && json.charAt(i + 1) == '/') {
+                        i += 2;
+                        break;
+                    }
+                    i++;
+                }
+                continue;
+            }
+            
+            sb.append(c);
+            i++;
+        }
+        
+        return sb.toString();
     }
     
     /**
@@ -2173,7 +2161,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
      * 保存文档分段翻译信息（JSON格式）
      */
     @Transactional
-    private void saveDocumentTranslationSegments(Long documentId, Long userId, String targetLang, List<DocumentSegment> segments) {
+    protected void saveDocumentTranslationSegments(Long documentId, Long userId, String targetLang, List<DocumentSegment> segments) {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
             
@@ -2288,84 +2276,217 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     }
     
     /**
-     * 尝试更激进的JSON修复策略
-     * 当常规修复失败时，尝试删除最后一个不完整的节点
+     * 尝试更激进的JSON修复策略（增强版）
+     * 当常规修复失败时，尝试删除最后一个不完整的节点，处理更多边界情况
      */
     private String tryAggressiveFix(String json) {
         if (json == null || json.trim().isEmpty()) {
             return json;
         }
         
-        // 尝试找到最后一个完整的children数组
-        // 如果JSON被截断在某个节点的children数组中，删除这个不完整的节点
         String fixed = json;
         
-        // 查找最后一个完整的children数组闭合位置
+        // 策略1：尝试找到最后一个完整的children数组
         int lastCompleteChildrenEnd = findLastCompleteChildrenArray(fixed);
         if (lastCompleteChildrenEnd > 0) {
-            // 截断到最后一个完整的children数组之后
-            // 需要找到包含这个children数组的节点，并正确闭合
             String truncated = fixed.substring(0, lastCompleteChildrenEnd + 1);
-            
-            // 确保结构完整：如果截断后缺少闭合括号，添加
-            int braceCount = 0;
-            int bracketCount = 0;
-            boolean inString = false;
-            boolean escaped = false;
-            
-            for (int i = 0; i < truncated.length(); i++) {
-                char c = truncated.charAt(i);
-                
-                if (escaped) {
-                    escaped = false;
-                    continue;
-                }
-                
-                if (c == '\\') {
-                    escaped = true;
-                    continue;
-                }
-                
-                if (c == '"') {
-                    inString = !inString;
-                    continue;
-                }
-                
-                if (inString) {
-                    continue;
-                }
-                
-                if (c == '{') {
-                    braceCount++;
-                } else if (c == '}') {
-                    braceCount--;
-                } else if (c == '[') {
-                    bracketCount++;
-                } else if (c == ']') {
-                    bracketCount--;
-                }
+            String closed = closeJsonStructure(truncated);
+            if (isValidJsonStructure(closed)) {
+                return closed;
             }
-            
-            // 闭合未闭合的结构
-            StringBuilder sb = new StringBuilder(truncated);
-            if (inString) {
-                sb.append('"');
-            }
-            while (bracketCount > 0) {
-                sb.append(']');
-                bracketCount--;
-            }
-            while (braceCount > 0) {
-                sb.append('}');
-                braceCount--;
-            }
-            
-            return sb.toString();
         }
         
-        // 如果找不到完整的children数组，尝试其他策略
-        // 删除最后一个不完整的对象
-        return removeLastIncompleteObject(fixed);
+        // 策略2：尝试找到最后一个完整的节点（有topic字段且已闭合）
+        int lastCompleteNodeEnd = findLastCompleteNode(fixed);
+        if (lastCompleteNodeEnd > 0) {
+            String truncated = fixed.substring(0, lastCompleteNodeEnd + 1);
+            String closed = closeJsonStructure(truncated);
+            if (isValidJsonStructure(closed)) {
+                return closed;
+            }
+        }
+        
+        // 策略3：删除最后一个不完整的对象
+        String removed = removeLastIncompleteObject(fixed);
+        if (!removed.equals(fixed)) {
+            String closed = closeJsonStructure(removed);
+            if (isValidJsonStructure(closed)) {
+                return closed;
+            }
+        }
+        
+        // 策略4：如果都失败，尝试从后往前删除不完整的部分，直到找到有效的JSON
+        String prefix = findValidJsonPrefix(fixed);
+        if (prefix != null && !prefix.equals(fixed)) {
+            return prefix;
+        }
+        
+        // 策略5：如果所有策略都失败，返回原始JSON（让调用者处理）
+        return fixed;
+    }
+    
+    /**
+     * 闭合JSON结构（添加缺失的括号）
+     */
+    private String closeJsonStructure(String json) {
+        int braceCount = 0;
+        int bracketCount = 0;
+        boolean inString = false;
+        boolean escaped = false;
+        
+        for (int i = 0; i < json.length(); i++) {
+            char c = json.charAt(i);
+            
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            
+            if (c == '\\') {
+                escaped = true;
+                continue;
+            }
+            
+            if (c == '"') {
+                inString = !inString;
+                continue;
+            }
+            
+            if (inString) {
+                continue;
+            }
+            
+            if (c == '{') {
+                braceCount++;
+            } else if (c == '}') {
+                braceCount--;
+            } else if (c == '[') {
+                bracketCount++;
+            } else if (c == ']') {
+                bracketCount--;
+            }
+        }
+        
+        StringBuilder sb = new StringBuilder(json);
+        if (inString) {
+            sb.append('"');
+        }
+        while (bracketCount > 0) {
+            sb.append(']');
+            bracketCount--;
+        }
+        while (braceCount > 0) {
+            sb.append('}');
+            braceCount--;
+        }
+        
+        return sb.toString();
+    }
+    
+    /**
+     * 检查JSON结构是否有效（基本结构检查）
+     */
+    private boolean isValidJsonStructure(String json) {
+        if (json == null || json.trim().isEmpty()) {
+            return false;
+        }
+        
+        String trimmed = json.trim();
+        if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+            return false;
+        }
+        
+        // 检查基本结构：至少包含meta、format、data字段
+        return trimmed.contains("\"meta\"") && 
+               trimmed.contains("\"format\"") && 
+               trimmed.contains("\"data\"");
+    }
+    
+    /**
+     * 查找最后一个完整的节点（有topic字段且已闭合）
+     */
+    private int findLastCompleteNode(String json) {
+        int lastNodeEnd = -1;
+        boolean inString = false;
+        boolean escaped = false;
+        int braceCount = 0;
+        boolean foundTopic = false;
+        int topicStart = -1;
+        
+        for (int i = 0; i < json.length(); i++) {
+            char c = json.charAt(i);
+            
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            
+            if (c == '\\') {
+                escaped = true;
+                continue;
+            }
+            
+            if (c == '"') {
+                if (!inString) {
+                    inString = true;
+                    // 检查是否是"topic"字段
+                    if (i + 6 < json.length() && json.substring(i, i + 7).equals("\"topic\"")) {
+                        foundTopic = true;
+                        topicStart = i;
+                    }
+                } else {
+                    inString = false;
+                }
+                continue;
+            }
+            
+            if (inString) {
+                continue;
+            }
+            
+            if (c == '{') {
+                braceCount++;
+                if (braceCount == 1) {
+                    foundTopic = false; // 新对象开始，重置标志
+                }
+            } else if (c == '}') {
+                braceCount--;
+                if (braceCount == 0 && foundTopic) {
+                    // 找到了一个完整的节点（有topic字段且已闭合）
+                    lastNodeEnd = i;
+                }
+            }
+        }
+        
+        return lastNodeEnd;
+    }
+    
+    /**
+     * 从后往前查找有效的JSON前缀
+     */
+    private String findValidJsonPrefix(String json) {
+        if (json == null || json.length() < 50) {
+            return null;
+        }
+        
+        // 从后往前，逐步删除字符，直到找到有效的JSON结构
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        for (int end = json.length(); end > 100; end -= 50) {
+            String candidate = json.substring(0, end);
+            String closed = closeJsonStructure(candidate);
+            if (isValidJsonStructure(closed)) {
+                try {
+                    mapper.readTree(closed);
+                    logger.info("找到有效的JSON前缀，长度: {}", closed.length());
+                    return closed;
+                } catch (Exception e) {
+                    // 继续尝试
+                }
+            }
+        }
+        
+        // 如果都失败，返回null（让调用者使用其他策略）
+        return null;
     }
     
     /**
@@ -2497,41 +2618,44 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     }
     
     /**
-     * 创建一个最小有效的JSON结构
+     * 创建一个最小有效的JSON结构（重载方法，支持传入文件名）
      * 当所有修复都失败时，尝试从原始响应中提取基本信息并构建一个简单的有效JSON
      */
-    private String createMinimalValidJson(String rawResponse) {
-        // 尝试从原始响应中提取文档名称
-        String fileName = "文档";
-        int nameStart = rawResponse.indexOf("\"name\":");
-        if (nameStart != -1) {
-            int nameValueStart = rawResponse.indexOf("\"", nameStart + 7);
-            if (nameValueStart != -1) {
-                int nameValueEnd = rawResponse.indexOf("\"", nameValueStart + 1);
-                if (nameValueEnd != -1) {
-                    fileName = rawResponse.substring(nameValueStart + 1, nameValueEnd);
+    private String createMinimalValidJson(String rawResponse, String fileName) {
+        if (fileName == null || fileName.trim().isEmpty()) {
+            fileName = "文档";
+        }
+        
+        // 尝试从原始响应中提取文档名称（如果响应中有）
+        if (rawResponse != null) {
+            int nameStart = rawResponse.indexOf("\"name\":");
+            if (nameStart != -1) {
+                int nameValueStart = rawResponse.indexOf("\"", nameStart + 7);
+                if (nameValueStart != -1) {
+                    int nameValueEnd = rawResponse.indexOf("\"", nameValueStart + 1);
+                    if (nameValueEnd != -1) {
+                        String extractedName = rawResponse.substring(nameValueStart + 1, nameValueEnd);
+                        if (extractedName != null && !extractedName.trim().isEmpty()) {
+                            fileName = extractedName;
+                        }
+                    }
                 }
             }
         }
         
         // 创建一个最小有效的JSON结构
         return String.format(
-            "{\n" +
-            "  \"meta\": {\n" +
-            "    \"name\": \"%s\",\n" +
-            "    \"author\": \"系统\",\n" +
-            "    \"version\": \"1.0\"\n" +
-            "  },\n" +
-            "  \"format\": \"node_tree\",\n" +
-            "  \"data\": {\n" +
-            "    \"id\": \"root\",\n" +
-            "    \"topic\": \"%s\",\n" +
-            "    \"children\": []\n" +
-            "  }\n" +
-            "}",
+            "{\"meta\":{\"name\":\"%s\",\"author\":\"系统\",\"version\":\"1.0\"},\"format\":\"node_tree\",\"data\":{\"id\":\"root\",\"topic\":\"%s\",\"children\":[]}}",
             escapeJsonString(fileName),
             escapeJsonString(fileName)
         );
+    }
+    
+    /**
+     * 创建一个最小有效的JSON结构（兼容旧方法）
+     */
+    private String createMinimalValidJson(String rawResponse) {
+        return createMinimalValidJson(rawResponse, "文档");
     }
     
     /**
@@ -2592,6 +2716,221 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         
         DocumentReader document = optional.get();
         return extractDocumentText(document);
+    }
+    
+    /**
+     * 带重试机制的脑图生成方法
+     */
+    private String generateMindMapWithRetry(QAModel qaModel, String basePrompt, String fileName, 
+                                            Long documentId, int maxRetries) {
+        com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        ChatLanguageModel chatModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+        
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                logger.info("生成脑图 - 文档ID: {}, 尝试次数: {}/{}", documentId, attempt, maxRetries);
+                
+                // 如果是重试，在提示词中强调格式要求
+                String prompt = basePrompt;
+                if (attempt > 1) {
+                    prompt = basePrompt + "\n\n**⚠️ 重要提醒(第" + attempt + "次尝试)**：\n" +
+                             "请确保输出的是完整、有效的JSON格式，不要有任何格式错误！\n" +
+                             "输出前请仔细检查：所有字符串用双引号、无尾随逗号、括号匹配、JSON完整！";
+                }
+                
+                List<ChatMessage> messages = new ArrayList<>();
+                messages.add(new UserMessage(prompt));
+                
+                Response<AiMessage> response = chatModel.generate(messages);
+                String rawResponse = response.content().text();
+                
+                if (rawResponse == null || rawResponse.trim().isEmpty()) {
+                    throw new RuntimeException("大模型返回内容为空");
+                }
+                
+                // 从响应中提取JSON部分
+                String mindMapJson = extractJsonFromResponse(rawResponse);
+                
+                // 验证并修复JSON格式
+                try {
+                    objectMapper.readTree(mindMapJson);
+                    logger.info("JSON验证成功 - 文档ID: {}, 尝试次数: {}", documentId, attempt);
+                    return mindMapJson;
+                } catch (Exception e) {
+                    logger.warn("首次JSON验证失败，尝试修复JSON格式 - 文档ID: {}, 尝试次数: {}, 错误: {}", 
+                               documentId, attempt, e.getMessage());
+                    
+                    // 尝试修复常见的JSON问题
+                    String fixedJson = tryFixJson(mindMapJson);
+                    try {
+                        objectMapper.readTree(fixedJson);
+                        logger.info("JSON修复成功 - 文档ID: {}, 尝试次数: {}", documentId, attempt);
+                        return fixedJson;
+                    } catch (Exception e2) {
+                        logger.warn("第一次修复失败，尝试更激进的修复策略 - 文档ID: {}, 尝试次数: {}, 错误: {}", 
+                                   documentId, attempt, e2.getMessage());
+                        
+                        // 尝试更激进的修复
+                        String aggressiveFixed = tryAggressiveFix(fixedJson);
+                        try {
+                            objectMapper.readTree(aggressiveFixed);
+                            logger.info("激进修复成功 - 文档ID: {}, 尝试次数: {}", documentId, attempt);
+                            return aggressiveFixed;
+                        } catch (Exception e3) {
+                            // 如果是最后一次尝试，记录详细错误并抛出异常
+                            if (attempt == maxRetries) {
+                                logDetailedError(rawResponse, mindMapJson, fixedJson, aggressiveFixed, 
+                                                e, e2, e3, documentId, attempt);
+                                // 尝试创建最小有效JSON作为最后的备选方案
+                                String minimalJson = createMinimalValidJson(rawResponse, fileName);
+                                try {
+                                    objectMapper.readTree(minimalJson);
+                                    logger.warn("使用最小有效JSON结构 - 文档ID: {}, 尝试次数: {}", documentId, attempt);
+                                    return minimalJson;
+                                } catch (Exception e4) {
+                                    throw new RuntimeException("生成的脑图数据格式错误，所有修复尝试均失败: " + 
+                                        e.getMessage() + 
+                                        (e2.getMessage() != null ? "，修复后: " + e2.getMessage() : "") +
+                                        (e3.getMessage() != null ? "，激进修复后: " + e3.getMessage() : "") +
+                                        (e4.getMessage() != null ? "，最小JSON也失败: " + e4.getMessage() : ""));
+                                }
+                            } else {
+                                // 不是最后一次尝试，记录警告并继续重试
+                                logger.warn("修复失败，将重试 - 文档ID: {}, 尝试次数: {}/{}, 错误: {}", 
+                                           documentId, attempt, maxRetries, e3.getMessage());
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("生成脑图失败 - 文档ID: {}, 尝试次数: {}/{}", documentId, attempt, maxRetries, e);
+                if (attempt == maxRetries) {
+                    // 最后一次尝试失败，抛出异常
+                    throw new RuntimeException("生成脑图失败（已重试" + (maxRetries - 1) + "次）: " + e.getMessage(), e);
+                }
+                // 否则继续重试
+            }
+            
+            // 重试前等待一小段时间
+            if (attempt < maxRetries) {
+                try {
+                    Thread.sleep(1000 * attempt); // 递增等待时间：1秒、2秒、3秒...
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("重试等待被中断", ie);
+                }
+            }
+        }
+        
+        // 理论上不会到达这里，但为了编译通过
+        throw new RuntimeException("生成脑图失败：所有重试均失败");
+    }
+    
+    /**
+     * 记录详细的错误信息
+     */
+    private void logDetailedError(String rawResponse, String mindMapJson, String fixedJson, 
+                                  String aggressiveFixed, Exception e1, Exception e2, Exception e3,
+                                  Long documentId, int attempt) {
+        logger.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        logger.error("脑图生成失败 - 文档ID: {}, 尝试次数: {}", documentId, attempt);
+        logger.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        logger.error("原始响应长度: {}, 前1000字符: {}", 
+            rawResponse.length(), 
+            rawResponse.length() > 1000 ? rawResponse.substring(0, 1000) + "..." : rawResponse);
+        logger.error("提取的JSON长度: {}, 前500字符: {}", 
+            mindMapJson.length(), 
+            mindMapJson.length() > 500 ? mindMapJson.substring(0, 500) + "..." : mindMapJson);
+        logger.error("修复后的JSON长度: {}, 前500字符: {}", 
+            fixedJson.length(), 
+            fixedJson.length() > 500 ? fixedJson.substring(0, 500) + "..." : fixedJson);
+        logger.error("激进修复后的JSON长度: {}, 前500字符: {}", 
+            aggressiveFixed.length(), 
+            aggressiveFixed.length() > 500 ? aggressiveFixed.substring(0, 500) + "..." : aggressiveFixed);
+        logger.error("首次验证错误: {}", e1.getMessage());
+        if (e2 != null) {
+            logger.error("修复后错误: {}", e2.getMessage());
+        }
+        if (e3 != null) {
+            logger.error("激进修复后错误: {}", e3.getMessage());
+        }
+        logger.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    }
+    
+    /**
+     * 构建脑图生成提示词（优化后的简洁版本）
+     */
+    private String buildMindMapPrompt(String fileName, int textLength, String contentAssessment, 
+                                      String truncatedText, int maxLevel, int maxNodesPerLevel) {
+        // 简化后的提示词，将格式要求前置，减少重复
+        return String.format(
+            "你是一个专业的思维导图生成助手。请根据文档内容生成结构化的思维导图。\n\n" +
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+            "**🚨 输出格式要求(最高优先级，必须严格遵守)**\n" +
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+            "**规则1：输出内容**\n" +
+            "- 你的输出必须且只能是纯JSON格式\n" +
+            "- 禁止输出任何其他内容：说明文字、代码块标记(```json或```)、注释、解释、前缀或后缀文字\n" +
+            "- 输出的第一个字符必须是 {，最后一个字符必须是 }\n\n" +
+            "**规则2：JSON格式规范(违反任何一条都会导致解析失败)**\n" +
+            "- ✓ 所有字符串必须用双引号(\")包裹，禁止使用单引号(')\n" +
+            "- ✓ 所有对象键(字段名)必须用双引号包裹：\"id\"、\"topic\"、\"children\"\n" +
+            "- ✓ 禁止尾随逗号：最后一个元素后不能有逗号\n" +
+            "- ✓ 所有括号必须匹配：每个 { 必须有对应的 }，每个 [ 必须有对应的 ]\n" +
+            "- ✓ 字符串内的特殊字符必须转义：\\n、\\r、\\t、\\\"、\\\\\n" +
+            "- ✓ 禁止未闭合的字符串、数组或对象\n" +
+            "- ✓ JSON必须完整，不能截断或省略\n" +
+            "- ✓ 所有节点必须有 \"id\"、\"topic\" 和 \"children\" 三个字段\n" +
+            "- ✓ \"children\" 字段必须是数组类型，即使为空也要写成 []\n\n" +
+            "**规则3：JSON结构(jsMind格式)**\n" +
+            "{\"meta\":{\"name\":\"思维导图名称\",\"author\":\"系统\",\"version\":\"1.0\"},\"format\":\"node_tree\",\"data\":{\"id\":\"root\",\"topic\":\"中心主题\",\"children\":[{\"id\":\"node1\",\"topic\":\"一级节点\",\"children\":[{\"id\":\"node1-1\",\"topic\":\"二级节点\",\"children\":[]}]}]}}\n\n" +
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+            "**文档信息**\n" +
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+            "文档名称：%s\n" +
+            "文档长度：%d 字符\n" +
+            "内容评估：%s\n\n" +
+            "**文档内容**：\n%s\n\n" +
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+            "**生成要求**\n" +
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+            "1. **内容要求**：\n" +
+            "   - 必须严格按照文档的实际内容生成，禁止生成模板化结构\n" +
+            "   - 禁止猜测或补充文档中没有的内容\n" +
+            "   - 节点文字必须来自文档中的原始文字，不要改写\n" +
+            "   - 如果文档中没有某个章节，绝对不要生成\n\n" +
+            "2. **层级限制**：\n" +
+            "   - 层级绝对不超过3层(中心主题+最多3层子节点)\n" +
+            "   - 当前建议最大层级：%d层\n" +
+            "   - 节点数量：一级节点不超过%d个，二级节点每个一级节点下不超过%d个，三级节点每个二级节点下不超过%d个\n" +
+            "   - 如果内容很多，必须精选最重要的内容\n\n" +
+            "3. **生成规则**：\n" +
+            "   - 中心主题(第0层)使用文档名称：%s\n" +
+            "   - 一级节点(第1层)：文档中实际存在的主要章节标题或核心主题\n" +
+            "   - 二级节点(第2层)：各章节中的实际段落、要点、具体内容\n" +
+            "   - 三级节点(第3层，可选)：二级节点下的具体细节或子要点\n" +
+            "   - 根据文档长度自动调整详细程度：短文档简化，长文档精选核心内容\n\n" +
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+            "**⚠️ 输出前最后检查**\n" +
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+            "1. 输出是否以 { 开头，以 } 结尾？\n" +
+            "2. 是否没有任何说明文字、注释或代码块标记？\n" +
+            "3. 所有字符串是否都用双引号包裹？\n" +
+            "4. 是否没有尾随逗号？\n" +
+            "5. 所有括号是否匹配？\n" +
+            "6. JSON是否完整(没有截断)？\n\n" +
+            "**如果以上任何一项不符合，请修正后再输出！**\n" +
+            "**只返回JSON，不要有任何其他文字！**",
+            fileName,
+            textLength,
+            contentAssessment,
+            truncatedText,
+            maxLevel,
+            maxNodesPerLevel,
+            maxNodesPerLevel / 2,
+            maxNodesPerLevel / 3,
+            fileName
+        );
     }
 }
 
