@@ -39,7 +39,7 @@
           编辑翻译
         </el-button>
         <el-button
-          v-if="translationContent && originalText"
+          v-if="translationContent"
           type="info"
           size="small"
           @click="toggleFullscreen"
@@ -71,7 +71,8 @@
           <el-icon class="loading-icon is-loading"><Loading /></el-icon>
           <p>翻译中，请稍候...</p>
         </div>
-        <div v-else-if="translationContent && originalText" class="comparison-view">
+        <!-- 全屏模式：显示原文和译文对比 -->
+        <div v-else-if="isFullscreen && translationContent && originalText" class="comparison-view">
           <div class="comparison-container">
             <div class="text-panel original-panel">
               <div class="panel-header">原文</div>
@@ -93,6 +94,7 @@
             </div>
           </div>
         </div>
+        <!-- 默认模式：只显示译文 -->
         <div v-else-if="translationContent" class="translation-content">
           <div class="translation-display" v-html="renderedTranslation"></div>
         </div>
@@ -138,26 +140,119 @@ const isScrolling = ref(false) // 防止滚动循环
 const isFullscreen = ref(false) // 全屏状态
 const translateTabRef = ref(null) // 翻译组件引用
 
+// 处理文本，识别并标记标题，过滤多余空行，为标题添加对齐空行
+function processTextForDisplay(text) {
+  if (!text) return ''
+  
+  // 转义HTML
+  const escapeHtml = (str) => {
+    const div = document.createElement('div')
+    div.textContent = str
+    return div.innerHTML
+  }
+  
+  // 按行分割
+  const lines = text.split('\n')
+  
+  // 第一步：识别标题并标记
+  const processedLines = []
+  let lastWasEmpty = false
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const trimmed = line.trim()
+    
+    // 检查是否是空行
+    if (trimmed.length === 0) {
+      // 过滤连续的空行：如果上一个也是空行，跳过
+      if (!lastWasEmpty) {
+        processedLines.push({ type: 'empty', originalIndex: i })
+        lastWasEmpty = true
+      }
+      continue
+    }
+    
+    lastWasEmpty = false
+    
+    // 转义当前行的HTML
+    const escapedLine = escapeHtml(line)
+    
+    // 识别标题模式
+    const isTitle = 
+      // 数字编号模式：1. 1.1 第一章 第一节
+      /^(\d+[\.、]\s*|\d+\.\d+[\.、]\s*|第[一二三四五六七八九十\d]+[章节部分])/.test(trimmed) ||
+      // 全大写且长度适中（可能是英文标题）
+      (trimmed === trimmed.toUpperCase() && trimmed.length < 100 && trimmed.length > 3 && /^[A-Z\s\-]+$/.test(trimmed)) ||
+      // Markdown风格标题
+      /^#{1,6}\s/.test(trimmed) ||
+      // 短行且可能是标题（长度小于80且不以句号结尾）
+      (trimmed.length < 80 && !trimmed.endsWith('。') && !trimmed.endsWith('.') && 
+       (trimmed.includes('章') || trimmed.includes('节') || trimmed.includes('部分') || 
+        trimmed.includes('Chapter') || trimmed.includes('Section') || trimmed.includes('Part')))
+    
+    if (isTitle) {
+      processedLines.push({ type: 'title', content: escapedLine, originalIndex: i })
+    } else {
+      processedLines.push({ type: 'text', content: escapedLine, originalIndex: i })
+    }
+  }
+  
+  // 第二步：为标题添加对齐空行，过滤多余空行
+  const finalLines = []
+  for (let i = 0; i < processedLines.length; i++) {
+    const item = processedLines[i]
+    const prevItem = i > 0 ? processedLines[i - 1] : null
+    const nextItem = i < processedLines.length - 1 ? processedLines[i + 1] : null
+    
+    if (item.type === 'title') {
+      // 标题前：如果前面不是空行且不是另一个标题，添加一个空行
+      if (prevItem && prevItem.type === 'title') {
+        // 如果前一个也是标题，添加两个空行以分隔
+        finalLines.push('<br><br>')
+      } else if (!prevItem || prevItem.type !== 'empty') {
+        // 如果前面不是空行，添加一个空行
+        finalLines.push('<br>')
+      }
+      
+      // 标题本身
+      finalLines.push(`<div class="text-title">${item.content}</div>`)
+      
+      // 标题后：如果后面不是空行，添加一个空行
+      if (!nextItem || (nextItem.type !== 'empty' && nextItem.type !== 'title')) {
+        finalLines.push('<br>')
+      }
+    } else if (item.type === 'empty') {
+      // 空行：如果前后都是文本，保留一个空行用于段落分隔
+      // 但如果前后有标题，则跳过（标题已经自带空行）
+      if (prevItem && nextItem && prevItem.type === 'text' && nextItem.type === 'text') {
+        finalLines.push('<br>')
+      }
+      // 其他情况跳过空行（标题已经处理了空行）
+    } else {
+      // 普通文本
+      finalLines.push(item.content + '<br>')
+    }
+  }
+  
+  // 移除末尾多余的空行
+  while (finalLines.length > 0 && finalLines[finalLines.length - 1] === '<br>') {
+    finalLines.pop()
+  }
+  
+  return finalLines.join('')
+}
+
 const renderedTranslation = computed(() => {
   if (!translationContent.value) return ''
-  // 保持原始格式，不转换为markdown，只转义HTML
-  return escapeHtml(translationContent.value).replace(/\n/g, '<br>')
+  return processTextForDisplay(translationContent.value)
 })
 
 const renderedOriginal = computed(() => {
   if (!originalText.value) return ''
-  // 保持原始格式，不转换为markdown，只转义HTML
-  return escapeHtml(originalText.value).replace(/\n/g, '<br>')
+  return processTextForDisplay(originalText.value)
 })
 
-// 转义HTML，但保留换行
-function escapeHtml(text) {
-  const div = document.createElement('div')
-  div.textContent = text
-  return div.innerHTML
-}
-
-// 同步滚动处理
+// 同步滚动处理 - 改进版本，基于标题对齐
 const handleOriginalScroll = () => {
   if (isScrolling.value) return
   if (!originalContentRef.value || !translationContentRef.value) return
@@ -166,11 +261,48 @@ const handleOriginalScroll = () => {
   const originalEl = originalContentRef.value
   const translationEl = translationContentRef.value
   
-  // 计算滚动比例
-  const scrollRatio = originalEl.scrollTop / (originalEl.scrollHeight - originalEl.clientHeight)
-  const targetScrollTop = scrollRatio * (translationEl.scrollHeight - translationEl.clientHeight)
+  // 获取当前可见区域中的第一个标题元素
+  const originalTitles = originalEl.querySelectorAll('.text-title')
+  let nearestTitleIndex = -1
+  let minDistance = Infinity
   
-  translationEl.scrollTop = targetScrollTop
+  originalTitles.forEach((title, index) => {
+    const rect = title.getBoundingClientRect()
+    const containerRect = originalEl.getBoundingClientRect()
+    
+    // 如果标题在可见区域内或刚刚离开可见区域顶部
+    if (rect.top >= containerRect.top - 50 && rect.top <= containerRect.top + 100) {
+      const distance = Math.abs(rect.top - containerRect.top)
+      if (distance < minDistance) {
+        minDistance = distance
+        nearestTitleIndex = index
+      }
+    }
+  })
+  
+  // 如果找到了对应的标题，尝试在译文中找到对应的标题并滚动到相同位置
+  if (nearestTitleIndex >= 0) {
+    const translationTitles = translationEl.querySelectorAll('.text-title')
+    if (translationTitles[nearestTitleIndex]) {
+      const targetTitle = translationTitles[nearestTitleIndex]
+      const targetRect = targetTitle.getBoundingClientRect()
+      const containerRect = translationEl.getBoundingClientRect()
+      
+      // 计算需要滚动的距离，使标题对齐
+      const scrollOffset = targetRect.top - containerRect.top + translationEl.scrollTop
+      translationEl.scrollTop = scrollOffset
+    } else {
+      // 如果找不到对应标题，使用比例滚动
+      const scrollRatio = originalEl.scrollTop / (originalEl.scrollHeight - originalEl.clientHeight)
+      const targetScrollTop = scrollRatio * (translationEl.scrollHeight - translationEl.clientHeight)
+      translationEl.scrollTop = targetScrollTop
+    }
+  } else {
+    // 没有找到标题，使用比例滚动
+    const scrollRatio = originalEl.scrollTop / (originalEl.scrollHeight - originalEl.clientHeight)
+    const targetScrollTop = scrollRatio * (translationEl.scrollHeight - translationEl.clientHeight)
+    translationEl.scrollTop = targetScrollTop
+  }
   
   setTimeout(() => {
     isScrolling.value = false
@@ -185,11 +317,48 @@ const handleTranslationScroll = () => {
   const originalEl = originalContentRef.value
   const translationEl = translationContentRef.value
   
-  // 计算滚动比例
-  const scrollRatio = translationEl.scrollTop / (translationEl.scrollHeight - translationEl.clientHeight)
-  const targetScrollTop = scrollRatio * (originalEl.scrollHeight - originalEl.clientHeight)
+  // 获取当前可见区域中的第一个标题元素
+  const translationTitles = translationEl.querySelectorAll('.text-title')
+  let nearestTitleIndex = -1
+  let minDistance = Infinity
   
-  originalEl.scrollTop = targetScrollTop
+  translationTitles.forEach((title, index) => {
+    const rect = title.getBoundingClientRect()
+    const containerRect = translationEl.getBoundingClientRect()
+    
+    // 如果标题在可见区域内或刚刚离开可见区域顶部
+    if (rect.top >= containerRect.top - 50 && rect.top <= containerRect.top + 100) {
+      const distance = Math.abs(rect.top - containerRect.top)
+      if (distance < minDistance) {
+        minDistance = distance
+        nearestTitleIndex = index
+      }
+    }
+  })
+  
+  // 如果找到了对应的标题，尝试在原文中找到对应的标题并滚动到相同位置
+  if (nearestTitleIndex >= 0) {
+    const originalTitles = originalEl.querySelectorAll('.text-title')
+    if (originalTitles[nearestTitleIndex]) {
+      const targetTitle = originalTitles[nearestTitleIndex]
+      const targetRect = targetTitle.getBoundingClientRect()
+      const containerRect = originalEl.getBoundingClientRect()
+      
+      // 计算需要滚动的距离，使标题对齐
+      const scrollOffset = targetRect.top - containerRect.top + originalEl.scrollTop
+      originalEl.scrollTop = scrollOffset
+    } else {
+      // 如果找不到对应标题，使用比例滚动
+      const scrollRatio = translationEl.scrollTop / (translationEl.scrollHeight - translationEl.clientHeight)
+      const targetScrollTop = scrollRatio * (originalEl.scrollHeight - originalEl.clientHeight)
+      originalEl.scrollTop = targetScrollTop
+    }
+  } else {
+    // 没有找到标题，使用比例滚动
+    const scrollRatio = translationEl.scrollTop / (translationEl.scrollHeight - translationEl.clientHeight)
+    const targetScrollTop = scrollRatio * (originalEl.scrollHeight - originalEl.clientHeight)
+    originalEl.scrollTop = targetScrollTop
+  }
   
   setTimeout(() => {
     isScrolling.value = false
@@ -226,10 +395,8 @@ const handleTranslate = async () => {
     }
     translationContent.value = content || ''
     
-    // 加载原文用于对比
-    if (translationContent.value && !originalText.value) {
-      await loadOriginalText()
-    }
+    // 默认模式下不自动加载原文，只在全屏时加载
+    // 这样可以减少不必要的请求
     
     if (translationContent.value) {
       ElMessage.success('翻译完成')
@@ -379,6 +546,11 @@ const toggleFullscreen = async () => {
   
   try {
     if (!isFullscreen.value) {
+      // 进入全屏前，确保已加载原文
+      if (!originalText.value && props.docId) {
+        await loadOriginalText()
+      }
+      
       // 进入全屏
       if (translateTabRef.value.requestFullscreen) {
         await translateTabRef.value.requestFullscreen()
@@ -420,7 +592,8 @@ const handleFullscreenChange = () => {
 // 组件挂载时自动翻译
 onMounted(() => {
   if (props.docId) {
-    loadOriginalText()
+    // 默认模式下不加载原文，只在全屏时加载
+    // loadOriginalText() // 移除自动加载
     if (targetLanguage.value) {
       autoTranslate()
     }
@@ -534,6 +707,29 @@ onUnmounted(() => {
 .translation-display {
   line-height: 1.8;
   color: #303133;
+  max-width: 900px;
+  margin: 0 auto;
+  font-size: 15px;
+  letter-spacing: 0.3px;
+}
+
+.translation-display :deep(.text-title) {
+  font-weight: 600;
+  font-size: 1.1em;
+  color: var(--el-color-primary, #409eff);
+  margin: 24px 0 12px 0;
+  padding: 8px 0;
+  border-bottom: 2px solid var(--el-color-primary-light-8, #ecf5ff);
+  line-height: 1.6;
+}
+
+.translation-display :deep(.text-title:first-child) {
+  margin-top: 0;
+}
+
+.translation-display :deep(p) {
+  margin: 12px 0;
+  line-height: 1.8;
 }
 
 .comparison-view {
@@ -613,6 +809,37 @@ onUnmounted(() => {
 
 .text-content::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
+}
+
+/* 标题样式 */
+.text-content :deep(.text-title) {
+  font-weight: 600;
+  font-size: 1.1em;
+  color: var(--el-color-primary, #409eff);
+  margin: 24px 0 12px 0;
+  padding: 8px 0;
+  border-bottom: 2px solid var(--el-color-primary-light-8, #ecf5ff);
+  line-height: 1.6;
+}
+
+.text-content :deep(.text-title:first-child) {
+  margin-top: 0;
+}
+
+/* 增强对比效果 */
+.text-content {
+  font-size: 15px;
+  letter-spacing: 0.3px;
+}
+
+.text-content :deep(p) {
+  margin: 12px 0;
+  line-height: 1.8;
+}
+
+/* 段落间距优化 */
+.text-content :deep(br) {
+  line-height: 1.8;
 }
 
 .empty-state {
