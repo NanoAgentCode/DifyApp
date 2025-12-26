@@ -945,18 +945,46 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     
     /**
      * 尝试修复常见的JSON格式问题
-     * 主要处理字符串中的未转义字符
+     * 处理未闭合的字符串、数组和对象
      */
     private String tryFixJson(String json) {
         if (json == null || json.trim().isEmpty()) {
             return json;
         }
         
-        // 简单的修复：尝试找到并修复未闭合的字符串
-        // 注意：这是一个简化的修复，可能无法处理所有情况
+        // 第一步：修复未闭合的字符串
+        String fixed = fixUnclosedStrings(json);
+        
+        // 第二步：修复未闭合的数组和对象
+        fixed = fixUnclosedBrackets(fixed);
+        
+        // 第三步：确保JSON以 { 开头，以 } 结尾
+        if (!fixed.startsWith("{")) {
+            int firstBrace = fixed.indexOf("{");
+            if (firstBrace != -1) {
+                fixed = fixed.substring(firstBrace);
+            }
+        }
+        
+        if (!fixed.endsWith("}")) {
+            // 尝试找到最后一个完整的闭合括号
+            int lastBrace = findLastCompleteBrace(fixed);
+            if (lastBrace != -1 && lastBrace > 0) {
+                fixed = fixed.substring(0, lastBrace + 1);
+            }
+        }
+        
+        return fixed;
+    }
+    
+    /**
+     * 修复未闭合的字符串
+     */
+    private String fixUnclosedStrings(String json) {
         StringBuilder sb = new StringBuilder();
         boolean inString = false;
         boolean escaped = false;
+        int stringStart = -1;
         
         for (int i = 0; i < json.length(); i++) {
             char c = json.charAt(i);
@@ -974,7 +1002,13 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             }
             
             if (c == '"') {
-                inString = !inString;
+                if (!inString) {
+                    inString = true;
+                    stringStart = i;
+                } else {
+                    inString = false;
+                    stringStart = -1;
+                }
                 sb.append(c);
                 continue;
             }
@@ -995,24 +1029,146 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             }
         }
         
-        String fixed = sb.toString();
-        
-        // 确保JSON以 { 开头，以 } 结尾
-        if (!fixed.startsWith("{")) {
-            int firstBrace = fixed.indexOf("{");
-            if (firstBrace != -1) {
-                fixed = fixed.substring(firstBrace);
+        // 如果字符串未闭合，尝试修复
+        if (inString && stringStart != -1) {
+            // 查找字符串开始位置到当前位置之间是否有明显的结束标记
+            // 如果字符串太长（超过1000字符），可能是截断了，尝试在合适位置闭合
+            int stringLength = sb.length() - stringStart;
+            if (stringLength > 1000) {
+                // 在当前位置之前查找可能的结束位置（遇到换行、逗号、}、]等）
+                boolean foundEnd = false;
+                for (int i = sb.length() - 1; i >= stringStart; i--) {
+                    char ch = sb.charAt(i);
+                    if (ch == '\n' || ch == ',' || ch == '}' || ch == ']') {
+                        // 在这些字符之前闭合字符串
+                        sb.insert(i, '"');
+                        foundEnd = true;
+                        break;
+                    }
+                }
+                if (!foundEnd) {
+                    // 如果找不到合适位置，直接闭合
+                    sb.append('"');
+                }
+            } else {
+                // 简单情况：直接闭合字符串
+                sb.append('"');
             }
         }
         
-        if (!fixed.endsWith("}")) {
-            int lastBrace = fixed.lastIndexOf("}");
-            if (lastBrace != -1 && lastBrace > 0) {
-                fixed = fixed.substring(0, lastBrace + 1);
+        return sb.toString();
+    }
+    
+    /**
+     * 修复未闭合的数组和对象括号
+     */
+    private String fixUnclosedBrackets(String json) {
+        StringBuilder sb = new StringBuilder(json);
+        int braceCount = 0;  // { }
+        int bracketCount = 0; // [ ]
+        boolean inString = false;
+        boolean escaped = false;
+        
+        // 计算括号深度
+        for (int i = 0; i < sb.length(); i++) {
+            char c = sb.charAt(i);
+            
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            
+            if (c == '\\') {
+                escaped = true;
+                continue;
+            }
+            
+            if (c == '"') {
+                inString = !inString;
+                continue;
+            }
+            
+            if (inString) {
+                continue;
+            }
+            
+            if (c == '{') {
+                braceCount++;
+            } else if (c == '}') {
+                braceCount--;
+            } else if (c == '[') {
+                bracketCount++;
+            } else if (c == ']') {
+                bracketCount--;
             }
         }
         
-        return fixed;
+        // 修复未闭合的括号
+        // 先修复数组，再修复对象
+        while (bracketCount > 0) {
+            sb.append(']');
+            bracketCount--;
+        }
+        
+        while (braceCount > 0) {
+            sb.append('}');
+            braceCount--;
+        }
+        
+        return sb.toString();
+    }
+    
+    /**
+     * 找到最后一个完整的闭合括号位置
+     */
+    private int findLastCompleteBrace(String json) {
+        int braceCount = 0;
+        int bracketCount = 0;
+        boolean inString = false;
+        boolean escaped = false;
+        int lastValidBrace = -1;
+        
+        for (int i = 0; i < json.length(); i++) {
+            char c = json.charAt(i);
+            
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            
+            if (c == '\\') {
+                escaped = true;
+                continue;
+            }
+            
+            if (c == '"') {
+                inString = !inString;
+                continue;
+            }
+            
+            if (inString) {
+                continue;
+            }
+            
+            if (c == '{') {
+                braceCount++;
+            } else if (c == '}') {
+                braceCount--;
+                if (braceCount == 0 && bracketCount == 0) {
+                    lastValidBrace = i;
+                }
+            } else if (c == '[') {
+                bracketCount++;
+            } else if (c == ']') {
+                bracketCount--;
+                if (braceCount == 0 && bracketCount == 0) {
+                    // 如果这是数组的结束，但我们需要对象的结束
+                    // 继续查找
+                }
+            }
+        }
+        
+        return lastValidBrace;
     }
 }
 
