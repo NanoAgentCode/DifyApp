@@ -97,6 +97,8 @@ const generating = ref(false)
 const mindmapContainer = ref(null)
 let mind = null
 let doubleClickHandler = null
+let resizeObserver = null
+let resizeTimer = null
 
 // 从字符串中提取JSON部分
 const extractJsonFromString = (str) => {
@@ -280,6 +282,177 @@ const waitForElementVisible = (element, timeout = 5000) => {
   })
 }
 
+// 应用自适应缩放，使思维导图完整显示在容器内
+const applyAutoFit = () => {
+  if (!mind || !mindmapContainer.value) return
+  
+  try {
+    // 获取容器的实际尺寸
+    const containerRect = mindmapContainer.value.getBoundingClientRect()
+    const containerWidth = containerRect.width
+    const containerHeight = containerRect.height
+    
+    if (containerWidth === 0 || containerHeight === 0) {
+      console.warn('容器尺寸为0，跳过自适应缩放')
+      return
+    }
+    
+    // 获取jsMind的视图对象
+    const view = mind.view
+    if (!view) {
+      console.warn('jsMind view对象不存在')
+      return
+    }
+    
+    // 获取思维导图的边界框
+    // jsMind可能使用canvas或svg，需要找到实际的渲染元素
+    const jsmindElement = mindmapContainer.value.querySelector('.jsmind-inner') || 
+                         mindmapContainer.value.querySelector('svg') ||
+                         mindmapContainer.value.querySelector('canvas') ||
+                         mindmapContainer.value
+    
+    if (!jsmindElement) {
+      console.warn('未找到jsMind渲染元素')
+      return
+    }
+    
+    // 获取思维导图的实际尺寸
+    // 尝试多种方式获取尺寸
+    let mindMapWidth = 0
+    let mindMapHeight = 0
+    
+    // 方法1: 从jsMind的view对象获取
+    if (view.get_bounding_box) {
+      const bbox = view.get_bounding_box()
+      if (bbox) {
+        mindMapWidth = bbox.width || bbox.w || 0
+        mindMapHeight = bbox.height || bbox.h || 0
+      }
+    }
+    
+    // 方法2: 从DOM元素获取
+    if (mindMapWidth === 0 || mindMapHeight === 0) {
+      const jsmindRect = jsmindElement.getBoundingClientRect()
+      mindMapWidth = jsmindRect.width || jsmindElement.offsetWidth || 0
+      mindMapHeight = jsmindRect.height || jsmindElement.offsetHeight || 0
+    }
+    
+    // 方法3: 从scrollWidth/scrollHeight获取
+    if (mindMapWidth === 0 || mindMapHeight === 0) {
+      mindMapWidth = jsmindElement.scrollWidth || 0
+      mindMapHeight = jsmindElement.scrollHeight || 0
+    }
+    
+    if (mindMapWidth === 0 || mindMapHeight === 0) {
+      console.warn('无法获取思维导图尺寸，跳过自适应缩放')
+      return
+    }
+    
+    // 计算缩放比例（留出一些边距）
+    const padding = 40 // 边距
+    const scaleX = (containerWidth - padding) / mindMapWidth
+    const scaleY = (containerHeight - padding) / mindMapHeight
+    const scale = Math.min(scaleX, scaleY, 1) // 不超过1，不放大
+    
+    // 如果思维导图比容器小，不需要缩放
+    if (scale >= 1) {
+      // 重置缩放，居中显示
+      if (view.reset) {
+        view.reset()
+      } else if (view.set_zoom) {
+        view.set_zoom(1)
+      }
+      return
+    }
+    
+    // 应用缩放
+    if (view.set_zoom) {
+      view.set_zoom(scale)
+      console.log('应用自适应缩放:', { scale, containerWidth, containerHeight, mindMapWidth, mindMapHeight })
+    } else if (view.scale) {
+      view.scale(scale)
+    } else {
+      // 如果API不可用，尝试直接操作DOM
+      const transform = `scale(${scale})`
+      if (jsmindElement.style) {
+        jsmindElement.style.transform = transform
+        jsmindElement.style.transformOrigin = 'center center'
+      }
+    }
+    
+    // 居中显示
+    if (view.center_root) {
+      view.center_root()
+    } else if (view.focus_node) {
+      const rootNode = mind.get_node('root')
+      if (rootNode) {
+        view.focus_node(rootNode.id)
+      }
+    }
+    
+  } catch (error) {
+    console.warn('应用自适应缩放失败:', error)
+  }
+}
+
+// 窗口resize事件处理器
+let windowResizeHandler = null
+
+// 设置窗口和容器大小变化监听
+const setupResizeObserver = () => {
+  if (!mindmapContainer.value) return
+  
+  // 清理旧的observer
+  cleanupResizeObserver()
+  
+  // 使用ResizeObserver监听容器大小变化
+  if (window.ResizeObserver) {
+    resizeObserver = new ResizeObserver((entries) => {
+      // 防抖处理
+      if (resizeTimer) {
+        clearTimeout(resizeTimer)
+      }
+      resizeTimer = setTimeout(() => {
+        if (mind && mindmapContainer.value) {
+          applyAutoFit()
+        }
+      }, 300)
+    })
+    
+    resizeObserver.observe(mindmapContainer.value)
+  }
+  
+  // 同时监听窗口大小变化（作为后备）
+  windowResizeHandler = () => {
+    if (resizeTimer) {
+      clearTimeout(resizeTimer)
+    }
+    resizeTimer = setTimeout(() => {
+      if (mind && mindmapContainer.value) {
+        applyAutoFit()
+      }
+    }, 300)
+  }
+  
+  window.addEventListener('resize', windowResizeHandler)
+}
+
+// 清理resize监听
+const cleanupResizeObserver = () => {
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+  if (resizeTimer) {
+    clearTimeout(resizeTimer)
+    resizeTimer = null
+  }
+  if (windowResizeHandler) {
+    window.removeEventListener('resize', windowResizeHandler)
+    windowResizeHandler = null
+  }
+}
+
 // 初始化jsMind（添加防抖机制）
 let initJsMindTimer = null
 const initJsMind = async () => {
@@ -349,6 +522,8 @@ const initJsMind = async () => {
       // 清理旧的mind实例
       if (mind && mindmapContainer.value) {
         try {
+          // 清理resize监听
+          cleanupResizeObserver()
           // 移除事件监听器
           if (doubleClickHandler) {
             mindmapContainer.value.removeEventListener('dblclick', doubleClickHandler)
@@ -374,6 +549,16 @@ const initJsMind = async () => {
       mind = new jsMind(options)
       mind.show(jsmindData)
       console.log('jsMind实例创建成功')
+      
+      // 等待jsMind渲染完成后，应用自适应缩放
+      await nextTick()
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
+      // 应用自适应缩放
+      applyAutoFit()
+      
+      // 设置窗口大小变化监听
+      setupResizeObserver()
       
       // 添加编辑功能
       if (mind && mindmapContainer.value) {
@@ -647,6 +832,9 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  // 清理resize监听
+  cleanupResizeObserver()
+  
   // 清理mind实例
   if (mindmapContainer.value && doubleClickHandler) {
     try {
