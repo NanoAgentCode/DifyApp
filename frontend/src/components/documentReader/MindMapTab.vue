@@ -946,6 +946,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 
 .mindmap-container {
@@ -995,6 +996,9 @@ onUnmounted(() => {
   justify-content: center;
   align-items: center;
   flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
   color: #909399;
 }
 

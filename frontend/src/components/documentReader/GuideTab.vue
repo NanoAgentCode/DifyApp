@@ -322,7 +322,9 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   flex: 1;
-  min-height: 100%;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
   color: #909399;
 }
 

@@ -1,5 +1,5 @@
 <template>
-  <div class="translate-tab">
+  <div class="translate-tab" :class="{ 'fullscreen-mode': isFullscreen }" ref="translateTabRef">
     <div class="tab-header">
       <div class="header-info">
         <el-icon><Switch /></el-icon>
@@ -37,6 +37,16 @@
         >
           <el-icon><Edit /></el-icon>
           编辑翻译
+        </el-button>
+        <el-button
+          v-if="translationContent && originalText"
+          type="info"
+          size="small"
+          @click="toggleFullscreen"
+          :title="isFullscreen ? '退出全屏' : '全屏'"
+        >
+          <el-icon><FullScreen /></el-icon>
+          {{ isFullscreen ? '退出全屏' : '全屏' }}
         </el-button>
       </div>
       <div v-else class="edit-actions">
@@ -97,9 +107,9 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Switch, Refresh, Loading, Document, Edit } from '@element-plus/icons-vue'
+import { Switch, Refresh, Loading, Document, Edit, FullScreen } from '@element-plus/icons-vue'
 import { translateDocument, getDocumentTranslation, saveDocumentTranslation, getDocumentText } from '@/api/documentReader'
 import { renderMarkdown } from '@/composables/useMarkdown'
 
@@ -125,6 +135,8 @@ const hasAutoTranslated = ref(false) // 标记是否已自动翻译
 const originalContentRef = ref(null)
 const translationContentRef = ref(null)
 const isScrolling = ref(false) // 防止滚动循环
+const isFullscreen = ref(false) // 全屏状态
+const translateTabRef = ref(null) // 翻译组件引用
 
 const renderedTranslation = computed(() => {
   if (!translationContent.value) return ''
@@ -361,6 +373,50 @@ watch(() => targetLanguage.value, () => {
   }
 })
 
+// 切换全屏
+const toggleFullscreen = async () => {
+  if (!translateTabRef.value) return
+  
+  try {
+    if (!isFullscreen.value) {
+      // 进入全屏
+      if (translateTabRef.value.requestFullscreen) {
+        await translateTabRef.value.requestFullscreen()
+      } else if (translateTabRef.value.webkitRequestFullscreen) {
+        await translateTabRef.value.webkitRequestFullscreen()
+      } else if (translateTabRef.value.mozRequestFullScreen) {
+        await translateTabRef.value.mozRequestFullScreen()
+      } else if (translateTabRef.value.msRequestFullscreen) {
+        await translateTabRef.value.msRequestFullscreen()
+      }
+    } else {
+      // 退出全屏
+      if (document.exitFullscreen) {
+        await document.exitFullscreen()
+      } else if (document.webkitExitFullscreen) {
+        await document.webkitExitFullscreen()
+      } else if (document.mozCancelFullScreen) {
+        await document.mozCancelFullScreen()
+      } else if (document.msExitFullscreen) {
+        await document.msExitFullscreen()
+      }
+    }
+  } catch (error) {
+    console.error('全屏操作失败:', error)
+    ElMessage.error('全屏操作失败')
+  }
+}
+
+// 监听全屏状态变化
+const handleFullscreenChange = () => {
+  isFullscreen.value = !!(
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.mozFullScreenElement ||
+    document.msFullscreenElement
+  )
+}
+
 // 组件挂载时自动翻译
 onMounted(() => {
   if (props.docId) {
@@ -369,6 +425,20 @@ onMounted(() => {
       autoTranslate()
     }
   }
+  
+  // 监听全屏状态变化
+  document.addEventListener('fullscreenchange', handleFullscreenChange)
+  document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
+  document.addEventListener('mozfullscreenchange', handleFullscreenChange)
+  document.addEventListener('msfullscreenchange', handleFullscreenChange)
+})
+
+// 组件卸载时移除监听
+onUnmounted(() => {
+  document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
+  document.removeEventListener('mozfullscreenchange', handleFullscreenChange)
+  document.removeEventListener('msfullscreenchange', handleFullscreenChange)
 })
 </script>
 
@@ -422,7 +492,8 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: auto;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .loading-state {
@@ -431,6 +502,9 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
   color: #909399;
 }
 
@@ -565,6 +639,23 @@ onMounted(() => {
   font-size: 14px;
   color: #909399;
   text-align: center;
+}
+
+/* 全屏模式样式 */
+.translate-tab.fullscreen-mode {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  background: var(--el-bg-color, #ffffff);
+}
+
+.translate-tab.fullscreen-mode .tab-content {
+  height: calc(100vh - 60px);
 }
 </style>
 

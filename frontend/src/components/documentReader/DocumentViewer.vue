@@ -568,9 +568,10 @@ onMounted(() => {
 
 .pdf-container {
   width: 100%;
+  min-height: 100%;
   display: flex;
-  justify-content: flex-start;
-  align-items: flex-start;
+  justify-content: center;
+  align-items: center;
   background: var(--el-bg-color-page, #f5f7fa);
 }
 
@@ -660,13 +661,19 @@ onMounted(() => {
 .markdown-container {
   width: 100%;
   max-width: 900px;
+  min-height: 100%;
   padding: 20px;
   background: var(--el-bg-color, #ffffff);
   border-radius: var(--el-border-radius-base, 4px);
   box-shadow: var(--el-box-shadow-light, 0 2px 12px 0 rgba(0, 0, 0, 0.1));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
 .markdown-content {
+  width: 100%;
   line-height: 1.6;
   color: var(--el-text-color-primary, #303133);
 }
@@ -674,13 +681,19 @@ onMounted(() => {
 .text-container {
   width: 100%;
   max-width: 900px;
+  min-height: 100%;
   padding: 20px;
   background: var(--el-bg-color, #ffffff);
   border-radius: var(--el-border-radius-base, 4px);
   box-shadow: var(--el-box-shadow-light, 0 2px 12px 0 rgba(0, 0, 0, 0.1));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
 .text-content {
+  width: 100%;
   white-space: pre-wrap;
   word-wrap: break-word;
   font-family: 'Courier New', monospace;
@@ -692,14 +705,20 @@ onMounted(() => {
 .docx-container {
   width: 100%;
   max-width: 900px;
+  min-height: 100%;
   padding: 20px;
   background: var(--el-bg-color, #ffffff);
   border-radius: var(--el-border-radius-base, 4px);
   box-shadow: var(--el-box-shadow-light, 0 2px 12px 0 rgba(0, 0, 0, 0.1));
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
 .docx-content {
+  width: 100%;
   line-height: 1.8;
   color: var(--el-text-color-primary, #303133);
   font-family: 'Microsoft YaHei', 'SimSun', Arial, sans-serif;
@@ -811,7 +830,9 @@ onMounted(() => {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  height: 400px;
+  width: 100%;
+  min-height: 100%;
+  flex: 1;
   color: var(--el-text-color-placeholder, #909399);
 }
 
