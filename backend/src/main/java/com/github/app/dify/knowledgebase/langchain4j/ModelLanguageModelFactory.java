@@ -21,7 +21,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.netty.http.client.HttpClient;
+import io.netty.channel.ChannelOption;
 import reactor.util.function.Tuples;
+import reactor.util.retry.Retry;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -78,13 +81,34 @@ public class ModelLanguageModelFactory {
                     // 构建请求体
                     Map<String, Object> requestBody = buildRequestBody(messages, qaModel);
                     
-                    // 调用LLM API
+                    // 调用LLM API，添加重试机制
                     String responseJson = client.post()
                             .uri("")
                             .bodyValue(requestBody)
                             .retrieve()
                             .bodyToMono(String.class)
                             .timeout(Duration.ofSeconds(120))
+                            .retryWhen(Retry.backoff(2, Duration.ofSeconds(1))
+                                    .filter(throwable -> {
+                                        // 只对网络错误和连接重置进行重试
+                                        if (throwable instanceof java.net.SocketException) {
+                                            logger.warn("检测到网络连接错误，将重试: {}", throwable.getMessage());
+                                            return true;
+                                        }
+                                        if (throwable instanceof java.util.concurrent.TimeoutException) {
+                                            logger.warn("检测到超时错误，将重试: {}", throwable.getMessage());
+                                            return true;
+                                        }
+                                        if (throwable.getMessage() != null && 
+                                            (throwable.getMessage().contains("Connection reset") ||
+                                             throwable.getMessage().contains("connection reset"))) {
+                                            logger.warn("检测到连接重置错误，将重试: {}", throwable.getMessage());
+                                            return true;
+                                        }
+                                        return false;
+                                    })
+                                    .doBeforeRetry(retrySignal -> 
+                                        logger.info("重试LLM API调用，第{}次重试", retrySignal.totalRetries() + 1)))
                             .block();
                     
                     // 解析响应
@@ -103,8 +127,14 @@ public class ModelLanguageModelFactory {
                     String baseUrl = buildApiUrl(model);
                     ProviderType providerType = ProviderType.fromValue(model.getProvider());
                     
+                    // 配置 HttpClient 连接和读取超时
+                    HttpClient httpClient = HttpClient.create()
+                            .responseTimeout(Duration.ofSeconds(120))
+                            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000); // 30秒连接超时
+                    
                     WebClient.Builder builder = WebClient.builder()
                             .baseUrl(baseUrl)
+                            .clientConnector(new org.springframework.http.client.reactive.ReactorClientHttpConnector(httpClient))
                             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                             .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024));
                     
@@ -153,6 +183,23 @@ public class ModelLanguageModelFactory {
                             })
                             .bodyToFlux(DataBuffer.class)
                             .timeout(Duration.ofSeconds(300))
+                            .retryWhen(Retry.backoff(1, Duration.ofSeconds(2))
+                                    .filter(throwable -> {
+                                        // 只对网络错误和连接重置进行重试（流式请求只重试1次，避免重复数据）
+                                        if (throwable instanceof java.net.SocketException) {
+                                            logger.warn("流式响应检测到网络连接错误，将重试: {}", throwable.getMessage());
+                                            return true;
+                                        }
+                                        if (throwable.getMessage() != null && 
+                                            (throwable.getMessage().contains("Connection reset") ||
+                                             throwable.getMessage().contains("connection reset"))) {
+                                            logger.warn("流式响应检测到连接重置错误，将重试: {}", throwable.getMessage());
+                                            return true;
+                                        }
+                                        return false;
+                                    })
+                                    .doBeforeRetry(retrySignal -> 
+                                        logger.info("重试流式LLM API调用，第{}次重试", retrySignal.totalRetries() + 1)))
                             .doOnError(error -> {
                                 logger.error("接收流式响应时发生错误", error);
                             })
@@ -207,8 +254,14 @@ public class ModelLanguageModelFactory {
                     String baseUrl = buildApiUrl(model);
                     ProviderType providerType = ProviderType.fromValue(model.getProvider());
                     
+                    // 配置 HttpClient 连接和读取超时（流式请求需要更长的超时时间）
+                    HttpClient httpClient = HttpClient.create()
+                            .responseTimeout(Duration.ofSeconds(300))
+                            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000); // 30秒连接超时
+                    
                     WebClient.Builder builder = WebClient.builder()
                             .baseUrl(baseUrl)
+                            .clientConnector(new org.springframework.http.client.reactive.ReactorClientHttpConnector(httpClient))
                             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                             .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024));
                     

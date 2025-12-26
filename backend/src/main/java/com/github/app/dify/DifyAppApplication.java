@@ -35,6 +35,7 @@ import java.nio.charset.StandardCharsets;
         "com.github.app.dify.knowledgebase",
         "com.github.app.dify.system",
         "com.github.app.dify.statistics",
+        "com.github.app.dify.documentreader",
         "com.github.app.dify.common",
     "com.github.app.dify"  // 保留根包以扫描主应用类和其他可能遗留的组件
 })
@@ -42,13 +43,15 @@ import java.nio.charset.StandardCharsets;
         "com.github.app.dify.auth.domain",
         "com.github.app.dify.chat.domain",
         "com.github.app.dify.knowledgebase.domain",
-        "com.github.app.dify.system.domain"
+        "com.github.app.dify.system.domain",
+        "com.github.app.dify.documentreader.domain"
 })
 @EnableJpaRepositories(basePackages = {
         "com.github.app.dify.auth.repository",
         "com.github.app.dify.chat.repository",
         "com.github.app.dify.knowledgebase.repository",
-        "com.github.app.dify.system.repository"
+        "com.github.app.dify.system.repository",
+        "com.github.app.dify.documentreader.repository"
 })
 public class DifyAppApplication {
 

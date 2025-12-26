@@ -2,6 +2,7 @@ package com.github.app.dify.knowledgebase.langchain4j;
 
 import com.github.app.dify.knowledgebase.repository.KnowledgeBaseRepository;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
+import com.github.app.dify.system.config.DocumentReaderConfig;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.slf4j.Logger;
@@ -22,6 +23,9 @@ public class VectorStoreFactory {
     
     @Autowired
     private KnowledgeBaseRepository knowledgeBaseRepository;
+    
+    @Autowired(required = false)
+    private DocumentReaderConfig documentReaderConfig;
     
     // 策略缓存：类型 -> 策略实例
     private java.util.Map<String, VectorStoreStrategy> strategyMap;
@@ -91,6 +95,9 @@ public class VectorStoreFactory {
             return ChromaEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
         } else if ("weaviate".equals(strategyType)) {
             return WeaviateEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
+        } else if ("elasticsearch".equals(strategyType)) {
+            // Elasticsearch使用QdrantEmbeddingStore的相同接口（因为它们都实现了VectorStoreStrategy）
+            return QdrantEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
         } else if ("pgvector".equals(strategyType)) {
             return PgVectorEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
         } else {
@@ -105,6 +112,15 @@ public class VectorStoreFactory {
      * @return 向量存储类型（qdrant、faiss、milvus、chroma、weaviate、elasticsearch、pgvector），默认为qdrant
      */
     private String getVectorStoreType(Long knowledgeBaseId) {
+        // 如果是文档解读（knowledgeBaseId为0），从DocumentReaderConfig读取
+        if (knowledgeBaseId != null && knowledgeBaseId == 0L && documentReaderConfig != null) {
+            String type = documentReaderConfig.getVectorStoreType();
+            if (type != null && !type.trim().isEmpty()) {
+                logger.debug("从文档解读配置读取向量存储类型: {}", type);
+                return type.toLowerCase();
+            }
+        }
+        
         try {
             return knowledgeBaseRepository.findById(knowledgeBaseId)
                     .map(kb -> {
@@ -116,5 +132,15 @@ public class VectorStoreFactory {
             logger.warn("获取知识库向量存储类型失败，使用默认值qdrant - 知识库ID: {}", knowledgeBaseId, e);
             return "qdrant";
         }
+    }
+    
+    /**
+     * 为文档解读创建EmbeddingStore（使用文档解读配置）
+     * @return EmbeddingStore实例
+     */
+    public EmbeddingStore<TextSegment> createDocumentReaderEmbeddingStore() {
+        // 文档解读使用固定的知识库ID（0）来标识
+        // 向量存储类型从DocumentReaderConfig读取
+        return createEmbeddingStore(0L);
     }
 }

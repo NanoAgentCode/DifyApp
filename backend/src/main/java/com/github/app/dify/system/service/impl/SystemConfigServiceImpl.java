@@ -114,6 +114,11 @@ public class SystemConfigServiceImpl implements SystemConfigService {
             reloadOcrConfig();
         }
         
+        // 如果更新的是文档解读相关配置，重新加载 DocumentReaderConfig
+        if (config.getConfigKey() != null && config.getConfigKey().startsWith("documentReader.")) {
+            reloadDocumentReaderConfig();
+        }
+        
         return convertToResp(config);
     }
     
@@ -174,6 +179,23 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         } catch (Exception e) {
             // OcrConfig 可能不存在，忽略错误
             logger.debug("重新加载 OCR 配置失败（可能 OcrConfig 未初始化）: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * 重新加载文档解读配置
+     */
+    private void reloadDocumentReaderConfig() {
+        try {
+            com.github.app.dify.system.config.DocumentReaderConfig documentReaderConfig = 
+                applicationContext.getBean(com.github.app.dify.system.config.DocumentReaderConfig.class);
+            if (documentReaderConfig != null) {
+                documentReaderConfig.reload();
+                logger.info("文档解读配置已重新加载");
+            }
+        } catch (Exception e) {
+            // DocumentReaderConfig 可能不存在，忽略错误
+            logger.debug("重新加载文档解读配置失败（可能 DocumentReaderConfig 未初始化）: {}", e.getMessage());
         }
     }
     

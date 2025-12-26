@@ -353,12 +353,17 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
     /**
      * 向量条目
      */
+    @SuppressWarnings("unused") // setter方法由Jackson在反序列化时通过反射调用
     private static class VectorEntry {
         private String vectorId;
         private List<Float> vector;
         private String text;
         private Long documentId;
         private Integer chunkIndex;
+        
+        // 默认构造函数（用于Jackson反序列化）
+        public VectorEntry() {
+        }
         
         public VectorEntry(String vectorId, List<Float> vector, String text, Long documentId, Integer chunkIndex) {
             this.vectorId = vectorId;
@@ -372,20 +377,40 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
             return vectorId;
         }
         
+        public void setVectorId(String vectorId) {
+            this.vectorId = vectorId;
+        }
+        
         public List<Float> getVector() {
             return vector;
+        }
+        
+        public void setVector(List<Float> vector) {
+            this.vector = vector;
         }
         
         public String getText() {
             return text;
         }
         
+        public void setText(String text) {
+            this.text = text;
+        }
+        
         public Long getDocumentId() {
             return documentId;
         }
         
+        public void setDocumentId(Long documentId) {
+            this.documentId = documentId;
+        }
+        
         public Integer getChunkIndex() {
             return chunkIndex;
+        }
+        
+        public void setChunkIndex(Integer chunkIndex) {
+            this.chunkIndex = chunkIndex;
         }
     }
     

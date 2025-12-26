@@ -151,6 +151,18 @@ const routes = [
                 component: () => import('@/views/admin/Statistics.vue'),
                 meta: {title: '数据统计', requiresAuth: true, requiresAdmin: true}
             },
+            {
+                path: 'document-reader',
+                name: 'DocumentReaderManagement',
+                component: () => import('@/views/admin/DocumentReaderManagement.vue'),
+                meta: {title: '文档解读', requiresAuth: true}
+            },
+            {
+                path: 'document-reader/:docId',
+                name: 'DocumentReader',
+                component: () => import('@/views/admin/DocumentReader.vue'),
+                meta: {title: '文档解读', requiresAuth: true}
+            },
         ]
     },
     {
@@ -213,6 +225,18 @@ const routes = [
                 name: 'UserAIDrawIO',
                 component: () => import('@/views/user/AIDrawIO.vue'),
                 meta: {title: '智能框图', requiresAuth: true}
+            },
+            {
+                path: 'document-reader',
+                name: 'UserDocumentReaderManagement',
+                component: () => import('@/views/user/DocumentReaderManagement.vue'),
+                meta: {title: '文档解读', requiresAuth: true}
+            },
+            {
+                path: 'document-reader/:docId',
+                name: 'UserDocumentReader',
+                component: () => import('@/views/user/DocumentReader.vue'),
+                meta: {title: '文档解读', requiresAuth: true}
             }
         ]
     },

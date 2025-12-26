@@ -158,6 +158,53 @@
             </el-radio-group>
           </div>
         </el-form-item>
+        <!-- 文档解读模型ID配置特殊处理 -->
+        <el-form-item 
+          v-else-if="isDocumentReaderModelConfig"
+          label="模型" 
+          prop="configValue"
+        >
+          <el-select
+            v-model="form.configValue"
+            placeholder="请选择模型"
+            style="width: 100%"
+            filterable
+            :loading="loadingModels"
+            @focus="loadQAModels"
+          >
+            <el-option
+              v-for="model in qaModels"
+              :key="model.id"
+              :label="`${model.name} (ID: ${model.id})`"
+              :value="String(model.id)"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>{{ model.name }}</span>
+                <span style="color: #909399; font-size: 12px;">ID: {{ model.id }}</span>
+              </div>
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <!-- 文档解读向量库类型配置特殊处理 -->
+        <el-form-item 
+          v-else-if="isDocumentReaderVectorStoreTypeConfig"
+          label="向量库类型" 
+          prop="configValue"
+        >
+          <el-select
+            v-model="form.configValue"
+            placeholder="请选择向量库类型"
+            style="width: 100%"
+          >
+            <el-option label="Qdrant" value="qdrant" />
+            <el-option label="FAISS" value="faiss" />
+            <el-option label="Milvus" value="milvus" />
+            <el-option label="Chroma" value="chroma" />
+            <el-option label="Weaviate" value="weaviate" />
+            <el-option label="Elasticsearch" value="elasticsearch" />
+            <el-option label="PgVector" value="pgvector" />
+          </el-select>
+        </el-form-item>
         <el-form-item 
           v-else
           label="配置值" 
@@ -209,6 +256,7 @@ import { getAllConfigs, setOrUpdateConfig, deleteConfig } from '@/api/systemConf
 import { industrialThemes, getThemeById } from '@/utils/themes'
 import { GLOBAL_THEME_CONFIG_KEY } from '@/utils/globalTheme'
 import { applyGlobalTheme } from '@/utils/globalTheme'
+import { getAvailableQAModels } from '@/api/model'
 
 // 预定义配置键列表
 const predefinedConfigKeys = [
@@ -281,6 +329,41 @@ const predefinedConfigKeys = [
     description: 'Dify API 文件URL前缀（用于拼接相对路径的文件URL）',
     group: 'dify',
     type: 'string'
+  },
+  {
+    key: 'documentReader.defaultQAModelId',
+    label: 'documentReader.defaultQAModelId',
+    description: '文档解读默认使用的问答模型ID',
+    group: 'documentReader',
+    type: 'number'
+  },
+  {
+    key: 'documentReader.defaultEmbeddingModelId',
+    label: 'documentReader.defaultEmbeddingModelId',
+    description: '文档解读默认使用的向量化模型ID',
+    group: 'documentReader',
+    type: 'number'
+  },
+  {
+    key: 'documentReader.vectorStoreType',
+    label: 'documentReader.vectorStoreType',
+    description: '文档解读使用的向量库类型（qdrant、faiss、milvus、chroma、weaviate、elasticsearch、pgvector等）',
+    group: 'documentReader',
+    type: 'string'
+  },
+  {
+    key: 'documentReader.vectorDatabaseId',
+    label: 'documentReader.vectorDatabaseId',
+    description: '文档解读使用的向量库实例ID（可选，如果向量库类型需要实例ID）',
+    group: 'documentReader',
+    type: 'number'
+  },
+  {
+    key: 'documentReader.topK',
+    label: 'documentReader.topK',
+    description: '文档解读检索时的Top-K数量（默认5）',
+    group: 'documentReader',
+    type: 'number'
   }
 ]
 
@@ -303,6 +386,10 @@ const form = ref({
 
 // 主题相关
 const selectedTheme = ref('element') // 默认使用饿了么蓝
+
+// 模型相关
+const qaModels = ref([])
+const loadingModels = ref(false)
 
 // 获取已配置的配置键集合
 const configuredKeys = computed(() => {
@@ -336,6 +423,35 @@ const availableConfigKeys = computed(() => {
 const isGlobalThemeConfig = computed(() => {
   return form.value.configKey === GLOBAL_THEME_CONFIG_KEY
 })
+
+// 判断是否是文档解读模型配置
+const isDocumentReaderModelConfig = computed(() => {
+  return form.value.configKey === 'documentReader.defaultQAModelId' || 
+         form.value.configKey === 'documentReader.defaultEmbeddingModelId'
+})
+
+// 判断是否是文档解读向量库类型配置
+const isDocumentReaderVectorStoreTypeConfig = computed(() => {
+  return form.value.configKey === 'documentReader.vectorStoreType'
+})
+
+// 加载问答模型列表
+const loadQAModels = async () => {
+  if (qaModels.value.length > 0 || loadingModels.value) {
+    return // 已经加载过或正在加载
+  }
+  
+  loadingModels.value = true
+  try {
+    const response = await getAvailableQAModels()
+    qaModels.value = response || []
+  } catch (error) {
+    console.error('加载模型列表失败:', error)
+    ElMessage.warning('加载模型列表失败，请手动输入模型ID')
+  } finally {
+    loadingModels.value = false
+  }
+}
 
 // 配置键变化处理
 const handleConfigKeyChange = (configKey) => {
@@ -408,7 +524,8 @@ const availableGroups = computed(() => {
     'help': '帮助配置',
     'system': '系统配置',
     'dify': 'Dify配置',
-    'ocr': 'OCR服务'
+    'ocr': 'OCR服务',
+    'documentReader': '文档解读配置'
   }
   
   // 返回分组选项，优先显示已知分组，然后显示其他分组
@@ -429,7 +546,7 @@ const availableGroups = computed(() => {
   
   // 已知分组按固定顺序排列
   const orderedKnownGroups = []
-  const knownOrder = ['help', 'system', 'dify', 'ocr']
+  const knownOrder = ['help', 'system', 'dify', 'ocr', 'documentReader']
   knownOrder.forEach(key => {
     const found = knownGroups.find(g => g.value === key)
     if (found) {

@@ -47,6 +47,11 @@ mermaid.initialize({
  */
 export function renderMarkdown(content) {
   if (!content) return ''
+  
+  // 确保 content 是字符串类型
+  if (typeof content !== 'string') {
+    content = String(content)
+  }
 
   try {
     // 预处理：处理数学公式（必须在 Markdown 渲染之前处理）

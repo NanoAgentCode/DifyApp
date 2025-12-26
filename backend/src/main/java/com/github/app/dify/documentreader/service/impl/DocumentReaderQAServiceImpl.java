@@ -1,0 +1,344 @@
+package com.github.app.dify.documentreader.service.impl;
+
+import com.github.app.dify.documentreader.domain.DocumentReader;
+import com.github.app.dify.documentreader.repository.DocumentReaderRepository;
+import com.github.app.dify.documentreader.req.DocumentQARequest;
+import com.github.app.dify.documentreader.resp.DocumentQAResponse;
+import com.github.app.dify.documentreader.service.DocumentReaderQAService;
+import com.github.app.dify.documentreader.service.DocumentReaderRetrievalService;
+import com.github.app.dify.knowledgebase.domain.QAModel;
+import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
+import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
+import com.github.app.dify.knowledgebase.langchain4j.StreamingChatLanguageModel;
+import com.github.app.dify.system.config.DocumentReaderConfig;
+import com.github.app.dify.system.service.ModelConfigService;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.output.Response;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+/**
+ * 文档解读问答服务实现
+ */
+@Service
+public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(DocumentReaderQAServiceImpl.class);
+    
+    @Autowired
+    private DocumentReaderRetrievalService documentReaderRetrievalService;
+    
+    @Autowired
+    private DocumentReaderRepository documentRepository;
+    
+    @Autowired
+    private ModelLanguageModelFactory modelLanguageModelFactory;
+    
+    @Autowired
+    private ModelConfigService modelConfigService;
+    
+    @Autowired
+    private DocumentReaderConfig documentReaderConfig;
+    
+    /**
+     * 文档问答（非流式）
+     */
+    @Override
+    public DocumentQAResponse answer(Long documentId, DocumentQARequest request, Long userId) {
+        try {
+            // 验证文档是否存在且属于当前用户
+            Optional<DocumentReader> docOptional = documentRepository.findByIdAndDeleted(documentId, 0);
+            if (!docOptional.isPresent()) {
+                throw new RuntimeException("文档不存在: " + documentId);
+            }
+            
+            DocumentReader document = docOptional.get();
+            if (!document.getUserId().equals(userId)) {
+                throw new RuntimeException("无权访问此文档");
+            }
+            
+            // 检查文档是否已向量化
+            if (document.getVectorizedStatus() == null || document.getVectorizedStatus() != 2) {
+                DocumentQAResponse response = new DocumentQAResponse();
+                response.setAnswer("文档尚未完成向量化，无法进行问答。请等待向量化完成后再试。");
+                response.setConversationId(request.getConversationId() != null ? String.valueOf(request.getConversationId()) : null);
+                response.setSources(new ArrayList<>());
+                return response;
+            }
+            
+            // 检索相关文档片段
+            List<DocumentReaderRetrievalService.RetrievalResult> retrievalResults = 
+                    documentReaderRetrievalService.retrieve(documentId, request.getQuestion());
+            
+            if (retrievalResults.isEmpty()) {
+                DocumentQAResponse response = new DocumentQAResponse();
+                response.setAnswer("抱歉，在文档中没有找到相关信息。");
+                response.setConversationId(request.getConversationId() != null ? String.valueOf(request.getConversationId()) : null);
+                response.setSources(new ArrayList<>());
+                return response;
+            }
+            
+            // 构建消息列表（包含历史对话和检索到的文档片段）
+            List<ChatMessage> messages = buildMessages(request, retrievalResults, document.getOriginalFileName());
+            
+            // 获取模型
+            QAModel qaModel = getQAModel(request.getModelId());
+            ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+            
+            // 生成答案
+            Response<AiMessage> aiResponse = chatLanguageModel.generate(messages);
+            String answer = aiResponse.content().text();
+            
+            // 构建响应
+            DocumentQAResponse response = new DocumentQAResponse();
+            response.setAnswer(answer);
+            response.setConversationId(request.getConversationId() != null ? String.valueOf(request.getConversationId()) : null);
+            response.setFinished(true);
+            
+            // 构建来源文档列表
+            List<DocumentQAResponse.SourceDocument> sources = retrievalResults.stream()
+                    .map(result -> {
+                        DocumentQAResponse.SourceDocument source = new DocumentQAResponse.SourceDocument();
+                        source.setDocumentId(result.getDocumentId());
+                        source.setChunkIndex(result.getChunkIndex());
+                        source.setText(result.getText());
+                        source.setScore(result.getScore());
+                        return source;
+                    })
+                    .collect(Collectors.toList());
+            response.setSources(sources);
+            
+            logger.info("文档问答完成 - 文档ID: {}, 问题: {}, 答案长度: {}", documentId, request.getQuestion(), answer.length());
+            return response;
+            
+        } catch (Exception e) {
+            logger.error("文档问答失败 - 文档ID: {}", documentId, e);
+            DocumentQAResponse response = new DocumentQAResponse();
+            response.setAnswer("文档问答失败：" + e.getMessage());
+            response.setConversationId(request.getConversationId() != null ? String.valueOf(request.getConversationId()) : null);
+            response.setFinished(true);
+            response.setSources(new ArrayList<>());
+            return response;
+        }
+    }
+    
+    /**
+     * 文档问答（流式）
+     */
+    @Override
+    public Flux<DocumentQAResponse> answerStream(Long documentId, DocumentQARequest request, Long userId) {
+        try {
+            // 验证文档是否存在且属于当前用户
+            Optional<DocumentReader> docOptional = documentRepository.findByIdAndDeleted(documentId, 0);
+            if (!docOptional.isPresent()) {
+                DocumentQAResponse errorResponse = new DocumentQAResponse();
+                errorResponse.setAnswer("文档不存在: " + documentId);
+                errorResponse.setFinished(true);
+                return Flux.just(errorResponse);
+            }
+            
+            DocumentReader document = docOptional.get();
+            if (!document.getUserId().equals(userId)) {
+                DocumentQAResponse errorResponse = new DocumentQAResponse();
+                errorResponse.setAnswer("无权访问此文档");
+                errorResponse.setFinished(true);
+                return Flux.just(errorResponse);
+            }
+            
+            // 检查文档是否已向量化
+            if (document.getVectorizedStatus() == null || document.getVectorizedStatus() != 2) {
+                DocumentQAResponse errorResponse = new DocumentQAResponse();
+                errorResponse.setAnswer("文档尚未完成向量化，无法进行问答。请等待向量化完成后再试。");
+                errorResponse.setFinished(true);
+                return Flux.just(errorResponse);
+            }
+            
+            // 检索相关文档片段
+            List<DocumentReaderRetrievalService.RetrievalResult> retrievalResults = 
+                    documentReaderRetrievalService.retrieve(documentId, request.getQuestion());
+            
+            if (retrievalResults.isEmpty()) {
+                DocumentQAResponse errorResponse = new DocumentQAResponse();
+                errorResponse.setAnswer("抱歉，在文档中没有找到相关信息。");
+                errorResponse.setFinished(true);
+                return Flux.just(errorResponse);
+            }
+            
+            // 构建消息列表
+            List<ChatMessage> messages = buildMessages(request, retrievalResults, document.getOriginalFileName());
+            
+            // 获取模型
+            QAModel qaModel = getQAModel(request.getModelId());
+            StreamingChatLanguageModel streamingChatLanguageModel = 
+                    modelLanguageModelFactory.createStreamingChatLanguageModel(qaModel);
+            
+            // 使用Sink来管理流式响应
+            Sinks.Many<DocumentQAResponse> sink = Sinks.many().unicast().onBackpressureBuffer();
+            
+            // 构建来源文档列表
+            List<DocumentQAResponse.SourceDocument> sources = retrievalResults.stream()
+                    .map(result -> {
+                        DocumentQAResponse.SourceDocument source = new DocumentQAResponse.SourceDocument();
+                        source.setDocumentId(result.getDocumentId());
+                        source.setChunkIndex(result.getChunkIndex());
+                        source.setText(result.getText());
+                        source.setScore(result.getScore());
+                        return source;
+                    })
+                    .collect(Collectors.toList());
+            
+            // 流式生成答案
+            StringBuilder answerBuilder = new StringBuilder();
+            logger.info("开始流式生成答案 - 文档ID: {}, 问题: {}", documentId, request.getQuestion());
+            
+            streamingChatLanguageModel.generateStream(messages)
+                    .doOnNext(token -> {
+                        // 每次收到一个token，累积到answerBuilder中，然后发送累积的完整内容
+                        // token直接是String类型，不需要调用.content()
+                        if (token != null && !token.isEmpty()) {
+                            answerBuilder.append(token);
+                            
+                            DocumentQAResponse response = new DocumentQAResponse();
+                            // 发送累积的完整内容，而不是单个token
+                            response.setAnswer(answerBuilder.toString());
+                            response.setConversationId(request.getConversationId() != null ? String.valueOf(request.getConversationId()) : null);
+                            response.setFinished(false);
+                            
+                            Sinks.EmitResult emitResult = sink.tryEmitNext(response);
+                            if (emitResult.isFailure()) {
+                                logger.warn("发送流式响应失败 - 文档ID: {}, 原因: {}", documentId, emitResult);
+                            }
+                        }
+                    })
+                    .doOnComplete(() -> {
+                        // 流结束，发送最终响应（包含完整答案和来源）
+                        logger.info("流式生成完成 - 文档ID: {}, 答案长度: {}", documentId, answerBuilder.length());
+                        DocumentQAResponse finalResponse = new DocumentQAResponse();
+                        finalResponse.setAnswer(answerBuilder.toString());
+                        finalResponse.setConversationId(request.getConversationId() != null ? String.valueOf(request.getConversationId()) : null);
+                        finalResponse.setFinished(true);
+                        finalResponse.setSources(sources);
+                        Sinks.EmitResult emitResult = sink.tryEmitNext(finalResponse);
+                        if (emitResult.isFailure()) {
+                            logger.warn("发送最终响应失败 - 文档ID: {}, 原因: {}", documentId, emitResult);
+                        }
+                        sink.tryEmitComplete();
+                    })
+                    .doOnError(error -> {
+                        logger.error("流式生成答案失败 - 文档ID: {}", documentId, error);
+                        DocumentQAResponse errorResponse = new DocumentQAResponse();
+                        errorResponse.setAnswer("生成答案时发生错误：" + error.getMessage());
+                        errorResponse.setFinished(true);
+                        sink.tryEmitNext(errorResponse);
+                        sink.tryEmitComplete();
+                    })
+                    .subscribe(
+                            null, // onNext已在doOnNext中处理
+                            error -> logger.error("流式订阅发生错误 - 文档ID: {}", documentId, error),
+                            () -> logger.info("流式订阅完成 - 文档ID: {}", documentId)
+                    );
+            
+            logger.info("返回流式响应Flux - 文档ID: {}", documentId);
+            return sink.asFlux();
+            
+        } catch (Exception e) {
+            logger.error("文档问答失败（流式） - 文档ID: {}", documentId, e);
+            DocumentQAResponse errorResponse = new DocumentQAResponse();
+            errorResponse.setAnswer("文档问答失败：" + e.getMessage());
+            errorResponse.setFinished(true);
+            return Flux.just(errorResponse);
+        }
+    }
+    
+    /**
+     * 构建消息列表
+     */
+    private List<ChatMessage> buildMessages(DocumentQARequest request, 
+                                            List<DocumentReaderRetrievalService.RetrievalResult> retrievalResults,
+                                            String documentName) {
+        List<ChatMessage> messages = new ArrayList<>();
+        
+        // 构建系统提示词
+        StringBuilder systemPrompt = new StringBuilder();
+        systemPrompt.append("你是一个专业的文档问答助手。请基于以下文档内容回答用户的问题。\n\n");
+        systemPrompt.append("文档名称：").append(documentName != null ? documentName : "未知文档").append("\n\n");
+        systemPrompt.append("相关文档片段：\n");
+        for (int i = 0; i < retrievalResults.size(); i++) {
+            DocumentReaderRetrievalService.RetrievalResult result = retrievalResults.get(i);
+            systemPrompt.append("片段").append(i + 1).append("（相似度：").append(String.format("%.2f", result.getScore())).append("）：\n");
+            systemPrompt.append(result.getText()).append("\n\n");
+        }
+        systemPrompt.append("请基于以上文档片段回答用户的问题。如果文档中没有相关信息，请明确说明。");
+        
+        messages.add(SystemMessage.from(systemPrompt.toString()));
+        
+        // 添加历史对话
+        if (request.getHistory() != null && !request.getHistory().isEmpty()) {
+            for (Map<String, String> historyItem : request.getHistory()) {
+                String role = historyItem.get("role");
+                String content = historyItem.get("content");
+                if (role != null && content != null) {
+                    if ("user".equals(role)) {
+                        messages.add(UserMessage.from(content));
+                    } else if ("assistant".equals(role)) {
+                        messages.add(AiMessage.from(content));
+                    }
+                }
+            }
+        }
+        
+        // 添加当前问题
+        messages.add(UserMessage.from(request.getQuestion()));
+        
+        return messages;
+    }
+    
+    /**
+     * 获取问答模型
+     */
+    private QAModel getQAModel(Long modelId) {
+        QAModel qaModel;
+        if (modelId != null) {
+            qaModel = modelConfigService.getQAModelById(modelId);
+            if (qaModel == null) {
+                throw new RuntimeException("模型不存在: " + modelId);
+            }
+        } else {
+            // 使用文档解读配置中的默认问答模型
+            Long defaultQAModelId = documentReaderConfig.getDefaultQAModelId();
+            if (defaultQAModelId != null) {
+                qaModel = modelConfigService.getQAModelById(defaultQAModelId);
+                if (qaModel == null) {
+                    logger.warn("文档解读配置的默认问答模型不存在，ID: {}，尝试使用系统默认RAG模型", defaultQAModelId);
+                    qaModel = modelConfigService.getDefaultQAModelForRAG();
+                }
+            } else {
+                qaModel = modelConfigService.getDefaultQAModelForRAG();
+            }
+            
+            if (qaModel == null) {
+                throw new RuntimeException("未配置默认问答模型，请在系统配置中设置documentReader.defaultQAModelId");
+            }
+        }
+        
+        if (qaModel.getEnabled() == null || !qaModel.getEnabled()) {
+            throw new RuntimeException("模型未启用: " + qaModel.getName());
+        }
+        
+        return qaModel;
+    }
+}
+

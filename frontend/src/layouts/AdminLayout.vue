@@ -67,6 +67,16 @@
             <el-icon><Folder /></el-icon>
             <span>知识管理</span>
           </el-menu-item>
+          <el-tooltip v-if="isCollapse" content="文档解读" placement="right" :show-after="200">
+            <el-menu-item index="/admin/document-reader">
+              <el-icon><Reading /></el-icon>
+              <span>文档解读</span>
+            </el-menu-item>
+          </el-tooltip>
+          <el-menu-item v-else index="/admin/document-reader">
+            <el-icon><Reading /></el-icon>
+            <span>文档解读</span>
+          </el-menu-item>
           <el-tooltip v-if="isCollapse" content="应用列表" placement="right" :show-after="200">
             <el-menu-item index="/admin/apps">
               <el-icon><List /></el-icon>
@@ -226,7 +236,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { List, User, ArrowDown, Folder, ChatLineRound, Fold, Expand, Clock, Setting, Document, Box, Connection, Search, Tools, DataAnalysis, Edit } from '@element-plus/icons-vue'
+import { List, User, ArrowDown, Folder, ChatLineRound, Fold, Expand, Clock, Setting, Document, Box, Connection, Search, Tools, DataAnalysis, Edit, Reading } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import HelpFloatingButton from '@/components/HelpFloatingButton.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
