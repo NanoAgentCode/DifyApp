@@ -537,8 +537,44 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     @Override
     public void translateDocument(Long documentId, Long userId, String targetLang) {
         validateDocumentAccess(documentId, userId);
-        // TODO: 实现翻译逻辑，可以调用翻译API
-        logger.info("翻译文档 - 文档ID: {}, 目标语言: {}", documentId, targetLang);
+        
+        logger.info("开始翻译文档 - 文档ID: {}, 目标语言: {}", documentId, targetLang);
+        
+        try {
+            // 获取文档
+            Optional<DocumentReader> optional = documentRepository.findByIdAndDeleted(documentId, 0);
+            if (!optional.isPresent()) {
+                throw new NotFoundException("文档不存在: " + documentId);
+            }
+            
+            DocumentReader document = optional.get();
+            
+            // 提取文档内容
+            String documentContent = extractDocumentText(document);
+            if (documentContent == null || documentContent.trim().isEmpty()) {
+                logger.warn("文档内容为空，无法翻译 - 文档ID: {}", documentId);
+                throw new RuntimeException("文档内容为空，无法翻译");
+            }
+            
+            // 获取模型配置（使用默认RAG模型）
+            QAModel qaModel = modelConfigService.getDefaultQAModelForRAG();
+            if (qaModel == null) {
+                throw new RuntimeException("未配置可用的模型，无法进行翻译");
+            }
+            
+            // 执行翻译
+            String translatedContent = translateText(documentContent, targetLang, qaModel);
+            
+            // 保存翻译结果
+            saveDocumentTranslation(documentId, userId, targetLang, translatedContent);
+            
+            logger.info("文档翻译完成 - 文档ID: {}, 目标语言: {}, 原文长度: {}, 译文长度: {}", 
+                documentId, targetLang, documentContent.length(), translatedContent.length());
+            
+        } catch (Exception e) {
+            logger.error("翻译文档失败 - 文档ID: {}, 目标语言: {}", documentId, targetLang, e);
+            throw new RuntimeException("翻译文档失败: " + e.getMessage(), e);
+        }
     }
     
     /**
@@ -1274,6 +1310,17 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
      * 将文本翻译为简体中文
      */
     private String translateToChinese(String text, QAModel qaModel) {
+        return translateText(text, "zh", qaModel);
+    }
+    
+    /**
+     * 通用翻译方法，支持多种目标语言
+     * @param text 原文
+     * @param targetLang 目标语言代码 (zh: 中文, en: 英文, ja: 日文, ko: 韩文)
+     * @param qaModel 模型配置
+     * @return 翻译后的文本
+     */
+    private String translateText(String text, String targetLang, QAModel qaModel) {
         if (text == null || text.trim().isEmpty()) {
             return text;
         }
@@ -1286,14 +1333,19 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             logger.warn("翻译文本过长，已截断至 {} 字符", maxTranslateLength);
         }
         
+        // 获取目标语言名称
+        String targetLanguageName = getTargetLanguageName(targetLang);
+        
         // 构建翻译提示词
         String translatePrompt = String.format(
-            "请将以下文本翻译为简体中文。要求：\n" +
+            "请将以下文本翻译为%s。要求：\n" +
             "1. 保持原文的结构和格式\n" +
             "2. 准确翻译，不要遗漏任何内容\n" +
             "3. 专业术语要准确翻译\n" +
-            "4. 只返回翻译后的中文文本，不要添加任何说明\n\n" +
+            "4. 只返回翻译后的文本，不要添加任何说明或注释\n" +
+            "5. 保持原文的段落结构和换行\n\n" +
             "原文：\n%s",
+            targetLanguageName,
             textToTranslate
         );
         
@@ -1306,12 +1358,43 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             Response<AiMessage> response = chatModel.generate(messages);
             String translatedText = response.content().text();
             
-            logger.info("翻译完成，原文长度: {}, 译文长度: {}", textToTranslate.length(), translatedText.length());
+            logger.info("翻译完成，目标语言: {}, 原文长度: {}, 译文长度: {}", 
+                targetLanguageName, textToTranslate.length(), translatedText.length());
             return translatedText;
             
         } catch (Exception e) {
-            logger.error("翻译失败", e);
+            logger.error("翻译失败，目标语言: {}", targetLanguageName, e);
             throw new RuntimeException("翻译失败: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 获取目标语言的显示名称
+     */
+    private String getTargetLanguageName(String targetLang) {
+        if (targetLang == null) {
+            return "简体中文";
+        }
+        
+        switch (targetLang.toLowerCase()) {
+            case "zh":
+            case "zh-cn":
+            case "zh_cn":
+                return "简体中文";
+            case "en":
+            case "en-us":
+            case "en_us":
+                return "英文";
+            case "ja":
+            case "ja-jp":
+            case "ja_jp":
+                return "日文";
+            case "ko":
+            case "ko-kr":
+            case "ko_kr":
+                return "韩文";
+            default:
+                return "简体中文"; // 默认返回中文
         }
     }
 }
