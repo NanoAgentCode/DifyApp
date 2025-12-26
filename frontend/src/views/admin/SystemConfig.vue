@@ -185,6 +185,91 @@
             </el-option>
           </el-select>
         </el-form-item>
+        <!-- 其他模型ID配置（help.modelId、drawio.defaultModelId） -->
+        <el-form-item 
+          v-else-if="isModelIdConfig"
+          label="模型" 
+          prop="configValue"
+        >
+          <el-select
+            v-model="form.configValue"
+            placeholder="请选择模型"
+            style="width: 100%"
+            filterable
+            :loading="loadingModels"
+            @focus="loadQAModels"
+          >
+            <el-option
+              v-for="model in qaModels"
+              :key="model.id"
+              :label="`${model.name} (ID: ${model.id})`"
+              :value="String(model.id)"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>{{ model.name }}</span>
+                <span style="color: #909399; font-size: 12px;">ID: {{ model.id }}</span>
+              </div>
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <!-- 知识库ID配置 -->
+        <el-form-item 
+          v-else-if="isKnowledgeBaseIdConfig"
+          label="知识库" 
+          prop="configValue"
+        >
+          <el-select
+            v-model="form.configValue"
+            placeholder="请选择知识库"
+            style="width: 100%"
+            filterable
+            :loading="loadingKnowledgeBases"
+            @focus="loadKnowledgeBases"
+          >
+            <el-option
+              v-for="kb in knowledgeBases"
+              :key="kb.id"
+              :label="`${kb.name} (ID: ${kb.id})`"
+              :value="String(kb.id)"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>{{ kb.name }}</span>
+                <span style="color: #909399; font-size: 12px;">ID: {{ kb.id }}</span>
+              </div>
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <!-- 文档解读向量库实例ID配置特殊处理 -->
+        <el-form-item 
+          v-else-if="isDocumentReaderVectorDatabaseIdConfig"
+          label="向量库实例" 
+          prop="configValue"
+        >
+          <el-select
+            v-model="form.configValue"
+            placeholder="请选择向量库实例"
+            style="width: 100%"
+            filterable
+            :loading="loadingVectorDatabases"
+            @focus="loadVectorDatabases"
+          >
+            <el-option
+              v-for="db in vectorDatabases"
+              :key="db.id"
+              :label="`${db.name} (ID: ${db.id}, 类型: ${db.type})`"
+              :value="String(db.id)"
+              :disabled="!db.enabled"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>{{ db.name }}</span>
+                <span style="color: #909399; font-size: 12px;">
+                  ID: {{ db.id }} | {{ db.type }}
+                  <el-tag v-if="!db.enabled" size="small" type="info" style="margin-left: 5px;">已禁用</el-tag>
+                </span>
+              </div>
+            </el-option>
+          </el-select>
+        </el-form-item>
         <!-- 文档解读向量库类型配置特殊处理 -->
         <el-form-item 
           v-else-if="isDocumentReaderVectorStoreTypeConfig"
@@ -205,6 +290,21 @@
             <el-option label="PgVector" value="pgvector" />
           </el-select>
         </el-form-item>
+        <!-- 布尔类型配置特殊处理 -->
+        <el-form-item 
+          v-else-if="form.configType === 'boolean'"
+          label="配置值" 
+          prop="configValue"
+        >
+          <el-select
+            v-model="form.configValue"
+            placeholder="请选择布尔值"
+            style="width: 100%"
+          >
+            <el-option label="true" value="true" />
+            <el-option label="false" value="false" />
+          </el-select>
+        </el-form-item>
         <el-form-item 
           v-else
           label="配置值" 
@@ -218,10 +318,21 @@
           />
         </el-form-item>
         <el-form-item label="配置分组" prop="configGroup">
-          <el-input
+          <el-select
             v-model="form.configGroup"
-            placeholder="例如：help, system"
-          />
+            placeholder="请选择配置分组"
+            style="width: 100%"
+            filterable
+            allow-create
+            default-first-option
+          >
+            <el-option
+              v-for="group in availableGroups"
+              :key="group.value"
+              :label="group.label"
+              :value="group.value"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="配置类型" prop="configType">
           <el-select v-model="form.configType" placeholder="请选择配置类型" style="width: 100%">
@@ -257,6 +368,8 @@ import { industrialThemes, getThemeById } from '@/utils/themes'
 import { GLOBAL_THEME_CONFIG_KEY } from '@/utils/globalTheme'
 import { applyGlobalTheme } from '@/utils/globalTheme'
 import { getAvailableQAModels } from '@/api/model'
+import { getVectorDatabaseList } from '@/api/vectorDatabase'
+import { getKnowledgeBaseList } from '@/api/knowledgeBase'
 
 // 预定义配置键列表
 const predefinedConfigKeys = [
@@ -391,6 +504,14 @@ const selectedTheme = ref('element') // 默认使用饿了么蓝
 const qaModels = ref([])
 const loadingModels = ref(false)
 
+// 向量库相关
+const vectorDatabases = ref([])
+const loadingVectorDatabases = ref(false)
+
+// 知识库相关
+const knowledgeBases = ref([])
+const loadingKnowledgeBases = ref(false)
+
 // 获取已配置的配置键集合
 const configuredKeys = computed(() => {
   return new Set(configList.value.map(config => config.configKey))
@@ -430,9 +551,25 @@ const isDocumentReaderModelConfig = computed(() => {
          form.value.configKey === 'documentReader.defaultEmbeddingModelId'
 })
 
+// 判断是否是模型ID配置（包括help.modelId和drawio.defaultModelId）
+const isModelIdConfig = computed(() => {
+  return form.value.configKey === 'help.modelId' || 
+         form.value.configKey === 'drawio.defaultModelId'
+})
+
+// 判断是否是知识库ID配置
+const isKnowledgeBaseIdConfig = computed(() => {
+  return form.value.configKey === 'help.knowledgeBaseId'
+})
+
 // 判断是否是文档解读向量库类型配置
 const isDocumentReaderVectorStoreTypeConfig = computed(() => {
   return form.value.configKey === 'documentReader.vectorStoreType'
+})
+
+// 判断是否是文档解读向量库实例ID配置
+const isDocumentReaderVectorDatabaseIdConfig = computed(() => {
+  return form.value.configKey === 'documentReader.vectorDatabaseId'
 })
 
 // 加载问答模型列表
@@ -450,6 +587,42 @@ const loadQAModels = async () => {
     ElMessage.warning('加载模型列表失败，请手动输入模型ID')
   } finally {
     loadingModels.value = false
+  }
+}
+
+// 加载向量库列表
+const loadVectorDatabases = async () => {
+  if (vectorDatabases.value.length > 0 || loadingVectorDatabases.value) {
+    return // 已经加载过或正在加载
+  }
+  
+  loadingVectorDatabases.value = true
+  try {
+    const response = await getVectorDatabaseList()
+    vectorDatabases.value = Array.isArray(response) ? response : (response?.data || response || [])
+  } catch (error) {
+    console.error('加载向量库列表失败:', error)
+    ElMessage.warning('加载向量库列表失败，请手动输入向量库ID')
+  } finally {
+    loadingVectorDatabases.value = false
+  }
+}
+
+// 加载知识库列表
+const loadKnowledgeBases = async () => {
+  if (knowledgeBases.value.length > 0 || loadingKnowledgeBases.value) {
+    return // 已经加载过或正在加载
+  }
+  
+  loadingKnowledgeBases.value = true
+  try {
+    const response = await getKnowledgeBaseList({ status: 1 }) // 只加载启用的知识库
+    knowledgeBases.value = Array.isArray(response) ? response : (response?.content || response?.data || response || [])
+  } catch (error) {
+    console.error('加载知识库列表失败:', error)
+    ElMessage.warning('加载知识库列表失败，请手动输入知识库ID')
+  } finally {
+    loadingKnowledgeBases.value = false
   }
 }
 
