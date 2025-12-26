@@ -610,7 +610,10 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         // 尝试获取分段翻译
         List<DocumentSegment> segments = loadDocumentTranslationSegments(documentId, targetLang);
         if (segments != null && !segments.isEmpty()) {
-            // 拼接所有已翻译的段落
+            // 按索引排序，确保段落顺序一致
+            segments.sort((a, b) -> Integer.compare(a.getIndex(), b.getIndex()));
+            
+            // 拼接所有已翻译的段落（按顺序）
             StringBuilder result = new StringBuilder();
             for (DocumentSegment segment : segments) {
                 if (segment.getTranslatedText() != null && !segment.getTranslatedText().trim().isEmpty()) {
@@ -641,6 +644,9 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             return "";
         }
         
+        // 按索引排序，确保段落顺序一致
+        segments.sort((a, b) -> Integer.compare(a.getIndex(), b.getIndex()));
+        
         // 确保索引有效
         startSegment = Math.max(0, startSegment);
         endSegment = Math.min(segments.size(), endSegment);
@@ -649,7 +655,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             return "";
         }
         
-        // 拼接指定范围的翻译
+        // 拼接指定范围的翻译（按顺序）
         StringBuilder result = new StringBuilder();
         for (int i = startSegment; i < endSegment; i++) {
             DocumentSegment segment = segments.get(i);
@@ -687,16 +693,18 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         // 分段
         List<DocumentSegment> segments = splitDocumentForTranslation(documentContent);
         
+        // 按索引排序，确保段落顺序一致
+        segments.sort((a, b) -> Integer.compare(a.getIndex(), b.getIndex()));
+        
         // 构建返回信息
         Map<String, Object> result = new HashMap<>();
         result.put("totalSegments", segments.size());
         result.put("totalLength", documentContent.length());
         
         List<Map<String, Object>> segmentInfos = new ArrayList<>();
-        for (int i = 0; i < segments.size(); i++) {
-            DocumentSegment segment = segments.get(i);
+        for (DocumentSegment segment : segments) {
             Map<String, Object> info = new HashMap<>();
-            info.put("index", i);
+            info.put("index", segment.getIndex()); // 使用分段的实际索引
             info.put("start", segment.getStartIndex());
             info.put("end", segment.getEndIndex());
             info.put("length", segment.getText().length());
@@ -753,13 +761,26 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 saveDocumentTranslationSegments(documentId, userId, targetLang, segments);
             }
             
+            // 按索引排序，确保段落顺序一致
+            segments.sort((a, b) -> Integer.compare(a.getIndex(), b.getIndex()));
+            
             // 检查索引有效性
             if (segmentIndex < 0 || segmentIndex >= segments.size()) {
                 throw new IllegalArgumentException("分段索引无效: " + segmentIndex + ", 总段数: " + segments.size());
             }
             
-            // 检查是否已翻译
-            DocumentSegment segment = segments.get(segmentIndex);
+            // 检查是否已翻译（使用索引查找对应的分段）
+            DocumentSegment segment = null;
+            for (DocumentSegment seg : segments) {
+                if (seg.getIndex() == segmentIndex) {
+                    segment = seg;
+                    break;
+                }
+            }
+            
+            if (segment == null) {
+                throw new IllegalArgumentException("找不到索引为 " + segmentIndex + " 的分段");
+            }
             if (segment.getTranslatedText() != null && !segment.getTranslatedText().trim().isEmpty()) {
                 logger.info("分段已翻译，直接返回 - 文档ID: {}, 段索引: {}", documentId, segmentIndex);
                 return segment.getTranslatedText();
@@ -1813,8 +1834,12 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             segmentsData.put("totalSegments", segments.size());
             segmentsData.put("targetLang", targetLang);
             
+            // 按索引排序，确保保存时顺序一致
+            List<DocumentSegment> sortedSegments = new ArrayList<>(segments);
+            sortedSegments.sort((a, b) -> Integer.compare(a.getIndex(), b.getIndex()));
+            
             List<Map<String, Object>> segmentList = new ArrayList<>();
-            for (DocumentSegment segment : segments) {
+            for (DocumentSegment segment : sortedSegments) {
                 Map<String, Object> segData = new HashMap<>();
                 segData.put("index", segment.getIndex());
                 segData.put("start", segment.getStartIndex());
@@ -1875,6 +1900,9 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 segment.setTranslatedText((String) segData.get("translated"));
                 segments.add(segment);
             }
+            
+            // 按索引排序，确保段落顺序一致
+            segments.sort((a, b) -> Integer.compare(a.getIndex(), b.getIndex()));
             
             return segments;
             
