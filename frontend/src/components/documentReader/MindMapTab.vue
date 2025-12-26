@@ -280,86 +280,130 @@ const waitForElementVisible = (element, timeout = 5000) => {
   })
 }
 
-// 初始化jsMind
+// 初始化jsMind（添加防抖机制）
+let initJsMindTimer = null
 const initJsMind = async () => {
-  if (!mindmapContainer.value || !mindMapData.value) return
+  // 防抖：如果正在初始化，取消之前的调用
+  if (initJsMindTimer) {
+    clearTimeout(initJsMindTimer)
+  }
   
-  await nextTick()
-  
-  try {
-    // 等待容器可见
-    await waitForElementVisible(mindmapContainer.value)
-    
-    // 再次等待一小段时间确保渲染完成
-    await new Promise(resolve => setTimeout(resolve, 100))
-    
-    // 解析数据
-    let data = mindMapData.value
-    if (typeof data === 'string') {
-      const jsonStr = extractJsonFromString(data)
-      if (jsonStr) {
-        data = JSON.parse(jsonStr)
-      } else {
-        throw new Error('无法解析脑图数据')
+  initJsMindTimer = setTimeout(async () => {
+    try {
+      // 检查基本条件
+      if (!mindmapContainer.value || !mindMapData.value) {
+        console.warn('初始化jsMind：容器或数据为空', {
+          hasContainer: !!mindmapContainer.value,
+          hasData: !!mindMapData.value
+        })
+        return
       }
-    }
-    
-    // 转换为jsMind格式
-    const jsmindData = convertToJsMindFormat(data)
-    
-    // 清理旧的mind实例
-    if (mind && mindmapContainer.value) {
+      
+      // 等待DOM更新
+      await nextTick()
+      
+      // 等待容器可见（最多等待5秒）
       try {
-        // 移除事件监听器
-        if (doubleClickHandler) {
-          mindmapContainer.value.removeEventListener('dblclick', doubleClickHandler)
-          doubleClickHandler = null
-        }
-        // 清空容器内容
-        mindmapContainer.value.innerHTML = ''
+        await waitForElementVisible(mindmapContainer.value, 5000)
       } catch (e) {
-        console.warn('清理旧mind实例失败:', e)
+        console.warn('等待容器可见超时，继续尝试初始化:', e.message)
+        // 即使超时也继续，因为容器可能已经存在只是不可见
       }
-    }
-    
-    // 创建新的mind实例
-    const options = {
-      container: mindmapContainer.value,
-      theme: 'primary',
-      mode: 'full',
-      editable: true,
-      support_html: true
-    }
-    
-    mind = new jsMind(options)
-    mind.show(jsmindData)
-    
-    // 添加编辑功能
-    if (mind && mindmapContainer.value) {
-      // 双击节点编辑
-      doubleClickHandler = (e) => {
-        const target = e.target
-        if (target.classList.contains('jmnode')) {
-          const nodeId = target.getAttribute('nodeid')
-          if (nodeId && mind) {
-            const node = mind.get_node(nodeId)
-            if (node) {
-              const newTopic = prompt('请输入新内容:', node.topic)
-              if (newTopic !== null && newTopic !== node.topic) {
-                mind.update_node(nodeId, newTopic)
-                // 自动保存
-                saveMindMapData()
+      
+      // 再次等待一小段时间确保渲染完成
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      // 再次检查容器是否存在且可见
+      if (!mindmapContainer.value) {
+        console.warn('初始化jsMind：容器不存在')
+        return
+      }
+      
+      const containerStyle = window.getComputedStyle(mindmapContainer.value)
+      if (containerStyle.display === 'none') {
+        console.warn('初始化jsMind：容器仍然不可见，延迟重试')
+        // 延迟重试
+        setTimeout(() => initJsMind(), 500)
+        return
+      }
+      
+      // 解析数据
+      let data = mindMapData.value
+      if (typeof data === 'string') {
+        const jsonStr = extractJsonFromString(data)
+        if (jsonStr) {
+          try {
+            data = JSON.parse(jsonStr)
+          } catch (e) {
+            console.error('解析脑图数据失败:', e)
+            throw new Error('无法解析脑图数据: ' + e.message)
+          }
+        } else {
+          throw new Error('无法从字符串中提取JSON')
+        }
+      }
+      
+      // 转换为jsMind格式
+      const jsmindData = convertToJsMindFormat(data)
+      
+      // 清理旧的mind实例
+      if (mind && mindmapContainer.value) {
+        try {
+          // 移除事件监听器
+          if (doubleClickHandler) {
+            mindmapContainer.value.removeEventListener('dblclick', doubleClickHandler)
+            doubleClickHandler = null
+          }
+          // 清空容器内容
+          mindmapContainer.value.innerHTML = ''
+        } catch (e) {
+          console.warn('清理旧mind实例失败:', e)
+        }
+      }
+      
+      // 创建新的mind实例
+      const options = {
+        container: mindmapContainer.value,
+        theme: 'primary',
+        mode: 'full',
+        editable: true,
+        support_html: true
+      }
+      
+      console.log('创建jsMind实例，容器:', mindmapContainer.value, '数据:', jsmindData)
+      mind = new jsMind(options)
+      mind.show(jsmindData)
+      console.log('jsMind实例创建成功')
+      
+      // 添加编辑功能
+      if (mind && mindmapContainer.value) {
+        // 双击节点编辑
+        doubleClickHandler = (e) => {
+          const target = e.target
+          if (target.classList.contains('jmnode')) {
+            const nodeId = target.getAttribute('nodeid')
+            if (nodeId && mind) {
+              const node = mind.get_node(nodeId)
+              if (node) {
+                const newTopic = prompt('请输入新内容:', node.topic)
+                if (newTopic !== null && newTopic !== node.topic) {
+                  mind.update_node(nodeId, newTopic)
+                  // 自动保存
+                  saveMindMapData()
+                }
               }
             }
           }
         }
+        mindmapContainer.value.addEventListener('dblclick', doubleClickHandler)
       }
-      mindmapContainer.value.addEventListener('dblclick', doubleClickHandler)
+    } catch (error) {
+      console.error('初始化jsMind失败:', error)
+      ElMessage.error('渲染脑图失败：' + (error.message || '未知错误'))
+    } finally {
+      initJsMindTimer = null
     }
-  } catch (error) {
-    console.error('初始化jsMind失败:', error)
-    ElMessage.error('渲染脑图失败：' + (error.message || '未知错误'))
-  }
+  }, 100) // 100ms 防抖延迟
 }
 
 // 保存脑图数据
@@ -430,16 +474,32 @@ const autoGenerateMindMap = async () => {
       }
     }
     
+    // 先设置数据，但保持generating为true，避免watch触发
     mindMapData.value = data || null
-    generating.value = false // 先设置为false，让容器显示
     
     if (mindMapData.value) {
-      ElMessage.success('脑图生成成功')
-      // 等待DOM更新，确保容器可见
+      // 先设置为false，让容器显示
+      generating.value = false
+      
+      // 等待DOM更新（多次nextTick确保完全更新）
       await nextTick()
-      await new Promise(resolve => setTimeout(resolve, 200))
-      await initJsMind()
+      await nextTick()
+      
+      // 等待容器渲染完成
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      // 确保容器存在且可见后再初始化
+      if (mindmapContainer.value) {
+        console.log('自动生成后准备初始化jsMind，容器:', mindmapContainer.value)
+        await initJsMind()
+      } else {
+        console.warn('自动生成后容器不存在，等待watch触发')
+        // 如果容器还不存在，watch会处理
+      }
+      
+      ElMessage.success('脑图生成成功')
     } else {
+      generating.value = false
       ElMessage.warning('脑图生成完成，但内容为空')
     }
   } catch (error) {
@@ -548,14 +608,37 @@ watch(() => props.docId, () => {
   }
 }, { immediate: true })
 
-// 监听mindMapData变化
-watch(mindMapData, () => {
-  if (mindMapData.value && !isEditing.value) {
-    nextTick(() => {
-      initJsMind()
-    })
+// 监听mindMapData变化（仅在非生成状态下触发，避免与autoGenerateMindMap冲突）
+watch(mindMapData, (newVal, oldVal) => {
+  // 如果正在生成，不触发watch（由autoGenerateMindMap自己处理）
+  if (generating.value) {
+    console.log('watch mindMapData: 正在生成中，跳过')
+    return
   }
-})
+  
+  // 如果正在编辑，不触发
+  if (isEditing.value) {
+    console.log('watch mindMapData: 正在编辑中，跳过')
+    return
+  }
+  
+  // 如果数据为空，不触发
+  if (!newVal) {
+    console.log('watch mindMapData: 数据为空，跳过')
+    return
+  }
+  
+  // 如果数据没有变化，不触发
+  if (newVal === oldVal) {
+    console.log('watch mindMapData: 数据未变化，跳过')
+    return
+  }
+  
+  console.log('watch mindMapData: 触发初始化', { hasContainer: !!mindmapContainer.value })
+  nextTick(() => {
+    initJsMind()
+  })
+}, { deep: true })
 
 onMounted(() => {
   if (props.docId) {
