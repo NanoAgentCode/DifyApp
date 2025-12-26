@@ -1,5 +1,6 @@
 package com.github.app.dify.documentreader.service.impl;
 
+import com.github.app.dify.chat.service.ChatHistoryService;
 import com.github.app.dify.documentreader.domain.DocumentReader;
 import com.github.app.dify.documentreader.repository.DocumentReaderRepository;
 import com.github.app.dify.documentreader.req.DocumentQARequest;
@@ -53,6 +54,9 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
     @Autowired
     private DocumentReaderConfig documentReaderConfig;
     
+    @Autowired
+    private ChatHistoryService chatHistoryService;
+    
     /**
      * 文档问答（非流式）
      */
@@ -102,10 +106,23 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
             Response<AiMessage> aiResponse = chatLanguageModel.generate(messages);
             String answer = aiResponse.content().text();
             
+            // 获取或创建会话（文档问答类型设为3）
+            Long conversationId = null;
+            try {
+                Long requestConversationId = request.getConversationId();
+                conversationId = chatHistoryService.getOrCreateConversation(
+                        userId, requestConversationId, 3, null, documentId, request.getQuestion());
+                logger.info("非流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}", 
+                        requestConversationId, conversationId);
+            } catch (Exception e) {
+                logger.error("获取或创建会话失败", e);
+                // 不抛出异常，继续执行
+            }
+            
             // 构建响应
             DocumentQAResponse response = new DocumentQAResponse();
             response.setAnswer(answer);
-            response.setConversationId(request.getConversationId() != null ? String.valueOf(request.getConversationId()) : null);
+            response.setConversationId(conversationId != null ? String.valueOf(conversationId) : null);
             response.setFinished(true);
             
             // 构建来源文档列表
@@ -120,6 +137,26 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
                     })
                     .collect(Collectors.toList());
             response.setSources(sources);
+            
+            // 保存消息到会话历史
+            if (conversationId != null) {
+                try {
+                    // 获取token信息
+                    Long modelId = qaModel.getId();
+                    Long promptTokens = aiResponse.tokenUsage() != null ? (long) aiResponse.tokenUsage().inputTokenCount() : null;
+                    Long completionTokens = aiResponse.tokenUsage() != null ? (long) aiResponse.tokenUsage().outputTokenCount() : null;
+                    Long totalTokens = aiResponse.tokenUsage() != null ? (long) aiResponse.tokenUsage().totalTokenCount() : null;
+                    
+                    // 保存用户消息
+                    chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
+                    // 保存助手消息（带token信息）
+                    chatHistoryService.saveMessage(conversationId, "assistant", answer, 
+                            modelId, promptTokens, completionTokens, totalTokens);
+                } catch (Exception e) {
+                    logger.error("保存历史记录失败", e);
+                    // 不抛出异常，避免影响主流程
+                }
+            }
             
             logger.info("文档问答完成 - 文档ID: {}, 问题: {}, 答案长度: {}", documentId, request.getQuestion(), answer.length());
             return response;
@@ -185,6 +222,24 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
             StreamingChatLanguageModel streamingChatLanguageModel = 
                     modelLanguageModelFactory.createStreamingChatLanguageModel(qaModel);
             
+            // 获取或创建会话（文档问答类型设为3）
+            final Long[] conversationIdRef = new Long[1];
+            try {
+                Long requestConversationId = request.getConversationId();
+                conversationIdRef[0] = chatHistoryService.getOrCreateConversation(
+                        userId, requestConversationId, 3, null, documentId, request.getQuestion());
+                logger.info("流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}", 
+                        requestConversationId, conversationIdRef[0]);
+                
+                // 保存用户消息
+                if (conversationIdRef[0] != null) {
+                    chatHistoryService.saveMessage(conversationIdRef[0], "user", request.getQuestion());
+                }
+            } catch (Exception e) {
+                logger.error("获取或创建会话失败", e);
+                // 不抛出异常，继续执行
+            }
+            
             // 使用Sink来管理流式响应
             Sinks.Many<DocumentQAResponse> sink = Sinks.many().unicast().onBackpressureBuffer();
             
@@ -214,7 +269,7 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
                             DocumentQAResponse response = new DocumentQAResponse();
                             // 发送累积的完整内容，而不是单个token
                             response.setAnswer(answerBuilder.toString());
-                            response.setConversationId(request.getConversationId() != null ? String.valueOf(request.getConversationId()) : null);
+                            response.setConversationId(conversationIdRef[0] != null ? String.valueOf(conversationIdRef[0]) : null);
                             response.setFinished(false);
                             
                             Sinks.EmitResult emitResult = sink.tryEmitNext(response);
@@ -226,9 +281,24 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
                     .doOnComplete(() -> {
                         // 流结束，发送最终响应（包含完整答案和来源）
                         logger.info("流式生成完成 - 文档ID: {}, 答案长度: {}", documentId, answerBuilder.length());
+                        String finalAnswer = answerBuilder.toString();
+                        
+                        // 保存助手消息到会话历史
+                        if (conversationIdRef[0] != null) {
+                            try {
+                                Long modelId = qaModel.getId();
+                                // 流式响应无法获取准确的token信息，传null
+                                chatHistoryService.saveMessage(conversationIdRef[0], "assistant", finalAnswer, 
+                                        modelId, null, null, null);
+                            } catch (Exception e) {
+                                logger.error("保存历史记录失败", e);
+                                // 不抛出异常，避免影响主流程
+                            }
+                        }
+                        
                         DocumentQAResponse finalResponse = new DocumentQAResponse();
-                        finalResponse.setAnswer(answerBuilder.toString());
-                        finalResponse.setConversationId(request.getConversationId() != null ? String.valueOf(request.getConversationId()) : null);
+                        finalResponse.setAnswer(finalAnswer);
+                        finalResponse.setConversationId(conversationIdRef[0] != null ? String.valueOf(conversationIdRef[0]) : null);
                         finalResponse.setFinished(true);
                         finalResponse.setSources(sources);
                         Sinks.EmitResult emitResult = sink.tryEmitNext(finalResponse);

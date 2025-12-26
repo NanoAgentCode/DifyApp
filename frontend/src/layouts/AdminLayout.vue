@@ -665,6 +665,22 @@ const handleHelpButtonClick = () => {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
+/* 收缩状态下图标居中 */
+.menu :deep(.el-menu--collapse) {
+  width: 100%;
+}
+
+.menu :deep(.el-menu--collapse .el-menu-item) {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 !important;
+}
+
+.menu :deep(.el-menu--collapse .el-menu-item .el-icon) {
+  margin: 0 !important;
+}
+
 .main {
   background: #f5f7fa;
   padding: 20px;

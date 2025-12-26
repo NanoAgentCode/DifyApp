@@ -282,20 +282,24 @@ onMounted(() => {
 
 .tab-content {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   padding: 8px;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .edit-input {
   width: 100%;
+  flex: 1;
 }
 
 .content-display {
   display: flex;
   flex-direction: column;
+  flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .guide-content {
@@ -305,7 +309,11 @@ onMounted(() => {
   padding: 24px;
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
   overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+  box-sizing: border-box;
 }
 
 .loading-state {
@@ -313,7 +321,8 @@ onMounted(() => {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  height: 300px;
+  flex: 1;
+  min-height: 100%;
   color: #909399;
 }
 
@@ -342,6 +351,7 @@ onMounted(() => {
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  flex: 1;
   min-height: 100%;
   color: #909399;
 }

@@ -75,7 +75,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Switch, Refresh, Loading, Document, Edit } from '@element-plus/icons-vue'
 import { translateDocument, getDocumentTranslation, saveDocumentTranslation } from '@/api/documentReader'
@@ -98,6 +98,7 @@ const translating = ref(false)
 const isEditing = ref(false)
 const editContent = ref('')
 const saving = ref(false)
+const hasAutoTranslated = ref(false) // 标记是否已自动翻译
 
 const renderedTranslation = computed(() => {
   if (!translationContent.value) return ''
@@ -184,6 +185,76 @@ const handleSave = async () => {
     saving.value = false
   }
 }
+
+// 加载翻译内容
+const loadTranslation = async () => {
+  if (!props.docId || !targetLanguage.value) return
+  
+  try {
+    const response = await getDocumentTranslation(props.docId, targetLanguage.value)
+    let content = ''
+    if (typeof response === 'string') {
+      content = response
+    } else if (response && typeof response === 'object') {
+      content = response.content || response.data?.content || ''
+      if (content && typeof content !== 'string') {
+        try {
+          content = JSON.stringify(content)
+        } catch (e) {
+          content = String(content)
+        }
+      }
+    }
+    translationContent.value = content || ''
+    return !!translationContent.value
+  } catch (error) {
+    // 如果获取失败（可能是404），返回false表示没有翻译内容
+    return false
+  }
+}
+
+// 自动翻译
+const autoTranslate = async () => {
+  if (!props.docId || !targetLanguage.value || translating.value || hasAutoTranslated.value) {
+    return
+  }
+  
+  // 先尝试加载已有翻译
+  const hasTranslation = await loadTranslation()
+  if (hasTranslation) {
+    // 已有翻译，不需要自动翻译
+    return
+  }
+  
+  // 没有翻译内容，自动翻译
+  hasAutoTranslated.value = true
+  await handleTranslate()
+}
+
+// 监听docId变化，重新加载翻译
+watch(() => props.docId, () => {
+  if (props.docId) {
+    translationContent.value = ''
+    hasAutoTranslated.value = false
+    autoTranslate()
+  }
+}, { immediate: false })
+
+// 监听目标语言变化，重新加载翻译
+watch(() => targetLanguage.value, () => {
+  if (props.docId && targetLanguage.value) {
+    translationContent.value = ''
+    hasAutoTranslated.value = false
+    autoTranslate()
+  }
+})
+
+// 组件挂载时自动翻译
+onMounted(() => {
+  if (props.docId && targetLanguage.value) {
+    autoTranslate()
+  }
+})
 </script>
 
 <style scoped>

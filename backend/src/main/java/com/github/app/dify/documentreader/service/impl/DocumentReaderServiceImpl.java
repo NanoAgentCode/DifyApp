@@ -651,18 +651,60 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 throw new RuntimeException("未配置可用的模型，无法生成脑图");
             }
             
-            // 限制文档文本长度
-            int maxTextLength = 8000;
+            // 检测文档语言，如果不是简体中文，先翻译为中文
+            if (!isSimplifiedChinese(documentContent)) {
+                logger.info("检测到文档内容为非简体中文，开始翻译为中文 - 文档ID: {}", documentId);
+                try {
+                    documentContent = translateToChinese(documentContent, qaModel);
+                    logger.info("文档翻译完成，翻译后长度: {} 字符", documentContent.length());
+                } catch (Exception e) {
+                    logger.warn("翻译文档失败，将使用原文生成脑图: {}", e.getMessage());
+                    // 翻译失败时继续使用原文
+                }
+            }
+            
+            // 根据文档长度评估内容详细程度
+            int textLength = documentContent.length();
+            String contentAssessment;
+            int maxLevel;
+            int maxNodesPerLevel;
+            
+            if (textLength < 1000) {
+                // 短文档：简单结构，2层即可
+                contentAssessment = "文档内容较少，请生成简洁的思维导图，重点关注主要章节和核心要点。";
+                maxLevel = 2;
+                maxNodesPerLevel = 5;
+            } else if (textLength < 5000) {
+                // 中等文档：标准结构，3层
+                contentAssessment = "文档内容中等，请生成结构化的思维导图，包含主要章节、重要段落和关键要点。";
+                maxLevel = 3;
+                maxNodesPerLevel = 8;
+            } else if (textLength < 15000) {
+                // 长文档：详细结构，3层，但需要精选内容
+                contentAssessment = "文档内容较长，请生成详细的思维导图，精选最重要的章节、段落和要点，避免过于冗长。";
+                maxLevel = 3;
+                maxNodesPerLevel = 10;
+            } else {
+                // 超长文档：精简结构，3层，只选核心内容
+                contentAssessment = "文档内容很长，请生成精简但完整的思维导图，只选择最核心的章节和最重要的要点，确保思维导图清晰易读。";
+                maxLevel = 3;
+                maxNodesPerLevel = 12;
+            }
+            
+            // 限制文档文本长度（根据评估结果调整）
+            int maxTextLength = textLength < 15000 ? textLength : 15000;
             String truncatedText = documentContent;
             if (documentContent.length() > maxTextLength) {
-                truncatedText = documentContent.substring(0, maxTextLength) + "\n\n[文档内容已截断...]";
+                truncatedText = documentContent.substring(0, maxTextLength) + "\n\n[文档内容已截断，仅用于生成思维导图核心结构...]";
             }
             
             // 构建提示词
             String prompt = String.format(
-                "你是一个专业的思维导图生成助手。请仔细阅读以下文档内容，然后生成一个结构化的思维导图。\n\n" +
+                "你是一个专业的思维导图生成助手。请仔细阅读以下文档内容，然后根据文档长度自动评估并生成一个结构化的思维导图。\n\n" +
                 "**文档信息**：\n" +
-                "文档名称：%s\n\n" +
+                "文档名称：%s\n" +
+                "文档长度：%d 字符\n" +
+                "内容评估：%s\n\n" +
                 "**文档内容**：\n%s\n\n" +
                 "**核心要求（非常重要）**：\n" +
                 "1. **必须严格按照上述文档的实际内容生成思维导图**\n" +
@@ -672,13 +714,20 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 "5. **如果文档中没有某个章节，绝对不要生成该章节**\n" +
                 "6. **节点文字必须来自文档中的实际文字，不要自己编造**\n" +
                 "7. **不要生成标准的述职报告模板结构，必须基于文档的实际内容**\n\n" +
+                "**层级限制（严格遵循）**：\n" +
+                "1. **思维导图层级绝对不超过3层**（中心主题为第0层，一级节点为第1层，二级节点为第2层，三级节点为第3层）\n" +
+                "2. 根据文档长度，当前建议最大层级：%d层\n" +
+                "3. 每层节点数量建议：一级节点不超过%d个，二级节点每个一级节点下不超过%d个，三级节点每个二级节点下不超过%d个\n" +
+                "4. 如果文档内容较少，可以减少层级和节点数量\n" +
+                "5. 如果文档内容较多，必须精选最重要的内容，确保不超过层级和节点限制\n\n" +
                 "**生成规则**：\n" +
-                "1. 中心主题使用文档名称：%s\n" +
-                "2. 一级节点应该是文档中实际存在的主要章节标题或核心主题\n" +
-                "3. 二级及以下节点应该是各章节中的实际段落、要点、具体内容\n" +
-                "4. 节点名称必须使用文档中的原始文字，不要改写或概括\n" +
-                "5. 如果文档内容较少，只生成实际存在的节点，不要补充\n" +
-                "6. 如果文档内容较多，选择最重要的章节和要点\n\n" +
+                "1. 中心主题（第0层）使用文档名称：%s\n" +
+                "2. 一级节点（第1层）应该是文档中实际存在的主要章节标题或核心主题\n" +
+                "3. 二级节点（第2层）应该是各章节中的实际段落、要点、具体内容\n" +
+                "4. 三级节点（第3层，可选）应该是二级节点下的具体细节或子要点\n" +
+                "5. 节点名称必须使用文档中的原始文字，不要改写或概括\n" +
+                "6. 根据文档长度自动调整详细程度：短文档简化，长文档精选核心内容\n" +
+                "7. **绝对不要超过3层，如果内容很多，请合并或精选**\n\n" +
                 "**输出格式要求**：\n" +
                 "1. 必须只返回JSON格式的数据，不要包含任何其他文字说明\n" +
                 "2. 返回的JSON必须是有效的JSON格式，可以直接被JSON.parse()解析\n" +
@@ -701,7 +750,13 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 "          {\n" +
                 "            \"id\": \"node1-1\",\n" +
                 "            \"topic\": \"二级节点1-1（该章节中的实际内容）\",\n" +
-                "            \"children\": []\n" +
+                "            \"children\": [\n" +
+                "              {\n" +
+                "                \"id\": \"node1-1-1\",\n" +
+                "                \"topic\": \"三级节点1-1-1（可选，具体细节）\",\n" +
+                "                \"children\": []\n" +
+                "              }\n" +
+                "            ]\n" +
                 "          }\n" +
                 "        ]\n" +
                 "      }\n" +
@@ -710,12 +765,20 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 "}\n\n" +
                 "**再次强调**：\n" +
                 "- 思维导图的内容必须100%%来自上述文档的实际内容\n" +
+                "- **层级绝对不超过3层**（中心主题+最多3层子节点）\n" +
+                "- 根据文档长度自动评估并调整详细程度\n" +
                 "- 禁止生成任何模板化的结构（如标准的述职报告、工作总结等模板）\n" +
                 "- 如果文档中没有某个内容，绝对不要生成\n" +
                 "- 节点文字必须使用文档中的原始文字\n" +
                 "- **只返回JSON，不要有任何其他文字！**",
                 fileName,
+                textLength,
+                contentAssessment,
                 truncatedText,
+                maxLevel,
+                maxNodesPerLevel,
+                maxNodesPerLevel / 2,
+                maxNodesPerLevel / 3,
                 fileName
             );
             
@@ -1169,6 +1232,87 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         }
         
         return lastValidBrace;
+    }
+    
+    /**
+     * 检测文本是否为简体中文
+     * 通过统计中文字符的比例来判断
+     */
+    private boolean isSimplifiedChinese(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return true; // 空文本默认为中文
+        }
+        
+        int totalChars = 0;
+        int chineseChars = 0;
+        
+        for (char c : text.toCharArray()) {
+            // 跳过空白字符和标点符号
+            if (Character.isWhitespace(c) || Character.isSpaceChar(c)) {
+                continue;
+            }
+            
+            totalChars++;
+            
+            // 检测是否为中文字符（包括简体中文、繁体中文、日文汉字等）
+            // 简体中文范围：\u4e00-\u9fa5
+            if (c >= 0x4e00 && c <= 0x9fa5) {
+                chineseChars++;
+            }
+        }
+        
+        if (totalChars == 0) {
+            return true; // 没有有效字符，默认为中文
+        }
+        
+        // 如果中文字符占比超过30%，认为是中文文档
+        double chineseRatio = (double) chineseChars / totalChars;
+        return chineseRatio >= 0.3;
+    }
+    
+    /**
+     * 将文本翻译为简体中文
+     */
+    private String translateToChinese(String text, QAModel qaModel) {
+        if (text == null || text.trim().isEmpty()) {
+            return text;
+        }
+        
+        // 限制翻译文本长度，避免过长
+        int maxTranslateLength = 10000;
+        String textToTranslate = text;
+        if (text.length() > maxTranslateLength) {
+            textToTranslate = text.substring(0, maxTranslateLength) + "\n\n[内容已截断...]";
+            logger.warn("翻译文本过长，已截断至 {} 字符", maxTranslateLength);
+        }
+        
+        // 构建翻译提示词
+        String translatePrompt = String.format(
+            "请将以下文本翻译为简体中文。要求：\n" +
+            "1. 保持原文的结构和格式\n" +
+            "2. 准确翻译，不要遗漏任何内容\n" +
+            "3. 专业术语要准确翻译\n" +
+            "4. 只返回翻译后的中文文本，不要添加任何说明\n\n" +
+            "原文：\n%s",
+            textToTranslate
+        );
+        
+        try {
+            // 使用大模型进行翻译
+            ChatLanguageModel chatModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+            List<ChatMessage> messages = new ArrayList<>();
+            messages.add(new UserMessage(translatePrompt));
+            
+            Response<AiMessage> response = chatModel.generate(messages);
+            String translatedText = response.content().text();
+            
+            logger.info("翻译完成，原文长度: {}, 译文长度: {}", textToTranslate.length(), translatedText.length());
+            return translatedText;
+            
+        } catch (Exception e) {
+            logger.error("翻译失败", e);
+            throw new RuntimeException("翻译失败: " + e.getMessage(), e);
+        }
     }
 }
 

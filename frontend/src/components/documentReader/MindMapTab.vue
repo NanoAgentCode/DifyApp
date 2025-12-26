@@ -158,12 +158,37 @@ const extractJsonFromString = (str) => {
   return null
 }
 
+// 限制节点层级不超过3层（中心主题为第0层）
+const limitNodeDepth = (node, currentDepth = 0, maxDepth = 3) => {
+  if (currentDepth >= maxDepth) {
+    // 超过最大深度，移除子节点
+    return {
+      ...node,
+      children: []
+    }
+  }
+  
+  if (node.children && Array.isArray(node.children)) {
+    return {
+      ...node,
+      children: node.children.map(child => limitNodeDepth(child, currentDepth + 1, maxDepth))
+    }
+  }
+  
+  return node
+}
+
 // 将节点结构转换为jsMind格式
 const convertToJsMindFormat = (data) => {
   try {
-    // 如果已经是jsMind格式，直接返回
+    // 如果已经是jsMind格式，验证并限制层级
     if (data.meta && data.format && data.data) {
-      return data
+      // 限制层级不超过3层
+      const limitedData = {
+        ...data,
+        data: limitNodeDepth(data.data, 0, 3)
+      }
+      return limitedData
     }
     
     // 如果是节点结构格式，转换为jsMind格式
@@ -191,7 +216,7 @@ const convertToJsMindFormat = (data) => {
         children.push(child)
       })
       
-      return {
+      const result = {
         meta: {
           name: data.name || '思维导图',
           author: '系统',
@@ -201,12 +226,13 @@ const convertToJsMindFormat = (data) => {
         data: {
           id: 'root',
           topic: rootTopic,
-          children: children
+          children: children.map(child => limitNodeDepth(child, 1, 3))
         }
       }
+      return result
     }
     
-    // 如果数据有data字段，尝试直接使用
+    // 如果数据有data字段，尝试直接使用，并限制层级
     if (data.data) {
       return {
         meta: data.meta || {
@@ -215,7 +241,7 @@ const convertToJsMindFormat = (data) => {
           version: '1.0'
         },
         format: data.format || 'node_tree',
-        data: data.data
+        data: limitNodeDepth(data.data, 0, 3)
       }
     }
     

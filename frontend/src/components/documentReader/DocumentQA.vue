@@ -2,8 +2,7 @@
   <div class="document-qa">
     <!-- 收起按钮（仅在展开时显示） -->
     <div v-if="isFocused" class="collapse-button" @click="handleCollapse">
-      <el-icon><ArrowDown /></el-icon>
-      <span>收起</span>
+      <el-icon><ArrowUp /></el-icon>
     </div>
     <div class="qa-messages" ref="messagesContainerRef" v-show="isFocused">
       <div v-if="messages.length === 0 && isFocused" class="empty-messages">
@@ -69,8 +68,9 @@
 <script setup>
 import { ref, watch, nextTick, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { ChatLineRound, Promotion, Loading, ArrowDown } from '@element-plus/icons-vue'
+import { ChatLineRound, Promotion, Loading, ArrowUp } from '@element-plus/icons-vue'
 import { documentQA, documentQAStream } from '@/api/documentReader'
+import { createConversation } from '@/api/chat'
 import { renderMarkdown } from '@/composables/useMarkdown'
 
 const props = defineProps({
@@ -214,6 +214,29 @@ const handleSend = async () => {
       content: '',
       isLoading: true
     })
+    
+    // 如果没有会话ID，创建新会话（文档问答类型设为3）
+    if (!conversationId.value) {
+      try {
+        const docInfo = localStorage.getItem(`docInfo_${props.docId}`)
+        let docTitle = '文档问答'
+        if (docInfo) {
+          try {
+            const info = JSON.parse(docInfo)
+            docTitle = `文档问答 - ${info.originalFileName || info.fileName || '未命名文档'}`
+          } catch (e) {
+            // 忽略解析错误
+          }
+        }
+        const newConversation = await createConversation(docTitle, null, props.docId, 3)
+        if (newConversation && newConversation.id) {
+          conversationId.value = newConversation.id
+        }
+      } catch (error) {
+        console.error('创建会话失败:', error)
+        // 继续执行，不阻止问答
+      }
+    }
     
     // 构建历史对话
     const history = messages.value
@@ -518,6 +541,7 @@ onMounted(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  background: var(--el-bg-color, #ffffff);
 }
 
 .empty-messages {
