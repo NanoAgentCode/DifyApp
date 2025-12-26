@@ -282,8 +282,10 @@ onMounted(() => {
 
 .tab-content {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px;
+  min-height: 0;
 }
 
 .edit-input {
@@ -291,10 +293,9 @@ onMounted(() => {
 }
 
 .content-display {
-  min-height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: auto;
+  min-height: 0;
 }
 
 .guide-content {
@@ -304,8 +305,6 @@ onMounted(() => {
   padding: 24px;
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  flex: 1;
-  overflow-y: auto;
   overflow-x: hidden;
 }
 

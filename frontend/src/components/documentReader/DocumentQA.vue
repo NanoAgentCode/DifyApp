@@ -506,7 +506,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: white;
+  background: var(--el-bg-color-page, #f5f7fa);
   position: relative;
   min-height: fit-content;
 }
@@ -619,6 +619,7 @@ onMounted(() => {
 
 .qa-input {
   padding: 12px 16px;
+  margin: 0 0  0 8px;
   border-top: 1px solid #e4e7ed;
   flex-shrink: 0;
   position: sticky;
