@@ -94,9 +94,17 @@
             </div>
           </div>
         </div>
-        <!-- 默认模式：只显示译文 -->
-        <div v-else-if="translationContent" class="translation-content">
+        <!-- 默认模式：只显示译文（懒加载模式） -->
+        <div v-else-if="translationContent || segmentTranslations.length > 0" 
+             class="translation-content" 
+             ref="translationContainerRef"
+             @scroll="handleTranslationScrollForLazyLoad">
           <div class="translation-display" v-html="renderedTranslation"></div>
+          <!-- 显示加载提示 -->
+          <div v-if="loadingSegments.size > 0" class="loading-segment">
+            <el-icon class="loading-icon is-loading"><Loading /></el-icon>
+            <span>正在翻译后续内容...</span>
+          </div>
         </div>
         <div v-else class="empty-state">
           <el-icon class="empty-icon"><Document /></el-icon>
@@ -112,8 +120,9 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Switch, Refresh, Loading, Document, Edit, FullScreen } from '@element-plus/icons-vue'
-import { translateDocument, getDocumentTranslation, saveDocumentTranslation, getDocumentText } from '@/api/documentReader'
+import { translateDocument, getDocumentTranslation, saveDocumentTranslation, getDocumentText, getDocumentSegments, translateDocumentSegment, getDocumentTranslationRange } from '@/api/documentReader'
 import { renderMarkdown } from '@/composables/useMarkdown'
+import { debounce } from '@/utils/debounce'
 
 const props = defineProps({
   docId: {
@@ -139,6 +148,13 @@ const translationContentRef = ref(null)
 const isScrolling = ref(false) // 防止滚动循环
 const isFullscreen = ref(false) // 全屏状态
 const translateTabRef = ref(null) // 翻译组件引用
+
+// 懒加载相关状态
+const segmentsInfo = ref(null) // 分段信息
+const loadedSegments = ref(new Set()) // 已加载的分段索引
+const loadingSegments = ref(new Set()) // 正在加载的分段索引
+const segmentTranslations = ref([]) // 分段翻译内容数组
+const translationContainerRef = ref(null) // 翻译内容容器引用
 
 // 处理文本，识别并标记标题，过滤多余空行，为标题添加对齐空行
 function processTextForDisplay(text) {
@@ -365,50 +381,208 @@ const handleTranslationScroll = () => {
   }, 50)
 }
 
-// 翻译文档
+// 检测文档的主要语言
+const detectDocumentLanguage = async () => {
+  try {
+    const textResponse = await getDocumentText(props.docId)
+    let textContent = ''
+    
+    if (typeof textResponse === 'string') {
+      textContent = textResponse
+    } else if (textResponse && typeof textResponse === 'object') {
+      textContent = textResponse.content || textResponse.data?.content || textResponse.text || ''
+    }
+    
+    if (!textContent || textContent.length === 0) {
+      return null
+    }
+    
+    const sampleText = textContent.substring(0, 2000)
+    if (sampleText.length < 10) {
+      return null
+    }
+    
+    let totalChars = 0
+    let chineseChars = 0
+    let japaneseChars = 0
+    let koreanChars = 0
+    let englishChars = 0
+    
+    for (const c of sampleText) {
+      if (/\s/.test(c)) continue
+      
+      totalChars++
+      const code = c.charCodeAt(0)
+      
+      if (code >= 0x4e00 && code <= 0x9fa5) {
+        chineseChars++
+      } else if ((code >= 0x3040 && code <= 0x309F) || (code >= 0x30A0 && code <= 0x30FF)) {
+        japaneseChars++
+      } else if (code >= 0xAC00 && code <= 0xD7AF) {
+        koreanChars++
+      } else if ((code >= 65 && code <= 90) || (code >= 97 && code <= 122)) {
+        englishChars++
+      }
+    }
+    
+    if (totalChars === 0) return null
+    
+    const chineseRatio = chineseChars / totalChars
+    const japaneseRatio = japaneseChars / totalChars
+    const koreanRatio = koreanChars / totalChars
+    const englishRatio = englishChars / totalChars
+    
+    if (chineseRatio >= 0.3) return 'zh'
+    if (japaneseRatio >= 0.3) return 'ja'
+    if (koreanRatio >= 0.3) return 'ko'
+    if (englishRatio >= 0.3) return 'en'
+    
+    return null
+  } catch (error) {
+    console.error('检测文档语言失败:', error)
+    return null
+  }
+}
+
+// 翻译文档（懒加载模式：只翻译第一段）
 const handleTranslate = async () => {
   if (!targetLanguage.value) {
     ElMessage.warning('请先选择目标语言')
     return
   }
   
+  // 检测文档语言，检查是否为同种语言翻译
+  const detectedLang = await detectDocumentLanguage()
+  if (detectedLang && detectedLang === targetLanguage.value) {
+    const langNames = { zh: '中文', en: '英文', ja: '日文', ko: '韩文' }
+    ElMessage.warning(`不能将${langNames[detectedLang] || detectedLang}文档翻译为${langNames[targetLanguage.value] || targetLanguage.value}，翻译功能仅支持不同语言之间的翻译`)
+    return
+  }
+  
   translating.value = true
   try {
-    // 先调用翻译接口
+    // 初始化翻译（只翻译第一段）
     await translateDocument(props.docId, targetLanguage.value)
     
-    // 然后获取翻译内容
-    const response = await getDocumentTranslation(props.docId, targetLanguage.value)
-    // 后端返回格式: { content: "..." } 或直接是字符串
-    let content = ''
-    if (typeof response === 'string') {
-      content = response
-    } else if (response && typeof response === 'object') {
-      content = response.content || response.data?.content || ''
-      if (content && typeof content !== 'string') {
-        try {
-          content = JSON.stringify(content)
-        } catch (e) {
-          content = String(content)
-        }
-      }
-    }
-    translationContent.value = content || ''
+    // 获取分段信息
+    await loadSegmentsInfo()
     
-    // 默认模式下不自动加载原文，只在全屏时加载
-    // 这样可以减少不必要的请求
+    // 加载第一段的翻译
+    await loadTranslationSegment(0)
     
-    if (translationContent.value) {
-      ElMessage.success('翻译完成')
-    } else {
-      ElMessage.warning('翻译结果为空')
-    }
+    ElMessage.success('翻译已开始，向下滚动可自动加载后续内容')
   } catch (error) {
     ElMessage.error('翻译失败：' + (error.message || '未知错误'))
   } finally {
     translating.value = false
   }
 }
+
+// 加载分段信息
+const loadSegmentsInfo = async () => {
+  try {
+    const response = await getDocumentSegments(props.docId)
+    segmentsInfo.value = response
+    // 初始化分段翻译数组
+    if (segmentsInfo.value && segmentsInfo.value.totalSegments) {
+      segmentTranslations.value = new Array(segmentsInfo.value.totalSegments).fill(null)
+    }
+  } catch (error) {
+    console.error('加载分段信息失败:', error)
+  }
+}
+
+// 加载指定分段的翻译
+const loadTranslationSegment = async (segmentIndex) => {
+  if (loadingSegments.value.has(segmentIndex) || loadedSegments.value.has(segmentIndex)) {
+    return // 正在加载或已加载
+  }
+  
+  if (!targetLanguage.value) {
+    console.warn('未选择目标语言，无法加载翻译分段')
+    return
+  }
+  
+  if (!segmentsInfo.value || segmentIndex >= segmentsInfo.value.totalSegments) {
+    return // 索引无效
+  }
+  
+  loadingSegments.value.add(segmentIndex)
+  
+  try {
+    const response = await translateDocumentSegment(props.docId, targetLanguage.value, segmentIndex)
+    let content = ''
+    if (typeof response === 'string') {
+      content = response
+    } else if (response && typeof response === 'object') {
+      content = response.content || response.data?.content || ''
+    }
+    
+    if (content) {
+      segmentTranslations.value[segmentIndex] = content
+      loadedSegments.value.add(segmentIndex)
+      
+      // 更新显示的翻译内容
+      updateTranslationDisplay()
+    }
+  } catch (error) {
+    console.error(`加载分段 ${segmentIndex} 翻译失败:`, error)
+    // 只在用户主动操作时显示错误消息，避免自动加载时的错误提示
+    // 错误消息会在用户点击翻译按钮时显示
+  } finally {
+    loadingSegments.value.delete(segmentIndex)
+  }
+}
+
+// 更新翻译显示内容
+const updateTranslationDisplay = () => {
+  const translatedParts = []
+  for (let i = 0; i < segmentTranslations.value.length; i++) {
+    if (segmentTranslations.value[i]) {
+      translatedParts.push(segmentTranslations.value[i])
+    } else if (loadedSegments.value.has(i)) {
+      // 已加载但为空，可能是加载失败
+      translatedParts.push('')
+    }
+  }
+  translationContent.value = translatedParts.join('\n\n')
+}
+
+// 处理翻译内容滚动（懒加载）- 使用防抖优化
+const handleTranslationScrollForLazyLoad = debounce(() => {
+  if (!translationContainerRef.value || !segmentsInfo.value || segmentsInfo.value.totalSegments === 0) {
+    return
+  }
+  
+  const container = translationContainerRef.value
+  const scrollTop = container.scrollTop
+  const scrollHeight = container.scrollHeight
+  const clientHeight = container.clientHeight
+  
+  // 如果内容高度小于容器高度，不需要懒加载
+  if (scrollHeight <= clientHeight) {
+    return
+  }
+  
+  // 计算当前滚动位置对应的分段索引
+  // 使用更准确的计算方式：基于已加载内容的高度比例
+  const scrollRatio = scrollTop / (scrollHeight - clientHeight)
+  const currentSegmentIndex = Math.min(
+    Math.floor(scrollRatio * segmentsInfo.value.totalSegments),
+    segmentsInfo.value.totalSegments - 1
+  )
+  
+  // 预加载当前分段及后续2个分段
+  const preloadCount = 3
+  for (let i = 0; i < preloadCount; i++) {
+    const segmentIndex = currentSegmentIndex + i
+    if (segmentIndex >= 0 && segmentIndex < segmentsInfo.value.totalSegments) {
+      if (!loadedSegments.value.has(segmentIndex) && !loadingSegments.value.has(segmentIndex)) {
+        loadTranslationSegment(segmentIndex)
+      }
+    }
+  }
+}, 300) // 300ms防抖
 
 // 语言切换
 const handleLanguageChange = () => {
@@ -475,50 +649,57 @@ const loadOriginalText = async () => {
   }
 }
 
-// 加载翻译内容
+// 加载翻译内容（兼容旧格式和懒加载格式）
 const loadTranslation = async () => {
-  if (!props.docId || !targetLanguage.value) return
+  if (!props.docId || !targetLanguage.value) return false
   
   try {
-    const response = await getDocumentTranslation(props.docId, targetLanguage.value)
-    let content = ''
-    if (typeof response === 'string') {
-      content = response
-    } else if (response && typeof response === 'object') {
-      content = response.content || response.data?.content || ''
-      if (content && typeof content !== 'string') {
-        try {
-          content = JSON.stringify(content)
-        } catch (e) {
-          content = String(content)
+    // 先尝试加载分段信息
+    try {
+      await loadSegmentsInfo()
+    } catch (error) {
+      // 如果加载分段信息失败，可能是旧格式，继续尝试加载完整翻译
+      console.warn('加载分段信息失败，尝试加载完整翻译:', error)
+    }
+    
+    if (segmentsInfo.value && segmentsInfo.value.totalSegments > 0) {
+      // 懒加载模式：尝试加载第一段（如果已翻译）
+      // 静默失败，不显示错误消息
+      try {
+        await loadTranslationSegment(0)
+        return loadedSegments.value.has(0)
+      } catch (error) {
+        // 静默失败，可能是分段还未翻译
+        console.debug('加载第一段翻译失败（可能还未翻译）:', error)
+        return false
+      }
+    } else {
+      // 旧格式：加载完整翻译
+      const response = await getDocumentTranslation(props.docId, targetLanguage.value)
+      let content = ''
+      if (typeof response === 'string') {
+        content = response
+      } else if (response && typeof response === 'object') {
+        content = response.content || response.data?.content || ''
+        if (content && typeof content !== 'string') {
+          try {
+            content = JSON.stringify(content)
+          } catch (e) {
+            content = String(content)
+          }
         }
       }
+      translationContent.value = content || ''
+      return !!translationContent.value
     }
-    translationContent.value = content || ''
-    return !!translationContent.value
   } catch (error) {
     // 如果获取失败（可能是404），返回false表示没有翻译内容
+    console.warn('加载翻译内容失败:', error)
     return false
   }
 }
 
-// 自动翻译
-const autoTranslate = async () => {
-  if (!props.docId || !targetLanguage.value || translating.value || hasAutoTranslated.value) {
-    return
-  }
-  
-  // 先尝试加载已有翻译
-  const hasTranslation = await loadTranslation()
-  if (hasTranslation) {
-    // 已有翻译，不需要自动翻译
-    return
-  }
-  
-  // 没有翻译内容，自动翻译
-  hasAutoTranslated.value = true
-  await handleTranslate()
-}
+// 移除自动翻译功能，用户需要手动点击翻译按钮
 
 // 监听docId变化，重新加载翻译
 watch(() => props.docId, () => {
@@ -526,17 +707,27 @@ watch(() => props.docId, () => {
     translationContent.value = ''
     originalText.value = ''
     hasAutoTranslated.value = false
+    // 重置懒加载状态
+    segmentsInfo.value = null
+    loadedSegments.value.clear()
+    loadingSegments.value.clear()
+    segmentTranslations.value = []
     loadOriginalText()
-    autoTranslate()
+    // 不再自动翻译，用户需要手动点击翻译按钮
   }
 }, { immediate: false })
 
-// 监听目标语言变化，重新加载翻译
+// 监听目标语言变化，重置翻译状态
 watch(() => targetLanguage.value, () => {
   if (props.docId && targetLanguage.value) {
     translationContent.value = ''
     hasAutoTranslated.value = false
-    autoTranslate()
+    // 重置懒加载状态
+    segmentsInfo.value = null
+    loadedSegments.value.clear()
+    loadingSegments.value.clear()
+    segmentTranslations.value = []
+    // 不再自动翻译，用户需要手动点击翻译按钮
   }
 })
 
@@ -589,14 +780,14 @@ const handleFullscreenChange = () => {
   )
 }
 
-// 组件挂载时自动翻译
-onMounted(() => {
+// 组件挂载时
+onMounted(async () => {
   if (props.docId) {
     // 默认模式下不加载原文，只在全屏时加载
     // loadOriginalText() // 移除自动加载
-    if (targetLanguage.value) {
-      autoTranslate()
-    }
+    
+    // 不再自动加载翻译，用户需要手动点击翻译按钮
+    // 如果用户之前有翻译，可以在选择目标语言后手动点击翻译按钮加载
   }
   
   // 监听全屏状态变化
@@ -866,6 +1057,19 @@ onUnmounted(() => {
   font-size: 14px;
   color: #909399;
   text-align: center;
+}
+
+.loading-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: var(--el-text-color-regular, #606266);
+  gap: 8px;
+}
+
+.loading-segment .loading-icon {
+  font-size: 16px;
 }
 
 /* 全屏模式样式 */

@@ -345,18 +345,18 @@ const predefinedConfigKeys = [
     type: 'number'
   },
   {
-    key: 'documentReader.vectorStoreType',
-    label: 'documentReader.vectorStoreType',
-    description: '文档解读使用的向量库类型（qdrant、faiss、milvus、chroma、weaviate、elasticsearch、pgvector等）',
-    group: 'documentReader',
-    type: 'string'
-  },
-  {
     key: 'documentReader.vectorDatabaseId',
     label: 'documentReader.vectorDatabaseId',
-    description: '文档解读使用的向量库实例ID（可选，如果向量库类型需要实例ID）',
+    description: '文档解读使用的向量库实例ID（推荐，优先使用具体实例配置。如果未配置，将使用vectorStoreType查找默认配置）',
     group: 'documentReader',
     type: 'number'
+  },
+  {
+    key: 'documentReader.vectorStoreType',
+    label: 'documentReader.vectorStoreType',
+    description: '文档解读使用的向量库类型（后备选项，当未配置vectorDatabaseId时使用。可选值：qdrant、faiss、milvus、chroma、weaviate、elasticsearch、pgvector等）',
+    group: 'documentReader',
+    type: 'string'
   },
   {
     key: 'documentReader.topK',
@@ -457,16 +457,10 @@ const loadQAModels = async () => {
 const handleConfigKeyChange = (configKey) => {
   const predefined = predefinedConfigKeys.find(item => item.key === configKey)
   if (predefined) {
-    // 自动填充配置分组和配置类型
-    if (!form.value.configGroup) {
-      form.value.configGroup = predefined.group
-    }
-    if (!form.value.configType) {
-      form.value.configType = predefined.type
-    }
-    if (!form.value.description) {
-      form.value.description = predefined.description
-    }
+    // 对于预定义配置键，强制使用正确的分组、类型和描述，确保匹配
+    form.value.configGroup = predefined.group
+    form.value.configType = predefined.type
+    form.value.description = predefined.description
   }
 }
 
@@ -626,6 +620,14 @@ const handleEdit = (row) => {
     configGroup: row.configGroup || '',
     configType: row.configType || '',
     description: row.description || ''
+  }
+  
+  // 如果是预定义配置键，强制使用正确的分组、类型和描述，确保匹配
+  const predefined = predefinedConfigKeys.find(item => item.key === row.configKey)
+  if (predefined) {
+    form.value.configGroup = predefined.group
+    form.value.configType = predefined.type
+    form.value.description = predefined.description
   }
   
   // 如果是全局主题配置，初始化主题选择

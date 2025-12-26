@@ -4,6 +4,7 @@ import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.documentreader.resp.DocumentReaderResp;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
+import java.util.Map;
 
 /**
  * 文档解读服务接口
@@ -64,6 +65,35 @@ public interface DocumentReaderService {
      * 获取文档翻译内容
      */
     String getDocumentTranslation(Long documentId, Long userId, String targetLang);
+    
+    /**
+     * 获取文档翻译内容（懒加载模式，返回指定范围的翻译）
+     * @param documentId 文档ID
+     * @param userId 用户ID
+     * @param targetLang 目标语言
+     * @param startSegment 起始分段索引（从0开始）
+     * @param endSegment 结束分段索引（不包含）
+     * @return 翻译内容
+     */
+    String getDocumentTranslationRange(Long documentId, Long userId, String targetLang, int startSegment, int endSegment);
+    
+    /**
+     * 获取文档分段信息
+     * @param documentId 文档ID
+     * @param userId 用户ID
+     * @return 分段信息（包含总段数、每段的起始位置等）
+     */
+    Map<String, Object> getDocumentSegments(Long documentId, Long userId);
+    
+    /**
+     * 翻译指定分段（懒加载）
+     * @param documentId 文档ID
+     * @param userId 用户ID
+     * @param targetLang 目标语言
+     * @param segmentIndex 分段索引
+     * @return 翻译后的内容
+     */
+    String translateDocumentSegment(Long documentId, Long userId, String targetLang, int segmentIndex);
     
     /**
      * 保存文档翻译内容

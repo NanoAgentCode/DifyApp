@@ -24,16 +24,15 @@
       <!-- 右侧：功能区域 -->
       <div class="right-panel">
         <!-- 标签页 -->
-        <el-tabs v-model="activeTab" class="function-tabs">
+        <el-tabs v-model="activeTab" class="function-tabs" @tab-click="handleTabClick">
           <el-tab-pane label="导读" name="guide">
             <GuideTab :doc-id="docId" />
           </el-tab-pane>
-          <el-tab-pane label="翻译" name="translate" :disabled="isChineseDocument">
-            <TranslateTab v-if="!isChineseDocument" :doc-id="docId" :document-info="documentInfo" />
-            <div v-else class="disabled-translate-message">
-              <el-icon class="message-icon"><Warning /></el-icon>
-              <p>中文文档暂不支持翻译功能</p>
-            </div>
+          <el-tab-pane label="翻译" name="translate">
+            <TranslateTab 
+              :doc-id="docId" 
+              :document-info="documentInfo"
+            />
           </el-tab-pane>
           <el-tab-pane label="脑图" name="mindmap">
             <MindMapTab :doc-id="docId" />
@@ -64,7 +63,6 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Warning } from '@element-plus/icons-vue'
 import DocumentViewer from '@/components/documentReader/DocumentViewer.vue'
 import GuideTab from '@/components/documentReader/GuideTab.vue'
 import TranslateTab from '@/components/documentReader/TranslateTab.vue'
@@ -91,49 +89,93 @@ const useStream = ref(true)
 const availableModels = ref([])
 const qaFocused = ref(false)
 const selectedText = ref('')
-const isChineseDocument = ref(false)
 const documentQARef = ref(null)
 
-// 检测文档是否为中文
-const detectChineseDocument = async () => {
-  if (!docId.value) return
+// 检测文档的主要语言
+const detectDocumentLanguage = async () => {
+  if (!docId.value) return null
   
   try {
-    // 获取文档文本内容的前1000个字符进行检测
+    // 获取文档文本内容的前2000个字符进行检测
     const textResponse = await getDocumentText(docId.value)
     let textContent = ''
     
     if (typeof textResponse === 'string') {
       textContent = textResponse
     } else if (textResponse && typeof textResponse === 'object') {
-      textContent = textResponse.content || textResponse.data?.content || ''
+      textContent = textResponse.content || textResponse.data?.content || textResponse.text || ''
     }
     
     if (!textContent || textContent.length === 0) {
-      isChineseDocument.value = false
-      return
+      return null
     }
     
-    // 取前1000个字符进行检测
-    const sampleText = textContent.substring(0, 1000)
+    // 取前2000个字符进行检测
+    const sampleText = textContent.substring(0, 2000)
     
-    // 检测中文字符：使用正则表达式匹配中文字符
-    // 中文字符范围：\u4e00-\u9fa5（基本汉字），\u3400-\u4db5（扩展A），\u20000-\u2a6d6（扩展B）
-    const chineseCharPattern = /[\u4e00-\u9fa5\u3400-\u4db5]/
-    const chineseCharCount = (sampleText.match(chineseCharPattern) || []).length
-    
-    // 如果中文字符占比超过30%，认为是中文文档
-    const chineseRatio = chineseCharCount / Math.min(sampleText.length, 1000)
-    isChineseDocument.value = chineseRatio > 0.3
-    
-    // 如果检测到是中文文档且当前在翻译标签页，切换到其他标签页
-    if (isChineseDocument.value && activeTab.value === 'translate') {
-      activeTab.value = 'guide'
+    if (sampleText.length < 10) {
+      return null
     }
+    
+    let totalChars = 0
+    let chineseChars = 0
+    let japaneseChars = 0
+    let koreanChars = 0
+    let englishChars = 0
+    
+    for (const c of sampleText) {
+      // 跳过空白字符和标点符号
+      if (/\s/.test(c)) {
+        continue
+      }
+      
+      totalChars++
+      
+      const code = c.charCodeAt(0)
+      
+      // 检测中文（简体中文范围：\u4e00-\u9fa5）
+      if (code >= 0x4e00 && code <= 0x9fa5) {
+        chineseChars++
+      }
+      // 检测日文（平假名：\u3040-\u309F，片假名：\u30A0-\u30FF）
+      else if ((code >= 0x3040 && code <= 0x309F) || (code >= 0x30A0 && code <= 0x30FF)) {
+        japaneseChars++
+      }
+      // 检测韩文（\uAC00-\uD7AF）
+      else if (code >= 0xAC00 && code <= 0xD7AF) {
+        koreanChars++
+      }
+      // 检测英文（ASCII字母）
+      else if ((code >= 65 && code <= 90) || (code >= 97 && code <= 122)) {
+        englishChars++
+      }
+    }
+    
+    if (totalChars === 0) {
+      return null
+    }
+    
+    // 计算各语言占比
+    const chineseRatio = chineseChars / totalChars
+    const japaneseRatio = japaneseChars / totalChars
+    const koreanRatio = koreanChars / totalChars
+    const englishRatio = englishChars / totalChars
+    
+    // 如果某种语言占比超过30%，认为是该语言
+    if (chineseRatio >= 0.3) {
+      return 'zh'
+    } else if (japaneseRatio >= 0.3) {
+      return 'ja'
+    } else if (koreanRatio >= 0.3) {
+      return 'ko'
+    } else if (englishRatio >= 0.3) {
+      return 'en'
+    }
+    
+    return null
   } catch (error) {
     console.error('检测文档语言失败:', error)
-    // 检测失败时默认不禁用翻译功能
-    isChineseDocument.value = false
+    return null
   }
 }
 
@@ -151,8 +193,7 @@ const loadDocumentDetail = async () => {
     // 根据文档类型设置总页数（这里假设后端返回了总页数，如果没有则默认为1）
     totalPages.value = detail.totalPages || 1
     
-    // 加载文档详情后检测语言
-    await detectChineseDocument()
+    // 不再自动检测语言，翻译时再检测
   } catch (error) {
     ElMessage.error('加载文档详情失败：' + (error.message || '未知错误'))
     router.push('/user/document-reader')
@@ -217,6 +258,11 @@ const handleTextInterpret = (text) => {
       documentQARef.value.sendQuestion(question)
     }
   }, 300)
+}
+
+// 处理标签页点击
+const handleTabClick = (tab) => {
+  // 不再需要特殊处理
 }
 
 onMounted(() => {
@@ -348,10 +394,39 @@ onMounted(() => {
   color: var(--el-color-warning, #e6a23c);
 }
 
-.disabled-translate-message p {
-  margin: 8px 0;
-  font-size: 16px;
+.disabled-translate-message .loading-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: var(--el-color-primary, #409eff);
+}
+
+.disabled-translate-message .loading-icon.is-loading {
+  animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.disabled-translate-message .message-title {
+  margin: 8px 0 4px 0;
+  font-size: 18px;
+  font-weight: 600;
   text-align: center;
+  color: var(--el-text-color-primary, #303133);
+}
+
+.disabled-translate-message .message-desc {
+  margin: 8px 0;
+  font-size: 14px;
+  text-align: center;
+  color: var(--el-text-color-regular, #606266);
+  line-height: 1.6;
 }
 
 .qa-section {

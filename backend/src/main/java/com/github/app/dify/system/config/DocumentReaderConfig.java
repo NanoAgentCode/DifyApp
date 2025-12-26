@@ -75,24 +75,32 @@ public class DocumentReaderConfig {
                 }
             }
             
-            // 加载向量库类型
-            String vectorStoreTypeStr = systemConfigService.getConfigValue(CONFIG_KEY_VECTOR_STORE_TYPE);
-            if (vectorStoreTypeStr != null && !vectorStoreTypeStr.trim().isEmpty()) {
-                this.vectorStoreType = vectorStoreTypeStr.trim().toLowerCase();
-                logger.info("从系统配置加载文档解读向量库类型: {}", this.vectorStoreType);
-            } else {
-                this.vectorStoreType = DEFAULT_VECTOR_STORE_TYPE;
-                logger.info("使用默认文档解读向量库类型: {}", this.vectorStoreType);
-            }
-            
-            // 加载向量库实例ID
+            // 优先加载向量库实例ID（如果配置了实例ID，将优先使用实例配置）
             String vectorDatabaseIdStr = systemConfigService.getConfigValue(CONFIG_KEY_VECTOR_DATABASE_ID);
             if (vectorDatabaseIdStr != null && !vectorDatabaseIdStr.trim().isEmpty()) {
                 try {
                     this.vectorDatabaseId = Long.parseLong(vectorDatabaseIdStr.trim());
-                    logger.info("从系统配置加载文档解读向量库实例ID: {}", this.vectorDatabaseId);
+                    logger.info("从系统配置加载文档解读向量库实例ID: {} (优先使用实例配置)", this.vectorDatabaseId);
                 } catch (NumberFormatException e) {
                     logger.warn("系统配置中的文档解读向量库实例ID格式错误: {}, 使用null", vectorDatabaseIdStr);
+                }
+            }
+            
+            // 加载向量库类型（作为后备选项，当没有配置vectorDatabaseId时使用）
+            String vectorStoreTypeStr = systemConfigService.getConfigValue(CONFIG_KEY_VECTOR_STORE_TYPE);
+            if (vectorStoreTypeStr != null && !vectorStoreTypeStr.trim().isEmpty()) {
+                this.vectorStoreType = vectorStoreTypeStr.trim().toLowerCase();
+                if (this.vectorDatabaseId != null) {
+                    logger.info("从系统配置加载文档解读向量库类型: {} (已配置实例ID，类型作为后备)", this.vectorStoreType);
+                } else {
+                    logger.info("从系统配置加载文档解读向量库类型: {} (未配置实例ID，使用类型查找默认配置)", this.vectorStoreType);
+                }
+            } else {
+                this.vectorStoreType = DEFAULT_VECTOR_STORE_TYPE;
+                if (this.vectorDatabaseId != null) {
+                    logger.info("使用默认文档解读向量库类型: {} (已配置实例ID，类型作为后备)", this.vectorStoreType);
+                } else {
+                    logger.info("使用默认文档解读向量库类型: {} (未配置实例ID，使用类型查找默认配置)", this.vectorStoreType);
                 }
             }
             

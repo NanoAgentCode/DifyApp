@@ -40,5 +40,11 @@ public interface SystemConfigRepository extends JpaRepository<SystemConfig, Long
     @Query("SELECT COUNT(sc) > 0 FROM SystemConfig sc WHERE (sc.deleted IS NULL OR sc.deleted = 0) " +
            "AND sc.configKey = :configKey")
     boolean existsByConfigKeyAndNotDeleted(@Param("configKey") String configKey);
+    
+    /**
+     * 根据配置键查找配置（包括已删除的）
+     */
+    @Query("SELECT sc FROM SystemConfig sc WHERE sc.configKey = :configKey")
+    Optional<SystemConfig> findByConfigKey(@Param("configKey") String configKey);
 }
 

@@ -66,6 +66,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     @Override
     @Transactional
     public SystemConfigResp setOrUpdateConfig(UpdateSystemConfigReq req, Long userId, String username) {
+        // 先查找未删除的配置
         Optional<SystemConfig> optional = systemConfigRepository.findByConfigKeyAndNotDeleted(req.getConfigKey());
         
         SystemConfig config;
@@ -74,14 +75,23 @@ public class SystemConfigServiceImpl implements SystemConfigService {
             config = optional.get();
             logger.info("更新系统配置 - 键: {}, 用户: {}", req.getConfigKey(), username);
         } else {
-            // 创建新配置
-            config = new SystemConfig();
-            config.setConfigKey(req.getConfigKey());
-            config.setCreateTime(new Date());
-            config.setCreator(username);
-            config.setCreatorId(userId);
-            config.setDeleted(0);
-            logger.info("创建系统配置 - 键: {}, 用户: {}", req.getConfigKey(), username);
+            // 如果未删除的配置不存在，检查是否存在已删除的配置
+            Optional<SystemConfig> deletedOptional = systemConfigRepository.findByConfigKey(req.getConfigKey());
+            if (deletedOptional.isPresent()) {
+                // 恢复已删除的配置
+                config = deletedOptional.get();
+                config.setDeleted(0);
+                logger.info("恢复已删除的系统配置 - 键: {}, 用户: {}", req.getConfigKey(), username);
+            } else {
+                // 创建新配置
+                config = new SystemConfig();
+                config.setConfigKey(req.getConfigKey());
+                config.setCreateTime(new Date());
+                config.setCreator(username);
+                config.setCreatorId(userId);
+                config.setDeleted(0);
+                logger.info("创建系统配置 - 键: {}, 用户: {}", req.getConfigKey(), username);
+            }
         }
         
         // 更新字段

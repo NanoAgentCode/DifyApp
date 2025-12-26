@@ -154,6 +154,46 @@ export function getDocumentTranslation(docId, targetLang) {
 }
 
 /**
+ * 获取文档翻译内容（懒加载模式，指定范围）
+ * @param {number} docId - 文档ID
+ * @param {string} targetLang - 目标语言
+ * @param {number} startSegment - 起始分段索引
+ * @param {number} endSegment - 结束分段索引（不包含）
+ */
+export function getDocumentTranslationRange(docId, targetLang, startSegment = 0, endSegment = 10) {
+  return request({
+    url: `/api/document-reader/documents/${docId}/translation/range`,
+    method: 'get',
+    params: { targetLang, startSegment, endSegment }
+  })
+}
+
+/**
+ * 获取文档分段信息
+ * @param {number} docId - 文档ID
+ */
+export function getDocumentSegments(docId) {
+  return request({
+    url: `/api/document-reader/documents/${docId}/segments`,
+    method: 'get'
+  })
+}
+
+/**
+ * 翻译指定分段（懒加载）
+ * @param {number} docId - 文档ID
+ * @param {string} targetLang - 目标语言
+ * @param {number} segmentIndex - 分段索引
+ */
+export function translateDocumentSegment(docId, targetLang, segmentIndex) {
+  return request({
+    url: `/api/document-reader/documents/${docId}/translate/segment`,
+    method: 'post',
+    data: { targetLang, segmentIndex }
+  })
+}
+
+/**
  * 保存文档翻译内容
  * @param {number} docId - 文档ID
  * @param {string} targetLang - 目标语言

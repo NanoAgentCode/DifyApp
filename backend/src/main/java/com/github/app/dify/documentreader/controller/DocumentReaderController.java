@@ -285,6 +285,55 @@ public class DocumentReaderController extends BaseController {
     }
     
     /**
+     * 获取文档翻译内容（懒加载模式，指定范围）
+     */
+    @Operation(summary = "获取文档翻译内容（懒加载模式）")
+    @GetMapping("/{docId}/translation/range")
+    public ResponseEntity<Map<String, String>> getDocumentTranslationRange(
+            @PathVariable Long docId,
+            @RequestParam String targetLang,
+            @RequestParam(defaultValue = "0") int startSegment,
+            @RequestParam(defaultValue = "10") int endSegment,
+            HttpServletRequest request) {
+        Long userId = getUserId(request);
+        String content = documentReaderService.getDocumentTranslationRange(docId, userId, targetLang, startSegment, endSegment);
+        Map<String, String> response = new HashMap<>();
+        response.put("content", content);
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * 获取文档分段信息
+     */
+    @Operation(summary = "获取文档分段信息")
+    @GetMapping("/{docId}/segments")
+    public ResponseEntity<Map<String, Object>> getDocumentSegments(
+            @PathVariable Long docId,
+            HttpServletRequest request) {
+        Long userId = getUserId(request);
+        Map<String, Object> segments = documentReaderService.getDocumentSegments(docId, userId);
+        return ResponseEntity.ok(segments);
+    }
+    
+    /**
+     * 翻译指定分段（懒加载）
+     */
+    @Operation(summary = "翻译指定分段（懒加载）")
+    @PostMapping("/{docId}/translate/segment")
+    public ResponseEntity<Map<String, String>> translateDocumentSegment(
+            @PathVariable Long docId,
+            @RequestBody Map<String, Object> requestBody,
+            HttpServletRequest request) {
+        Long userId = getUserId(request);
+        String targetLang = (String) requestBody.get("targetLang");
+        Integer segmentIndex = ((Number) requestBody.get("segmentIndex")).intValue();
+        String content = documentReaderService.translateDocumentSegment(docId, userId, targetLang, segmentIndex);
+        Map<String, String> response = new HashMap<>();
+        response.put("content", content);
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
      * 保存文档翻译内容
      */
     @Operation(summary = "保存文档翻译内容")

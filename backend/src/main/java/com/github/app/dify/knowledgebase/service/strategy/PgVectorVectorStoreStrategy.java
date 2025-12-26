@@ -27,11 +27,70 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
     @Autowired
     private com.github.app.dify.knowledgebase.util.VectorDatabaseConfigHelper configHelper;
     
+    @Autowired(required = false)
+    private com.github.app.dify.system.config.DocumentReaderConfig documentReaderConfig;
+    
+    @Autowired(required = false)
+    private com.github.app.dify.knowledgebase.repository.VectorDatabaseRepository vectorDatabaseRepository;
+    
+    @Autowired(required = false)
+    private com.github.app.dify.knowledgebase.repository.KnowledgeBaseRepository knowledgeBaseRepository;
+    
     // 为每个知识库缓存数据库连接
     private final Map<Long, Connection> connectionCache = new ConcurrentHashMap<>();
     private final Map<Long, String> lastUrlCache = new ConcurrentHashMap<>();
     private final Map<Long, String> lastUsernameCache = new ConcurrentHashMap<>();
     private final Map<Long, String> lastPasswordCache = new ConcurrentHashMap<>();
+    
+    /**
+     * 获取知识库的向量数据库配置
+     * 优先从vectorDatabaseId获取具体实例，如果没有则使用类型查找
+     */
+    private VectorDatabase getVectorDatabaseConfig(Long knowledgeBaseId) {
+        try {
+            // 如果是文档解读（knowledgeBaseId为0），从DocumentReaderConfig读取vectorDatabaseId
+            if (knowledgeBaseId != null && knowledgeBaseId == 0L && documentReaderConfig != null) {
+                Long vectorDatabaseId = documentReaderConfig.getVectorDatabaseId();
+                if (vectorDatabaseId != null && vectorDatabaseRepository != null) {
+                    java.util.Optional<VectorDatabase> config = vectorDatabaseRepository.findById(vectorDatabaseId);
+                    if (config.isPresent()) {
+                        logger.debug("从文档解读配置读取向量数据库配置 - 配置ID: {}", vectorDatabaseId);
+                        return config.get();
+                    } else {
+                        logger.warn("文档解读配置的向量数据库ID不存在: {}, 使用类型配置", vectorDatabaseId);
+                    }
+                }
+            }
+            
+            // 从知识库读取vectorDatabaseId
+            if (knowledgeBaseRepository != null) {
+                java.util.Optional<com.github.app.dify.knowledgebase.domain.KnowledgeBase> kb = 
+                        knowledgeBaseRepository.findById(knowledgeBaseId);
+                if (kb.isPresent() && kb.get().getVectorDatabaseId() != null) {
+                    Long vectorDatabaseId = kb.get().getVectorDatabaseId();
+                    if (vectorDatabaseRepository != null) {
+                        java.util.Optional<VectorDatabase> config = vectorDatabaseRepository.findById(vectorDatabaseId);
+                        if (config.isPresent()) {
+                            logger.debug("从知识库读取向量数据库配置 - 知识库ID: {}, 配置ID: {}", 
+                                    knowledgeBaseId, vectorDatabaseId);
+                            return config.get();
+                        }
+                    }
+                }
+            }
+            
+            // 如果没有指定配置，使用默认的pgvector配置
+            VectorDatabase defaultConfig = configHelper.getConfigByType("pgvector");
+            if (defaultConfig != null) {
+                logger.debug("使用默认pgvector配置 - 知识库ID: {}", knowledgeBaseId);
+                return defaultConfig;
+            }
+        } catch (Exception e) {
+            logger.warn("获取向量数据库配置失败 - 知识库ID: {}", knowledgeBaseId, e);
+        }
+        
+        return null;
+    }
     
     /**
      * 获取指定知识库的数据库连接
@@ -42,7 +101,7 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
         String currentUsername;
         String currentPassword;
         
-        VectorDatabase config = configHelper.getConfigByType("pgvector");
+        VectorDatabase config = getVectorDatabaseConfig(knowledgeBaseId);
         if (config != null) {
             currentUrl = config.getUrl();
             // 使用工具类提取用户名和密码
@@ -276,11 +335,77 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
                              tableName))) {
                     
                     if (rs.next()) {
-                        int existingSize = rs.getInt(1) - 4; // pgvector存储维度需要减去4
+                        int atttypmod = rs.getInt(1);
+                        // pgvector的维度计算：atttypmod - 4 或使用更准确的方法
+                        // 如果atttypmod为-1（未指定），尝试从实际数据中获取维度
+                        int existingSize;
+                        if (atttypmod == -1) {
+                            // 如果atttypmod为-1，尝试从表中实际数据获取维度
+                            try (Statement dimStmt = conn.createStatement();
+                                 ResultSet dimRs = dimStmt.executeQuery(
+                                     String.format(
+                                         "SELECT array_length(embedding::float[], 1) as dim FROM %s LIMIT 1",
+                                         tableName))) {
+                                if (dimRs.next()) {
+                                    existingSize = dimRs.getInt(1);
+                                } else {
+                                    // 表中没有数据，使用传入的维度
+                                    existingSize = vectorSize;
+                                }
+                            }
+                        } else {
+                            // pgvector存储维度：atttypmod - 4
+                            existingSize = atttypmod - 4;
+                        }
+                        
                         if (existingSize != vectorSize) {
-                            throw new IllegalArgumentException(
-                                String.format("向量维度不匹配 - 知识库ID: %d, 期望: %d, 实际: %d", 
-                                        knowledgeBaseId, vectorSize, existingSize));
+                            // 检查表中是否有数据
+                            boolean hasData = false;
+                            try (Statement countStmt = conn.createStatement();
+                                 ResultSet countRs = countStmt.executeQuery(
+                                     String.format("SELECT COUNT(*) as cnt FROM %s", tableName))) {
+                                if (countRs.next()) {
+                                    hasData = countRs.getInt("cnt") > 0;
+                                }
+                            } catch (SQLException e) {
+                                logger.warn("检查表数据失败", e);
+                            }
+                            
+                            if (!hasData) {
+                                // 如果表为空，自动删除并重新创建
+                                logger.warn("检测到向量维度不匹配且表为空，自动删除并重新创建表 - 知识库ID: {}, 表名: {}, 旧维度: {}, 新维度: {}", 
+                                        knowledgeBaseId, tableName, existingSize, vectorSize);
+                                try (Statement dropStmt = conn.createStatement()) {
+                                    dropStmt.execute(String.format("DROP TABLE IF EXISTS %s CASCADE", tableName));
+                                    conn.commit();
+                                    logger.info("已删除旧表，将重新创建 - 知识库ID: {}, 表名: {}", knowledgeBaseId, tableName);
+                                    // 重新创建表（递归调用ensureCollection）
+                                    ensureCollection(knowledgeBaseId, vectorSize);
+                                    return;
+                                } catch (SQLException e) {
+                                    logger.error("自动删除表失败 - 知识库ID: {}, 表名: {}", knowledgeBaseId, tableName, e);
+                                    throw new RuntimeException("自动删除表失败: " + e.getMessage(), e);
+                                }
+                            } else {
+                                // 如果表有数据，提供详细的错误信息和解决方案
+                                String errorMsg = String.format(
+                                    "向量维度不匹配 - 知识库ID: %d, 期望: %d, 实际: %d\n" +
+                                    "表 %s 中已有数据，无法自动修复。请选择以下方案之一：\n" +
+                                    "方案1（推荐）：使用与现有维度匹配的嵌入模型\n" +
+                                    "  - 当前表维度: %d\n" +
+                                    "  - 请在系统配置中设置 documentReader.defaultEmbeddingModelId 为维度 %d 的模型\n" +
+                                    "方案2：删除表并重新创建（会丢失所有数据）\n" +
+                                    "  - 执行SQL: DROP TABLE IF EXISTS %s CASCADE;\n" +
+                                    "  - 然后重新上传文档\n" +
+                                    "方案3：手动修改表结构（需要迁移数据，操作复杂）\n" +
+                                    "  - 执行SQL: ALTER TABLE %s ALTER COLUMN embedding TYPE vector(%d);\n" +
+                                    "  - 注意：此操作可能需要较长时间，且需要确保所有现有向量维度匹配",
+                                    knowledgeBaseId, vectorSize, existingSize, 
+                                    tableName, existingSize, existingSize,
+                                    tableName, tableName, vectorSize);
+                                logger.error(errorMsg);
+                                throw new IllegalArgumentException(errorMsg);
+                            }
                         }
                     }
                 }
@@ -301,6 +426,12 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
         if (vectors == null || vectors.isEmpty()) {
             return;
         }
+        
+        // 从实际向量中获取维度
+        int actualVectorSize = vectors.get(0).size();
+        
+        // 确保集合存在且维度匹配
+        ensureCollection(knowledgeBaseId, actualVectorSize);
         
         String tableName = getTableName(knowledgeBaseId);
         

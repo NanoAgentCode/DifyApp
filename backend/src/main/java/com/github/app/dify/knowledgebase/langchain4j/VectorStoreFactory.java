@@ -27,6 +27,9 @@ public class VectorStoreFactory {
     @Autowired(required = false)
     private DocumentReaderConfig documentReaderConfig;
     
+    @Autowired(required = false)
+    private com.github.app.dify.knowledgebase.repository.VectorDatabaseRepository vectorDatabaseRepository;
+    
     // 策略缓存：类型 -> 策略实例
     private java.util.Map<String, VectorStoreStrategy> strategyMap;
     
@@ -108,30 +111,77 @@ public class VectorStoreFactory {
     
     /**
      * 获取知识库的向量存储类型
+     * 优先从vectorDatabaseId获取具体实例配置，然后从实例配置中读取类型
+     * 如果没有vectorDatabaseId，才使用vectorStoreType配置
      * @param knowledgeBaseId 知识库ID
      * @return 向量存储类型（qdrant、faiss、milvus、chroma、weaviate、elasticsearch、pgvector），默认为qdrant
      */
     private String getVectorStoreType(Long knowledgeBaseId) {
-        // 如果是文档解读（knowledgeBaseId为0），从DocumentReaderConfig读取
-        if (knowledgeBaseId != null && knowledgeBaseId == 0L && documentReaderConfig != null) {
-            String type = documentReaderConfig.getVectorStoreType();
-            if (type != null && !type.trim().isEmpty()) {
-                logger.debug("从文档解读配置读取向量存储类型: {}", type);
-                return type.toLowerCase();
-            }
-        }
-        
         try {
-            return knowledgeBaseRepository.findById(knowledgeBaseId)
-                    .map(kb -> {
-                        String type = kb.getVectorStoreType();
-                        return type != null && !type.trim().isEmpty() ? type : "qdrant";
-                    })
-                    .orElse("qdrant");
+            // 如果是文档解读（knowledgeBaseId为0），优先从DocumentReaderConfig读取vectorDatabaseId
+            if (knowledgeBaseId != null && knowledgeBaseId == 0L && documentReaderConfig != null) {
+                // 优先从vectorDatabaseId获取实例配置
+                Long vectorDatabaseId = documentReaderConfig.getVectorDatabaseId();
+                if (vectorDatabaseId != null && vectorDatabaseRepository != null) {
+                    java.util.Optional<com.github.app.dify.knowledgebase.domain.VectorDatabase> config = 
+                            vectorDatabaseRepository.findById(vectorDatabaseId);
+                    if (config.isPresent()) {
+                        String type = config.get().getType();
+                        if (type != null && !type.trim().isEmpty()) {
+                            logger.debug("从文档解读配置的向量库实例读取类型 - 实例ID: {}, 类型: {}", 
+                                    vectorDatabaseId, type);
+                            return type.toLowerCase();
+                        }
+                    } else {
+                        logger.warn("文档解读配置的向量库实例ID不存在: {}, 使用类型配置", vectorDatabaseId);
+                    }
+                }
+                
+                // 如果没有vectorDatabaseId或实例不存在，使用vectorStoreType配置
+                String type = documentReaderConfig.getVectorStoreType();
+                if (type != null && !type.trim().isEmpty()) {
+                    logger.debug("从文档解读配置读取向量存储类型: {}", type);
+                    return type.toLowerCase();
+                }
+            }
+            
+            // 对于知识库，优先从vectorDatabaseId获取实例配置
+            if (knowledgeBaseRepository != null) {
+                java.util.Optional<com.github.app.dify.knowledgebase.domain.KnowledgeBase> kb = 
+                        knowledgeBaseRepository.findById(knowledgeBaseId);
+                if (kb.isPresent()) {
+                    com.github.app.dify.knowledgebase.domain.KnowledgeBase knowledgeBase = kb.get();
+                    
+                    // 优先从vectorDatabaseId获取实例配置
+                    if (knowledgeBase.getVectorDatabaseId() != null && vectorDatabaseRepository != null) {
+                        java.util.Optional<com.github.app.dify.knowledgebase.domain.VectorDatabase> config = 
+                                vectorDatabaseRepository.findById(knowledgeBase.getVectorDatabaseId());
+                        if (config.isPresent()) {
+                            String type = config.get().getType();
+                            if (type != null && !type.trim().isEmpty()) {
+                                logger.debug("从知识库的向量库实例读取类型 - 知识库ID: {}, 实例ID: {}, 类型: {}", 
+                                        knowledgeBaseId, knowledgeBase.getVectorDatabaseId(), type);
+                                return type.toLowerCase();
+                            }
+                        }
+                    }
+                    
+                    // 如果没有vectorDatabaseId或实例不存在，使用vectorStoreType配置
+                    String type = knowledgeBase.getVectorStoreType();
+                    if (type != null && !type.trim().isEmpty()) {
+                        logger.debug("从知识库配置读取向量存储类型 - 知识库ID: {}, 类型: {}", 
+                                knowledgeBaseId, type);
+                        return type.toLowerCase();
+                    }
+                }
+            }
         } catch (Exception e) {
             logger.warn("获取知识库向量存储类型失败，使用默认值qdrant - 知识库ID: {}", knowledgeBaseId, e);
-            return "qdrant";
         }
+        
+        // 默认返回qdrant
+        logger.debug("使用默认向量存储类型qdrant - 知识库ID: {}", knowledgeBaseId);
+        return "qdrant";
     }
     
     /**

@@ -35,10 +35,13 @@ import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.knowledgebase.service.DocumentParserService;
 
 /**
@@ -532,13 +535,13 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     }
     
     /**
-     * 翻译文档
+     * 翻译文档（懒加载模式：只翻译第一段）
      */
     @Override
     public void translateDocument(Long documentId, Long userId, String targetLang) {
         validateDocumentAccess(documentId, userId);
         
-        logger.info("开始翻译文档 - 文档ID: {}, 目标语言: {}", documentId, targetLang);
+        logger.info("开始翻译文档（懒加载模式） - 文档ID: {}, 目标语言: {}", documentId, targetLang);
         
         try {
             // 获取文档
@@ -556,20 +559,40 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 throw new RuntimeException("文档内容为空，无法翻译");
             }
             
+            // 检查是否为同种语言翻译（禁止同种语言翻译）
+            if (isSameLanguageTranslation(documentContent, targetLang)) {
+                String detectedLang = detectDocumentLanguage(documentContent);
+                logger.warn("禁止同种语言翻译 - 文档ID: {}, 文档语言: {}, 目标语言: {}", 
+                           documentId, detectedLang, targetLang);
+                throw new IllegalArgumentException(
+                    String.format("不能将%s文档翻译为%s，翻译功能仅支持不同语言之间的翻译", 
+                                 detectedLang, targetLang));
+            }
+            
             // 获取模型配置（使用默认RAG模型）
             QAModel qaModel = modelConfigService.getDefaultQAModelForRAG();
             if (qaModel == null) {
                 throw new RuntimeException("未配置可用的模型，无法进行翻译");
             }
             
-            // 执行翻译
-            String translatedContent = translateText(documentContent, targetLang, qaModel);
+            // 将文档分段（用于懒加载）
+            List<DocumentSegment> segments = splitDocumentForTranslation(documentContent);
+            logger.info("文档分段完成 - 文档ID: {}, 总段数: {}", documentId, segments.size());
             
-            // 保存翻译结果
-            saveDocumentTranslation(documentId, userId, targetLang, translatedContent);
+            // 只翻译第一段（懒加载）
+            if (!segments.isEmpty()) {
+                DocumentSegment firstSegment = segments.get(0);
+                String firstTranslated = translateTextSegment(firstSegment.getText(), targetLang, qaModel);
+                firstSegment.setTranslatedText(firstTranslated);
+                logger.info("第一段翻译完成 - 文档ID: {}, 段索引: 0, 原文长度: {}, 译文长度: {}", 
+                    documentId, firstSegment.getText().length(), firstTranslated.length());
+            }
             
-            logger.info("文档翻译完成 - 文档ID: {}, 目标语言: {}, 原文长度: {}, 译文长度: {}", 
-                documentId, targetLang, documentContent.length(), translatedContent.length());
+            // 保存分段信息和翻译结果（JSON格式）
+            saveDocumentTranslationSegments(documentId, userId, targetLang, segments);
+            
+            logger.info("文档翻译初始化完成（懒加载模式） - 文档ID: {}, 目标语言: {}, 总段数: {}, 已翻译: 1", 
+                documentId, targetLang, segments.size());
             
         } catch (Exception e) {
             logger.error("翻译文档失败 - 文档ID: {}, 目标语言: {}", documentId, targetLang, e);
@@ -578,14 +601,186 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     }
     
     /**
-     * 获取文档翻译内容
+     * 获取文档翻译内容（兼容旧版本，返回所有已翻译的内容）
      */
     @Override
     public String getDocumentTranslation(Long documentId, Long userId, String targetLang) {
         validateDocumentAccess(documentId, userId);
+        
+        // 尝试获取分段翻译
+        List<DocumentSegment> segments = loadDocumentTranslationSegments(documentId, targetLang);
+        if (segments != null && !segments.isEmpty()) {
+            // 拼接所有已翻译的段落
+            StringBuilder result = new StringBuilder();
+            for (DocumentSegment segment : segments) {
+                if (segment.getTranslatedText() != null && !segment.getTranslatedText().trim().isEmpty()) {
+                    if (result.length() > 0) {
+                        result.append("\n\n");
+                    }
+                    result.append(segment.getTranslatedText());
+                }
+            }
+            return result.toString();
+        }
+        
+        // 如果没有分段翻译，返回旧格式的翻译内容
         return translationRepository.findByDocumentIdAndTargetLanguage(documentId, targetLang)
                 .map(DocumentTranslation::getContent)
                 .orElse("");
+    }
+    
+    /**
+     * 获取文档翻译内容（懒加载模式，返回指定范围的翻译）
+     */
+    @Override
+    public String getDocumentTranslationRange(Long documentId, Long userId, String targetLang, int startSegment, int endSegment) {
+        validateDocumentAccess(documentId, userId);
+        
+        List<DocumentSegment> segments = loadDocumentTranslationSegments(documentId, targetLang);
+        if (segments == null || segments.isEmpty()) {
+            return "";
+        }
+        
+        // 确保索引有效
+        startSegment = Math.max(0, startSegment);
+        endSegment = Math.min(segments.size(), endSegment);
+        
+        if (startSegment >= endSegment) {
+            return "";
+        }
+        
+        // 拼接指定范围的翻译
+        StringBuilder result = new StringBuilder();
+        for (int i = startSegment; i < endSegment; i++) {
+            DocumentSegment segment = segments.get(i);
+            if (segment.getTranslatedText() != null && !segment.getTranslatedText().trim().isEmpty()) {
+                if (result.length() > 0) {
+                    result.append("\n\n");
+                }
+                result.append(segment.getTranslatedText());
+            }
+        }
+        
+        return result.toString();
+    }
+    
+    /**
+     * 获取文档分段信息
+     */
+    @Override
+    public Map<String, Object> getDocumentSegments(Long documentId, Long userId) {
+        validateDocumentAccess(documentId, userId);
+        
+        // 获取文档内容
+        Optional<DocumentReader> optional = documentRepository.findByIdAndDeleted(documentId, 0);
+        if (!optional.isPresent()) {
+            throw new NotFoundException("文档不存在: " + documentId);
+        }
+        
+        DocumentReader document = optional.get();
+        String documentContent = extractDocumentText(document);
+        
+        if (documentContent == null || documentContent.trim().isEmpty()) {
+            throw new RuntimeException("文档内容为空");
+        }
+        
+        // 分段
+        List<DocumentSegment> segments = splitDocumentForTranslation(documentContent);
+        
+        // 构建返回信息
+        Map<String, Object> result = new HashMap<>();
+        result.put("totalSegments", segments.size());
+        result.put("totalLength", documentContent.length());
+        
+        List<Map<String, Object>> segmentInfos = new ArrayList<>();
+        for (int i = 0; i < segments.size(); i++) {
+            DocumentSegment segment = segments.get(i);
+            Map<String, Object> info = new HashMap<>();
+            info.put("index", i);
+            info.put("start", segment.getStartIndex());
+            info.put("end", segment.getEndIndex());
+            info.put("length", segment.getText().length());
+            segmentInfos.add(info);
+        }
+        result.put("segments", segmentInfos);
+        
+        return result;
+    }
+    
+    /**
+     * 翻译指定分段（懒加载）
+     */
+    @Override
+    public String translateDocumentSegment(Long documentId, Long userId, String targetLang, int segmentIndex) {
+        validateDocumentAccess(documentId, userId);
+        
+        logger.info("开始翻译指定分段 - 文档ID: {}, 目标语言: {}, 段索引: {}", documentId, targetLang, segmentIndex);
+        
+        try {
+            // 获取文档
+            Optional<DocumentReader> optional = documentRepository.findByIdAndDeleted(documentId, 0);
+            if (!optional.isPresent()) {
+                throw new NotFoundException("文档不存在: " + documentId);
+            }
+            
+            DocumentReader document = optional.get();
+            
+            // 提取文档内容
+            String documentContent = extractDocumentText(document);
+            if (documentContent == null || documentContent.trim().isEmpty()) {
+                throw new RuntimeException("文档内容为空，无法翻译");
+            }
+            
+            // 检查是否为同种语言翻译（禁止同种语言翻译）
+            if (isSameLanguageTranslation(documentContent, targetLang)) {
+                String detectedLang = detectDocumentLanguage(documentContent);
+                throw new IllegalArgumentException(
+                    String.format("不能将%s文档翻译为%s，翻译功能仅支持不同语言之间的翻译", 
+                                 detectedLang, targetLang));
+            }
+            
+            // 获取模型配置
+            QAModel qaModel = modelConfigService.getDefaultQAModelForRAG();
+            if (qaModel == null) {
+                throw new RuntimeException("未配置可用的模型，无法进行翻译");
+            }
+            
+            // 加载或创建分段信息
+            List<DocumentSegment> segments = loadDocumentTranslationSegments(documentId, targetLang);
+            if (segments == null || segments.isEmpty()) {
+                // 如果还没有分段信息，先创建
+                segments = splitDocumentForTranslation(documentContent);
+                saveDocumentTranslationSegments(documentId, userId, targetLang, segments);
+            }
+            
+            // 检查索引有效性
+            if (segmentIndex < 0 || segmentIndex >= segments.size()) {
+                throw new IllegalArgumentException("分段索引无效: " + segmentIndex + ", 总段数: " + segments.size());
+            }
+            
+            // 检查是否已翻译
+            DocumentSegment segment = segments.get(segmentIndex);
+            if (segment.getTranslatedText() != null && !segment.getTranslatedText().trim().isEmpty()) {
+                logger.info("分段已翻译，直接返回 - 文档ID: {}, 段索引: {}", documentId, segmentIndex);
+                return segment.getTranslatedText();
+            }
+            
+            // 翻译该分段
+            String translated = translateTextSegment(segment.getText(), targetLang, qaModel);
+            segment.setTranslatedText(translated);
+            
+            // 保存更新后的分段信息
+            saveDocumentTranslationSegments(documentId, userId, targetLang, segments);
+            
+            logger.info("分段翻译完成 - 文档ID: {}, 段索引: {}, 原文长度: {}, 译文长度: {}", 
+                documentId, segmentIndex, segment.getText().length(), translated.length());
+            
+            return translated;
+            
+        } catch (Exception e) {
+            logger.error("翻译分段失败 - 文档ID: {}, 段索引: {}", documentId, segmentIndex, e);
+            throw new RuntimeException("翻译分段失败: " + e.getMessage(), e);
+        }
     }
     
     /**
@@ -1307,6 +1502,93 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     }
     
     /**
+     * 检测文档的主要语言
+     * 返回语言代码：zh（中文）、en（英文）、ja（日文）、ko（韩文）等
+     * 如果无法确定，返回 null
+     */
+    private String detectDocumentLanguage(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return null; // 空文本无法检测
+        }
+        
+        // 取前2000个字符进行检测
+        String sampleText = text.length() > 2000 ? text.substring(0, 2000) : text;
+        
+        int totalChars = 0;
+        int chineseChars = 0;
+        int japaneseChars = 0;
+        int koreanChars = 0;
+        int englishChars = 0;
+        
+        for (char c : sampleText.toCharArray()) {
+            // 跳过空白字符和标点符号
+            if (Character.isWhitespace(c) || Character.isSpaceChar(c)) {
+                continue;
+            }
+            
+            totalChars++;
+            
+            // 检测中文（简体中文范围：\u4e00-\u9fa5）
+            if (c >= 0x4e00 && c <= 0x9fa5) {
+                chineseChars++;
+            }
+            // 检测日文（平假名：\u3040-\u309F，片假名：\u30A0-\u30FF，日文汉字：\u4E00-\u9FAF）
+            else if ((c >= 0x3040 && c <= 0x309F) || (c >= 0x30A0 && c <= 0x30FF) || 
+                     (c >= 0x4E00 && c <= 0x9FAF)) {
+                japaneseChars++;
+            }
+            // 检测韩文（\uAC00-\uD7AF）
+            else if (c >= 0xAC00 && c <= 0xD7AF) {
+                koreanChars++;
+            }
+            // 检测英文（ASCII字母）
+            else if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
+                englishChars++;
+            }
+        }
+        
+        if (totalChars == 0) {
+            return null; // 没有有效字符，无法检测
+        }
+        
+        // 计算各语言占比
+        double chineseRatio = (double) chineseChars / totalChars;
+        double japaneseRatio = (double) japaneseChars / totalChars;
+        double koreanRatio = (double) koreanChars / totalChars;
+        double englishRatio = (double) englishChars / totalChars;
+        
+        // 如果某种语言占比超过30%，认为是该语言
+        if (chineseRatio >= 0.3) {
+            return "zh";
+        } else if (japaneseRatio >= 0.3) {
+            return "ja";
+        } else if (koreanRatio >= 0.3) {
+            return "ko";
+        } else if (englishRatio >= 0.3) {
+            return "en";
+        }
+        
+        // 如果无法确定主要语言，返回 null
+        return null;
+    }
+    
+    /**
+     * 检查是否为同种语言翻译（禁止同种语言翻译）
+     * @param documentContent 文档内容
+     * @param targetLang 目标语言代码
+     * @return true 如果是同种语言，false 如果不是
+     */
+    private boolean isSameLanguageTranslation(String documentContent, String targetLang) {
+        String detectedLang = detectDocumentLanguage(documentContent);
+        if (detectedLang == null) {
+            // 无法检测语言，允许翻译（保守处理）
+            return false;
+        }
+        // 检查检测到的语言是否与目标语言相同
+        return detectedLang.equalsIgnoreCase(targetLang);
+    }
+    
+    /**
      * 将文本翻译为简体中文
      */
     private String translateToChinese(String text, QAModel qaModel) {
@@ -1475,6 +1757,157 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         
         // 如果找不到合适的截断点，返回原结束位置
         return end;
+    }
+    
+    /**
+     * 将文档分段（用于懒加载翻译）
+     */
+    private List<DocumentSegment> splitDocumentForTranslation(String documentContent) {
+        List<DocumentSegment> segments = new ArrayList<>();
+        
+        // 分段大小：每段约5000字符（适合翻译）
+        int segmentSize = 5000;
+        int totalLength = documentContent.length();
+        int processedLength = 0;
+        int segmentIndex = 0;
+        
+        while (processedLength < totalLength) {
+            int segmentStart = processedLength;
+            int segmentEnd = Math.min(processedLength + segmentSize, totalLength);
+            
+            // 尝试在段落边界处截断
+            if (segmentEnd < totalLength) {
+                int bestBreakPoint = findBestBreakPoint(documentContent, segmentStart, segmentEnd);
+                if (bestBreakPoint > segmentStart) {
+                    segmentEnd = bestBreakPoint;
+                }
+            }
+            
+            String segmentText = documentContent.substring(segmentStart, segmentEnd);
+            DocumentSegment segment = new DocumentSegment();
+            segment.setIndex(segmentIndex);
+            segment.setStartIndex(segmentStart);
+            segment.setEndIndex(segmentEnd);
+            segment.setText(segmentText);
+            segment.setTranslatedText(null); // 初始未翻译
+            
+            segments.add(segment);
+            processedLength = segmentEnd;
+            segmentIndex++;
+        }
+        
+        return segments;
+    }
+    
+    /**
+     * 保存文档分段翻译信息（JSON格式）
+     */
+    @Transactional
+    private void saveDocumentTranslationSegments(Long documentId, Long userId, String targetLang, List<DocumentSegment> segments) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            
+            // 构建分段数据
+            Map<String, Object> segmentsData = new HashMap<>();
+            segmentsData.put("version", "1.0");
+            segmentsData.put("totalSegments", segments.size());
+            segmentsData.put("targetLang", targetLang);
+            
+            List<Map<String, Object>> segmentList = new ArrayList<>();
+            for (DocumentSegment segment : segments) {
+                Map<String, Object> segData = new HashMap<>();
+                segData.put("index", segment.getIndex());
+                segData.put("start", segment.getStartIndex());
+                segData.put("end", segment.getEndIndex());
+                segData.put("text", segment.getText());
+                segData.put("translated", segment.getTranslatedText());
+                segmentList.add(segData);
+            }
+            segmentsData.put("segments", segmentList);
+            
+            // 转换为JSON字符串
+            String jsonContent = objectMapper.writeValueAsString(segmentsData);
+            
+            // 保存到数据库
+            saveDocumentTranslation(documentId, userId, targetLang, jsonContent);
+            
+        } catch (Exception e) {
+            logger.error("保存分段翻译信息失败 - 文档ID: {}, 目标语言: {}", documentId, targetLang, e);
+            throw new RuntimeException("保存分段翻译信息失败: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 加载文档分段翻译信息
+     */
+    private List<DocumentSegment> loadDocumentTranslationSegments(Long documentId, String targetLang) {
+        try {
+            Optional<DocumentTranslation> optional = translationRepository.findByDocumentIdAndTargetLanguage(documentId, targetLang);
+            if (!optional.isPresent()) {
+                return null;
+            }
+            
+            String content = optional.get().getContent();
+            if (content == null || content.trim().isEmpty()) {
+                return null;
+            }
+            
+            // 尝试解析JSON格式的分段数据
+            ObjectMapper objectMapper = new ObjectMapper();
+            Map<String, Object> data = objectMapper.readValue(content, Map.class);
+            
+            // 检查是否是分段格式
+            if (!data.containsKey("segments") || !data.containsKey("version")) {
+                // 旧格式，返回null，让调用者使用旧方法
+                return null;
+            }
+            
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> segmentList = (List<Map<String, Object>>) data.get("segments");
+            List<DocumentSegment> segments = new ArrayList<>();
+            
+            for (Map<String, Object> segData : segmentList) {
+                DocumentSegment segment = new DocumentSegment();
+                segment.setIndex(((Number) segData.get("index")).intValue());
+                segment.setStartIndex(((Number) segData.get("start")).intValue());
+                segment.setEndIndex(((Number) segData.get("end")).intValue());
+                segment.setText((String) segData.get("text"));
+                segment.setTranslatedText((String) segData.get("translated"));
+                segments.add(segment);
+            }
+            
+            return segments;
+            
+        } catch (Exception e) {
+            logger.warn("加载分段翻译信息失败，可能使用旧格式 - 文档ID: {}, 目标语言: {}", documentId, targetLang, e);
+            return null;
+        }
+    }
+    
+    /**
+     * 文档分段信息（内部类）
+     */
+    private static class DocumentSegment {
+        private int index;
+        private int startIndex;
+        private int endIndex;
+        private String text;
+        private String translatedText;
+        
+        public int getIndex() { return index; }
+        public void setIndex(int index) { this.index = index; }
+        
+        public int getStartIndex() { return startIndex; }
+        public void setStartIndex(int startIndex) { this.startIndex = startIndex; }
+        
+        public int getEndIndex() { return endIndex; }
+        public void setEndIndex(int endIndex) { this.endIndex = endIndex; }
+        
+        public String getText() { return text; }
+        public void setText(String text) { this.text = text; }
+        
+        public String getTranslatedText() { return translatedText; }
+        public void setTranslatedText(String translatedText) { this.translatedText = translatedText; }
     }
     
     /**
