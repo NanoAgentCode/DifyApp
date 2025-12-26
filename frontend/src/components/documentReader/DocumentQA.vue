@@ -75,7 +75,7 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted, computed } from 'vue'
+import { ref, watch, nextTick, onMounted, computed, defineExpose } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ChatLineRound, Promotion, Loading, ArrowUp, DocumentCopy } from '@element-plus/icons-vue'
 import { documentQA, documentQAStream } from '@/api/documentReader'
@@ -570,6 +570,19 @@ const handleNormalResponse = async (userQuestion, userId, history, aiMessageInde
 watch(messages, () => {
   scrollToBottom()
 }, { deep: true })
+
+// 暴露方法供父组件调用
+const sendQuestion = (questionText) => {
+  if (!questionText || !questionText.trim()) return
+  
+  // 设置问题并发送
+  question.value = questionText.trim()
+  handleSend()
+}
+
+defineExpose({
+  sendQuestion
+})
 
 onMounted(() => {
   scrollToBottom()

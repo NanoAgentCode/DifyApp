@@ -23,6 +23,10 @@
 
     <!-- 文本选择操作按钮 -->
     <div v-if="selectedText" class="text-selection-popup" :style="selectionPopupStyle">
+      <el-button type="success" size="small" @click="handleInterpretText">
+        <el-icon><ChatLineRound /></el-icon>
+        解读
+      </el-button>
       <el-button type="primary" size="small" @click="handleUseSelectedText">
         <el-icon><DocumentAdd /></el-icon>
         添加到输入器
@@ -36,18 +40,20 @@
     <div class="viewer-content" :style="{ transform: `scale(${zoomLevel / 100})` }" @mouseup="handleTextSelection">
       <!-- PDF文档 -->
       <div v-if="fileType === 'pdf'" class="pdf-container">
-        <!-- 使用HTML方式显示（类似DOCX） -->
-        <div v-if="pdfHtmlContent" class="pdf-html-content" v-html="pdfHtmlContent"></div>
-        <!-- 回退到iframe方式 -->
-        <iframe
-          v-else-if="pdfUrl"
-          :src="pdfUrl"
-          class="pdf-iframe"
-          frameborder="0"
-        ></iframe>
-        <div v-else-if="loading" class="loading-container">
+        <div v-if="loading" class="loading-container">
           <el-icon class="loading-icon"><Loading /></el-icon>
-          <p>正在转换PDF...</p>
+          <p>正在加载PDF...</p>
+        </div>
+        <div v-else-if="pdfSource" class="pdf-viewer-wrapper">
+          <vue-pdf-embed
+            ref="pdfEmbedRef"
+            :source="pdfSource"
+            :page="currentPage"
+            :textLayer="true"
+            class="pdf-embed"
+            @rendered="handlePdfRendered"
+            @failed="handlePdfFailed"
+          />
         </div>
         <div v-else class="loading-container">
           <el-icon class="loading-icon"><Loading /></el-icon>
@@ -156,12 +162,13 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount, toRaw } from 'vue'
-import { ArrowLeft, Star, Share, Download, Loading, Document, ArrowRight, Minus, Plus, DocumentAdd, Close } from '@element-plus/icons-vue'
+import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from 'vue'
+import { ElMessage } from 'element-plus'
+import { ArrowLeft, Star, Share, Download, Loading, Document, ArrowRight, Minus, Plus, DocumentAdd, Close, ChatLineRound } from '@element-plus/icons-vue'
 import { getDocumentContent } from '@/api/documentReader'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import mammoth from 'mammoth'
-import * as pdfjsLib from 'pdfjs-dist'
+import VuePdfEmbed from 'vue-pdf-embed'
 
 const props = defineProps({
   docId: {
@@ -186,7 +193,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:currentPage', 'update:zoomLevel', 'update:totalPages', 'back', 'favorite', 'share', 'export', 'textSelected'])
+const emit = defineEmits(['update:currentPage', 'update:zoomLevel', 'update:totalPages', 'back', 'favorite', 'share', 'export', 'textSelected', 'textInterpret'])
 
 // 文本选择相关
 const selectedText = ref('')
@@ -202,27 +209,13 @@ const isImageType = computed(() => {
   return ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'].includes(fileType.value)
 })
 
-// 配置PDF.js worker - 使用多个备用方案
-// 方案1: 尝试使用本地 worker（如果 Vite 能正确处理）
-// 方案2: 使用 unpkg CDN（比 cdnjs 更可靠）
-// 方案3: 使用 jsdelivr CDN（备用）
-const workerUrls = [
-  `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`,
-  `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`,
-  `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
-]
-
-// 使用第一个可用的 worker URL
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrls[0]
-
-const pdfUrl = ref('')
-const pdfHtmlContent = ref('')
+const pdfSource = ref(null)
+const pdfEmbedRef = ref(null)
 const imageUrl = ref('')
 const markdownContent = ref('')
 const textContent = ref('')
 const docxContent = ref('')
 const loading = ref(false)
-const pdfDocument = ref(null)
 
 const renderedMarkdown = computed(() => {
   if (!markdownContent.value) return ''
@@ -234,8 +227,7 @@ const loadDocumentContent = async () => {
   if (!props.docId) return
   
   // 重置所有内容
-  pdfUrl.value = ''
-  pdfHtmlContent.value = ''
+  pdfSource.value = null
   imageUrl.value = ''
   markdownContent.value = ''
   textContent.value = ''
@@ -246,40 +238,23 @@ const loadDocumentContent = async () => {
     const response = await getDocumentContent(props.docId, props.currentPage)
     
     if (fileType.value === 'pdf') {
-      // PDF文件，转换为HTML预览（类似DOCX）
+      // PDF文件，使用vue-pdf-embed显示
       try {
         // response 是 Blob 对象（因为 responseType: 'blob'）
-        // 将 Blob 转换为 ArrayBuffer
-        const arrayBuffer = await response.arrayBuffer()
-        
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
-        const rawPdfDocument = await loadingTask.promise
-        // 使用 toRaw 获取原始对象，避免 Vue 响应式代理导致的问题
-        pdfDocument.value = rawPdfDocument
-        
-        // 更新总页数
-        emit('update:totalPages', rawPdfDocument.numPages)
-        
-        // 将所有页面转换为HTML
-        await convertPdfToHtml()
+        // vue-pdf-embed 支持 Blob，但为了更好的兼容性，我们创建 Blob URL
+        // 注意：Blob URL 不需要认证，因为数据已经在内存中
+        if (response instanceof Blob) {
+          pdfSource.value = URL.createObjectURL(response)
+        } else {
+          // 如果不是 Blob，可能是 ArrayBuffer，转换为 Blob
+          const blob = new Blob([response], { type: 'application/pdf' })
+          pdfSource.value = URL.createObjectURL(blob)
+        }
+        loading.value = false
       } catch (error) {
         console.error('PDF加载失败:', error)
-        console.error('错误详情:', {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        })
-        // 如果PDF.js加载失败，回退到iframe方式
-        try {
-          // 重新获取response（因为之前的已经被读取了）
-          const fallbackResponse = await getDocumentContent(props.docId, props.currentPage)
-          // fallbackResponse 也是 Blob 对象
-          pdfUrl.value = URL.createObjectURL(fallbackResponse)
-          console.log('已回退到iframe方式显示PDF')
-        } catch (fallbackError) {
-          console.error('回退到iframe方式也失败:', fallbackError)
-          pdfHtmlContent.value = '<p class="pdf-error-message">PDF加载失败，请下载后使用PDF阅读器打开</p>'
-        }
+        loading.value = false
+        ElMessage.error('PDF加载失败：' + (error.message || '未知错误'))
       }
     } else if (isImageType.value) {
       // 图片文件，创建blob URL
@@ -360,8 +335,36 @@ const handleZoomOut = () => {
   }
 }
 
-// 将PDF转换为HTML（类似DOCX的方式）
-const convertPdfToHtml = async () => {
+// PDF渲染完成回调
+const handlePdfRendered = async (info) => {
+  console.log('PDF渲染完成:', info)
+  loading.value = false
+  
+  // 尝试从vue-pdf-embed获取总页数
+  try {
+    if (pdfEmbedRef.value && pdfEmbedRef.value.pdf) {
+      const pdf = pdfEmbedRef.value.pdf
+      if (pdf && pdf.numPages) {
+        emit('update:totalPages', pdf.numPages)
+        console.log('PDF总页数:', pdf.numPages)
+      }
+    } else if (info && info.numPages) {
+      emit('update:totalPages', info.numPages)
+    }
+  } catch (error) {
+    console.warn('获取PDF总页数失败:', error)
+  }
+}
+
+// PDF渲染失败回调
+const handlePdfFailed = (error) => {
+  console.error('PDF渲染失败:', error)
+  loading.value = false
+  ElMessage.error('PDF加载失败：' + (error.message || '未知错误'))
+}
+
+// 已废弃：将PDF转换为HTML（不再使用）
+const convertPdfToHtml_DEPRECATED = async () => {
   if (!pdfDocument.value) {
     console.error('PDF文档对象不存在')
     return
@@ -551,6 +554,14 @@ const handleTextSelection = (event) => {
   }, 10)
 }
 
+// 解读选中的文本（直接发送到问答）
+const handleInterpretText = () => {
+  if (selectedText.value) {
+    emit('textInterpret', selectedText.value)
+    clearSelection()
+  }
+}
+
 // 使用选中的文本（添加到输入器）
 const handleUseSelectedText = () => {
   if (selectedText.value) {
@@ -593,15 +604,12 @@ onBeforeUnmount(() => {
   // 移除全局点击监听器
   document.removeEventListener('click', handleGlobalClick)
   
-  if (pdfUrl.value) {
-    URL.revokeObjectURL(pdfUrl.value)
+  // 清理PDF源（如果是Blob URL）
+  if (pdfSource.value && typeof pdfSource.value === 'string' && pdfSource.value.startsWith('blob:')) {
+    URL.revokeObjectURL(pdfSource.value)
   }
   if (imageUrl.value) {
     URL.revokeObjectURL(imageUrl.value)
-  }
-  // 清理PDF HTML内容中的图片数据URL（释放内存）
-  if (pdfHtmlContent.value) {
-    pdfHtmlContent.value = ''
   }
 })
 </script>
@@ -665,6 +673,75 @@ onBeforeUnmount(() => {
   background: var(--el-bg-color-page, #f5f7fa);
 }
 
+.pdf-viewer-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.pdf-embed {
+  width: 100%;
+  max-width: 100%;
+  box-shadow: var(--el-box-shadow-light, 0 2px 12px 0 rgba(0, 0, 0, 0.1));
+  border-radius: var(--el-border-radius-base, 4px);
+  background: var(--el-bg-color, #ffffff);
+}
+
+.pdf-embed :deep(.pdf-page) {
+  position: relative;
+}
+
+.pdf-embed :deep(canvas) {
+  width: 100% !important;
+  height: auto !important;
+  display: block;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.pdf-embed :deep(.textLayer) {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  opacity: 1;
+  line-height: 1.0;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.pdf-embed :deep(.textLayer > span) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+}
+
+.pdf-embed :deep(.textLayer .highlight) {
+  margin: -1px;
+  padding: 1px;
+  background-color: rgba(180, 0, 170, 0.2);
+  border-radius: 4px;
+}
+
+.pdf-embed :deep(.textLayer .highlight.selected) {
+  background-color: rgba(0, 100, 0, 0.2);
+}
+
+/* 保留旧的样式以防万一（已废弃） */
 .pdf-html-content {
   width: 100%;
   max-width: 100%;

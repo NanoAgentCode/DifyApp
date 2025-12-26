@@ -17,6 +17,7 @@
           @share="handleShare"
           @export="handleExport"
           @text-selected="handleTextSelected"
+          @text-interpret="handleTextInterpret"
         />
       </div>
 
@@ -27,8 +28,12 @@
           <el-tab-pane label="导读" name="guide">
             <GuideTab :doc-id="docId" />
           </el-tab-pane>
-          <el-tab-pane label="翻译" name="translate">
-            <TranslateTab :doc-id="docId" :document-info="documentInfo" />
+          <el-tab-pane label="翻译" name="translate" :disabled="isChineseDocument">
+            <TranslateTab v-if="!isChineseDocument" :doc-id="docId" :document-info="documentInfo" />
+            <div v-else class="disabled-translate-message">
+              <el-icon class="message-icon"><Warning /></el-icon>
+              <p>中文文档暂不支持翻译功能</p>
+            </div>
           </el-tab-pane>
           <el-tab-pane label="脑图" name="mindmap">
             <MindMapTab :doc-id="docId" />
@@ -56,16 +61,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Warning } from '@element-plus/icons-vue'
 import DocumentViewer from '@/components/documentReader/DocumentViewer.vue'
 import GuideTab from '@/components/documentReader/GuideTab.vue'
 import TranslateTab from '@/components/documentReader/TranslateTab.vue'
 import MindMapTab from '@/components/documentReader/MindMapTab.vue'
 import NotesTab from '@/components/documentReader/NotesTab.vue'
 import DocumentQA from '@/components/documentReader/DocumentQA.vue'
-import { getDocumentDetail } from '@/api/documentReader'
+import { getDocumentDetail, getDocumentText } from '@/api/documentReader'
 import { getAvailableQAModels } from '@/api/model'
 
 const route = useRoute()
@@ -85,6 +91,51 @@ const useStream = ref(true)
 const availableModels = ref([])
 const qaFocused = ref(false)
 const selectedText = ref('')
+const isChineseDocument = ref(false)
+const documentQARef = ref(null)
+
+// 检测文档是否为中文
+const detectChineseDocument = async () => {
+  if (!docId.value) return
+  
+  try {
+    // 获取文档文本内容的前1000个字符进行检测
+    const textResponse = await getDocumentText(docId.value)
+    let textContent = ''
+    
+    if (typeof textResponse === 'string') {
+      textContent = textResponse
+    } else if (textResponse && typeof textResponse === 'object') {
+      textContent = textResponse.content || textResponse.data?.content || ''
+    }
+    
+    if (!textContent || textContent.length === 0) {
+      isChineseDocument.value = false
+      return
+    }
+    
+    // 取前1000个字符进行检测
+    const sampleText = textContent.substring(0, 1000)
+    
+    // 检测中文字符：使用正则表达式匹配中文字符
+    // 中文字符范围：\u4e00-\u9fa5（基本汉字），\u3400-\u4db5（扩展A），\u20000-\u2a6d6（扩展B）
+    const chineseCharPattern = /[\u4e00-\u9fa5\u3400-\u4db5]/
+    const chineseCharCount = (sampleText.match(chineseCharPattern) || []).length
+    
+    // 如果中文字符占比超过30%，认为是中文文档
+    const chineseRatio = chineseCharCount / Math.min(sampleText.length, 1000)
+    isChineseDocument.value = chineseRatio > 0.3
+    
+    // 如果检测到是中文文档且当前在翻译标签页，切换到其他标签页
+    if (isChineseDocument.value && activeTab.value === 'translate') {
+      activeTab.value = 'guide'
+    }
+  } catch (error) {
+    console.error('检测文档语言失败:', error)
+    // 检测失败时默认不禁用翻译功能
+    isChineseDocument.value = false
+  }
+}
 
 // 加载文档详情
 const loadDocumentDetail = async () => {
@@ -99,6 +150,9 @@ const loadDocumentDetail = async () => {
     documentInfo.value = detail
     // 根据文档类型设置总页数（这里假设后端返回了总页数，如果没有则默认为1）
     totalPages.value = detail.totalPages || 1
+    
+    // 加载文档详情后检测语言
+    await detectChineseDocument()
   } catch (error) {
     ElMessage.error('加载文档详情失败：' + (error.message || '未知错误'))
     router.push('/user/document-reader')
@@ -146,6 +200,23 @@ const handleTextSelected = (text) => {
   selectedText.value = text
   // 自动聚焦到问答区域
   qaFocused.value = true
+}
+
+// 处理文本解读（直接发送到问答）
+const handleTextInterpret = (text) => {
+  if (!text || !text.trim()) return
+  
+  // 自动聚焦到问答区域
+  qaFocused.value = true
+  
+  // 等待问答区域展开后，发送问题
+  setTimeout(() => {
+    if (documentQARef.value) {
+      // 调用DocumentQA的方法直接发送问题
+      const question = `请解读以下内容：\n\n${text.trim()}`
+      documentQARef.value.sendQuestion(question)
+    }
+  }, 300)
 }
 
 onMounted(() => {
@@ -254,6 +325,33 @@ onMounted(() => {
 .function-tabs :deep(.el-tab-pane) {
   height: 100%;
   overflow: hidden;
+}
+
+.function-tabs :deep(.el-tabs__item.is-disabled) {
+  color: var(--el-text-color-disabled, #c0c4cc);
+  cursor: not-allowed;
+}
+
+.disabled-translate-message {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: var(--el-text-color-placeholder, #909399);
+  padding: 40px;
+}
+
+.disabled-translate-message .message-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: var(--el-color-warning, #e6a23c);
+}
+
+.disabled-translate-message p {
+  margin: 8px 0;
+  font-size: 16px;
+  text-align: center;
 }
 
 .qa-section {
