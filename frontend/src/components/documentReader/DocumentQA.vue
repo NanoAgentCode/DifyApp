@@ -37,12 +37,21 @@
     </div>
     
     <div class="qa-input">
+      <!-- 选中文本提示 -->
+      <div v-if="selectedText && !question.includes(selectedText)" class="selected-text-hint">
+        <div class="hint-content">
+          <el-icon><DocumentCopy /></el-icon>
+          <span class="hint-text">已选中文本：{{ selectedTextPreview }}</span>
+          <el-button type="text" size="small" @click="insertSelectedText">插入</el-button>
+          <el-button type="text" size="small" @click="clearSelectedText">清除</el-button>
+        </div>
+      </div>
       <el-input
         ref="inputRef"
         v-model="question"
         type="textarea"
         :rows="2"
-        placeholder="请输入您的问题..."
+        :placeholder="selectedText ? '请输入您的问题，或点击插入使用选中内容...' : '请输入您的问题...'"
         @keydown.ctrl.enter="handleSend"
         @keydown.enter.exact.prevent="handleSend"
         @focus="handleFocus"
@@ -66,9 +75,9 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted } from 'vue'
+import { ref, watch, nextTick, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { ChatLineRound, Promotion, Loading, ArrowUp } from '@element-plus/icons-vue'
+import { ChatLineRound, Promotion, Loading, ArrowUp, DocumentCopy } from '@element-plus/icons-vue'
 import { documentQA, documentQAStream } from '@/api/documentReader'
 import { createConversation } from '@/api/chat'
 import { renderMarkdown } from '@/composables/useMarkdown'
@@ -85,10 +94,14 @@ const props = defineProps({
   useStream: {
     type: Boolean,
     default: true
+  },
+  selectedText: {
+    type: String,
+    default: ''
   }
 })
 
-const emit = defineEmits(['focus', 'blur'])
+const emit = defineEmits(['focus', 'blur', 'textUsed'])
 
 const messages = ref([])
 const question = ref('')
@@ -136,6 +149,40 @@ const handleBlur = () => {
   }, 200)
 }
 
+// 选中文本预览（截取前50个字符）
+const selectedTextPreview = computed(() => {
+  if (!props.selectedText) return ''
+  return props.selectedText.length > 50 
+    ? props.selectedText.substring(0, 50) + '...' 
+    : props.selectedText
+})
+
+// 插入选中文本
+const insertSelectedText = () => {
+  if (props.selectedText) {
+    if (question.value.trim()) {
+      question.value = `${question.value}\n\n【选中内容】\n${props.selectedText}\n\n请解读以上内容。`
+    } else {
+      question.value = `请解读以下内容：\n\n${props.selectedText}`
+    }
+    // 聚焦到输入框
+    nextTick(() => {
+      if (inputRef.value?.$el) {
+        const textarea = inputRef.value.$el.querySelector('textarea')
+        if (textarea) {
+          textarea.focus()
+        }
+      }
+    })
+    emit('textUsed')
+  }
+}
+
+// 清除选中文本
+const clearSelectedText = () => {
+  emit('textUsed')
+}
+
 // 处理收起按钮点击
 const handleCollapse = () => {
   // 失焦输入框
@@ -171,6 +218,11 @@ const handleSend = async () => {
   
   const userQuestion = question.value.trim()
   question.value = ''
+  
+  // 清除选中文本（已使用）
+  if (props.selectedText) {
+    emit('textUsed')
+  }
   
   // 添加用户消息
   messages.value.push({
@@ -692,6 +744,39 @@ onMounted(() => {
 
 .collapse-button:active {
   transform: scale(0.95);
+}
+
+.selected-text-hint {
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: var(--el-color-primary-light-9, #ecf5ff);
+  border: 1px solid var(--el-color-primary-light-7, #b3d8ff);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.hint-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hint-content .el-icon {
+  color: var(--el-color-primary, #409eff);
+  font-size: 16px;
+}
+
+.hint-text {
+  flex: 1;
+  color: var(--el-text-color-regular, #606266);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hint-content .el-button {
+  padding: 0 8px;
+  font-size: 12px;
 }
 </style>
 

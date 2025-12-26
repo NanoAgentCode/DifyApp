@@ -21,8 +21,19 @@
       </div>
     </div>
 
+    <!-- 文本选择操作按钮 -->
+    <div v-if="selectedText" class="text-selection-popup" :style="selectionPopupStyle">
+      <el-button type="primary" size="small" @click="handleUseSelectedText">
+        <el-icon><DocumentAdd /></el-icon>
+        添加到输入器
+      </el-button>
+      <el-button type="text" size="small" @click="clearSelection" title="取消选择">
+        <el-icon><Close /></el-icon>
+      </el-button>
+    </div>
+
     <!-- 文档内容区域 -->
-    <div class="viewer-content" :style="{ transform: `scale(${zoomLevel / 100})` }">
+    <div class="viewer-content" :style="{ transform: `scale(${zoomLevel / 100})` }" @mouseup="handleTextSelection">
       <!-- PDF文档 -->
       <div v-if="fileType === 'pdf'" class="pdf-container">
         <!-- 使用HTML方式显示（类似DOCX） -->
@@ -146,7 +157,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount, toRaw } from 'vue'
-import { ArrowLeft, Star, Share, Download, Loading, Document, ArrowRight, Minus, Plus } from '@element-plus/icons-vue'
+import { ArrowLeft, Star, Share, Download, Loading, Document, ArrowRight, Minus, Plus, DocumentAdd, Close } from '@element-plus/icons-vue'
 import { getDocumentContent } from '@/api/documentReader'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import mammoth from 'mammoth'
@@ -175,7 +186,11 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:currentPage', 'update:zoomLevel', 'update:totalPages', 'back', 'favorite', 'share', 'export'])
+const emit = defineEmits(['update:currentPage', 'update:zoomLevel', 'update:totalPages', 'back', 'favorite', 'share', 'export', 'textSelected'])
+
+// 文本选择相关
+const selectedText = ref('')
+const selectionPopupStyle = ref({})
 
 const fileType = computed(() => {
   const fileName = props.documentInfo?.originalFileName || props.documentInfo?.fileName || ''
@@ -498,8 +513,86 @@ watch([() => props.docId, () => props.currentPage], () => {
   loadDocumentContent()
 }, { immediate: true })
 
+// 处理文本选择
+const handleTextSelection = (event) => {
+  // 延迟执行，确保选择已完成
+  setTimeout(() => {
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) {
+      return
+    }
+    
+    const text = selection.toString().trim()
+    if (!text || text.length === 0) {
+      clearSelection()
+      return
+    }
+    
+    // 检查选择是否在文档内容区域内
+    const range = selection.getRangeAt(0)
+    const viewerContent = event.currentTarget
+    if (!viewerContent.contains(range.commonAncestorContainer)) {
+      clearSelection()
+      return
+    }
+    
+    selectedText.value = text
+    
+    // 计算弹出框位置
+    const rect = range.getBoundingClientRect()
+    const viewerRect = viewerContent.getBoundingClientRect()
+    
+    selectionPopupStyle.value = {
+      position: 'fixed',
+      top: `${rect.top + window.scrollY - 50}px`,
+      left: `${rect.left + window.scrollX + rect.width / 2 - 100}px`,
+      zIndex: 1000
+    }
+  }, 10)
+}
+
+// 使用选中的文本（添加到输入器）
+const handleUseSelectedText = () => {
+  if (selectedText.value) {
+    emit('textSelected', selectedText.value)
+    // 不清除选择，让用户可以看到已选中的内容
+    // clearSelection()
+  }
+}
+
+// 清除选择
+const clearSelection = () => {
+  selectedText.value = ''
+  selectionPopupStyle.value = {}
+  // 清除浏览器选择
+  const selection = window.getSelection()
+  if (selection) {
+    selection.removeAllRanges()
+  }
+}
+
+// 全局点击处理函数
+const handleGlobalClick = (e) => {
+  const viewerContent = document.querySelector('.viewer-content')
+  const popup = document.querySelector('.text-selection-popup')
+  if (viewerContent && !viewerContent.contains(e.target) && 
+      popup && !popup.contains(e.target)) {
+    clearSelection()
+  }
+}
+
+// 监听点击事件，点击其他地方时清除选择
+onMounted(() => {
+  loadDocumentContent()
+  // 添加全局点击监听，点击非文档区域时清除选择
+  document.addEventListener('click', handleGlobalClick)
+})
+
 // 清理资源
 onBeforeUnmount(() => {
+  // 移除全局点击监听器
+  document.removeEventListener('click', handleGlobalClick)
+  
   if (pdfUrl.value) {
     URL.revokeObjectURL(pdfUrl.value)
   }
@@ -510,10 +603,6 @@ onBeforeUnmount(() => {
   if (pdfHtmlContent.value) {
     pdfHtmlContent.value = ''
   }
-})
-
-onMounted(() => {
-  loadDocumentContent()
 })
 </script>
 
@@ -529,10 +618,11 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 14px 20px;
   background: var(--el-bg-color, #ffffff);
   border-bottom: 1px solid var(--el-border-color-lighter, #e4e7ed);
   flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .toolbar-left {
@@ -874,6 +964,34 @@ onMounted(() => {
   text-align: center;
   font-size: 14px;
   color: var(--el-text-color-regular, #606266);
+}
+
+.text-selection-popup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--el-bg-color, #ffffff);
+  border: 1px solid var(--el-color-primary, #409eff);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
+  animation: popupFadeIn 0.2s ease-out;
+  z-index: 1000;
+}
+
+@keyframes popupFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.text-selection-popup .el-button {
+  margin: 0;
 }
 </style>
 

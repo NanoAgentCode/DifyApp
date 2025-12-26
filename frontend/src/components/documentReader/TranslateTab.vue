@@ -40,7 +40,7 @@
         </el-button>
         <el-button
           v-if="translationContent"
-          type="info"
+          type="success"
           size="small"
           @click="toggleFullscreen"
           :title="isFullscreen ? '退出全屏' : '全屏'"

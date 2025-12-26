@@ -16,6 +16,7 @@
           @favorite="handleFavorite"
           @share="handleShare"
           @export="handleExport"
+          @text-selected="handleTextSelected"
         />
       </div>
 
@@ -43,8 +44,10 @@
             :doc-id="docId"
             :model-id="selectedModelId"
             :use-stream="useStream"
+            :selected-text="selectedText"
             @focus="qaFocused = true"
             @blur="qaFocused = false"
+            @text-used="selectedText = ''"
           />
         </div>
       </div>
@@ -81,6 +84,7 @@ const selectedModelId = ref(null)
 const useStream = ref(true)
 const availableModels = ref([])
 const qaFocused = ref(false)
+const selectedText = ref('')
 
 // 加载文档详情
 const loadDocumentDetail = async () => {
@@ -137,6 +141,13 @@ const handleExport = () => {
   ElMessage.info('导出功能开发中')
 }
 
+// 处理文本选择
+const handleTextSelected = (text) => {
+  selectedText.value = text
+  // 自动聚焦到问答区域
+  qaFocused.value = true
+}
+
 onMounted(() => {
   if (docId.value) {
     loadDocumentDetail()
@@ -152,28 +163,44 @@ onMounted(() => {
   height: 100%;
   width: 100%;
   overflow: hidden;
+  background: var(--el-bg-color-page, #f5f7fa);
 }
 
 .reader-container {
   display: flex;
   height: 100%;
   width: 100%;
+  gap: 0;
+}
+
+.reader-container.qa-focused .left-panel {
+  opacity: 0.3;
+  pointer-events: none;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reader-container.qa-focused .right-panel .function-tabs {
+  opacity: 0.3;
+  pointer-events: none;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .left-panel {
-  width: 50%;
+  width: 55%;
   flex-shrink: 0;
-  border-right: 1px solid #e4e7ed;
+  border-right: 1px solid var(--el-border-color-lighter, #e4e7ed);
   overflow: hidden;
+  background: var(--el-bg-color-page, #f5f7fa);
 }
 
 .right-panel {
-  width: 50%;
+  width: 45%;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  background: var(--el-bg-color, #ffffff);
 }
 
 .function-tabs {
@@ -182,13 +209,39 @@ onMounted(() => {
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  background: var(--el-bg-color, #ffffff);
 }
 
 .function-tabs :deep(.el-tabs__header) {
   margin: 0;
-  padding: 0 16px;
-  border-bottom: 1px solid #e4e7ed;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--el-border-color-lighter, #e4e7ed);
   flex-shrink: 0;
+  background: var(--el-bg-color, #ffffff);
+}
+
+.function-tabs :deep(.el-tabs__nav-wrap) {
+  padding: 0;
+}
+
+.function-tabs :deep(.el-tabs__item) {
+  padding: 0 20px;
+  height: 48px;
+  line-height: 48px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--el-text-color-regular, #606266);
+  transition: all 0.3s;
+}
+
+.function-tabs :deep(.el-tabs__item.is-active) {
+  color: var(--el-color-primary, #409eff);
+  font-weight: 600;
+}
+
+.function-tabs :deep(.el-tabs__active-bar) {
+  height: 3px;
+  background: var(--el-color-primary, #409eff);
 }
 
 .function-tabs :deep(.el-tabs__content) {
@@ -206,7 +259,7 @@ onMounted(() => {
 .qa-section {
   flex: 0 0 auto;
   flex-shrink: 0;
-  border-top: 1px solid #e4e7ed;
+  border-top: 1px solid var(--el-border-color-lighter, #e4e7ed);
   overflow: visible;
   background: var(--el-bg-color, #ffffff);
   position: relative;
@@ -216,6 +269,7 @@ onMounted(() => {
   opacity: 1;
   transform: scaleY(1) translateY(0);
   height: auto;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .qa-section.qa-focused {
