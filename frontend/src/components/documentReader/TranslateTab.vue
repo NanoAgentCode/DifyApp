@@ -61,6 +61,28 @@
           <el-icon class="loading-icon is-loading"><Loading /></el-icon>
           <p>翻译中，请稍候...</p>
         </div>
+        <div v-else-if="translationContent && originalText" class="comparison-view">
+          <div class="comparison-container">
+            <div class="text-panel original-panel">
+              <div class="panel-header">原文</div>
+              <div 
+                ref="originalContentRef"
+                class="text-content original-content" 
+                v-html="renderedOriginal"
+                @scroll="handleOriginalScroll"
+              ></div>
+            </div>
+            <div class="text-panel translation-panel">
+              <div class="panel-header">译文</div>
+              <div 
+                ref="translationContentRef"
+                class="text-content translation-content-display" 
+                v-html="renderedTranslation"
+                @scroll="handleTranslationScroll"
+              ></div>
+            </div>
+          </div>
+        </div>
         <div v-else-if="translationContent" class="translation-content">
           <div class="translation-display" v-html="renderedTranslation"></div>
         </div>
@@ -78,7 +100,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Switch, Refresh, Loading, Document, Edit } from '@element-plus/icons-vue'
-import { translateDocument, getDocumentTranslation, saveDocumentTranslation } from '@/api/documentReader'
+import { translateDocument, getDocumentTranslation, saveDocumentTranslation, getDocumentText } from '@/api/documentReader'
 import { renderMarkdown } from '@/composables/useMarkdown'
 
 const props = defineProps({
@@ -94,16 +116,73 @@ const props = defineProps({
 
 const targetLanguage = ref('zh')
 const translationContent = ref('')
+const originalText = ref('')
 const translating = ref(false)
 const isEditing = ref(false)
 const editContent = ref('')
 const saving = ref(false)
 const hasAutoTranslated = ref(false) // 标记是否已自动翻译
+const originalContentRef = ref(null)
+const translationContentRef = ref(null)
+const isScrolling = ref(false) // 防止滚动循环
 
 const renderedTranslation = computed(() => {
   if (!translationContent.value) return ''
-  return renderMarkdown(translationContent.value)
+  // 保持原始格式，不转换为markdown，只转义HTML
+  return escapeHtml(translationContent.value).replace(/\n/g, '<br>')
 })
+
+const renderedOriginal = computed(() => {
+  if (!originalText.value) return ''
+  // 保持原始格式，不转换为markdown，只转义HTML
+  return escapeHtml(originalText.value).replace(/\n/g, '<br>')
+})
+
+// 转义HTML，但保留换行
+function escapeHtml(text) {
+  const div = document.createElement('div')
+  div.textContent = text
+  return div.innerHTML
+}
+
+// 同步滚动处理
+const handleOriginalScroll = () => {
+  if (isScrolling.value) return
+  if (!originalContentRef.value || !translationContentRef.value) return
+  
+  isScrolling.value = true
+  const originalEl = originalContentRef.value
+  const translationEl = translationContentRef.value
+  
+  // 计算滚动比例
+  const scrollRatio = originalEl.scrollTop / (originalEl.scrollHeight - originalEl.clientHeight)
+  const targetScrollTop = scrollRatio * (translationEl.scrollHeight - translationEl.clientHeight)
+  
+  translationEl.scrollTop = targetScrollTop
+  
+  setTimeout(() => {
+    isScrolling.value = false
+  }, 50)
+}
+
+const handleTranslationScroll = () => {
+  if (isScrolling.value) return
+  if (!originalContentRef.value || !translationContentRef.value) return
+  
+  isScrolling.value = true
+  const originalEl = originalContentRef.value
+  const translationEl = translationContentRef.value
+  
+  // 计算滚动比例
+  const scrollRatio = translationEl.scrollTop / (translationEl.scrollHeight - translationEl.clientHeight)
+  const targetScrollTop = scrollRatio * (originalEl.scrollHeight - originalEl.clientHeight)
+  
+  originalEl.scrollTop = targetScrollTop
+  
+  setTimeout(() => {
+    isScrolling.value = false
+  }, 50)
+}
 
 // 翻译文档
 const handleTranslate = async () => {
@@ -134,6 +213,11 @@ const handleTranslate = async () => {
       }
     }
     translationContent.value = content || ''
+    
+    // 加载原文用于对比
+    if (translationContent.value && !originalText.value) {
+      await loadOriginalText()
+    }
     
     if (translationContent.value) {
       ElMessage.success('翻译完成')
@@ -186,6 +270,32 @@ const handleSave = async () => {
   }
 }
 
+// 加载原文
+const loadOriginalText = async () => {
+  if (!props.docId) return
+  
+  try {
+    const response = await getDocumentText(props.docId)
+    let content = ''
+    if (typeof response === 'string') {
+      content = response
+    } else if (response && typeof response === 'object') {
+      content = response.content || response.data?.content || ''
+      if (content && typeof content !== 'string') {
+        try {
+          content = JSON.stringify(content)
+        } catch (e) {
+          content = String(content)
+        }
+      }
+    }
+    originalText.value = content || ''
+  } catch (error) {
+    console.error('加载原文失败:', error)
+    originalText.value = ''
+  }
+}
+
 // 加载翻译内容
 const loadTranslation = async () => {
   if (!props.docId || !targetLanguage.value) return
@@ -235,7 +345,9 @@ const autoTranslate = async () => {
 watch(() => props.docId, () => {
   if (props.docId) {
     translationContent.value = ''
+    originalText.value = ''
     hasAutoTranslated.value = false
+    loadOriginalText()
     autoTranslate()
   }
 }, { immediate: false })
@@ -251,8 +363,11 @@ watch(() => targetLanguage.value, () => {
 
 // 组件挂载时自动翻译
 onMounted(() => {
-  if (props.docId && targetLanguage.value) {
-    autoTranslate()
+  if (props.docId) {
+    loadOriginalText()
+    if (targetLanguage.value) {
+      autoTranslate()
+    }
   }
 })
 </script>
@@ -345,6 +460,85 @@ onMounted(() => {
 .translation-display {
   line-height: 1.8;
   color: #303133;
+}
+
+.comparison-view {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.comparison-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  gap: 1px;
+  background: #e4e7ed;
+}
+
+.text-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--el-bg-color, #ffffff);
+  overflow: hidden;
+}
+
+.panel-header {
+  padding: 12px 16px;
+  background: var(--el-bg-color-page, #f5f7fa);
+  border-bottom: 1px solid #e4e7ed;
+  font-weight: 500;
+  color: var(--el-text-color-primary, #303133);
+  flex-shrink: 0;
+}
+
+.original-panel .panel-header {
+  border-right: 1px solid #e4e7ed;
+}
+
+.text-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+  line-height: 1.8;
+  color: var(--el-text-color-primary, #303133);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.original-content {
+  background: var(--el-bg-color, #ffffff);
+}
+
+.translation-content-display {
+  background: var(--el-bg-color, #ffffff);
+}
+
+/* 同步滚动效果 */
+.text-content {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+.text-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.text-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.text-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.text-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 .empty-state {

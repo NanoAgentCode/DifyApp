@@ -94,5 +94,10 @@ public interface DocumentReaderService {
      * 保存文档笔记
      */
     void saveDocumentNotes(Long documentId, Long userId, String content);
+    
+    /**
+     * 获取文档原文文本内容
+     */
+    String getDocumentText(Long documentId, Long userId);
 }
 

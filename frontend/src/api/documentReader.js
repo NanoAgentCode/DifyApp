@@ -117,6 +117,17 @@ export function generateDocumentGuide(docId, modelId = null) {
 }
 
 /**
+ * 获取文档原文文本
+ * @param {number} docId - 文档ID
+ */
+export function getDocumentText(docId) {
+  return request({
+    url: `/api/document-reader/documents/${docId}/text`,
+    method: 'get'
+  })
+}
+
+/**
  * 翻译文档
  * @param {number} docId - 文档ID
  * @param {string} targetLang - 目标语言（如：zh, en）

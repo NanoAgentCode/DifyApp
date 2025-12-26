@@ -254,6 +254,21 @@ public class DocumentReaderController extends BaseController {
     }
     
     /**
+     * 获取文档原文文本
+     */
+    @Operation(summary = "获取文档原文文本")
+    @GetMapping("/{docId}/text")
+    public ResponseEntity<Map<String, String>> getDocumentText(
+            @PathVariable Long docId,
+            HttpServletRequest request) {
+        Long userId = getUserId(request);
+        String text = documentReaderService.getDocumentText(docId, userId);
+        Map<String, String> response = new HashMap<>();
+        response.put("content", text);
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
      * 获取文档翻译内容
      */
     @Operation(summary = "获取文档翻译内容")

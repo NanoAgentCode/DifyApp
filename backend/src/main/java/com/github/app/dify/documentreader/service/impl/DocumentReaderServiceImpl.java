@@ -1315,6 +1315,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     
     /**
      * 通用翻译方法，支持多种目标语言
+     * 如果文本过长，会自动分段翻译并拼接
      * @param text 原文
      * @param targetLang 目标语言代码 (zh: 中文, en: 英文, ja: 日文, ko: 韩文)
      * @param qaModel 模型配置
@@ -1325,12 +1326,78 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             return text;
         }
         
-        // 限制翻译文本长度，避免过长
+        // 单次翻译的最大长度
         int maxTranslateLength = 10000;
-        String textToTranslate = text;
-        if (text.length() > maxTranslateLength) {
-            textToTranslate = text.substring(0, maxTranslateLength) + "\n\n[内容已截断...]";
-            logger.warn("翻译文本过长，已截断至 {} 字符", maxTranslateLength);
+        
+        // 如果文本长度小于等于最大长度，直接翻译
+        if (text.length() <= maxTranslateLength) {
+            return translateTextSegment(text, targetLang, qaModel);
+        }
+        
+        // 文本过长，需要分段翻译
+        logger.info("文本过长 ({} 字符)，开始分段翻译", text.length());
+        String targetLanguageName = getTargetLanguageName(targetLang);
+        StringBuilder translatedResult = new StringBuilder();
+        
+        // 分段处理
+        int totalLength = text.length();
+        int segmentIndex = 0;
+        int processedLength = 0;
+        
+        while (processedLength < totalLength) {
+            segmentIndex++;
+            int segmentStart = processedLength;
+            int segmentEnd = Math.min(processedLength + maxTranslateLength, totalLength);
+            
+            // 尝试在段落边界处截断，避免在句子中间截断
+            if (segmentEnd < totalLength) {
+                // 向前查找最近的段落分隔符（换行符、句号等）
+                int bestBreakPoint = findBestBreakPoint(text, segmentStart, segmentEnd);
+                if (bestBreakPoint > segmentStart) {
+                    segmentEnd = bestBreakPoint;
+                }
+            }
+            
+            String segment = text.substring(segmentStart, segmentEnd);
+            logger.info("翻译第 {}/? 段，起始位置: {}, 结束位置: {}, 长度: {}", 
+                segmentIndex, segmentStart, segmentEnd, segment.length());
+            
+            try {
+                // 翻译当前段
+                String translatedSegment = translateTextSegment(segment, targetLang, qaModel);
+                translatedResult.append(translatedSegment);
+                
+                // 如果不是最后一段，添加段落分隔
+                if (segmentEnd < totalLength) {
+                    translatedResult.append("\n\n");
+                }
+                
+                processedLength = segmentEnd;
+                logger.info("第 {} 段翻译完成，已处理: {}/{} 字符", 
+                    segmentIndex, processedLength, totalLength);
+                
+            } catch (Exception e) {
+                logger.error("翻译第 {} 段失败", segmentIndex, e);
+                // 如果某段翻译失败，添加错误标记并继续
+                translatedResult.append("\n\n[第 ").append(segmentIndex).append(" 段翻译失败: ")
+                    .append(e.getMessage()).append("]\n\n");
+                processedLength = segmentEnd;
+            }
+        }
+        
+        String finalResult = translatedResult.toString();
+        logger.info("分段翻译完成，目标语言: {}, 原文总长度: {}, 译文总长度: {}, 共 {} 段", 
+            targetLanguageName, text.length(), finalResult.length(), segmentIndex);
+        
+        return finalResult;
+    }
+    
+    /**
+     * 翻译单个文本段
+     */
+    private String translateTextSegment(String textSegment, String targetLang, QAModel qaModel) {
+        if (textSegment == null || textSegment.trim().isEmpty()) {
+            return textSegment;
         }
         
         // 获取目标语言名称
@@ -1339,14 +1406,23 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         // 构建翻译提示词
         String translatePrompt = String.format(
             "请将以下文本翻译为%s。要求：\n" +
-            "1. 保持原文的结构和格式\n" +
-            "2. 准确翻译，不要遗漏任何内容\n" +
-            "3. 专业术语要准确翻译\n" +
-            "4. 只返回翻译后的文本，不要添加任何说明或注释\n" +
-            "5. 保持原文的段落结构和换行\n\n" +
+            "1. **严格保持原文的布局和格式**：\n" +
+            "   - 保持所有换行符（\\n）的位置和数量\n" +
+            "   - 保持段落之间的空行\n" +
+            "   - 保持缩进和空格\n" +
+            "   - 保持列表、标题等格式结构\n" +
+            "2. **准确翻译内容**：\n" +
+            "   - 准确翻译，不要遗漏任何内容\n" +
+            "   - 专业术语要准确翻译\n" +
+            "   - 保持原文的语气和风格\n" +
+            "3. **格式要求**：\n" +
+            "   - 只返回翻译后的文本，不要添加任何说明、注释或标记\n" +
+            "   - 译文的行数和段落结构必须与原文完全一致\n" +
+            "   - 如果原文某行是空行，译文对应位置也必须是空行\n" +
+            "   - 如果原文有多个连续换行，译文也要保持相同数量的换行\n\n" +
             "原文：\n%s",
             targetLanguageName,
-            textToTranslate
+            textSegment
         );
         
         try {
@@ -1358,14 +1434,47 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             Response<AiMessage> response = chatModel.generate(messages);
             String translatedText = response.content().text();
             
-            logger.info("翻译完成，目标语言: {}, 原文长度: {}, 译文长度: {}", 
-                targetLanguageName, textToTranslate.length(), translatedText.length());
+            logger.info("单段翻译完成，目标语言: {}, 原文长度: {}, 译文长度: {}", 
+                targetLanguageName, textSegment.length(), translatedText.length());
             return translatedText;
             
         } catch (Exception e) {
-            logger.error("翻译失败，目标语言: {}", targetLanguageName, e);
+            logger.error("单段翻译失败，目标语言: {}", targetLanguageName, e);
             throw new RuntimeException("翻译失败: " + e.getMessage(), e);
         }
+    }
+    
+    /**
+     * 查找最佳的分段截断点，尽量在段落或句子边界处截断
+     */
+    private int findBestBreakPoint(String text, int start, int end) {
+        // 优先在段落边界（双换行）处截断
+        int lastDoubleNewline = text.lastIndexOf("\n\n", end - 1);
+        if (lastDoubleNewline > start && lastDoubleNewline > end - 2000) {
+            return lastDoubleNewline + 2;
+        }
+        
+        // 其次在单换行处截断
+        int lastNewline = text.lastIndexOf("\n", end - 1);
+        if (lastNewline > start && lastNewline > end - 1000) {
+            return lastNewline + 1;
+        }
+        
+        // 再次在句号、问号、感叹号处截断
+        int lastSentenceEnd = -1;
+        for (int i = end - 1; i >= start && i >= end - 500; i--) {
+            char c = text.charAt(i);
+            if (c == '。' || c == '.' || c == '！' || c == '!' || c == '？' || c == '?') {
+                lastSentenceEnd = i + 1;
+                break;
+            }
+        }
+        if (lastSentenceEnd > start) {
+            return lastSentenceEnd;
+        }
+        
+        // 如果找不到合适的截断点，返回原结束位置
+        return end;
     }
     
     /**
@@ -1396,6 +1505,22 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             default:
                 return "简体中文"; // 默认返回中文
         }
+    }
+    
+    /**
+     * 获取文档原文文本内容
+     */
+    @Override
+    public String getDocumentText(Long documentId, Long userId) {
+        validateDocumentAccess(documentId, userId);
+        
+        Optional<DocumentReader> optional = documentRepository.findByIdAndDeleted(documentId, 0);
+        if (!optional.isPresent()) {
+            throw new NotFoundException("文档不存在: " + documentId);
+        }
+        
+        DocumentReader document = optional.get();
+        return extractDocumentText(document);
     }
 }
 
