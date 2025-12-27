@@ -684,7 +684,8 @@ const handleHelpButtonClick = () => {
 .main {
   background: #f5f7fa;
   padding: 20px;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   height: calc(100vh - 60px); /* 减去header高度 */
   display: flex;
   flex-direction: column;
@@ -694,9 +695,8 @@ const handleHelpButtonClick = () => {
 }
 
 .main-content {
-  height: 100%;
   width: 100%;
-  overflow: hidden;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -724,11 +724,6 @@ const handleHelpButtonClick = () => {
 
   .aside {
     height: calc(100vh - 50px);
-  }
-
-  /* 小屏幕默认折叠侧边栏，但允许手动展开 */
-  .aside {
-    /* 移除 !important，允许手动展开时覆盖 */
   }
 
   .main {
