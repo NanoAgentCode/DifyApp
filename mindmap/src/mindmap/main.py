@@ -4,6 +4,7 @@ FastAPI 主应用程序
 from typing import Dict, Any
 from fastapi import FastAPI, Request, File, UploadFile, Form
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from mindmap.modules.mindmap_service import MindmapService
 from mindmap.modules.file_service import FileService
 from mindmap.config import SERVER_HOST, SERVER_PORT, DEBUG, STATIC_FILES_CONFIG, get_available_js_files, get_static_file_url
@@ -13,6 +14,15 @@ app = FastAPI(
     title="Mindmap & File Management Service",
     description="思维导图生成和文件管理服务",
     version="1.0.0"
+)
+
+# 配置CORS中间件，允许跨域访问
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 允许所有来源，生产环境建议指定具体域名
+    allow_credentials=True,
+    allow_methods=["*"],  # 允许所有HTTP方法
+    allow_headers=["*"],  # 允许所有请求头
 )
 
 # 动态挂载静态文件目录
