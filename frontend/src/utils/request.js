@@ -30,53 +30,48 @@ request.interceptors.request.use(
   }
 )
 
+// 清理认证信息并跳转登录
+const clearAuthAndRedirect = () => {
+  localStorage.removeItem('token')
+  localStorage.removeItem('userInfo')
+  if (window.clearTokenCache) {
+    window.clearTokenCache()
+  }
+  const currentPath = router.currentRoute.value.path
+  if (currentPath !== '/login' && currentPath !== '/register') {
+    router.push('/login')
+  }
+}
+
 // 响应拦截器
 request.interceptors.response.use(
-  response => {
-    return response.data
-  },
+  response => response.data,
   error => {
+    const status = error.response?.status
+    const errorMessage = error.response?.data?.error
+    
     // 处理401未授权错误
-    if (error.response && error.response.status === 401) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('userInfo')
-      // 清除 token 验证缓存
-      if (window.clearTokenCache) {
-        window.clearTokenCache()
-      }
-      const errorMessage = error.response.data?.error || '登录已过期，请重新登录'
-      ElMessage.error(errorMessage)
-      if (router.currentRoute.value.path !== '/login' && router.currentRoute.value.path !== '/register') {
-        router.push('/login')
-      }
+    if (status === 401) {
+      clearAuthAndRedirect()
+      ElMessage.error(errorMessage || '登录已过期，请重新登录')
       return Promise.reject(error)
     }
-    // 处理403禁止访问错误（用户被禁用或待审核）
-    if (error.response && error.response.status === 403) {
-      const errorMessage = error.response.data?.error || '访问被拒绝'
-      // 检查是否是用户状态相关的错误
-      if (errorMessage.includes('禁用') || errorMessage.includes('待审核')) {
-        localStorage.removeItem('token')
-        localStorage.removeItem('userInfo')
-        // 清除 token 验证缓存
-        if (window.clearTokenCache) {
-          window.clearTokenCache()
-        }
-        ElMessage.error(errorMessage)
-        if (router.currentRoute.value.path !== '/login' && router.currentRoute.value.path !== '/register') {
-          router.push('/login')
-        }
-      } else {
-        ElMessage.error(errorMessage)
+    
+    // 处理403禁止访问错误
+    if (status === 403) {
+      const message = errorMessage || '访问被拒绝'
+      if (message.includes('禁用') || message.includes('待审核')) {
+        clearAuthAndRedirect()
       }
+      ElMessage.error(message)
       return Promise.reject(error)
     }
+    
     // 处理超时错误
-    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
       error.message = '请求超时，请稍后重试。如果Workflow任务需要较长时间，请使用流式接口。'
     }
-    // 不在这里显示错误消息，让调用方处理
-    // 这样可以显示更详细的错误信息
+    
     return Promise.reject(error)
   }
 )

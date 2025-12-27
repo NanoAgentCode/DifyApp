@@ -44,34 +44,16 @@ const props = defineProps({
   }
 })
 
-// 解析图标值
-const iconInfo = computed(() => {
-  return parseIconValue(props.icon)
-})
+const iconInfo = computed(() => parseIconValue(props.icon))
+const iconType = computed(() => iconInfo.value.type)
+const iconUrl = computed(() => iconInfo.value.icon)
+const iconComponent = computed(() => 
+  (iconType.value === 'builtin' && iconInfo.value.icon) 
+    ? ElementPlusIconsVue[iconInfo.value.icon] || Document 
+    : Document
+)
 
-// 图标类型
-const iconType = computed(() => {
-  return iconInfo.value.type
-})
-
-// 图标URL
-const iconUrl = computed(() => {
-  return iconInfo.value.icon
-})
-
-// 图标组件
-const iconComponent = computed(() => {
-  if (iconType.value === 'builtin' && iconInfo.value.icon) {
-    return ElementPlusIconsVue[iconInfo.value.icon] || Document
-  }
-  return Document
-})
-
-// 图标加载错误处理
-const handleError = () => {
-  // 可以在这里添加错误处理逻辑
-  console.warn('图标加载失败:', iconUrl.value)
-}
+const handleError = () => {}
 </script>
 
 <style scoped>

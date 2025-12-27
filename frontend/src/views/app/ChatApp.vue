@@ -204,7 +204,6 @@ const handleStreamChat = async (requestData) => {
   }
 
   try {
-    console.log('开始流式请求:', requestData)
     const response = await fetch(`/api/ai-apps/${route.params.id}/chat/stream`, {
       method: 'POST',
       headers: {
@@ -214,239 +213,131 @@ const handleStreamChat = async (requestData) => {
     })
 
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('流式请求失败:', response.status, errorText)
       throw new Error(`请求失败: ${response.status}`)
     }
-
-    console.log('收到响应，Content-Type:', response.headers.get('Content-Type'))
     
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
-    let rawDataLog = [] // 用于调试：记录原始数据
-    let pendingData = '' // 用于处理跨chunk的JSON数据
+    let pendingData = ''
 
     const processData = (dataStr) => {
-      if (!dataStr || !dataStr.trim()) {
-        console.log('⚠️ 空数据，跳过')
-        return
-      }
+      if (!dataStr?.trim()) return
 
-      // 清理数据：移除可能的换行符和空白字符
       const cleanedData = dataStr.trim().replace(/\n/g, ' ').replace(/\r/g, '')
-      console.log('🔍 处理数据 (长度:', cleanedData.length, '):', cleanedData.substring(0, 200))
-
-      if (cleanedData === '[DONE]') {
-        console.log('✅ 收到结束标记')
-        return
-      }
+      if (cleanedData === '[DONE]') return
 
       try {
         const json = JSON.parse(cleanedData)
-        console.log('✅ 解析JSON成功:', {
-          event: json.event,
-          answerLength: json.answer ? json.answer.length : 0,
-          answerPreview: json.answer ? json.answer.substring(0, 50) : null,
-          conversationId: json.conversation_id || json.conversationId,
-          finished: json.finished
-        })
 
-        // Dify API 返回的格式：{event, answer, conversation_id, message_id, ...}
-        // answer 字段在流式响应中是增量内容，需要追加
+        // 累积AI回答内容
         if (json.answer !== undefined && json.answer !== null) {
-          // 累积内容（包括空字符串）
           assistantContent = assistantContent + json.answer
           updateMessage(assistantContent)
-          console.log('📝 更新消息内容，当前长度:', assistantContent.length, '本次增量:', json.answer.length)
         }
 
-        // 更新对话ID（支持两种格式：conversation_id 和 conversationId）
-        if (json.conversation_id) {
-          conversationId.value = json.conversation_id
-          console.log('💬 更新对话ID:', json.conversation_id)
-        } else if (json.conversationId) {
-          conversationId.value = json.conversationId
-          console.log('💬 更新对话ID:', json.conversationId)
-        }
-
-        // 检查是否完成
-        if (json.finished) {
-          console.log('✅ 流式响应已完成 (finished=true)')
+        // 更新对话ID
+        if (json.conversation_id || json.conversationId) {
+          conversationId.value = json.conversation_id || json.conversationId
         }
 
         // 处理事件类型
         if (json.event) {
-          console.log('📌 事件类型:', json.event)
           if (json.event === 'error') {
-            const errorMsg = '发生错误: ' + (json.answer || '未知错误')
-            updateMessage(errorMsg)
-            console.error('❌ 错误事件:', errorMsg)
+            updateMessage('发生错误: ' + (json.answer || '未知错误'))
           } else if (json.event === 'message_end' || json.event === 'workflow_finished') {
-            if (updateTimer) {
-              clearTimeout(updateTimer)
-            }
+            if (updateTimer) clearTimeout(updateTimer)
             updateMessage(assistantContent)
-            console.log('✅ 流式响应已完成（通过事件类型判断）')
           }
         }
       } catch (e) {
-        console.error('❌ 解析JSON失败:', e)
-        console.error('原始数据 (前500字符):', cleanedData.substring(0, 500))
-        console.error('原始数据 (完整):', cleanedData)
-        // 尝试直接显示原始数据的前100个字符
-        if (cleanedData.trim().length > 0) {
-          updateMessage('解析错误，原始数据: ' + cleanedData.substring(0, 100))
-        }
+        // JSON解析失败，静默处理
       }
     }
 
     while (true) {
       const { done, value } = await reader.read()
       if (done) {
-        console.log('✅ 流式响应完成')
-        // 处理剩余的buffer和pendingData
+        // 处理剩余数据
         if (pendingData) {
           if (buffer.trim()) {
-            // 合并buffer到pendingData
             pendingData += buffer.trim()
             buffer = ''
           }
-          console.log('处理最后剩余的pending数据:', pendingData.substring(0, 200))
-          // 即使JSON不完整，也尝试处理
           processData(pendingData)
           pendingData = ''
         } else if (buffer.trim()) {
-          console.log('处理最后剩余的buffer:', buffer)
-          // 尝试处理剩余的buffer
           const trimmed = buffer.trim()
           if (trimmed.startsWith('data: ')) {
             processData(trimmed.substring(6).trim())
           } else if (trimmed.startsWith('data:')) {
             processData(trimmed.substring(5).trim())
           } else if (trimmed && !trimmed.startsWith('event:') && !trimmed.startsWith('id:') && !trimmed.startsWith(':')) {
-            // 可能是直接的JSON数据
             processData(trimmed)
           }
         }
         break
       }
 
-      const chunk = decoder.decode(value, { stream: true })
-      rawDataLog.push(chunk)
-      if (rawDataLog.length > 10) rawDataLog.shift() // 只保留最近10个chunk用于调试
+      buffer += decoder.decode(value, { stream: true })
       
-      buffer += chunk
-      
-      // 按行处理，但要处理可能跨行的JSON数据
+      // 按行处理
       let newlineIndex
       while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
         const line = buffer.substring(0, newlineIndex)
         buffer = buffer.substring(newlineIndex + 1)
-        
-        // 保留原始格式以便检查是否以data:开头
-        const originalLine = line
         const trimmed = line.trim()
         
         // 空行表示事件结束
         if (!trimmed) {
-          // 如果pendingData有内容，尝试处理它
           if (pendingData) {
-            console.log('📥 遇到空行，处理pending数据:', pendingData.substring(0, 150))
             processData(pendingData)
             pendingData = ''
           }
           continue
         }
 
-        console.log('📥 收到SSE行:', trimmed.substring(0, 150))
-
-        // 检查是否是data行
+        // 解析data行
         let dataContent = null
-        let isDataLine = false
-        
         if (trimmed.startsWith('data: ')) {
-          // 标准SSE格式：data: {...}
           dataContent = trimmed.substring(6).trim()
-          isDataLine = true
         } else if (trimmed.startsWith('data:')) {
-          // SSE格式：data:{...} (没有空格)
           dataContent = trimmed.substring(5).trim()
-          isDataLine = true
-        } else if (originalLine.startsWith('data: ') || originalLine.startsWith('data:')) {
-          // 即使trim后不是以data开头，但原始行是，说明可能有空格问题
-          const match = originalLine.match(/^data:\s*(.*)$/)
-          if (match) {
-            dataContent = match[1]
-            isDataLine = true
-          }
+        } else if (line.match(/^data:\s*(.*)$/)) {
+          dataContent = line.match(/^data:\s*(.*)$/)[1]
         }
         
-        if (isDataLine && dataContent) {
-          // 检查JSON是否完整（简单的括号匹配检查）
-          const openBraces = (dataContent.match(/{/g) || []).length
-          const closeBraces = (dataContent.match(/}/g) || []).length
-          const openBrackets = (dataContent.match(/\[/g) || []).length
-          const closeBrackets = (dataContent.match(/\]/g) || []).length
-          
-          // 如果有pending数据，先合并
+        if (dataContent) {
+          // 合并pending数据
           if (pendingData) {
             dataContent = pendingData + dataContent
             pendingData = ''
           }
           
-          // 检查是否完整
-          if (openBraces === closeBraces && openBrackets === closeBrackets && dataContent.trim().endsWith('}')) {
-            // JSON看起来完整，处理它
+          // 检查JSON完整性
+          if (isCompleteJSON(dataContent)) {
             processData(dataContent)
           } else {
-            // JSON可能不完整，保存到pendingData
-            console.log('⚠️ JSON可能不完整，等待更多数据. 当前:', dataContent.substring(0, 100))
             pendingData = dataContent
           }
-        } else if (trimmed.startsWith('event: ')) {
-          // event: message
-          console.log('📌 SSE事件类型:', trimmed.substring(7).trim())
-        } else if (trimmed.startsWith('event:')) {
-          // event:message (没有空格)
-          console.log('📌 SSE事件类型:', trimmed.substring(6).trim())
-        } else if (trimmed.startsWith('id: ')) {
-          // id: 123
-          console.log('🆔 SSE ID:', trimmed.substring(4).trim())
-        } else if (trimmed.startsWith('id:')) {
-          // id:123 (没有空格)
-          console.log('🆔 SSE ID:', trimmed.substring(3).trim())
-        } else if (trimmed.startsWith(':')) {
-          // 注释行，忽略
-          continue
-        } else {
-          // 可能是直接的JSON数据（某些实现可能不包含"data: "前缀）
-          console.log('⚠️ 收到未标记的数据行，尝试作为JSON解析:', trimmed.substring(0, 150))
+        } else if (!trimmed.startsWith('event:') && !trimmed.startsWith('id:') && !trimmed.startsWith(':')) {
+          // 可能是直接的JSON数据
           processData(trimmed)
         }
       }
       
-      // 如果buffer中还有pendingData的延续，需要合并
-      if (pendingData && buffer.trim()) {
-        // 检查buffer是否包含JSON的延续部分
-        const trimmedBuffer = buffer.trim()
-        if (!trimmedBuffer.startsWith('data:') && !trimmedBuffer.startsWith('event:') && !trimmedBuffer.startsWith('id:')) {
-          // 可能是JSON的延续
-          pendingData += trimmedBuffer
-          buffer = ''
-          console.log('📥 合并buffer到pending数据，当前长度:', pendingData.length)
-        }
+      // 合并buffer到pending数据
+      if (pendingData && buffer.trim() && 
+          !buffer.trim().startsWith('data:') && 
+          !buffer.trim().startsWith('event:') && 
+          !buffer.trim().startsWith('id:')) {
+        pendingData += buffer.trim()
+        buffer = ''
       }
     }
-
-    // 调试：输出原始数据日志
-    console.log('📊 原始数据日志（最后10个chunk）:', rawDataLog)
   } catch (error) {
-    console.error('流式请求错误:', error)
     updateMessage('抱歉，流式响应处理出错: ' + (error.message || '未知错误'))
-    if (updateTimer) {
-      clearTimeout(updateTimer)
-    }
+    if (updateTimer) clearTimeout(updateTimer)
     throw error
   } finally {
     // 确保最终更新

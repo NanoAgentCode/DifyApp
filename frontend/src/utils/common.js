@@ -66,14 +66,12 @@ export function truncateText(text, length = 50, suffix = '...') {
 export function deepClone(obj) {
   if (obj === null || typeof obj !== 'object') return obj
   if (obj instanceof Date) return new Date(obj.getTime())
-  if (obj instanceof Array) return obj.map(item => deepClone(item))
-  if (obj instanceof Object) {
-    const cloned = {}
-    Object.keys(obj).forEach(key => {
-      cloned[key] = deepClone(obj[key])
-    })
+  if (Array.isArray(obj)) return obj.map(item => deepClone(item))
+  
+  return Object.keys(obj).reduce((cloned, key) => {
+    cloned[key] = deepClone(obj[key])
     return cloned
-  }
+  }, {})
 }
 
 /**

@@ -64,7 +64,7 @@ export function useErrorHandler() {
   const handleError = (error, defaultMessage = '操作失败', options = {}) => {
     const {
       showMessage = true,
-      logError = true
+      logError = false
     } = options
 
     const errorMessage = extractErrorMessage(error, defaultMessage)
@@ -73,7 +73,7 @@ export function useErrorHandler() {
       ElMessage.error(errorMessage)
     }
 
-    if (logError) {
+    if (logError && process.env.NODE_ENV === 'development') {
       console.error('操作失败:', errorMessage, error)
     }
 
@@ -170,18 +170,15 @@ export function useErrorHandler() {
    * @returns {string} 错误消息
    */
   const handleStreamError = (error, defaultMessage = '流式响应失败') => {
-    let errorMessage = defaultMessage
-
-    if (error.response) {
-      // HTTP 错误响应
-      errorMessage = extractErrorMessage(error, defaultMessage)
-    } else if (error.message) {
-      // 网络错误或其他错误
-      errorMessage = error.message
-    }
+    const errorMessage = error.response 
+      ? extractErrorMessage(error, defaultMessage)
+      : error.message || defaultMessage
 
     ElMessage.error(errorMessage)
-    console.error('流式响应失败:', errorMessage, error)
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.error('流式响应失败:', errorMessage, error)
+    }
 
     return errorMessage
   }

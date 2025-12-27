@@ -54,32 +54,22 @@ const router = useRouter()
 const loading = ref(false)
 const appList = ref([])
 
+// 获取用户信息
+const getUserInfo = () => {
+  try {
+    const userInfoStr = localStorage.getItem('userInfo')
+    return userInfoStr ? JSON.parse(userInfoStr) : null
+  } catch (e) {
+    return null
+  }
+}
+
 const fetchAppList = async () => {
   loading.value = true
   try {
-    // 获取当前用户ID
-    const userInfoStr = localStorage.getItem('userInfo')
-    let userId = null
-    if (userInfoStr) {
-      try {
-        const userInfo = JSON.parse(userInfoStr)
-        userId = userInfo.userId
-      } catch (e) {
-        console.error('解析用户信息失败', e)
-      }
-    }
-    
-    // 如果用户是管理员，不传userId，获取所有应用；否则传userId，获取可见应用
-    const userInfoStr2 = localStorage.getItem('userInfo')
-    let isAdmin = false
-    if (userInfoStr2) {
-      try {
-        const userInfo = JSON.parse(userInfoStr2)
-        isAdmin = userInfo.role === 1
-      } catch (e) {
-        // ignore
-      }
-    }
+    const userInfo = getUserInfo()
+    const isAdmin = userInfo?.role === 1
+    const userId = userInfo?.userId
     
     const params = { status: 1 }
     if (!isAdmin && userId) {
@@ -87,7 +77,7 @@ const fetchAppList = async () => {
     }
     
     const res = await getAppList(params)
-    appList.value = (res || []).filter(app => app.status === 1) // 再次过滤确保只显示启用的应用
+    appList.value = (res || []).filter(app => app.status === 1)
   } catch (error) {
     ElMessage.error('获取应用列表失败')
   } finally {

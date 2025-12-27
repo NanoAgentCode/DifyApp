@@ -76,7 +76,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Reading, Edit, Document, MagicStick, Loading, Close, Check } from '@element-plus/icons-vue'
 import { getDocumentGuide, saveDocumentGuide, generateDocumentGuide } from '@/api/documentReader'
@@ -96,78 +96,66 @@ const saving = ref(false)
 const generating = ref(false)
 
 const renderedContent = computed(() => {
-  if (!guideContent.value) return ''
-  return renderMarkdown(guideContent.value)
+  return guideContent.value ? renderMarkdown(guideContent.value) : ''
 })
+
+// 解析响应内容的通用方法
+const parseResponseContent = (response) => {
+  if (typeof response === 'string') return response
+  
+  if (response && typeof response === 'object') {
+    const content = response.content || response.data?.content || ''
+    return typeof content === 'string' ? content : String(content)
+  }
+  
+  return ''
+}
 
 // 加载导读内容
 const loadGuide = async () => {
   try {
     const response = await getDocumentGuide(props.docId)
-    // 后端返回格式: { content: "..." } 或直接是字符串
-    let content = ''
-    if (typeof response === 'string') {
-      content = response
-    } else if (response && typeof response === 'object') {
-      // 如果是对象，尝试获取 content 字段
-      content = response.content || response.data?.content || ''
-      // 如果 content 仍然是对象，转换为 JSON 字符串（不应该发生，但做保护）
-      if (content && typeof content !== 'string') {
-        try {
-          content = JSON.stringify(content)
-        } catch (e) {
-          content = String(content)
-        }
-      }
-    }
-    guideContent.value = content || ''
+    guideContent.value = parseResponseContent(response)
     
     // 如果没有导读内容，自动生成
-    if (!guideContent.value || guideContent.value.trim() === '') {
+    if (!guideContent.value.trim()) {
       await autoGenerateGuide()
     }
   } catch (error) {
-    console.error('加载导读失败:', error)
-    // 如果接口返回404或空数据，说明还没有导读内容，自动生成
+    // 接口异常时自动生成导读
     guideContent.value = ''
     await autoGenerateGuide()
   }
 }
 
-// 自动生成导读（不显示确认对话框）
-const autoGenerateGuide = async () => {
-  if (generating.value) return // 防止重复生成
+// 生成导读的通用方法
+const generateGuide = async (showMessage = true) => {
+  if (generating.value) return
   
   generating.value = true
   try {
     const response = await generateDocumentGuide(props.docId)
-    // 后端返回格式: { content: "..." }
-    let content = ''
-    if (typeof response === 'string') {
-      content = response
-    } else if (response && typeof response === 'object') {
-      content = response.content || response.data?.content || ''
-      if (content && typeof content !== 'string') {
-        try {
-          content = JSON.stringify(content)
-        } catch (e) {
-          content = String(content)
-        }
+    guideContent.value = parseResponseContent(response)
+    
+    if (showMessage) {
+      if (guideContent.value) {
+        ElMessage.success('导读生成成功')
+      } else {
+        ElMessage.warning('导读生成完成，但内容为空')
       }
     }
-    
-    guideContent.value = content || ''
-    if (guideContent.value) {
-      ElMessage.success('导读生成成功')
-    } else {
-      ElMessage.warning('导读生成完成，但内容为空')
-    }
   } catch (error) {
-    console.error('自动生成导读失败:', error)
-    ElMessage.error('自动生成导读失败：' + (error.message || '未知错误'))
+    if (showMessage) {
+      ElMessage.error('生成导读失败：' + (error.message || '未知错误'))
+    }
   } finally {
     generating.value = false
   }
+}
+
+// 自动生成导读（不显示消息提示）
+const autoGenerateGuide = async () => {
+  await generateGuide(false)
 }
 
 // 编辑
@@ -195,36 +183,9 @@ const handleGenerate = async () => {
       }
     )
     
-    generating.value = true
-    try {
-      const response = await generateDocumentGuide(props.docId)
-      // 后端返回格式: { content: "..." }
-      let content = ''
-      if (typeof response === 'string') {
-        content = response
-      } else if (response && typeof response === 'object') {
-        content = response.content || response.data?.content || ''
-        if (content && typeof content !== 'string') {
-          try {
-            content = JSON.stringify(content)
-          } catch (e) {
-            content = String(content)
-          }
-        }
-      }
-      
-      guideContent.value = content || ''
-      ElMessage.success('导读生成成功')
-    } catch (error) {
-      ElMessage.error('生成导读失败：' + (error.message || '未知错误'))
-    } finally {
-      generating.value = false
-    }
+    await generateGuide(true)
   } catch (error) {
-    // 用户取消
-    if (error !== 'cancel') {
-      console.error('生成导读失败:', error)
-    }
+    // 用户取消操作，静默处理
   }
 }
 
@@ -243,18 +204,12 @@ const handleSave = async () => {
   }
 }
 
-// 监听docId变化
+// 监听docId变化，immediate: true 会在组件挂载时自动执行一次
 watch(() => props.docId, () => {
   if (props.docId) {
     loadGuide()
   }
 }, { immediate: true })
-
-onMounted(() => {
-  if (props.docId) {
-    loadGuide()
-  }
-})
 </script>
 
 <style scoped>

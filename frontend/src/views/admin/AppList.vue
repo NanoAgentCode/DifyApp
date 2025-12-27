@@ -210,28 +210,23 @@ const truncateName = (name) => {
   return name.substring(0, 10) + '...'
 }
 
-// 搜索防抖处理
-const handleSearch = () => {
-  // 清除之前的定时器
-  if (searchTimer) {
-    clearTimeout(searchTimer)
-  }
-  // 设置新的定时器，500ms后执行搜索
-  searchTimer = setTimeout(() => {
-    currentPage.value = 1
-    fetchAppList()
-  }, 500)
-}
-
-const handleFilter = () => {
+// 重置到第一页并刷新列表
+const resetAndFetch = () => {
   currentPage.value = 1
   fetchAppList()
 }
+
+// 搜索防抖处理
+const handleSearch = () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(resetAndFetch, 500)
+}
+
+const handleFilter = resetAndFetch
 
 const handleSizeChange = (size) => {
   pageSize.value = size
-  currentPage.value = 1
-  fetchAppList()
+  resetAndFetch()
 }
 
 const handlePageChange = (page) => {
