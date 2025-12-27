@@ -611,6 +611,23 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         logger.info("开始翻译文档（懒加载模式） - 文档ID: {}, 目标语言: {}", documentId, targetLang);
         
         try {
+            // 检查是否已有翻译内容
+            List<DocumentSegment> existingSegments = loadDocumentTranslationSegments(documentId, targetLang);
+            if (existingSegments != null && !existingSegments.isEmpty()) {
+                // 检查是否所有段落都已翻译
+                boolean allTranslated = existingSegments.stream()
+                    .allMatch(seg -> seg.getTranslatedText() != null && !seg.getTranslatedText().trim().isEmpty());
+                
+                if (allTranslated) {
+                    logger.info("文档已完全翻译，无需重新翻译 - 文档ID: {}, 目标语言: {}", documentId, targetLang);
+                    return; // 已完全翻译，直接返回
+                } else {
+                    logger.info("文档部分已翻译，继续翻译未完成部分 - 文档ID: {}, 目标语言: {}", documentId, targetLang);
+                    // 继续翻译未完成的段落（由前端懒加载触发）
+                    return;
+                }
+            }
+            
             // 获取文档
             Optional<DocumentReader> optional = documentRepository.findByIdAndDeleted(documentId, 0);
             if (!optional.isPresent()) {

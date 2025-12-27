@@ -270,6 +270,22 @@
             </el-option>
           </el-select>
         </el-form-item>
+        <!-- 文档解读思维导图服务URL配置特殊处理 -->
+        <el-form-item 
+          v-else-if="isDocumentReaderMindMapServiceUrlConfig"
+          label="思维导图服务URL" 
+          prop="configValue"
+        >
+          <el-input
+            v-model="form.configValue"
+            placeholder="请输入思维导图服务URL，例如: http://localhost:6066"
+            clearable
+          />
+          <div style="margin-top: 8px; color: #909399; font-size: 12px;">
+            <p>配置思维导图外部服务的URL地址，用于生成文档思维导图。</p>
+            <p>默认值: http://localhost:6066</p>
+          </div>
+        </el-form-item>
         <!-- 文档解读向量库类型配置特殊处理 -->
         <el-form-item 
           v-else-if="isDocumentReaderVectorStoreTypeConfig"
@@ -481,7 +497,7 @@ const predefinedConfigKeys = [
   {
     key: 'documentReader.mindMapServiceUrl',
     label: 'documentReader.mindMapServiceUrl',
-    description: '文档解读思维导图服务URL',
+    description: '文档解读思维导图外部服务URL（默认: http://localhost:6066）',
     group: 'documentReader',
     type: 'string'
   }
@@ -577,6 +593,11 @@ const isDocumentReaderVectorStoreTypeConfig = computed(() => {
 // 判断是否是文档解读向量库实例ID配置
 const isDocumentReaderVectorDatabaseIdConfig = computed(() => {
   return form.value.configKey === 'documentReader.vectorDatabaseId'
+})
+
+// 判断是否是文档解读思维导图服务URL配置
+const isDocumentReaderMindMapServiceUrlConfig = computed(() => {
+  return form.value.configKey === 'documentReader.mindMapServiceUrl'
 })
 
 // 加载问答模型列表

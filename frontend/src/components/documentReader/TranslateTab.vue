@@ -479,6 +479,15 @@ const handleTranslate = async () => {
     return
   }
   
+  // 先尝试加载已有翻译
+  const hasTranslation = await loadTranslation()
+  if (hasTranslation) {
+    // 如果已有翻译，加载分段信息并显示
+    await loadSegmentsInfo()
+    ElMessage.success('已加载已保存的翻译内容')
+    return
+  }
+  
   translating.value = true
   try {
     // 初始化翻译（只翻译第一段）

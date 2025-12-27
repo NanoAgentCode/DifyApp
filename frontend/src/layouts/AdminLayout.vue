@@ -28,7 +28,7 @@
       </div>
     </el-header>
     <el-container>
-      <el-aside :width="isCollapse ? '64px' : '200px'" class="aside">
+      <el-aside :width="isCollapse ? '64px' : '180px'" class="aside">
         <el-menu
           :default-active="activeMenu"
           :collapse="isCollapse"
@@ -668,6 +668,7 @@ const handleHelpButtonClick = () => {
 /* 收缩状态下图标居中 */
 .menu :deep(.el-menu--collapse) {
   width: 100%;
+  padding: 0 !important;
 }
 
 .menu :deep(.el-menu--collapse .el-menu-item) {
@@ -675,10 +676,27 @@ const handleHelpButtonClick = () => {
   justify-content: center;
   align-items: center;
   padding: 0 !important;
+  margin: 0 !important;
+  height: 48px;
 }
 
 .menu :deep(.el-menu--collapse .el-menu-item .el-icon) {
   margin: 0 !important;
+  padding: 0 !important;
+}
+
+.menu :deep(.el-menu--collapse .el-sub-menu__title) {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: 48px;
+}
+
+.menu :deep(.el-menu--collapse .el-sub-menu__title .el-icon) {
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .main {

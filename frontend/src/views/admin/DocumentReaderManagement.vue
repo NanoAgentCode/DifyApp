@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>文档解读管理</span>
+          <span>文档解读</span>
           <div class="header-actions">
             <el-button type="primary" @click="handleNewDocument">
               <el-icon><Plus /></el-icon>

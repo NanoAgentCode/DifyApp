@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>文档解读管理</span>
+          <span>文档解读</span>
           <div class="header-actions">
             <el-button type="primary" @click="handleNewDocument">
               <el-icon><Plus /></el-icon>
@@ -503,6 +503,57 @@ const getFileTypeClass = (fileType) => {
   return 'file-type-default'
 }
 
+// 获取向量化状态文本
+const getVectorizedStatusText = (status) => {
+  if (status === null || status === undefined) return '未向量化'
+  switch (status) {
+    case 0:
+      return '未向量化'
+    case 1:
+      return '向量化中'
+    case 2:
+      return '向量化完成'
+    case 3:
+      return '向量化失败'
+    default:
+      return '未知状态'
+  }
+}
+
+// 获取向量化状态类型（用于样式）
+const getVectorizedStatusType = (status) => {
+  if (status === null || status === undefined) return 'info'
+  switch (status) {
+    case 0:
+      return 'info'
+    case 1:
+      return 'warning'
+    case 2:
+      return 'success'
+    case 3:
+      return 'danger'
+    default:
+      return 'info'
+  }
+}
+
+// 获取向量化状态图标
+const getVectorizedStatusIcon = (status) => {
+  if (status === null || status === undefined) return InfoFilled
+  switch (status) {
+    case 0:
+      return InfoFilled  // 未向量化
+    case 1:
+      return Loading  // 向量化中
+    case 2:
+      return CircleCheck  // 向量化完成
+    case 3:
+      return CircleClose  // 向量化失败
+    default:
+      return InfoFilled
+  }
+}
+
 // 检查是否有文档正在向量化中
 const hasVectorizingDocuments = () => {
   return documents.value.some(doc => doc.vectorizedStatus === 1)
@@ -610,38 +661,55 @@ onUnmounted(() => {
 
 .documents-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 16px;
   padding: 0;
 }
 
 .document-card {
   cursor: pointer;
   transition: all 0.3s ease;
+  width: 100%;
+  aspect-ratio: 1 / 3;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.document-card :deep(.el-card__body) {
+  padding: 0;
   height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .document-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
 
 .card-content {
   display: flex;
   flex-direction: column;
   height: 100%;
+  padding: 0;
 }
 
 .card-header {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+  padding: 12px 8px 0;
 }
 
 .file-type-icon {
-  font-size: 48px;
+  font-size: 56px;
   color: var(--el-color-primary);
+  margin-bottom: 6px;
 }
 
 .file-type-icon.file-type-pdf {
@@ -675,16 +743,22 @@ onUnmounted(() => {
 .header-tags {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-left: auto;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
 }
 
 .file-type-tag {
   flex-shrink: 0;
+  font-size: 10px;
+  padding: 2px 6px;
+  height: 18px;
+  line-height: 14px;
 }
 
 .vectorized-status-icon {
-  font-size: 18px;
+  font-size: 14px;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -717,51 +791,70 @@ onUnmounted(() => {
 
 .card-body {
   flex: 1;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+  padding: 0 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .file-name {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--el-text-color-primary);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
-  line-height: 1.5;
-  min-height: 48px;
+  line-height: 1.4;
+  text-align: center;
+  word-break: break-word;
 }
 
 .file-info {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  font-size: 12px;
+  gap: 4px;
+  font-size: 10px;
   color: var(--el-text-color-secondary);
+  margin-top: auto;
 }
 
 .file-info span {
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 3px;
 }
 
 .file-size,
 .upload-time {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+}
+
+.file-size .el-icon,
+.upload-time .el-icon {
+  font-size: 11px;
 }
 
 .card-footer {
   display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  padding-top: 12px;
+  gap: 6px;
+  justify-content: center;
+  padding: 8px 10px;
   border-top: 1px solid var(--el-border-color-lighter);
+  margin-top: auto;
+}
+
+.card-footer .el-button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
 }
 
 .pagination {

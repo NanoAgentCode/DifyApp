@@ -30,7 +30,7 @@ import java.util.Map;
 /**
  * 文档解读控制器
  */
-@Tag(name = "文档解读管理")
+@Tag(name = "文档解读")
 @RestController
 @RequestMapping("/api/document-reader/documents")
 public class DocumentReaderController extends BaseController {
