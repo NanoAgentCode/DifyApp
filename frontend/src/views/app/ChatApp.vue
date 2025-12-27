@@ -54,6 +54,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getAppDetail, chatApp, chatAppStream } from '@/api/aiApp'
 import { renderMarkdown } from '@/composables/useMarkdown'
+import { processSSEStream } from '@/composables/useSSEStream'
 import AppIcon from '@/components/AppIcon.vue'
 
 const route = useRoute()
@@ -137,12 +138,10 @@ const handleNormalChat = async (requestData) => {
 }
 
 const handleStreamChat = async (requestData) => {
-  // 流式响应处理 - 使用完全替换数组的方式确保Vue响应式更新
   const messageIndex = messages.value.length
-  let assistantContent = ''
   let updateTimer = null
   let lastUpdateTime = 0
-  const UPDATE_INTERVAL = 100 // 每100ms更新一次DOM，减少更新频率
+  const UPDATE_INTERVAL = 100
   
   // 创建初始消息
   messages.value = [...messages.value, {
@@ -151,29 +150,17 @@ const handleStreamChat = async (requestData) => {
     time: new Date()
   }]
   
-  // 确保初始滚动到底部
   await nextTick()
   scrollToBottomSmooth()
   
-  // 更新消息的辅助函数，带防抖和节流
+  // 节流更新消息内容
   const updateMessage = (content) => {
-    assistantContent = content
     const now = Date.now()
     
-    // 立即更新数据，但限制DOM更新频率
-    const newMessages = [...messages.value]
-    newMessages[messageIndex] = {
-      ...newMessages[messageIndex],
-      content: assistantContent
-    }
-    messages.value = newMessages
+    messages.value[messageIndex].content = content
     
-    // 清除之前的定时器
-    if (updateTimer) {
-      clearTimeout(updateTimer)
-    }
+    if (updateTimer) clearTimeout(updateTimer)
     
-    // 使用节流，每100ms最多更新一次DOM和滚动
     if (now - lastUpdateTime >= UPDATE_INTERVAL) {
       lastUpdateTime = now
       updateTimer = setTimeout(() => {
@@ -186,16 +173,12 @@ const handleStreamChat = async (requestData) => {
         })
       }, 0)
     } else {
-      // 如果距离上次更新时间太短，延迟执行
       updateTimer = setTimeout(() => {
-        const elapsed = Date.now() - lastUpdateTime
-        if (elapsed >= UPDATE_INTERVAL) {
+        if (Date.now() - lastUpdateTime >= UPDATE_INTERVAL) {
           lastUpdateTime = Date.now()
           requestAnimationFrame(() => {
             nextTick(() => {
-              if (autoScrollEnabled.value) {
-                scrollToBottomSmooth()
-              }
+              if (autoScrollEnabled.value) scrollToBottomSmooth()
             })
           })
         }
@@ -207,152 +190,42 @@ const handleStreamChat = async (requestData) => {
     const response = await fetch(`/api/ai-apps/${route.params.id}/chat/stream`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
       },
       body: JSON.stringify(requestData)
     })
 
-    if (!response.ok) {
-      throw new Error(`请求失败: ${response.status}`)
-    }
-    
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-    let pendingData = ''
-
-    const processData = (dataStr) => {
-      if (!dataStr?.trim()) return
-
-      const cleanedData = dataStr.trim().replace(/\n/g, ' ').replace(/\r/g, '')
-      if (cleanedData === '[DONE]') return
-
-      try {
-        const json = JSON.parse(cleanedData)
-
-        // 累积AI回答内容
-        if (json.answer !== undefined && json.answer !== null) {
-          assistantContent = assistantContent + json.answer
-          updateMessage(assistantContent)
+    await processSSEStream(response, {
+      cumulative: true,
+      contentFields: ['answer'],
+      onData: (json, cumulativeContent) => {
+        // 更新消息内容
+        if (cumulativeContent !== null) {
+          updateMessage(cumulativeContent)
         }
-
+        
         // 更新对话ID
         if (json.conversation_id || json.conversationId) {
           conversationId.value = json.conversation_id || json.conversationId
         }
-
-        // 处理事件类型
-        if (json.event) {
-          if (json.event === 'error') {
-            updateMessage('发生错误: ' + (json.answer || '未知错误'))
-          } else if (json.event === 'message_end' || json.event === 'workflow_finished') {
-            if (updateTimer) clearTimeout(updateTimer)
-            updateMessage(assistantContent)
-          }
-        }
-      } catch (e) {
-        // JSON解析失败，静默处理
-      }
-    }
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) {
-        // 处理剩余数据
-        if (pendingData) {
-          if (buffer.trim()) {
-            pendingData += buffer.trim()
-            buffer = ''
-          }
-          processData(pendingData)
-          pendingData = ''
-        } else if (buffer.trim()) {
-          const trimmed = buffer.trim()
-          if (trimmed.startsWith('data: ')) {
-            processData(trimmed.substring(6).trim())
-          } else if (trimmed.startsWith('data:')) {
-            processData(trimmed.substring(5).trim())
-          } else if (trimmed && !trimmed.startsWith('event:') && !trimmed.startsWith('id:') && !trimmed.startsWith(':')) {
-            processData(trimmed)
-          }
-        }
-        break
-      }
-
-      buffer += decoder.decode(value, { stream: true })
-      
-      // 按行处理
-      let newlineIndex
-      while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
-        const line = buffer.substring(0, newlineIndex)
-        buffer = buffer.substring(newlineIndex + 1)
-        const trimmed = line.trim()
         
-        // 空行表示事件结束
-        if (!trimmed) {
-          if (pendingData) {
-            processData(pendingData)
-            pendingData = ''
-          }
-          continue
+        // 处理错误事件
+        if (json.event === 'error') {
+          updateMessage('发生错误: ' + (json.answer || '未知错误'))
         }
-
-        // 解析data行
-        let dataContent = null
-        if (trimmed.startsWith('data: ')) {
-          dataContent = trimmed.substring(6).trim()
-        } else if (trimmed.startsWith('data:')) {
-          dataContent = trimmed.substring(5).trim()
-        } else if (line.match(/^data:\s*(.*)$/)) {
-          dataContent = line.match(/^data:\s*(.*)$/)[1]
-        }
-        
-        if (dataContent) {
-          // 合并pending数据
-          if (pendingData) {
-            dataContent = pendingData + dataContent
-            pendingData = ''
-          }
-          
-          // 检查JSON完整性
-          if (isCompleteJSON(dataContent)) {
-            processData(dataContent)
-          } else {
-            pendingData = dataContent
-          }
-        } else if (!trimmed.startsWith('event:') && !trimmed.startsWith('id:') && !trimmed.startsWith(':')) {
-          // 可能是直接的JSON数据
-          processData(trimmed)
-        }
+      },
+      onError: (error) => {
+        updateMessage('抱歉，流式响应处理出错: ' + (error.message || '未知错误'))
+      },
+      onComplete: () => {
+        if (updateTimer) clearTimeout(updateTimer)
       }
-      
-      // 合并buffer到pending数据
-      if (pendingData && buffer.trim() && 
-          !buffer.trim().startsWith('data:') && 
-          !buffer.trim().startsWith('event:') && 
-          !buffer.trim().startsWith('id:')) {
-        pendingData += buffer.trim()
-        buffer = ''
-      }
-    }
-  } catch (error) {
-    updateMessage('抱歉，流式响应处理出错: ' + (error.message || '未知错误'))
-    if (updateTimer) clearTimeout(updateTimer)
-    throw error
+    })
   } finally {
-    // 确保最终更新
-    if (updateTimer) {
-      clearTimeout(updateTimer)
-    }
-    // 最终更新一次，确保所有内容都显示
-    const newMessages = [...messages.value]
-    newMessages[messageIndex] = {
-      ...newMessages[messageIndex],
-      content: assistantContent
-    }
-    messages.value = newMessages
+    if (updateTimer) clearTimeout(updateTimer)
+    messages.value[messageIndex].content = messages.value[messageIndex].content || ''
     await nextTick()
-    // 流式输出完成后，重新启用自动滚动并滚动到底部
     autoScrollEnabled.value = true
     scrollToBottom()
   }

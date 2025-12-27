@@ -81,6 +81,7 @@ import { ChatLineRound, Promotion, Loading, ArrowUp, DocumentCopy } from '@eleme
 import { documentQA, documentQAStream } from '@/api/documentReader'
 import { createConversation } from '@/api/chat'
 import { renderMarkdown } from '@/composables/useMarkdown'
+import { processSSEStream } from '@/composables/useSSEStream'
 
 const props = defineProps({
   docId: {
@@ -377,25 +378,6 @@ const handleStreamResponse = async (userQuestion, userId, history, aiMessageInde
       history,
       props.modelId
     )
-    
-    if (!response.ok) {
-      // 尝试读取错误信息
-      let errorMessage = '请求失败'
-      try {
-        const errorText = await response.text()
-        if (errorText) {
-          try {
-            const errorJson = JSON.parse(errorText)
-            errorMessage = errorJson.error || errorJson.message || errorMessage
-          } catch (e) {
-            errorMessage = errorText || errorMessage
-          }
-        }
-      } catch (e) {
-        // 忽略错误
-      }
-      throw new Error(errorMessage)
-    }
     
     const reader = response.body.getReader()
     const decoder = new TextDecoder('utf-8')
