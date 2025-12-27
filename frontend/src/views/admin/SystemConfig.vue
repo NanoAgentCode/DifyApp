@@ -376,119 +376,112 @@ const predefinedConfigKeys = [
   {
     key: 'help.knowledgeBaseId',
     label: 'help.knowledgeBaseId',
-    description: '用户手册智能问答绑定的知识库ID',
+    description: '用户手册知识库ID',
     group: 'help',
     type: 'number'
   },
   {
     key: 'help.modelId',
     label: 'help.modelId',
-    description: '用户手册智能问答使用的模型ID',
+    description: '用户手册模型ID',
     group: 'help',
     type: 'number'
   },
   {
     key: 'drawio.defaultModelId',
     label: 'drawio.defaultModelId',
-    description: '智能框图默认使用的问答模型ID',
+    description: '智能框图模型ID',
     group: 'system',
     type: 'number'
   },
   {
     key: 'system.globalTheme',
     label: 'system.globalTheme',
-    description: '全局主题色配置，从预设主题中选择',
+    description: '全局主题色',
     group: 'system',
     type: 'string'
   },
   {
     key: 'dify.api.defaultBaseUrl',
     label: 'dify.api.defaultBaseUrl',
-    description: 'Dify API 默认Base URL',
+    description: 'Dify API Base URL',
     group: 'dify',
     type: 'string'
   },
   {
     key: 'dify.api.timeout',
     label: 'dify.api.timeout',
-    description: 'Dify API 默认超时时间（毫秒）',
+    description: 'Dify API 超时时间（毫秒）',
     group: 'dify',
     type: 'number'
   },
   {
     key: 'ocr.service.url',
     label: 'ocr.service.url',
-    description: 'EasyOCR服务地址（如：http://localhost:8000）',
+    description: 'EasyOCR服务地址',
     group: 'ocr',
     type: 'string'
   },
   {
     key: 'ocr.service.timeout',
     label: 'ocr.service.timeout',
-    description: 'EasyOCR服务请求超时时间（毫秒，默认：30000）',
+    description: 'EasyOCR服务超时时间（毫秒）',
     group: 'ocr',
     type: 'number'
   },
   {
     key: 'dify.api.connectTimeout',
     label: 'dify.api.connectTimeout',
-    description: 'Dify API 连接超时时间（毫秒）',
+    description: 'Dify API 连接超时（毫秒）',
     group: 'dify',
     type: 'number'
   },
   {
     key: 'dify.api.fileUrlPrefix',
     label: 'dify.api.fileUrlPrefix',
-    description: 'Dify API 文件URL前缀（用于拼接相对路径的文件URL）',
+    description: 'Dify API 文件URL前缀',
     group: 'dify',
     type: 'string'
   },
   {
     key: 'documentReader.defaultQAModelId',
     label: 'documentReader.defaultQAModelId',
-    description: '文档解读默认使用的问答模型ID',
+    description: '文档解读问答模型ID',
     group: 'documentReader',
     type: 'number'
   },
   {
     key: 'documentReader.defaultEmbeddingModelId',
     label: 'documentReader.defaultEmbeddingModelId',
-    description: '文档解读默认使用的向量化模型ID',
+    description: '文档解读向量化模型ID',
     group: 'documentReader',
     type: 'number'
   },
   {
     key: 'documentReader.vectorDatabaseId',
     label: 'documentReader.vectorDatabaseId',
-    description: '文档解读使用的向量库实例ID（推荐，优先使用具体实例配置。如果未配置，将使用vectorStoreType查找默认配置）',
+    description: '文档解读向量库实例ID',
     group: 'documentReader',
     type: 'number'
   },
   {
     key: 'documentReader.vectorStoreType',
     label: 'documentReader.vectorStoreType',
-    description: '文档解读使用的向量库类型（后备选项，当未配置vectorDatabaseId时使用。可选值：qdrant、faiss、milvus、chroma、weaviate、elasticsearch、pgvector等）',
+    description: '文档解读向量库类型',
     group: 'documentReader',
     type: 'string'
   },
   {
     key: 'documentReader.topK',
     label: 'documentReader.topK',
-    description: '文档解读检索时的Top-K数量（默认5）',
-    group: 'documentReader',
-    type: 'number'
-  },
-  {
-    key: 'documentReader.mindMapAppId',
-    label: 'documentReader.mindMapAppId',
-    description: '文档解读思维导图生成使用的智能应用ID（已废弃，改用mindMapServiceUrl）',
+    description: '文档解读Top-K数量',
     group: 'documentReader',
     type: 'number'
   },
   {
     key: 'documentReader.mindMapServiceUrl',
     label: 'documentReader.mindMapServiceUrl',
-    description: '文档解读思维导图服务URL（默认：http://localhost:6066）',
+    description: '文档解读思维导图服务URL',
     group: 'documentReader',
     type: 'string'
   }

@@ -939,11 +939,8 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         validateDocumentAccess(documentId, userId);
         
         try {
-            // 获取mindMap服务URL（思维导图服务位于mindmap目录，默认端口6066）
-            String mindMapServiceUrl = documentReaderConfig.getMindMapServiceUrl();
-            if (mindMapServiceUrl == null || mindMapServiceUrl.trim().isEmpty()) {
-                throw new RuntimeException("未配置思维导图服务URL，请在系统配置中设置 documentReader.mindMapServiceUrl（思维导图服务位于mindmap目录，默认地址：http://localhost:6066）");
-            }
+            // 获取mindMap服务URL（从系统配置读取，可在系统配置页面中配置）
+            String mindMapServiceUrl = getMindMapServiceUrl();
             
             // 获取文档信息
             Optional<DocumentReader> optional = documentRepository.findByIdAndDeleted(documentId, 0);
@@ -1552,6 +1549,19 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         return HttpClient.create()
                 .responseTimeout(Duration.ofSeconds(WEB_CLIENT_TIMEOUT_SECONDS))
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, WEB_CLIENT_CONNECT_TIMEOUT_MS);
+    }
+    
+    /**
+     * 获取思维导图服务URL（从配置读取，如果未配置则使用默认值）
+     */
+    private String getMindMapServiceUrl() {
+        String mindMapServiceUrl = documentReaderConfig.getMindMapServiceUrl();
+        if (mindMapServiceUrl == null || mindMapServiceUrl.trim().isEmpty()) {
+            String defaultUrl = "http://localhost:6066";
+            logger.warn("未配置思维导图服务URL，使用默认值: {}。可在系统配置页面设置 documentReader.mindMapServiceUrl 来修改", defaultUrl);
+            return defaultUrl;
+        }
+        return mindMapServiceUrl.trim();
     }
 }
 
