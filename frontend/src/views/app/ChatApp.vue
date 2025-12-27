@@ -55,6 +55,7 @@ import { ElMessage } from 'element-plus'
 import { getAppDetail, chatApp, chatAppStream } from '@/api/aiApp'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { processSSEStream } from '@/composables/useSSEStream'
+import { extractContent, updateConversationId } from '@/composables/useResponseHandler'
 import AppIcon from '@/components/AppIcon.vue'
 
 const route = useRoute()
@@ -127,12 +128,12 @@ const handleSend = async () => {
 
 const handleNormalChat = async (requestData) => {
   const res = await chatApp(route.params.id, requestData)
-  if (res.conversationId) {
-    conversationId.value = res.conversationId
-  }
+  
+  updateConversationId(res, conversationId)
+  
   messages.value.push({
     role: 'assistant',
-    content: res.answer || '无响应',
+    content: extractContent(res, ['answer'], '无响应'),
     time: new Date()
   })
 }

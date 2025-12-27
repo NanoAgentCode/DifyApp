@@ -129,14 +129,16 @@ export function useChat(options = {}) {
     try {
       const response = await chat(
         userQuestion,
-        null, // conversationId
-        null, // userId
-        null, // history
+        null,
+        null,
+        null,
         selectedModelId.value,
         enableBrowserSearchValue.value
       )
 
-      updateAIMessage(response.answer || '抱歉，没有收到回复', false)
+      const { extractContent } = await import('@/composables/useResponseHandler')
+      const content = extractContent(response, ['answer'], '抱歉，没有收到回复')
+      updateAIMessage(content, false)
     } catch (error) {
       const errorMsg = error?.response?.data?.error || error?.message || '发送消息失败'
       updateAIMessage(`错误: ${errorMsg}`, false)

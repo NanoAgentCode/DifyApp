@@ -82,6 +82,7 @@ import { documentQA, documentQAStream } from '@/api/documentReader'
 import { createConversation } from '@/api/chat'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { processSSEStream } from '@/composables/useSSEStream'
+import { extractContent, updateConversationId, updateMessage } from '@/composables/useResponseHandler'
 
 const props = defineProps({
   docId: {
@@ -576,18 +577,17 @@ const handleNormalResponse = async (userQuestion, userId, history, aiMessageInde
     props.modelId
   )
   
-  const answer = response?.answer || response?.content || ''
-  if (messages.value[aiMessageIndex]) {
-    messages.value[aiMessageIndex].content = answer || '抱歉，未能生成答案。'
-    messages.value[aiMessageIndex].isLoading = false
-    if (response?.sources) {
-      messages.value[aiMessageIndex].sources = response.sources
-    }
-  }
+  const content = extractContent(response, ['answer', 'content'], '抱歉，未能生成答案。')
   
-  if (response?.conversationId) {
-    conversationId.value = response.conversationId
-  }
+  updateMessage({
+    messages: messages.value,
+    messageIndex: aiMessageIndex,
+    content,
+    isLoading: false,
+    metadata: response?.sources ? { sources: response.sources } : {}
+  })
+  
+  updateConversationId(response, conversationId)
 }
 
 // 监听消息变化，自动滚动
