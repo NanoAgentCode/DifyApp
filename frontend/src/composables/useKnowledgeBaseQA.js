@@ -485,74 +485,45 @@ export function useKnowledgeBaseQA(options = {}) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          const trimmedLine = line.trim()
+      // 使用统一的 SSE 流式处理工具
+      const { processSSEStream } = await import('@/composables/useSSEStream')
+      
+      await processSSEStream(response, {
+        cumulative: false,
+        contentFields: ['answer'],
+        onData: (json) => {
+          if (!chatHistory.value[aiMessageIndex]) return
           
-          if (!trimmedLine) continue
-          
-          if (trimmedLine.startsWith('data:')) {
-            const data = trimmedLine.slice(5).trim()
-            
-            if (data === '[DONE]' || data === '') continue
+          // 更新答案内容
+          if (json.answer !== undefined && json.answer !== null) {
+            fullAnswer = json.answer
+            chatHistory.value[aiMessageIndex].isLoading = false
+            chatHistory.value[aiMessageIndex].content = fullAnswer
+            nextTick(() => scrollToBottom(false))
+          }
 
-            try {
-              const json = JSON.parse(data)
-              
-              if (json.answer !== undefined && json.answer !== null) {
-                if (!chatHistory.value[aiMessageIndex]) {
-                  console.warn('消息对象不存在，索引:', aiMessageIndex)
-                  continue
-                }
-                fullAnswer = json.answer
-                if (chatHistory.value[aiMessageIndex].isLoading) {
-                  chatHistory.value[aiMessageIndex].isLoading = false
-                }
-                chatHistory.value[aiMessageIndex].content = fullAnswer
-                
-                await nextTick()
-                scrollToBottom(false)
-              }
+          // 更新来源
+          if (json.sources?.length > 0) {
+            sources = json.sources
+            chatHistory.value[aiMessageIndex].sources = sources
+          }
 
-              if (json.sources && json.sources.length > 0) {
-                sources = json.sources
-                chatHistory.value[aiMessageIndex].sources = sources
-              }
+          // 更新对话ID
+          if (json.conversationId) {
+            conversationId.value = json.conversationId
+            finalConversationId = json.conversationId
+          }
 
-              if (json.conversationId) {
-                conversationId.value = json.conversationId
-                finalConversationId = json.conversationId
-              }
-
-              if (json.finished) {
-                if (chatHistory.value[aiMessageIndex]) {
-                  chatHistory.value[aiMessageIndex].content = fullAnswer || json.answer || ''
-                  chatHistory.value[aiMessageIndex].sources = sources
-                }
-                if (json.conversationId) {
-                  conversationId.value = json.conversationId
-                }
-                break
-              }
-            } catch (e) {
-              console.warn('解析流式数据失败', e, data)
+          // 处理完成标记
+          if (json.finished) {
+            chatHistory.value[aiMessageIndex].content = fullAnswer || json.answer || ''
+            chatHistory.value[aiMessageIndex].sources = sources
+            if (json.conversationId) {
+              conversationId.value = json.conversationId
             }
           }
         }
-      }
+      })
     } catch (error) {
       console.error('流式响应失败', error)
       if (chatHistory.value[aiMessageIndex]) {

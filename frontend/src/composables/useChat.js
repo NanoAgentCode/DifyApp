@@ -192,41 +192,22 @@ export function useChat(options = {}) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      let fullContent = ''
-      
       // 处理流式响应
-      if (response.body) {
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder()
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          const chunk = decoder.decode(value, { stream: true })
-          const lines = chunk.split('\n').filter(line => line.trim())
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.substring(6)
-              if (data === '[DONE]') continue
-
-              try {
-                const json = JSON.parse(data)
-                const content = json.content || json.text || json.message || ''
-                if (content) {
-                  fullContent += content
-                  updateAIMessage(fullContent, true)
-                }
-              } catch (e) {
-                // 忽略解析错误
-              }
-            }
+      const { processSSEStream } = await import('@/composables/useSSEStream')
+      
+      await processSSEStream(response, {
+        cumulative: true,
+        contentFields: ['content', 'text', 'message'],
+        onData: (json, cumulativeContent) => {
+          if (cumulativeContent) {
+            updateAIMessage(cumulativeContent, true)
           }
+        },
+        onComplete: () => {
+          const finalContent = chatHistory.value[currentStreamIndex]?.content
+          updateAIMessage(finalContent || '抱歉，没有收到回复', false)
         }
-      }
-
-      updateAIMessage(fullContent || '抱歉，没有收到回复', false)
+      })
     } catch (error) {
       if (error.name === 'AbortError') {
         updateAIMessage('请求已取消', false)

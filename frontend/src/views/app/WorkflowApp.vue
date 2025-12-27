@@ -829,42 +829,27 @@ const handleStreamWorkflow = async (requestData) => {
     const response = await fetch(`/api/ai-apps/${route.params.id}/workflow/stream`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
       },
       body: JSON.stringify(requestData)
     })
 
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      const chunk = decoder.decode(value)
-      const lines = chunk.split('\n')
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.substring(6)
-          if (data === '[DONE]') continue
-
-          try {
-            const json = JSON.parse(data)
-            if (json.answer) {
-              streamResult += json.answer
-            }
-            if (json.metadata) {
-              result.value = { answer: streamResult, metadata: json.metadata }
-            } else {
-              result.value = { answer: streamResult }
-            }
-          } catch (e) {
-            // 忽略解析错误
-          }
+    const { processSSEStream } = await import('@/composables/useSSEStream')
+    
+    await processSSEStream(response, {
+      cumulative: true,
+      contentFields: ['answer'],
+      onData: (json, cumulativeContent) => {
+        if (cumulativeContent) {
+          streamResult = cumulativeContent
         }
+        
+        result.value = json.metadata 
+          ? { answer: streamResult, metadata: json.metadata }
+          : { answer: streamResult }
       }
-    }
+    })
   } catch (error) {
     throw error
   }
