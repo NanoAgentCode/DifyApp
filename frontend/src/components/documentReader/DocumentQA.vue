@@ -139,6 +139,11 @@ const handleFocus = () => {
 const handleBlur = () => {
   // 延迟处理，以便点击按钮时不会立即失焦
   setTimeout(() => {
+    // 如果正在发送消息，保持焦点状态，不收起
+    if (sending.value) {
+      return
+    }
+    
     // 检查是否真的失焦（没有活动元素或活动元素不在问答区域内）
     const activeElement = document.activeElement
     const qaElement = inputRef.value?.$el || inputRef.value
@@ -321,6 +326,16 @@ const handleSend = async () => {
   } finally {
     sending.value = false
     scrollToBottom()
+    
+    // 发送完成后，重新聚焦到输入框，保持问答区域展开
+    nextTick(() => {
+      if (inputRef.value?.$el) {
+        const textarea = inputRef.value.$el.querySelector('textarea')
+        if (textarea) {
+          textarea.focus()
+        }
+      }
+    })
   }
 }
 
