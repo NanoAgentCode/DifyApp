@@ -7,6 +7,17 @@
       </div>
       <div class="header-actions">
         <el-button
+          type="primary"
+          size="small"
+          @click="handleExportImage"
+          :loading="exporting"
+          :disabled="generating || !mindMapData || exporting"
+          title="导出为图片"
+        >
+          <el-icon><Download /></el-icon>
+          导出图片
+        </el-button>
+        <el-button
           type="success"
           size="small"
           @click="handleGenerate"
@@ -30,6 +41,7 @@
           <!-- HTML URL类型：使用iframe显示 -->
           <iframe 
             v-if="isHtmlUrlType(mindMapData)" 
+            ref="mindmapIframe"
             :src="htmlUrl" 
             class="mindmap-iframe"
             frameborder="0"
@@ -56,10 +68,11 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Connection, Document, MagicStick, Loading } from '@element-plus/icons-vue'
+import { Connection, Document, MagicStick, Loading, Download } from '@element-plus/icons-vue'
 import { getDocumentMindMap, generateDocumentMindMap } from '@/api/documentReader'
 import jsMind from 'jsmind'
 import 'jsmind/style/jsmind.css'
+import html2canvas from 'html2canvas'
 
 const props = defineProps({
   docId: {
@@ -70,6 +83,8 @@ const props = defineProps({
 
 const mindMapData = ref(null)
 const htmlUrl = ref('')
+const mindmapIframe = ref(null)
+const exporting = ref(false)
 
 // 检查是否为HTML URL类型
 const isHtmlUrlType = (data) => {
@@ -743,6 +758,175 @@ const autoGenerateMindMap = async () => {
     console.error('自动生成脑图失败:', error)
     generating.value = false
     ElMessage.error('自动生成脑图失败：' + (error.message || '未知错误'))
+  }
+}
+
+// 导出为图片
+const handleExportImage = async () => {
+  if (!mindMapData.value) {
+    ElMessage.warning('没有可导出的脑图数据')
+    return
+  }
+  
+  if (exporting.value) {
+    return
+  }
+  
+  exporting.value = true
+  try {
+    // 如果是HTML URL类型，从iframe中导出
+    if (isHtmlUrlType(mindMapData.value)) {
+      await exportIframeImage()
+    } else {
+      // jsMind格式，从容器中导出
+      await exportJsMindImage()
+    }
+  } catch (error) {
+    console.error('导出图片失败:', error)
+    ElMessage.error('导出图片失败：' + (error.message || '未知错误'))
+  } finally {
+    exporting.value = false
+  }
+}
+
+// 导出iframe中的图片
+const exportIframeImage = async () => {
+  if (!mindmapIframe.value) {
+    throw new Error('iframe元素不存在')
+  }
+  
+  const iframe = mindmapIframe.value
+  
+  // 尝试访问iframe内容，捕获跨域错误
+  let iframeDoc = null
+  try {
+    iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
+  } catch (error) {
+    // 跨域错误，无法访问iframe内容
+    console.warn('跨域限制，无法访问iframe内容:', error)
+    handleCrossOriginExport()
+    return
+  }
+  
+  if (!iframeDoc) {
+    // 如果无法访问iframe内容（跨域），提示用户
+    handleCrossOriginExport()
+    return
+  }
+  
+  // 获取iframe中的body或主要容器
+  const targetElement = iframeDoc.body || iframeDoc.documentElement
+  
+  if (!targetElement) {
+    throw new Error('无法找到iframe中的内容')
+  }
+  
+  // 等待iframe内容加载完成
+  await new Promise(resolve => setTimeout(resolve, 500))
+  
+  try {
+    // 使用html2canvas转换
+    const canvas = await html2canvas(targetElement, {
+      useCORS: true,
+      allowTaint: true,
+      scale: 2, // 提高图片质量
+      backgroundColor: '#ffffff',
+      width: targetElement.scrollWidth,
+      height: targetElement.scrollHeight,
+      logging: false
+    })
+    
+    // 下载图片
+    downloadCanvas(canvas, `mindmap-${props.docId}-${Date.now()}.png`)
+  } catch (error) {
+    // 如果html2canvas也失败（可能是跨域资源），提示用户
+    console.error('html2canvas转换失败:', error)
+    if (error.message && error.message.includes('cross-origin')) {
+      handleCrossOriginExport()
+    } else {
+      throw error
+    }
+  }
+}
+
+// 处理跨域导出
+const handleCrossOriginExport = () => {
+  ElMessageBox.confirm(
+    '由于浏览器安全限制，无法直接导出跨域的iframe内容。\n\n您可以选择：\n1. 在新窗口打开链接，使用浏览器截图功能（F12开发者工具）\n2. 使用系统截图工具\n\n是否在新窗口打开链接？',
+    '跨域限制提示',
+    {
+      confirmButtonText: '打开链接',
+      cancelButtonText: '取消',
+      type: 'warning',
+      dangerouslyUseHTMLString: false
+    }
+  ).then(() => {
+    // 在新窗口打开URL
+    if (htmlUrl.value) {
+      window.open(htmlUrl.value, '_blank')
+      ElMessage.info('已在新窗口打开链接，您可以使用浏览器截图功能或系统截图工具')
+    }
+  }).catch(() => {
+    // 用户取消
+  })
+}
+
+// 导出jsMind图片
+const exportJsMindImage = async () => {
+  if (!mindmapContainer.value) {
+    throw new Error('思维导图容器不存在')
+  }
+  
+  // 等待渲染完成
+  await nextTick()
+  await new Promise(resolve => setTimeout(resolve, 300))
+  
+  // 使用html2canvas转换
+  const canvas = await html2canvas(mindmapContainer.value, {
+    useCORS: true,
+    allowTaint: true,
+    scale: 2, // 提高图片质量
+    backgroundColor: '#ffffff',
+    width: mindmapContainer.value.scrollWidth,
+    height: mindmapContainer.value.scrollHeight,
+    logging: false
+  })
+  
+  // 下载图片
+  downloadCanvas(canvas, `mindmap-${props.docId}-${Date.now()}.png`)
+}
+
+// 下载canvas为图片
+const downloadCanvas = (canvas, filename) => {
+  try {
+    // 转换为blob
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        throw new Error('无法生成图片数据')
+      }
+      
+      // 创建下载链接
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      link.style.display = 'none'
+      
+      // 触发下载
+      document.body.appendChild(link)
+      link.click()
+      
+      // 清理
+      setTimeout(() => {
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+      }, 100)
+      
+      ElMessage.success('图片导出成功')
+    }, 'image/png', 0.95)
+  } catch (error) {
+    console.error('下载图片失败:', error)
+    throw error
   }
 }
 
