@@ -18,6 +18,9 @@
           @export="handleExport"
           @text-selected="handleTextSelected"
           @text-interpret="handleTextInterpret"
+          @text-translate="handleTextTranslate"
+          @textTranslate="handleTextTranslate"
+          @translateText="handleTextTranslate"
         />
       </div>
 
@@ -58,7 +61,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import DocumentViewer from '@/components/documentReader/DocumentViewer.vue'
@@ -159,22 +162,60 @@ const handleTextInterpret = (text) => {
     return
   }
   
+  // 将文本设置为选中文本
+  selectedText.value = text.trim()
+  
   // 自动聚焦到问答区域
   qaFocused.value = true
   console.log('问答区域已聚焦')
   
-  // 等待问答区域展开后，设置输入框内容
-  setTimeout(() => {
-    console.log('准备设置输入框文本，documentQARef:', documentQARef.value)
-    if (documentQARef.value) {
-      // 调用DocumentQA的方法设置输入框文本（不发送）
-      const question = `请解读以下内容：\n\n${text.trim()}`
-      console.log('调用setQuestionText，问题:', question)
-      documentQARef.value.setQuestionText(question)
-    } else {
-      console.error('documentQARef.value 为空')
+  // 等待问答区域展开后，插入文本到输入框
+  nextTick(() => {
+    const tryInsert = (attempts = 0) => {
+      console.log(`尝试插入解读文本，第 ${attempts + 1} 次，documentQARef:`, documentQARef.value)
+      if (documentQARef.value && documentQARef.value.insertSelectedText) {
+        console.log('调用 insertSelectedText，文本:', text.trim())
+        documentQARef.value.insertSelectedText(text.trim())
+      } else if (attempts < 10) {
+        setTimeout(() => tryInsert(attempts + 1), 100)
+      } else {
+        console.error('documentQARef 未初始化或 insertSelectedText 方法不存在')
+      }
     }
-  }, 300)
+    tryInsert()
+  })
+}
+
+// 处理文本翻译（将文本插入到输入框，等待用户发送）
+const handleTextTranslate = (text) => {
+  console.log('handleTextTranslate被调用，文本:', text)
+  if (!text || !text.trim()) {
+    console.log('文本为空，返回')
+    return
+  }
+  
+  // 将文本设置为选中文本
+  selectedText.value = text.trim()
+  
+  // 自动聚焦到问答区域
+  qaFocused.value = true
+  console.log('问答区域已聚焦')
+  
+  // 等待问答区域展开后，插入文本到输入框
+  nextTick(() => {
+    const tryInsert = (attempts = 0) => {
+      console.log(`尝试插入翻译文本，第 ${attempts + 1} 次，documentQARef:`, documentQARef.value)
+      if (documentQARef.value && documentQARef.value.insertTranslateText) {
+        console.log('调用 insertTranslateText，文本:', text.trim())
+        documentQARef.value.insertTranslateText(text.trim())
+      } else if (attempts < 10) {
+        setTimeout(() => tryInsert(attempts + 1), 100)
+      } else {
+        console.error('documentQARef 未初始化或 insertTranslateText 方法不存在')
+      }
+    }
+    tryInsert()
+  })
 }
 
 onMounted(() => {

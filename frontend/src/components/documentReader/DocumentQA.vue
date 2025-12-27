@@ -162,24 +162,89 @@ const selectedTextPreview = computed(() => {
     : props.selectedText
 })
 
-// 插入选中文本
-const insertSelectedText = () => {
-  if (props.selectedText) {
+// 过滤空行，保留有内容的行
+const filterEmptyLines = (text) => {
+  if (!text) return ''
+  // 按行分割，过滤掉空行和只包含空白字符的行，然后重新组合
+  return text
+    .split('\n')
+    .filter(line => line.trim().length > 0)
+    .join('\n')
+}
+
+// 插入选中文本（解读）
+const insertSelectedText = (textToInsert = null) => {
+  console.log('insertSelectedText 被调用，参数:', textToInsert, 'props.selectedText:', props.selectedText)
+  // 优先使用传入的参数，如果没有则使用props中的selectedText
+  const rawText = textToInsert || props.selectedText
+  console.log('原始文本:', rawText)
+  
+  // 过滤空行
+  const text = filterEmptyLines(rawText)
+  console.log('过滤空行后的文本:', text)
+  
+  if (text && text.trim()) {
     if (question.value.trim()) {
-      question.value = `${question.value}\n\n【选中内容】\n${props.selectedText}\n\n请解读以上内容。`
+      question.value = `${question.value}\n\n【选中内容】\n${text}\n\n请解读以上内容。`
     } else {
-      question.value = `请解读以下内容：\n\n${props.selectedText}`
+      question.value = `请解读以下内容：\n\n${text}`
     }
+    console.log('文本已插入到输入框:', question.value)
     // 聚焦到输入框
     nextTick(() => {
       if (inputRef.value?.$el) {
         const textarea = inputRef.value.$el.querySelector('textarea')
         if (textarea) {
           textarea.focus()
+          console.log('输入框已聚焦')
+        } else {
+          console.warn('未找到 textarea 元素')
         }
+      } else {
+        console.warn('inputRef.$el 不存在')
       }
     })
     emit('textUsed')
+  } else {
+    console.warn('文本为空，无法插入')
+  }
+}
+
+// 插入翻译文本
+const insertTranslateText = (textToInsert = null) => {
+  console.log('insertTranslateText 被调用，参数:', textToInsert)
+  // 优先使用传入的参数，如果没有则使用props中的selectedText
+  const rawText = textToInsert || props.selectedText
+  console.log('原始文本:', rawText)
+  
+  // 过滤空行
+  const text = filterEmptyLines(rawText)
+  console.log('过滤空行后的文本:', text)
+  
+  if (text && text.trim()) {
+    if (question.value.trim()) {
+      question.value = `${question.value}\n\n【选中内容】\n${text}\n\n请翻译以上内容。`
+    } else {
+      question.value = `请翻译以下内容：\n\n${text}`
+    }
+    console.log('翻译文本已插入到输入框:', question.value)
+    // 聚焦到输入框
+    nextTick(() => {
+      if (inputRef.value?.$el) {
+        const textarea = inputRef.value.$el.querySelector('textarea')
+        if (textarea) {
+          textarea.focus()
+          console.log('输入框已聚焦')
+        } else {
+          console.warn('未找到 textarea 元素')
+        }
+      } else {
+        console.warn('inputRef.$el 不存在')
+      }
+    })
+    emit('textUsed')
+  } else {
+    console.warn('文本为空，无法插入')
   }
 }
 
@@ -625,7 +690,9 @@ const setQuestionText = (text) => {
 
 defineExpose({
   sendQuestion,
-  setQuestionText
+  setQuestionText,
+  insertSelectedText,
+  insertTranslateText
 })
 
 onMounted(() => {
@@ -684,6 +751,7 @@ onMounted(() => {
 
 .assistant-message {
   justify-content: flex-start;
+  padding-left: 16px;
 }
 
 .message-content {

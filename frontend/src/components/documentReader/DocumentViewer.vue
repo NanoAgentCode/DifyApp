@@ -27,7 +27,7 @@
         <el-icon><ChatLineRound /></el-icon>
         解读
       </el-button>
-      <el-button type="primary" size="small" @click="handleUseSelectedText">
+      <el-button type="primary" size="small" @click="handleTranslateText">
         <el-icon><DocumentAdd /></el-icon>
         翻译
       </el-button>
@@ -568,6 +568,23 @@ const handleInterpretText = () => {
     const text = selectedText.value
     console.log('解读按钮被点击，选中文本:', text)
     emit('textInterpret', text)
+    emit('text-interpret', text)
+    emit('interpretText', text)
+    // 延迟清除选择，确保事件已经被处理
+    setTimeout(() => {
+      clearSelection()
+    }, 100)
+  }
+}
+
+// 翻译选中的文本（插入到输入框等待用户发送）
+const handleTranslateText = () => {
+  if (selectedText.value) {
+    const text = selectedText.value
+    console.log('翻译按钮被点击，选中文本:', text)
+    emit('textTranslate', text)
+    emit('text-translate', text)
+    emit('translateText', text)
     // 延迟清除选择，确保事件已经被处理
     setTimeout(() => {
       clearSelection()
