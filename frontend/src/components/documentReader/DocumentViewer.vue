@@ -29,7 +29,7 @@
       </el-button>
       <el-button type="primary" size="small" @click="handleUseSelectedText">
         <el-icon><DocumentAdd /></el-icon>
-        添加到输入器
+        翻译
       </el-button>
       <el-button type="text" size="small" @click="clearSelection" title="取消选择">
         <el-icon><Close /></el-icon>
@@ -533,7 +533,15 @@ const handleTextSelection = (event) => {
     
     // 检查选择是否在文档内容区域内
     const range = selection.getRangeAt(0)
-    const viewerContent = event.currentTarget
+    if (!range || !range.commonAncestorContainer) {
+      return
+    }
+    
+    const viewerContent = event?.currentTarget || document.querySelector('.viewer-content')
+    if (!viewerContent) {
+      return
+    }
+    
     if (!viewerContent.contains(range.commonAncestorContainer)) {
       clearSelection()
       return
