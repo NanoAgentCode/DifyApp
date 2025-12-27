@@ -18,42 +18,62 @@
           <el-option label="日文" value="ja" />
           <el-option label="韩文" value="ko" />
         </el-select>
-        <el-button
-          type="success"
-          size="small"
-          @click="handleTranslate"
-          :loading="translating"
-          :disabled="!targetLanguage || translating"
+        <el-tooltip
+          :content="translationContent ? '重新翻译' : '翻译'"
+          placement="bottom"
         >
-          <el-icon><Refresh /></el-icon>
-          {{ translationContent ? '重新翻译' : '翻译' }}
-        </el-button>
-        <el-button
+          <el-button
+            type="success"
+            size="small"
+            @click="handleTranslate"
+            :loading="translating"
+            :disabled="!targetLanguage || translating"
+            circle
+          >
+            <el-icon><Refresh /></el-icon>
+          </el-button>
+        </el-tooltip>
+        <el-tooltip
           v-if="translationContent"
-          type="primary"
-          size="small"
-          @click="handleEdit"
-          :disabled="translating"
+          content="编辑翻译"
+          placement="bottom"
         >
-          <el-icon><Edit /></el-icon>
-          编辑翻译
-        </el-button>
-        <el-button
+          <el-button
+            type="primary"
+            size="small"
+            @click="handleEdit"
+            :disabled="translating"
+            circle
+          >
+            <el-icon><Edit /></el-icon>
+          </el-button>
+        </el-tooltip>
+        <el-tooltip
           v-if="translationContent"
-          type="success"
-          size="small"
-          @click="toggleFullscreen"
-          :title="isFullscreen ? '退出全屏' : '全屏'"
+          :content="isFullscreen ? '退出全屏' : '全屏'"
+          placement="bottom"
         >
-          <el-icon><FullScreen /></el-icon>
-          {{ isFullscreen ? '退出全屏' : '全屏' }}
-        </el-button>
+          <el-button
+            type="success"
+            size="small"
+            @click="toggleFullscreen"
+            circle
+          >
+            <el-icon><FullScreen /></el-icon>
+          </el-button>
+        </el-tooltip>
       </div>
       <div v-else class="edit-actions">
-        <el-button size="small" @click="handleCancel">取消</el-button>
-        <el-button type="primary" size="small" @click="handleSave" :loading="saving">
-          保存
-        </el-button>
+        <el-tooltip content="取消" placement="bottom">
+          <el-button size="small" @click="handleCancel" circle>
+            <el-icon><Close /></el-icon>
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="保存" placement="bottom">
+          <el-button type="primary" size="small" @click="handleSave" :loading="saving" circle>
+            <el-icon><Check /></el-icon>
+          </el-button>
+        </el-tooltip>
       </div>
     </div>
     
@@ -119,7 +139,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Switch, Refresh, Loading, Document, Edit, FullScreen } from '@element-plus/icons-vue'
+import { Switch, Refresh, Loading, Document, Edit, FullScreen, Close, Check } from '@element-plus/icons-vue'
 import { translateDocument, getDocumentTranslation, saveDocumentTranslation, getDocumentText, getDocumentSegments, translateDocumentSegment, getDocumentTranslationRange } from '@/api/documentReader'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { debounce } from '@/utils/debounce'

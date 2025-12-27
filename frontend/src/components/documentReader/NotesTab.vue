@@ -6,20 +6,28 @@
         <span>笔记</span>
       </div>
       <div v-if="!isEditing" class="header-actions">
-        <el-button
-          type="primary"
-          size="small"
-          @click="handleEdit"
-        >
-          <el-icon><Edit /></el-icon>
-          编辑笔记
-        </el-button>
+        <el-tooltip content="编辑笔记" placement="bottom">
+          <el-button
+            type="primary"
+            size="small"
+            @click="handleEdit"
+            circle
+          >
+            <el-icon><Edit /></el-icon>
+          </el-button>
+        </el-tooltip>
       </div>
       <div v-else class="edit-actions">
-        <el-button size="small" @click="handleCancel">取消</el-button>
-        <el-button type="primary" size="small" @click="handleSave" :loading="saving">
-          保存
-        </el-button>
+        <el-tooltip content="取消" placement="bottom">
+          <el-button size="small" @click="handleCancel" circle>
+            <el-icon><Close /></el-icon>
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="保存" placement="bottom">
+          <el-button type="primary" size="small" @click="handleSave" :loading="saving" circle>
+            <el-icon><Check /></el-icon>
+          </el-button>
+        </el-tooltip>
       </div>
     </div>
     
@@ -30,9 +38,11 @@
         <div v-else class="empty-state">
           <el-icon class="empty-icon"><Document /></el-icon>
           <p>暂无笔记内容</p>
-          <el-button type="primary" size="small" @click="handleEdit">
-            开始编辑
-          </el-button>
+          <el-tooltip content="开始编辑" placement="top">
+            <el-button type="primary" size="small" @click="handleEdit" circle>
+              <el-icon><Edit /></el-icon>
+            </el-button>
+          </el-tooltip>
         </div>
       </div>
       
@@ -99,7 +109,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import { EditPen, Check, List, Link, Picture, Clock, Edit, Document } from '@element-plus/icons-vue'
+import { EditPen, Check, List, Link, Picture, Clock, Edit, Document, Close } from '@element-plus/icons-vue'
 import { getDocumentNotes, saveDocumentNotes } from '@/api/documentReader'
 import { renderMarkdown } from '@/composables/useMarkdown'
 

@@ -1,21 +1,40 @@
 <template>
-  <div class="mindmap-tab">
+  <div class="mindmap-tab" :class="{ 'fullscreen-mode': isFullscreen }" ref="mindmapTabRef">
     <div class="tab-header">
       <div class="header-info">
         <el-icon><Connection /></el-icon>
         <span>脑图</span>
       </div>
       <div class="header-actions">
-        <el-button
-          type="success"
-          size="small"
-          @click="handleGenerate"
-          :loading="generating"
-          :disabled="generating"
+        <el-tooltip
+          v-if="mindMapData"
+          :content="isFullscreen ? '退出全屏' : '全屏'"
+          placement="bottom"
         >
-          <el-icon><MagicStick /></el-icon>
-          {{ mindMapData ? '重新生成' : '生成脑图' }}
-        </el-button>
+          <el-button
+            type="primary"
+            size="small"
+            @click="toggleFullscreen"
+            circle
+          >
+            <el-icon><FullScreen /></el-icon>
+          </el-button>
+        </el-tooltip>
+        <el-tooltip
+          :content="mindMapData ? '重新生成' : '生成脑图'"
+          placement="bottom"
+        >
+          <el-button
+            type="success"
+            size="small"
+            @click="handleGenerate"
+            :loading="generating"
+            :disabled="generating"
+            circle
+          >
+            <el-icon><MagicStick /></el-icon>
+          </el-button>
+        </el-tooltip>
       </div>
     </div>
     
@@ -43,10 +62,11 @@
           <el-icon class="empty-icon"><Document /></el-icon>
           <p>暂无脑图数据</p>
           <div class="empty-actions">
-            <el-button type="success" size="small" @click="handleGenerate" :loading="generating">
-              <el-icon><MagicStick /></el-icon>
-              生成脑图
-            </el-button>
+            <el-tooltip content="生成脑图" placement="top">
+              <el-button type="success" size="small" @click="handleGenerate" :loading="generating" circle>
+                <el-icon><MagicStick /></el-icon>
+              </el-button>
+            </el-tooltip>
           </div>
         </div>
       </div>
@@ -57,7 +77,7 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Connection, Document, MagicStick, Loading } from '@element-plus/icons-vue'
+import { Connection, Document, MagicStick, Loading, FullScreen } from '@element-plus/icons-vue'
 import { getDocumentMindMap, generateDocumentMindMap } from '@/api/documentReader'
 import jsMind from 'jsmind'
 import 'jsmind/style/jsmind.css'
@@ -72,6 +92,8 @@ const props = defineProps({
 const mindMapData = ref(null)
 const htmlUrl = ref('')
 const mindmapIframe = ref(null)
+const mindmapTabRef = ref(null)
+const isFullscreen = ref(false)
 
 // 检查是否为HTML URL类型
 const isHtmlUrlType = (data) => {
@@ -859,10 +881,60 @@ watch(mindMapData, (newVal, oldVal) => {
   })
 }, { deep: true })
 
+// 切换全屏
+const toggleFullscreen = async () => {
+  if (!mindmapTabRef.value) return
+  
+  try {
+    if (!isFullscreen.value) {
+      // 进入全屏
+      if (mindmapTabRef.value.requestFullscreen) {
+        await mindmapTabRef.value.requestFullscreen()
+      } else if (mindmapTabRef.value.webkitRequestFullscreen) {
+        await mindmapTabRef.value.webkitRequestFullscreen()
+      } else if (mindmapTabRef.value.mozRequestFullScreen) {
+        await mindmapTabRef.value.mozRequestFullScreen()
+      } else if (mindmapTabRef.value.msRequestFullscreen) {
+        await mindmapTabRef.value.msRequestFullscreen()
+      }
+    } else {
+      // 退出全屏
+      if (document.exitFullscreen) {
+        await document.exitFullscreen()
+      } else if (document.webkitExitFullscreen) {
+        await document.webkitExitFullscreen()
+      } else if (document.mozCancelFullScreen) {
+        await document.mozCancelFullScreen()
+      } else if (document.msExitFullscreen) {
+        await document.msExitFullscreen()
+      }
+    }
+  } catch (error) {
+    console.error('全屏操作失败:', error)
+    ElMessage.error('全屏操作失败')
+  }
+}
+
+// 监听全屏状态变化
+const handleFullscreenChange = () => {
+  isFullscreen.value = !!(
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.mozFullScreenElement ||
+    document.msFullscreenElement
+  )
+}
+
 onMounted(() => {
   if (props.docId) {
     loadMindMap()
   }
+  
+  // 监听全屏状态变化
+  document.addEventListener('fullscreenchange', handleFullscreenChange)
+  document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
+  document.addEventListener('mozfullscreenchange', handleFullscreenChange)
+  document.addEventListener('msfullscreenchange', handleFullscreenChange)
 })
 
 onUnmounted(() => {
@@ -878,6 +950,12 @@ onUnmounted(() => {
     }
   }
   mind = null
+  
+  // 移除全屏状态监听
+  document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
+  document.removeEventListener('mozfullscreenchange', handleFullscreenChange)
+  document.removeEventListener('msfullscreenchange', handleFullscreenChange)
 })
 </script>
 
@@ -1002,5 +1080,39 @@ onUnmounted(() => {
 .loading-state p {
   margin: 8px 0;
   font-size: 14px;
+}
+
+/* 全屏模式样式 */
+.mindmap-tab.fullscreen-mode {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.mindmap-tab.fullscreen-mode .tab-content {
+  flex: 1;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.mindmap-tab.fullscreen-mode .mindmap-container {
+  height: 100%;
+  width: 100%;
+}
+
+.mindmap-tab.fullscreen-mode .mindmap-iframe {
+  min-height: 100%;
+}
+
+.mindmap-tab.fullscreen-mode .jsmind-container {
+  min-height: 100%;
 }
 </style>

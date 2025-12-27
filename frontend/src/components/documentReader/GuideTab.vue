@@ -6,31 +6,41 @@
         <span>导读</span>
       </div>
       <div v-if="!isEditing" class="header-actions">
-        <el-button
-          type="success"
-          size="small"
-          @click="handleGenerate"
-          :loading="generating"
-          :disabled="generating"
-        >
-          <el-icon><MagicStick /></el-icon>
-          重新生成
-        </el-button>
-        <el-button
-          type="primary"
-          size="small"
-          @click="handleEdit"
-          :disabled="generating || !guideContent"
-        >
-          <el-icon><Edit /></el-icon>
-          编辑导读
-        </el-button>
+        <el-tooltip content="重新生成" placement="bottom">
+          <el-button
+            type="success"
+            size="small"
+            @click="handleGenerate"
+            :loading="generating"
+            :disabled="generating"
+            circle
+          >
+            <el-icon><MagicStick /></el-icon>
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="编辑导读" placement="bottom">
+          <el-button
+            type="primary"
+            size="small"
+            @click="handleEdit"
+            :disabled="generating || !guideContent"
+            circle
+          >
+            <el-icon><Edit /></el-icon>
+          </el-button>
+        </el-tooltip>
       </div>
       <div v-else class="edit-actions">
-        <el-button size="small" @click="handleCancel">取消</el-button>
-        <el-button type="primary" size="small" @click="handleSave" :loading="saving">
-          保存
-        </el-button>
+        <el-tooltip content="取消" placement="bottom">
+          <el-button size="small" @click="handleCancel" circle>
+            <el-icon><Close /></el-icon>
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="保存" placement="bottom">
+          <el-button type="primary" size="small" @click="handleSave" :loading="saving" circle>
+            <el-icon><Check /></el-icon>
+          </el-button>
+        </el-tooltip>
       </div>
     </div>
     
@@ -53,10 +63,11 @@
           <el-icon class="empty-icon"><Document /></el-icon>
           <p>暂无导读内容</p>
           <div class="empty-actions">
-            <el-button type="success" size="small" @click="handleGenerate" :loading="generating">
-              <el-icon><MagicStick /></el-icon>
-              生成导读
-            </el-button>
+            <el-tooltip content="生成导读" placement="top">
+              <el-button type="success" size="small" @click="handleGenerate" :loading="generating" circle>
+                <el-icon><MagicStick /></el-icon>
+              </el-button>
+            </el-tooltip>
           </div>
         </div>
       </div>
@@ -67,7 +78,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Reading, Edit, Document, MagicStick, Loading } from '@element-plus/icons-vue'
+import { Reading, Edit, Document, MagicStick, Loading, Close, Check } from '@element-plus/icons-vue'
 import { getDocumentGuide, saveDocumentGuide, generateDocumentGuide } from '@/api/documentReader'
 import { renderMarkdown } from '@/composables/useMarkdown'
 
