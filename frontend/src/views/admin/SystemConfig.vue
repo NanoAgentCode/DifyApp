@@ -495,6 +495,13 @@ const predefinedConfigKeys = [
     type: 'number'
   },
   {
+    key: 'documentReader.mindMapAppId',
+    label: 'documentReader.mindMapAppId',
+    description: '文档解读思维导图应用ID（可选）',
+    group: 'documentReader',
+    type: 'number'
+  },
+  {
     key: 'documentReader.mindMapServiceUrl',
     label: 'documentReader.mindMapServiceUrl',
     description: '文档解读思维导图外部服务URL（默认: http://localhost:6066）',
