@@ -3,6 +3,7 @@ package com.github.app.dify.knowledgebase.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.common.controller.BaseController;
 import com.github.app.dify.common.exception.ForbiddenException;
+import com.github.app.dify.common.util.SSEResponseUtil;
 import com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest;
 import com.github.app.dify.knowledgebase.resp.KnowledgeBaseQAResponse;
 import com.github.app.dify.knowledgebase.service.KnowledgeBaseQAService;
@@ -77,34 +78,13 @@ public class KnowledgeBaseQAController extends BaseController {
             
             // 转换为SSE格式
             return responseFlux
-                    .map(response -> {
-                        try {
-                            String json = objectMapper.writeValueAsString(response);
-                            return ServerSentEvent.<String>builder()
-                                    .data(json)
-                                    .build();
-                        } catch (Exception e) {
-                            logger.error("序列化响应失败", e);
-                            return ServerSentEvent.<String>builder()
-                                    .data("{\"error\":\"序列化失败\"}")
-                                    .build();
-                        }
-                    })
+                    .map(SSEResponseUtil::buildEvent)
                     .onErrorResume(error -> {
-                        logger.error("流式问答失败", error);
-                        try {
-                            KnowledgeBaseQAResponse errorResponse = new KnowledgeBaseQAResponse();
-                            errorResponse.setAnswer("生成答案时发生错误: " + error.getMessage());
-                            errorResponse.setFinished(true);
-                            String json = objectMapper.writeValueAsString(errorResponse);
-                            return Flux.just(ServerSentEvent.<String>builder()
-                                    .data(json)
-                                    .build());
-                        } catch (Exception e) {
-                            return Flux.just(ServerSentEvent.<String>builder()
-                                    .data("{\"error\":\"处理错误失败\"}")
-                                    .build());
-                        }
+                        logger.error("流式问答失败 - 知识库ID: {}", kbId, error);
+                        KnowledgeBaseQAResponse errorResponse = new KnowledgeBaseQAResponse();
+                        errorResponse.setAnswer("生成答案时发生错误: " + error.getMessage());
+                        errorResponse.setFinished(true);
+                        return Flux.just(SSEResponseUtil.buildEvent(errorResponse));
                     });
         } catch (Exception e) {
             logger.error("知识库问答失败（流式） - 知识库ID: {}", kbId, e);

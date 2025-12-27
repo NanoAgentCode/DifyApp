@@ -3,6 +3,8 @@ package com.github.app.dify.documentreader.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.common.controller.BaseController;
 import com.github.app.dify.common.resp.PageResponse;
+import com.github.app.dify.common.util.SSEResponseUtil;
+import com.github.app.dify.common.util.ResponseUtil;
 import com.github.app.dify.documentreader.req.DocumentQARequest;
 import com.github.app.dify.documentreader.resp.DocumentQAResponse;
 import com.github.app.dify.documentreader.resp.DocumentReaderResp;
@@ -503,75 +505,34 @@ public class DocumentReaderController extends BaseController {
             
             logger.info("开始处理流式问答请求 - 文档ID: {}, 问题: {}", docId, qaRequest.getQuestion());
             
-            return documentReaderQAService.answerStream(docId, qaRequest, userId)
-                    .map(qaResponse -> {
-                        try {
-                            Map<String, Object> responseMap = new HashMap<>();
-                            responseMap.put("content", qaResponse.getAnswer());
-                            responseMap.put("conversationId", qaResponse.getConversationId());
-                            responseMap.put("finished", qaResponse.getFinished() != null ? qaResponse.getFinished() : false);
-                            if (qaResponse.getSources() != null) {
-                                responseMap.put("sources", qaResponse.getSources());
-                            }
-                            
-                            String json = objectMapper.writeValueAsString(responseMap);
-                            logger.debug("发送SSE事件 - 文档ID: {}, finished: {}, content长度: {}", 
-                                    docId, responseMap.get("finished"), qaResponse.getAnswer() != null ? qaResponse.getAnswer().length() : 0);
-                            return ServerSentEvent.<String>builder()
-                                    .data(json)
-                                    .build();
-                        } catch (Exception e) {
-                            logger.error("序列化响应失败", e);
-                            return ServerSentEvent.<String>builder()
-                                    .data("{\"error\":\"序列化响应失败\"}")
-                                    .build();
+            return SSEResponseUtil.mapToSSE(
+                    documentReaderQAService.answerStream(docId, qaRequest, userId),
+                    qaResponse -> {
+                        Map<String, Object> responseMap = SSEResponseUtil.createQAResponseMap(
+                                qaResponse.getAnswer(),
+                                qaResponse.getConversationId(),
+                                qaResponse.getFinished()
+                        );
+                        if (qaResponse.getSources() != null) {
+                            responseMap.put("sources", qaResponse.getSources());
                         }
-                    })
-                    .doOnError(error -> logger.error("流式响应处理错误 - 文档ID: {}", docId, error))
-                    .doOnComplete(() -> logger.info("流式响应完成 - 文档ID: {}", docId))
-                    .onErrorResume(error -> {
-                        logger.error("文档问答失败（流式） - 文档ID: {}", docId, error);
-                        try {
-                            Map<String, Object> errorResponse = new HashMap<>();
-                            errorResponse.put("error", error.getMessage());
-                            errorResponse.put("finished", true);
-                            String json = objectMapper.writeValueAsString(errorResponse);
-                            return Flux.just(ServerSentEvent.<String>builder()
-                                    .data(json)
-                                    .build());
-                        } catch (Exception e) {
-                            return Flux.error(error);
-                        }
-                    });
+                        return responseMap;
+                    }
+            )
+            .doOnError(error -> logger.error("流式响应处理错误 - 文档ID: {}", docId, error))
+            .doOnComplete(() -> logger.debug("流式响应完成 - 文档ID: {}", docId))
+            .onErrorResume(error -> {
+                String errorMsg = error.getMessage() != null ? error.getMessage() : "文档问答失败";
+                logger.error("文档问答失败（流式） - 文档ID: {}, 错误: {}", docId, errorMsg, error);
+                return Flux.just(SSEResponseUtil.buildErrorEvent(errorMsg));
+            });
         } catch (com.github.app.dify.common.exception.UnauthorizedException e) {
-            // 处理未授权异常，返回友好的错误信息
             logger.warn("文档问答未授权 - 文档ID: {}, 错误: {}", docId, e.getMessage());
-            try {
-                Map<String, Object> errorResponse = new HashMap<>();
-                errorResponse.put("error", e.getMessage());
-                errorResponse.put("finished", true);
-                String json = objectMapper.writeValueAsString(errorResponse);
-                return Flux.just(ServerSentEvent.<String>builder()
-                        .data("data: " + json + "\n\n")
-                        .build());
-            } catch (Exception ex) {
-                logger.error("序列化错误响应失败", ex);
-                return Flux.error(e);
-            }
+            return SSEResponseUtil.handleException(e, "文档ID: " + docId);
         } catch (Exception e) {
             logger.error("文档问答失败（流式） - 文档ID: {}", docId, e);
-            try {
-                Map<String, Object> errorResponse = new HashMap<>();
-                errorResponse.put("error", "文档问答失败：" + (e.getMessage() != null ? e.getMessage() : "未知错误"));
-                errorResponse.put("finished", true);
-                String json = objectMapper.writeValueAsString(errorResponse);
-                return Flux.just(ServerSentEvent.<String>builder()
-                        .data("data: " + json + "\n\n")
-                        .build());
-            } catch (Exception ex) {
-                logger.error("序列化错误响应失败", ex);
-                return Flux.error(e);
-            }
+            String errorMsg = "文档问答失败：" + ResponseUtil.extractErrorMessage(e, "未知错误");
+            return Flux.just(SSEResponseUtil.buildErrorEvent(errorMsg));
         }
     }
 }
