@@ -66,6 +66,18 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         "png", "jpg", "jpeg", "gif"
     };
     
+    // 常量定义
+    private static final long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+    private static final int MAX_GUIDE_WORDS = 500;
+    private static final int MAX_TEXT_LENGTH_FOR_GUIDE = 8000;
+    private static final int MAX_TEXT_LENGTH_FOR_MINDMAP = 12000;
+    private static final int MAX_TEXT_LENGTH_FOR_MINDMAP_FINAL = 15000;
+    private static final int TRANSLATION_SEGMENT_SIZE = 5000;
+    private static final int LANGUAGE_DETECTION_SAMPLE_SIZE = 2000;
+    private static final double LANGUAGE_DETECTION_THRESHOLD = 0.3;
+    private static final int WEB_CLIENT_TIMEOUT_SECONDS = 60;
+    private static final int WEB_CLIENT_CONNECT_TIMEOUT_MS = 30000;
+    
     @Autowired
     private DocumentReaderRepository documentRepository;
     
@@ -107,22 +119,34 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     public DocumentReaderResp uploadDocument(MultipartFile file, Long userId) {
         logger.info("开始上传文档 - 文件名: {}, 用户ID: {}", file.getOriginalFilename(), userId);
         
-        // 验证文件
         validateFile(file);
-        
-        // 生成文件路径
         String filePath = generateFilePath(userId, file.getOriginalFilename());
+        String fileUrl = uploadFileToStorage(file, filePath);
+        DocumentReader document = createDocumentEntity(file, userId, filePath, fileUrl);
+        document = documentRepository.save(document);
+        logger.info("文档上传成功 - 文档ID: {}, 文件名: {}", document.getId(), document.getOriginalFileName());
         
-        // 上传文件到MinIO
-        String fileUrl;
+        triggerVectorizationAsync(document.getId(), file);
+        
+        return convertToResp(document);
+    }
+    
+    /**
+     * 上传文件到存储
+     */
+    private String uploadFileToStorage(MultipartFile file, String filePath) {
         try {
-            fileUrl = fileStorageService.uploadFile(file, filePath);
+            return fileStorageService.uploadFile(file, filePath);
         } catch (Exception e) {
             logger.error("文件上传到MinIO失败: {}", filePath, e);
             throw new RuntimeException("文件上传失败: " + e.getMessage(), e);
         }
-        
-        // 保存文档元数据
+    }
+    
+    /**
+     * 创建文档实体
+     */
+    private DocumentReader createDocumentEntity(MultipartFile file, Long userId, String filePath, String fileUrl) {
         DocumentReader document = new DocumentReader();
         document.setFileName(filePath.substring(filePath.lastIndexOf("/") + 1));
         document.setOriginalFileName(file.getOriginalFilename());
@@ -134,25 +158,26 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         document.setStorageType("minio");
         document.setStatus(1);
         document.setUserId(userId);
-        document.setCreateTime(new Date());
-        document.setUpdateTime(new Date());
+        Date now = new Date();
+        document.setCreateTime(now);
+        document.setUpdateTime(now);
         document.setDeleted(0);
-        document.setTotalPages(1); // 默认1页，后续可以根据文件类型计算
-        
-        document.setVectorizedStatus(0); // 初始状态：未向量化
-        document = documentRepository.save(document);
-        logger.info("文档上传成功 - 文档ID: {}, 文件名: {}", document.getId(), document.getOriginalFileName());
-        
-        // 异步触发向量化
+        document.setTotalPages(1);
+        document.setVectorizedStatus(0);
+        return document;
+    }
+    
+    /**
+     * 异步触发向量化
+     */
+    private void triggerVectorizationAsync(Long documentId, MultipartFile file) {
         try {
-            documentReaderVectorizationService.vectorizeDocumentAsync(document.getId(), file);
-            logger.info("已提交文档向量化任务 - 文档ID: {}", document.getId());
+            documentReaderVectorizationService.vectorizeDocumentAsync(documentId, file);
+            logger.info("已提交文档向量化任务 - 文档ID: {}", documentId);
         } catch (Exception e) {
-            logger.error("提交文档向量化任务失败 - 文档ID: {}", document.getId(), e);
+            logger.error("提交文档向量化任务失败 - 文档ID: {}", documentId, e);
             // 不抛出异常，避免影响文档上传
         }
-        
-        return convertToResp(document);
     }
     
     /**
@@ -161,45 +186,73 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     @Transactional
     @Override
     public void deleteDocument(Long documentId, Long userId) {
+        DocumentReader document = getDocumentByIdAndValidateAccess(documentId, userId);
+        
+        deleteFileFromStorage(document.getFilePath());
+        deleteRelatedData(documentId);
+        deleteDocumentVectors(documentId);
+        softDeleteDocument(document);
+        
+        logger.info("文档删除成功 - 文档ID: {}", documentId);
+    }
+    
+    /**
+     * 获取文档并验证访问权限
+     */
+    private DocumentReader getDocumentByIdAndValidateAccess(Long documentId, Long userId) {
         Optional<DocumentReader> optional = documentRepository.findByIdAndDeleted(documentId, 0);
         if (!optional.isPresent()) {
             throw new NotFoundException("文档不存在: " + documentId);
         }
         
         DocumentReader document = optional.get();
-        
-        // 验证文档属于当前用户
         if (!document.getUserId().equals(userId)) {
-            throw new RuntimeException("无权删除此文档");
+            throw new RuntimeException("无权访问此文档");
         }
         
-        // 从MinIO删除文件
+        return document;
+    }
+    
+    /**
+     * 从存储删除文件
+     */
+    private void deleteFileFromStorage(String filePath) {
         try {
-            fileStorageService.deleteFile(document.getFilePath());
+            fileStorageService.deleteFile(filePath);
         } catch (Exception e) {
-            logger.error("从MinIO删除文件失败: {}", document.getFilePath(), e);
+            logger.error("从MinIO删除文件失败: {}", filePath, e);
         }
-        
-        // 删除相关数据
+    }
+    
+    /**
+     * 删除相关数据
+     */
+    private void deleteRelatedData(Long documentId) {
         guideRepository.findByDocumentId(documentId).ifPresent(guideRepository::delete);
         translationRepository.findByDocumentId(documentId).forEach(translationRepository::delete);
         mindMapRepository.findByDocumentId(documentId).ifPresent(mindMapRepository::delete);
         notesRepository.findByDocumentId(documentId).ifPresent(notesRepository::delete);
-        
-        // 删除向量数据
+    }
+    
+    /**
+     * 删除文档向量
+     */
+    private void deleteDocumentVectors(Long documentId) {
         try {
             documentReaderVectorizationService.deleteDocumentVectors(documentId);
         } catch (Exception e) {
             logger.error("删除文档向量失败 - 文档ID: {}", documentId, e);
             // 不抛出异常，避免影响删除流程
         }
-        
-        // 软删除
+    }
+    
+    /**
+     * 软删除文档
+     */
+    private void softDeleteDocument(DocumentReader document) {
         document.setDeleted(1);
         document.setUpdateTime(new Date());
         documentRepository.save(document);
-        
-        logger.info("文档删除成功 - 文档ID: {}", documentId);
     }
     
     /**
@@ -207,18 +260,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
      */
     @Override
     public DocumentReaderResp getDocumentById(Long documentId, Long userId) {
-        Optional<DocumentReader> optional = documentRepository.findByIdAndDeleted(documentId, 0);
-        if (!optional.isPresent()) {
-            throw new NotFoundException("文档不存在: " + documentId);
-        }
-        
-        DocumentReader document = optional.get();
-        
-        // 验证文档属于当前用户
-        if (!document.getUserId().equals(userId)) {
-            throw new RuntimeException("无权访问此文档");
-        }
-        
+        DocumentReader document = getDocumentByIdAndValidateAccess(documentId, userId);
         return convertToResp(document);
     }
     
@@ -261,21 +303,10 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
      */
     @Override
     public InputStream getDocumentContent(Long documentId, Long userId, Integer page) {
-        Optional<DocumentReader> optional = documentRepository.findByIdAndDeleted(documentId, 0);
-        if (!optional.isPresent()) {
-            throw new NotFoundException("文档不存在: " + documentId);
-        }
-        
-        DocumentReader document = optional.get();
-        
-        // 验证文档属于当前用户
-        if (!document.getUserId().equals(userId)) {
-            throw new RuntimeException("无权访问此文档");
-        }
+        DocumentReader document = getDocumentByIdAndValidateAccess(documentId, userId);
         
         try {
-            InputStream inputStream = fileStorageService.downloadFile(document.getFilePath());
-            return inputStream;
+            return fileStorageService.downloadFile(document.getFilePath());
         } catch (Exception e) {
             logger.error("获取文档内容失败: {}", document.getFilePath(), e);
             throw new RuntimeException("获取文档内容失败: " + e.getMessage(), e);
@@ -376,8 +407,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             
             guideContent = guideContent.trim();
             
-            // 确保字数不超过500字（中文字符计数）
-            guideContent = truncateToMaxWords(guideContent, 500);
+            guideContent = truncateToMaxWords(guideContent, MAX_GUIDE_WORDS);
             
             // 保存生成的导读
             saveDocumentGuide(documentId, userId, guideContent);
@@ -450,12 +480,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
      * 构建导读生成提示词
      */
     private String buildGuidePrompt(String fileName, String documentText) {
-        // 限制文档文本长度，避免超过模型上下文限制
-        int maxTextLength = 8000; // 保留一些空间给提示词和响应
-        String truncatedText = documentText;
-        if (documentText.length() > maxTextLength) {
-            truncatedText = documentText.substring(0, maxTextLength) + "\n\n[文档内容已截断...]";
-        }
+        String truncatedText = truncateText(documentText, MAX_TEXT_LENGTH_FOR_GUIDE);
         
         return String.format(
             "请为以下文档生成一份简洁、概括性的导读。要求：\n" +
@@ -487,12 +512,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
      * 构建思维导图markdown生成提示词
      */
     private String buildMindMapMarkdownPrompt(String fileName, String documentText) {
-        // 限制文档文本长度，避免超过模型上下文限制
-        int maxTextLength = 12000; // 保留一些空间给提示词和响应
-        String truncatedText = documentText;
-        if (documentText.length() > maxTextLength) {
-            truncatedText = documentText.substring(0, maxTextLength) + "\n\n[文档内容已截断...]";
-        }
+        String truncatedText = truncateText(documentText, MAX_TEXT_LENGTH_FOR_MINDMAP);
         
         return String.format(
             "请根据以下文档内容，生成一份结构化的Markdown格式思维导图。要求：\n\n" +
@@ -961,12 +981,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 throw new RuntimeException("模型未启用: " + qaModel.getName());
             }
             
-            // 限制文档文本长度，避免超过模型上下文限制
-            int maxTextLength = 15000;
-            String truncatedText = documentContent;
-            if (documentContent.length() > maxTextLength) {
-                truncatedText = documentContent.substring(0, maxTextLength) + "\n\n[文档内容已截断...]";
-            }
+            String truncatedText = truncateText(documentContent, MAX_TEXT_LENGTH_FOR_MINDMAP_FINAL);
             
             // 构建提示词，要求大模型生成适合思维导图的markdown格式
             String prompt = buildMindMapMarkdownPrompt(fileName, truncatedText);
@@ -991,10 +1006,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 markdownContent = "# " + fileName + "\n\n" + markdownContent;
             }
             
-            // 创建WebClient调用mindMap服务
-            HttpClient httpClient = HttpClient.create()
-                    .responseTimeout(Duration.ofSeconds(60))
-                    .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000);
+            HttpClient httpClient = createWebClientHttpClient();
             
             WebClient webClient = WebClient.builder()
                     .baseUrl(mindMapServiceUrl)
@@ -1012,7 +1024,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                         .bodyValue(markdownContent)
                         .retrieve()
                         .bodyToMono(String.class)
-                        .timeout(Duration.ofSeconds(60))
+                        .timeout(Duration.ofSeconds(WEB_CLIENT_TIMEOUT_SECONDS))
                         .block();
             } catch (WebClientResponseException e) {
                 String errorDetail = e.getResponseBodyAsString();
@@ -1122,8 +1134,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             throw new RuntimeException("不支持的文件类型: " + fileExtension);
         }
         
-        long maxSize = 100 * 1024 * 1024; // 100MB
-        if (file.getSize() > maxSize) {
+        if (file.getSize() > MAX_FILE_SIZE) {
             throw new RuntimeException("文件大小不能超过100MB");
         }
     }
@@ -1148,15 +1159,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     }
     
     private void validateDocumentAccess(Long documentId, Long userId) {
-        Optional<DocumentReader> optional = documentRepository.findByIdAndDeleted(documentId, 0);
-        if (!optional.isPresent()) {
-            throw new NotFoundException("文档不存在: " + documentId);
-        }
-        
-        DocumentReader document = optional.get();
-        if (!document.getUserId().equals(userId)) {
-            throw new RuntimeException("无权访问此文档");
-        }
+        getDocumentByIdAndValidateAccess(documentId, userId);
     }
     
     private DocumentReaderResp convertToResp(DocumentReader document) {
@@ -1175,8 +1178,8 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             return null; // 空文本无法检测
         }
         
-        // 取前2000个字符进行检测
-        String sampleText = text.length() > 2000 ? text.substring(0, 2000) : text;
+        String sampleText = text.length() > LANGUAGE_DETECTION_SAMPLE_SIZE 
+                ? text.substring(0, LANGUAGE_DETECTION_SAMPLE_SIZE) : text;
         
         int totalChars = 0;
         int chineseChars = 0;
@@ -1221,14 +1224,13 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         double koreanRatio = (double) koreanChars / totalChars;
         double englishRatio = (double) englishChars / totalChars;
         
-        // 如果某种语言占比超过30%，认为是该语言
-        if (chineseRatio >= 0.3) {
+        if (chineseRatio >= LANGUAGE_DETECTION_THRESHOLD) {
             return "zh";
-        } else if (japaneseRatio >= 0.3) {
+        } else if (japaneseRatio >= LANGUAGE_DETECTION_THRESHOLD) {
             return "ja";
-        } else if (koreanRatio >= 0.3) {
+        } else if (koreanRatio >= LANGUAGE_DETECTION_THRESHOLD) {
             return "ko";
-        } else if (englishRatio >= 0.3) {
+        } else if (englishRatio >= LANGUAGE_DETECTION_THRESHOLD) {
             return "en";
         }
         
@@ -1342,9 +1344,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
      */
     private List<DocumentSegment> splitDocumentForTranslation(String documentContent) {
         List<DocumentSegment> segments = new ArrayList<>();
-        
-        // 分段大小：每段约5000字符（适合翻译）
-        int segmentSize = 5000;
+        int segmentSize = TRANSLATION_SEGMENT_SIZE;
         int totalLength = documentContent.length();
         int processedLength = 0;
         int segmentIndex = 0;
@@ -1531,14 +1531,27 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     @Override
     public String getDocumentText(Long documentId, Long userId) {
         validateDocumentAccess(documentId, userId);
-        
-        Optional<DocumentReader> optional = documentRepository.findByIdAndDeleted(documentId, 0);
-        if (!optional.isPresent()) {
-            throw new NotFoundException("文档不存在: " + documentId);
-        }
-        
-        DocumentReader document = optional.get();
+        DocumentReader document = getDocumentByIdAndValidateAccess(documentId, userId);
         return extractDocumentText(document);
+    }
+    
+    /**
+     * 截断文本到指定长度
+     */
+    private String truncateText(String text, int maxLength) {
+        if (text == null || text.length() <= maxLength) {
+            return text;
+        }
+        return text.substring(0, maxLength) + "\n\n[文档内容已截断...]";
+    }
+    
+    /**
+     * 创建WebClient的HttpClient
+     */
+    private HttpClient createWebClientHttpClient() {
+        return HttpClient.create()
+                .responseTimeout(Duration.ofSeconds(WEB_CLIENT_TIMEOUT_SECONDS))
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, WEB_CLIENT_CONNECT_TIMEOUT_MS);
     }
 }
 

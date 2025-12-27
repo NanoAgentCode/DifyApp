@@ -63,24 +63,10 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
     @Override
     public DocumentQAResponse answer(Long documentId, DocumentQARequest request, Long userId) {
         try {
-            // 验证文档是否存在且属于当前用户
-            Optional<DocumentReader> docOptional = documentRepository.findByIdAndDeleted(documentId, 0);
-            if (!docOptional.isPresent()) {
-                throw new RuntimeException("文档不存在: " + documentId);
-            }
-            
-            DocumentReader document = docOptional.get();
-            if (!document.getUserId().equals(userId)) {
-                throw new RuntimeException("无权访问此文档");
-            }
-            
-            // 检查文档是否已向量化
-            if (document.getVectorizedStatus() == null || document.getVectorizedStatus() != 2) {
-                DocumentQAResponse response = new DocumentQAResponse();
-                response.setAnswer("文档尚未完成向量化，无法进行问答。请等待向量化完成后再试。");
-                response.setConversationId(request.getConversationId() != null ? String.valueOf(request.getConversationId()) : null);
-                response.setSources(new ArrayList<>());
-                return response;
+            DocumentReader document = validateDocumentForQA(documentId, userId);
+            if (document == null) {
+                return createErrorResponse("文档尚未完成向量化，无法进行问答。请等待向量化完成后再试。", 
+                        request.getConversationId());
             }
             
             // 检索相关文档片段
@@ -88,11 +74,7 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
                     documentReaderRetrievalService.retrieve(documentId, request.getQuestion());
             
             if (retrievalResults.isEmpty()) {
-                DocumentQAResponse response = new DocumentQAResponse();
-                response.setAnswer("抱歉，在文档中没有找到相关信息。");
-                response.setConversationId(request.getConversationId() != null ? String.valueOf(request.getConversationId()) : null);
-                response.setSources(new ArrayList<>());
-                return response;
+                return createErrorResponse("抱歉，在文档中没有找到相关信息。", request.getConversationId());
             }
             
             // 构建消息列表（包含历史对话和检索到的文档片段）
@@ -163,12 +145,7 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
             
         } catch (Exception e) {
             logger.error("文档问答失败 - 文档ID: {}", documentId, e);
-            DocumentQAResponse response = new DocumentQAResponse();
-            response.setAnswer("文档问答失败：" + e.getMessage());
-            response.setConversationId(request.getConversationId() != null ? String.valueOf(request.getConversationId()) : null);
-            response.setFinished(true);
-            response.setSources(new ArrayList<>());
-            return response;
+            return createErrorResponse("文档问答失败：" + e.getMessage(), request.getConversationId());
         }
     }
     
@@ -178,29 +155,10 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
     @Override
     public Flux<DocumentQAResponse> answerStream(Long documentId, DocumentQARequest request, Long userId) {
         try {
-            // 验证文档是否存在且属于当前用户
-            Optional<DocumentReader> docOptional = documentRepository.findByIdAndDeleted(documentId, 0);
-            if (!docOptional.isPresent()) {
-                DocumentQAResponse errorResponse = new DocumentQAResponse();
-                errorResponse.setAnswer("文档不存在: " + documentId);
-                errorResponse.setFinished(true);
-                return Flux.just(errorResponse);
-            }
-            
-            DocumentReader document = docOptional.get();
-            if (!document.getUserId().equals(userId)) {
-                DocumentQAResponse errorResponse = new DocumentQAResponse();
-                errorResponse.setAnswer("无权访问此文档");
-                errorResponse.setFinished(true);
-                return Flux.just(errorResponse);
-            }
-            
-            // 检查文档是否已向量化
-            if (document.getVectorizedStatus() == null || document.getVectorizedStatus() != 2) {
-                DocumentQAResponse errorResponse = new DocumentQAResponse();
-                errorResponse.setAnswer("文档尚未完成向量化，无法进行问答。请等待向量化完成后再试。");
-                errorResponse.setFinished(true);
-                return Flux.just(errorResponse);
+            DocumentReader document = validateDocumentForQA(documentId, userId);
+            if (document == null) {
+                return Flux.just(createStreamErrorResponse(
+                        "文档尚未完成向量化，无法进行问答。请等待向量化完成后再试。"));
             }
             
             // 检索相关文档片段
@@ -208,10 +166,7 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
                     documentReaderRetrievalService.retrieve(documentId, request.getQuestion());
             
             if (retrievalResults.isEmpty()) {
-                DocumentQAResponse errorResponse = new DocumentQAResponse();
-                errorResponse.setAnswer("抱歉，在文档中没有找到相关信息。");
-                errorResponse.setFinished(true);
-                return Flux.just(errorResponse);
+                return Flux.just(createStreamErrorResponse("抱歉，在文档中没有找到相关信息。"));
             }
             
             // 构建消息列表
@@ -326,10 +281,7 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
             
         } catch (Exception e) {
             logger.error("文档问答失败（流式） - 文档ID: {}", documentId, e);
-            DocumentQAResponse errorResponse = new DocumentQAResponse();
-            errorResponse.setAnswer("文档问答失败：" + e.getMessage());
-            errorResponse.setFinished(true);
-            return Flux.just(errorResponse);
+            return Flux.just(createStreamErrorResponse("文档问答失败：" + e.getMessage()));
         }
     }
     
@@ -409,6 +361,52 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
         }
         
         return qaModel;
+    }
+    
+    /**
+     * 验证文档是否可以用于问答
+     * @return DocumentReader 如果验证通过，null 如果文档未向量化
+     * @throws RuntimeException 如果文档不存在或无权访问
+     */
+    private DocumentReader validateDocumentForQA(Long documentId, Long userId) {
+        Optional<DocumentReader> docOptional = documentRepository.findByIdAndDeleted(documentId, 0);
+        if (!docOptional.isPresent()) {
+            throw new RuntimeException("文档不存在: " + documentId);
+        }
+        
+        DocumentReader document = docOptional.get();
+        if (!document.getUserId().equals(userId)) {
+            throw new RuntimeException("无权访问此文档");
+        }
+        
+        // 检查文档是否已向量化
+        if (document.getVectorizedStatus() == null || document.getVectorizedStatus() != 2) {
+            return null; // 返回null表示未向量化
+        }
+        
+        return document;
+    }
+    
+    /**
+     * 创建错误响应（非流式）
+     */
+    private DocumentQAResponse createErrorResponse(String message, Long conversationId) {
+        DocumentQAResponse response = new DocumentQAResponse();
+        response.setAnswer(message);
+        response.setConversationId(conversationId != null ? String.valueOf(conversationId) : null);
+        response.setFinished(true);
+        response.setSources(new ArrayList<>());
+        return response;
+    }
+    
+    /**
+     * 创建错误响应（流式）
+     */
+    private DocumentQAResponse createStreamErrorResponse(String message) {
+        DocumentQAResponse response = new DocumentQAResponse();
+        response.setAnswer(message);
+        response.setFinished(true);
+        return response;
     }
 }
 
