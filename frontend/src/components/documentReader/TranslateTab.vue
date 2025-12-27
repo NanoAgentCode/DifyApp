@@ -22,16 +22,16 @@
           :content="translationContent ? '重新翻译' : '翻译'"
           placement="bottom"
         >
-          <el-button
-            type="success"
-            size="small"
-            @click="handleTranslate"
-            :loading="translating"
-            :disabled="!targetLanguage || translating"
+        <el-button
+          type="success"
+          size="small"
+          @click="handleTranslate"
+          :loading="translating"
+          :disabled="!targetLanguage || translating"
             circle
-          >
-            <el-icon><Refresh /></el-icon>
-          </el-button>
+        >
+          <el-icon><Refresh /></el-icon>
+        </el-button>
         </el-tooltip>
         <el-tooltip
           v-if="translationContent"
@@ -39,14 +39,14 @@
           placement="bottom"
         >
           <el-button
-            type="primary"
-            size="small"
-            @click="handleEdit"
-            :disabled="translating"
+          type="primary"
+          size="small"
+          @click="handleEdit"
+          :disabled="translating"
             circle
-          >
-            <el-icon><Edit /></el-icon>
-          </el-button>
+        >
+          <el-icon><Edit /></el-icon>
+        </el-button>
         </el-tooltip>
         <el-tooltip
           v-if="translationContent"
@@ -54,20 +54,20 @@
           placement="bottom"
         >
           <el-button
-            type="success"
-            size="small"
-            @click="toggleFullscreen"
+          type="success"
+          size="small"
+          @click="toggleFullscreen"
             circle
-          >
-            <el-icon><FullScreen /></el-icon>
-          </el-button>
+        >
+          <el-icon><FullScreen /></el-icon>
+        </el-button>
         </el-tooltip>
       </div>
       <div v-else class="edit-actions">
         <el-tooltip content="取消" placement="bottom">
           <el-button size="small" @click="handleCancel" circle>
             <el-icon><Close /></el-icon>
-          </el-button>
+        </el-button>
         </el-tooltip>
         <el-tooltip content="保存" placement="bottom">
           <el-button type="primary" size="small" @click="handleSave" :loading="saving" circle>

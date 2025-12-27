@@ -36,15 +36,16 @@ public class ChatConversation implements Serializable {
 
     /**
      * 知识库ID（可选，关联知识库）
+     * 对于文档问答类型（type=3），此字段存储文档ID
      */
-    @Schema(description = "知识库ID")
+    @Schema(description = "知识库ID（对于文档问答类型，此字段存储文档ID）")
     @Column(name = "knowledge_base_id")
     private Long knowledgeBaseId;
 
     /**
-     * 会话类型：1-普通聊天，2-知识库问答
+     * 会话类型：1-普通聊天，2-知识库问答，3-文档问答
      */
-    @Schema(description = "会话类型：1-普通聊天，2-知识库问答")
+    @Schema(description = "会话类型：1-普通聊天，2-知识库问答，3-文档问答")
     @Column(name = "type")
     private Integer type;
 
