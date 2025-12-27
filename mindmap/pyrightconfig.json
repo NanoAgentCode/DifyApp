@@ -1,0 +1,25 @@
+{
+    "include": [
+        "src",
+        "main.py"
+    ],
+    "exclude": [
+        "**/__pycache__",
+        "**/node_modules",
+        "**/build",
+        "**/dist"
+    ],
+    "executionEnvironments": [
+        {
+            "root": ".",
+            "extraPaths": [
+                "src"
+            ]
+        }
+    ],
+    "typeCheckingMode": "basic",
+    "reportMissingImports": true,
+    "reportMissingTypeStubs": false,
+    "pythonVersion": "3.13"
+}
+

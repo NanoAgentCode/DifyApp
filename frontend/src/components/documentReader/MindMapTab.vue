@@ -5,7 +5,7 @@
         <el-icon><Connection /></el-icon>
         <span>脑图</span>
       </div>
-      <div v-if="!isEditing" class="header-actions">
+      <div class="header-actions">
         <el-button
           type="success"
           size="small"
@@ -16,48 +16,27 @@
           <el-icon><MagicStick /></el-icon>
           {{ mindMapData ? '重新生成' : '生成脑图' }}
         </el-button>
-        <el-button
-          type="primary"
-          size="small"
-          @click="handleEdit"
-          :disabled="generating || !mindMapData"
-        >
-          <el-icon><Edit /></el-icon>
-          编辑脑图
-        </el-button>
-      </div>
-      <div v-else class="edit-actions">
-        <el-button size="small" @click="handleCancel">取消</el-button>
-        <el-button type="primary" size="small" @click="handleSave" :loading="saving">
-          保存
-        </el-button>
       </div>
     </div>
     
     <div class="tab-content">
-      <!-- 编辑模式 -->
-      <div v-if="isEditing" class="edit-mode">
-        <el-input
-          v-model="editData"
-          type="textarea"
-          :rows="15"
-          placeholder="请输入脑图数据（jsMind JSON格式）..."
-          class="edit-input"
-        />
-        <div class="edit-tip">
-          <el-icon><InfoFilled /></el-icon>
-          <span>脑图数据格式为jsMind JSON格式，包含meta、format和data字段</span>
-        </div>
-      </div>
-      
       <!-- 显示模式 -->
-      <div v-else class="display-mode">
+      <div class="display-mode">
         <div v-if="generating" class="loading-state">
           <el-icon class="loading-icon is-loading"><Loading /></el-icon>
           <p>正在生成脑图，请稍候...</p>
         </div>
         <div v-else-if="mindMapData" class="mindmap-container">
-          <div ref="mindmapContainer" class="jsmind-container"></div>
+          <!-- HTML URL类型：使用iframe显示 -->
+          <iframe 
+            v-if="isHtmlUrlType(mindMapData)" 
+            :src="htmlUrl" 
+            class="mindmap-iframe"
+            frameborder="0"
+            allowfullscreen
+          ></iframe>
+          <!-- jsMind格式：使用jsMind显示 -->
+          <div v-else ref="mindmapContainer" class="jsmind-container"></div>
         </div>
         <div v-else class="empty-state">
           <el-icon class="empty-icon"><Document /></el-icon>
@@ -77,8 +56,8 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Connection, Edit, Document, InfoFilled, MagicStick, Loading } from '@element-plus/icons-vue'
-import { getDocumentMindMap, saveDocumentMindMap, generateDocumentMindMap } from '@/api/documentReader'
+import { Connection, Document, MagicStick, Loading } from '@element-plus/icons-vue'
+import { getDocumentMindMap, generateDocumentMindMap } from '@/api/documentReader'
 import jsMind from 'jsmind'
 import 'jsmind/style/jsmind.css'
 
@@ -90,13 +69,60 @@ const props = defineProps({
 })
 
 const mindMapData = ref(null)
-const isEditing = ref(false)
-const editData = ref('')
-const saving = ref(false)
+const htmlUrl = ref('')
+
+// 检查是否为HTML URL类型
+const isHtmlUrlType = (data) => {
+  if (!data) {
+    console.log('isHtmlUrlType: 数据为空')
+    return false
+  }
+  try {
+    const parsed = typeof data === 'string' ? JSON.parse(data) : data
+    const result = parsed && parsed.type === 'html_url' && parsed.url
+    console.log('isHtmlUrlType: 检查结果', { 
+      hasData: !!data, 
+      isString: typeof data === 'string',
+      parsed: parsed,
+      type: parsed?.type,
+      url: parsed?.url,
+      result 
+    })
+    return result
+  } catch (e) {
+    console.warn('isHtmlUrlType: 解析失败', e)
+    return false
+  }
+}
+
+// 获取HTML URL
+const getHtmlUrl = (data) => {
+  if (!data) {
+    console.log('getHtmlUrl: 数据为空')
+    return ''
+  }
+  try {
+    const parsed = typeof data === 'string' ? JSON.parse(data) : data
+    let url = parsed.url || ''
+    
+    // 清理URL：去除首尾空白和引号
+    url = url.trim()
+    // 去除首尾的双引号或单引号
+    if ((url.startsWith('"') && url.endsWith('"')) ||
+        (url.startsWith("'") && url.endsWith("'"))) {
+      url = url.substring(1, url.length - 1).trim()
+    }
+    
+    console.log('getHtmlUrl: 提取URL', { originalUrl: parsed.url, cleanedUrl: url, parsed })
+    return url
+  } catch (e) {
+    console.warn('getHtmlUrl: 解析失败', e)
+    return ''
+  }
+}
 const generating = ref(false)
 const mindmapContainer = ref(null)
 let mind = null
-let doubleClickHandler = null
 let resizeObserver = null
 let resizeTimer = null
 
@@ -482,6 +508,11 @@ const cleanupResizeObserver = () => {
 // 初始化jsMind（添加防抖机制）
 let initJsMindTimer = null
 const initJsMind = async () => {
+  // 如果是HTML URL类型，不需要初始化jsMind
+  if (isHtmlUrlType(mindMapData.value)) {
+    return
+  }
+  
   // 防抖：如果正在初始化，取消之前的调用
   if (initJsMindTimer) {
     clearTimeout(initJsMindTimer)
@@ -550,11 +581,6 @@ const initJsMind = async () => {
         try {
           // 清理resize监听
           cleanupResizeObserver()
-          // 移除事件监听器
-          if (doubleClickHandler) {
-            mindmapContainer.value.removeEventListener('dblclick', doubleClickHandler)
-            doubleClickHandler = null
-          }
           // 清空容器内容
           mindmapContainer.value.innerHTML = ''
         } catch (e) {
@@ -567,7 +593,7 @@ const initJsMind = async () => {
         container: mindmapContainer.value,
         theme: 'primary',
         mode: 'full',
-        editable: true,
+        editable: false,
         support_html: true
       }
       
@@ -585,29 +611,6 @@ const initJsMind = async () => {
       
       // 设置窗口大小变化监听
       setupResizeObserver()
-      
-      // 添加编辑功能
-      if (mind && mindmapContainer.value) {
-        // 双击节点编辑
-        doubleClickHandler = (e) => {
-          const target = e.target
-          if (target.classList.contains('jmnode')) {
-            const nodeId = target.getAttribute('nodeid')
-            if (nodeId && mind) {
-              const node = mind.get_node(nodeId)
-              if (node) {
-                const newTopic = prompt('请输入新内容:', node.topic)
-                if (newTopic !== null && newTopic !== node.topic) {
-                  mind.update_node(nodeId, newTopic)
-                  // 自动保存
-                  saveMindMapData()
-                }
-              }
-            }
-          }
-        }
-        mindmapContainer.value.addEventListener('dblclick', doubleClickHandler)
-      }
     } catch (error) {
       console.error('初始化jsMind失败:', error)
       ElMessage.error('渲染脑图失败：' + (error.message || '未知错误'))
@@ -617,19 +620,6 @@ const initJsMind = async () => {
   }, 100) // 100ms 防抖延迟
 }
 
-// 保存脑图数据
-const saveMindMapData = async () => {
-  if (!mind) return
-  
-  try {
-    const jsmindData = mind.get_data()
-    await saveDocumentMindMap(props.docId, jsmindData)
-    mindMapData.value = jsmindData
-  } catch (error) {
-    console.error('自动保存脑图失败:', error)
-  }
-}
-
 // 加载脑图数据
 const loadMindMap = async () => {
   try {
@@ -637,12 +627,22 @@ const loadMindMap = async () => {
     let data = response?.mindMapData || response || null
     
     if (data && typeof data === 'string') {
-      const jsonStr = extractJsonFromString(data)
-      if (jsonStr) {
-        try {
-          data = JSON.parse(jsonStr)
-        } catch (e) {
-          console.warn('解析脑图数据失败:', e)
+      // 尝试解析JSON字符串
+      try {
+        // 先尝试直接解析
+        data = JSON.parse(data)
+      } catch (e1) {
+        // 如果直接解析失败，尝试提取JSON部分
+        const jsonStr = extractJsonFromString(data)
+        if (jsonStr) {
+          try {
+            data = JSON.parse(jsonStr)
+          } catch (e2) {
+            console.warn('解析脑图数据失败:', e2, '原始数据:', data)
+            data = null
+          }
+        } else {
+          console.warn('无法从字符串中提取JSON，原始数据:', data)
           data = null
         }
       }
@@ -651,8 +651,17 @@ const loadMindMap = async () => {
     mindMapData.value = data
     
     if (mindMapData.value) {
-      await initJsMind()
+      // 如果是HTML URL类型，不需要初始化jsMind，直接显示iframe
+      if (isHtmlUrlType(mindMapData.value)) {
+        htmlUrl.value = getHtmlUrl(mindMapData.value)
+        console.log('检测到HTML URL类型脑图，URL:', htmlUrl.value)
+      } else {
+        htmlUrl.value = ''
+        // 只有非HTML URL类型才需要初始化jsMind
+        await initJsMind()
+      }
     } else {
+      htmlUrl.value = ''
       // 如果没有脑图数据，自动生成
       await autoGenerateMindMap()
     }
@@ -674,12 +683,22 @@ const autoGenerateMindMap = async () => {
     let data = response?.mindMapData || response || null
     
     if (data && typeof data === 'string') {
-      const jsonStr = extractJsonFromString(data)
-      if (jsonStr) {
-        try {
-          data = JSON.parse(jsonStr)
-        } catch (e) {
-          console.warn('解析生成的脑图数据失败:', e)
+      // 尝试解析JSON字符串
+      try {
+        // 先尝试直接解析
+        data = JSON.parse(data)
+      } catch (e1) {
+        // 如果直接解析失败，尝试提取JSON部分
+        const jsonStr = extractJsonFromString(data)
+        if (jsonStr) {
+          try {
+            data = JSON.parse(jsonStr)
+          } catch (e2) {
+            console.warn('解析生成的脑图数据失败:', e2, '原始数据:', data)
+            data = null
+          }
+        } else {
+          console.warn('无法从字符串中提取JSON，原始数据:', data)
           data = null
         }
       }
@@ -696,19 +715,26 @@ const autoGenerateMindMap = async () => {
       await nextTick()
       await nextTick()
       
-      // 等待容器渲染完成
-      await new Promise(resolve => setTimeout(resolve, 300))
-      
-      // 确保容器存在且可见后再初始化
-      if (mindmapContainer.value) {
-        console.log('自动生成后准备初始化jsMind，容器:', mindmapContainer.value)
-        await initJsMind()
+      // 如果是HTML URL类型，不需要初始化jsMind，直接显示iframe
+      if (isHtmlUrlType(mindMapData.value)) {
+        htmlUrl.value = getHtmlUrl(mindMapData.value)
+        console.log('检测到HTML URL类型脑图，URL:', htmlUrl.value)
+        ElMessage.success('脑图生成成功')
       } else {
-        console.warn('自动生成后容器不存在，等待watch触发')
-        // 如果容器还不存在，watch会处理
+        htmlUrl.value = ''
+        // 等待容器渲染完成
+        await new Promise(resolve => setTimeout(resolve, 300))
+        
+        // 确保容器存在且可见后再初始化
+        if (mindmapContainer.value) {
+          console.log('自动生成后准备初始化jsMind，容器:', mindmapContainer.value)
+          await initJsMind()
+        } else {
+          console.warn('自动生成后容器不存在，等待watch触发')
+          // 如果容器还不存在，watch会处理
+        }
+        ElMessage.success('脑图生成成功')
       }
-      
-      ElMessage.success('脑图生成成功')
     } else {
       generating.value = false
       ElMessage.warning('脑图生成完成，但内容为空')
@@ -739,12 +765,22 @@ const handleGenerate = async () => {
       let data = response?.mindMapData || response || null
       
       if (data && typeof data === 'string') {
-        const jsonStr = extractJsonFromString(data)
-        if (jsonStr) {
-          try {
-            data = JSON.parse(jsonStr)
-          } catch (e) {
-            console.warn('解析生成的脑图数据失败:', e)
+        // 尝试解析JSON字符串
+        try {
+          // 先尝试直接解析
+          data = JSON.parse(data)
+        } catch (e1) {
+          // 如果直接解析失败，尝试提取JSON部分
+          const jsonStr = extractJsonFromString(data)
+          if (jsonStr) {
+            try {
+              data = JSON.parse(jsonStr)
+            } catch (e2) {
+              console.warn('解析生成的脑图数据失败:', e2, '原始数据:', data)
+              data = null
+            }
+          } else {
+            console.warn('无法从字符串中提取JSON，原始数据:', data)
             data = null
           }
         }
@@ -752,9 +788,18 @@ const handleGenerate = async () => {
       
       mindMapData.value = data || null
       if (mindMapData.value) {
-        ElMessage.success('脑图生成成功')
-        await initJsMind()
+        // 如果是HTML URL类型，不需要初始化jsMind，直接显示iframe
+        if (isHtmlUrlType(mindMapData.value)) {
+          htmlUrl.value = getHtmlUrl(mindMapData.value)
+          console.log('检测到HTML URL类型脑图，URL:', htmlUrl.value)
+          ElMessage.success('脑图生成成功')
+        } else {
+          htmlUrl.value = ''
+          await initJsMind()
+          ElMessage.success('脑图生成成功')
+        }
       } else {
+        htmlUrl.value = ''
         ElMessage.warning('脑图生成完成，但内容为空')
       }
     } catch (error) {
@@ -767,48 +812,6 @@ const handleGenerate = async () => {
     if (error !== 'cancel') {
       console.error('生成脑图失败:', error)
     }
-  }
-}
-
-// 编辑
-const handleEdit = () => {
-  editData.value = typeof mindMapData.value === 'string' 
-    ? mindMapData.value 
-    : JSON.stringify(mindMapData.value || {}, null, 2)
-  isEditing.value = true
-}
-
-// 取消编辑
-const handleCancel = () => {
-  isEditing.value = false
-  editData.value = ''
-}
-
-// 保存
-const handleSave = async () => {
-  saving.value = true
-  try {
-    // 验证JSON格式
-    let parsedData
-    try {
-      parsedData = JSON.parse(editData.value)
-    } catch (e) {
-      ElMessage.error('JSON格式错误，请检查输入')
-      return
-    }
-    
-    // 转换为jsMind格式
-    const jsmindData = convertToJsMindFormat(parsedData)
-    
-    await saveDocumentMindMap(props.docId, jsmindData)
-    mindMapData.value = jsmindData
-    isEditing.value = false
-    ElMessage.success('保存成功')
-    await initJsMind()
-  } catch (error) {
-    ElMessage.error('保存失败：' + (error.message || '未知错误'))
-  } finally {
-    saving.value = false
   }
 }
 
@@ -827,12 +830,6 @@ watch(mindMapData, (newVal, oldVal) => {
     return
   }
   
-  // 如果正在编辑，不触发
-  if (isEditing.value) {
-    console.log('watch mindMapData: 正在编辑中，跳过')
-    return
-  }
-  
   // 如果数据为空，不触发
   if (!newVal) {
     console.log('watch mindMapData: 数据为空，跳过')
@@ -843,6 +840,15 @@ watch(mindMapData, (newVal, oldVal) => {
   if (newVal === oldVal) {
     console.log('watch mindMapData: 数据未变化，跳过')
     return
+  }
+  
+  // 如果是HTML URL类型，不需要初始化jsMind
+  if (isHtmlUrlType(newVal)) {
+    htmlUrl.value = getHtmlUrl(newVal)
+    console.log('watch mindMapData: HTML URL类型，跳过jsMind初始化，URL:', htmlUrl.value)
+    return
+  } else {
+    htmlUrl.value = ''
   }
   
   console.log('watch mindMapData: 触发初始化', { hasContainer: !!mindmapContainer.value })
@@ -862,13 +868,6 @@ onUnmounted(() => {
   cleanupResizeObserver()
   
   // 清理mind实例
-  if (mindmapContainer.value && doubleClickHandler) {
-    try {
-      mindmapContainer.value.removeEventListener('dblclick', doubleClickHandler)
-    } catch (e) {
-      console.warn('移除事件监听器失败:', e)
-    }
-  }
   if (mindmapContainer.value) {
     try {
       mindmapContainer.value.innerHTML = ''
@@ -877,7 +876,6 @@ onUnmounted(() => {
     }
   }
   mind = null
-  doubleClickHandler = null
 })
 </script>
 
@@ -905,40 +903,12 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-.edit-actions {
-  display: flex;
-  gap: 8px;
-}
-
 .tab-content {
   flex: 1;
   overflow: hidden;
   padding: 8px;
   display: flex;
   flex-direction: column;
-}
-
-.edit-mode {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.edit-input {
-  width: 100%;
-  flex: 1;
-}
-
-.edit-tip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 8px 12px;
-  background: #f0f9ff;
-  border-radius: 4px;
-  color: #409eff;
-  font-size: 14px;
 }
 
 .display-mode {
@@ -957,6 +927,13 @@ onUnmounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   position: relative;
+}
+
+.mindmap-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  min-height: 600px;
 }
 
 .jsmind-container {

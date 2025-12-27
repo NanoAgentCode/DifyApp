@@ -477,6 +477,20 @@ const predefinedConfigKeys = [
     description: '文档解读检索时的Top-K数量（默认5）',
     group: 'documentReader',
     type: 'number'
+  },
+  {
+    key: 'documentReader.mindMapAppId',
+    label: 'documentReader.mindMapAppId',
+    description: '文档解读思维导图生成使用的智能应用ID（已废弃，改用mindMapServiceUrl）',
+    group: 'documentReader',
+    type: 'number'
+  },
+  {
+    key: 'documentReader.mindMapServiceUrl',
+    label: 'documentReader.mindMapServiceUrl',
+    description: '文档解读思维导图服务URL（默认：http://localhost:6066）',
+    group: 'documentReader',
+    type: 'string'
   }
 ]
 

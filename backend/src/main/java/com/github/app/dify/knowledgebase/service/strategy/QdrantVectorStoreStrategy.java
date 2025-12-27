@@ -63,19 +63,16 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
         
         String currentUrl;
         String currentApiKey;
-        int timeout;
         
         if (vectorDatabaseConfig != null) {
             currentUrl = vectorDatabaseConfig.getUrl();
             currentApiKey = vectorDatabaseConfig.getApiKey();
-            timeout = vectorDatabaseConfig.getTimeout() != null ? vectorDatabaseConfig.getTimeout() : 30000;
             logger.debug("使用知识库指定的Qdrant配置 - 知识库ID: {}, 配置ID: {}, URL: {}", 
                     knowledgeBaseId, vectorDatabaseConfig.getId(), currentUrl);
         } else {
             // 使用默认配置
             currentUrl = qdrantConfig.getUrl();
             currentApiKey = qdrantConfig.getApiKey();
-            timeout = qdrantConfig.getTimeout();
             logger.debug("使用默认Qdrant配置 - 知识库ID: {}, URL: {}", knowledgeBaseId, currentUrl);
         }
         
@@ -537,13 +534,6 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
         }
     }
     
-    /**
-     * 获取集合的点数
-     */
-    private long getCollectionPointsCount(String collectionName) {
-        return getCollectionPointsCount(collectionName, 0L);
-    }
-    
     private long getCollectionPointsCount(String collectionName, Long knowledgeBaseId) {
         try {
             String checkUrl = "/collections/" + collectionName;
@@ -588,13 +578,6 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
             logger.warn("获取集合点数失败 - 集合名: {}", collectionName, e);
             return 0;
         }
-    }
-    
-    /**
-     * 检查集合是否存在
-     */
-    private boolean collectionExists(String collectionName) {
-        return collectionExists(collectionName, 0L);
     }
     
     private boolean collectionExists(String collectionName, Long knowledgeBaseId) {
@@ -733,13 +716,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
             throw new RuntimeException("删除文档向量失败: " + e.getMessage(), e);
         }
     }
-    
-    /**
-     * 删除集合
-     */
-    private void deleteCollection(String collectionName) {
-        deleteCollection(collectionName, 0L);
-    }
+
     
     private void deleteCollection(String collectionName, Long knowledgeBaseId) {
         try {
@@ -760,13 +737,6 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
             logger.warn("删除Qdrant集合失败 - 集合名: {}", collectionName, e);
             // 不抛出异常，继续尝试创建
         }
-    }
-    
-    /**
-     * 检查集合是否使用命名向量
-     */
-    private boolean checkIfCollectionUsesNamedVectors(String collectionName) {
-        return checkIfCollectionUsesNamedVectors(collectionName, 0L);
     }
     
     private boolean checkIfCollectionUsesNamedVectors(String collectionName, Long knowledgeBaseId) {

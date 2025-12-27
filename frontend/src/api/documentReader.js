@@ -236,11 +236,10 @@ export function saveDocumentMindMap(docId, data) {
  * @param {number} docId - 文档ID
  * @param {number} modelId - 模型ID（可选）
  */
-export function generateDocumentMindMap(docId, modelId = null) {
+export function generateDocumentMindMap(docId) {
   return request({
     url: `/api/document-reader/documents/${docId}/mindmap/generate`,
-    method: 'post',
-    data: modelId ? { modelId } : {}
+    method: 'post'
   })
 }
 

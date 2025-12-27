@@ -300,7 +300,6 @@
                 <version>${spring-boot.version}</version>
                 <configuration>
                     <mainClass>com.github.app.dify.DifyAppApplication</mainClass>
-                    <skip>true</skip>
                 </configuration>
                 <executions>
                     <execution>

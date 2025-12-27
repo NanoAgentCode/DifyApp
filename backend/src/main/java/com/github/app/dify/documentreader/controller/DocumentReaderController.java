@@ -394,17 +394,9 @@ public class DocumentReaderController extends BaseController {
     @PostMapping("/{docId}/mindmap/generate")
     public ResponseEntity<Map<String, String>> generateDocumentMindMap(
             @PathVariable Long docId,
-            @RequestBody(required = false) Map<String, Object> requestBody,
             HttpServletRequest request) {
         Long userId = getUserId(request);
-        Long modelId = null;
-        if (requestBody != null && requestBody.containsKey("modelId")) {
-            Object modelIdObj = requestBody.get("modelId");
-            if (modelIdObj instanceof Number) {
-                modelId = ((Number) modelIdObj).longValue();
-            }
-        }
-        String mindMapData = documentReaderService.generateDocumentMindMap(docId, userId, modelId);
+        String mindMapData = documentReaderService.generateDocumentMindMap(docId, userId, null);
         Map<String, String> response = new HashMap<>();
         response.put("mindMapData", mindMapData);
         return ResponseEntity.ok(response);
