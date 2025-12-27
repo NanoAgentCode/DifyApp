@@ -1,7 +1,9 @@
 package com.github.app.dify.knowledgebase.service.impl;
 import com.github.app.dify.knowledgebase.domain.QAModel;
+import com.github.app.dify.permission.service.UserKnowledgeBaseVisibilityService;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
 import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
+import com.github.app.dify.knowledgebase.resp.KnowledgeBaseResp;
 import com.github.app.dify.knowledgebase.langchain4j.StreamingChatLanguageModel;
 import com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest;
 import com.github.app.dify.knowledgebase.resp.KnowledgeBaseQAResponse;
@@ -51,7 +53,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     private ChatHistoryService chatHistoryService;
     
     @Autowired
-    private com.github.app.dify.auth.service.UserKnowledgeBaseVisibilityService userKnowledgeBaseVisibilityService;
+    private UserKnowledgeBaseVisibilityService userKnowledgeBaseVisibilityService;
     
     /**
      * 问答（非流式）
@@ -66,7 +68,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             Long embeddingModelId = null;
             Integer topK = null;
             try {
-                com.github.app.dify.knowledgebase.resp.KnowledgeBaseResp kb = knowledgeBaseService.getKnowledgeBaseById(knowledgeBaseId);
+                KnowledgeBaseResp kb = knowledgeBaseService.getKnowledgeBaseById(knowledgeBaseId);
                 embeddingModelId = kb.getEmbeddingModelId();
                 topK = kb.getTopK();
             } catch (Exception e) {

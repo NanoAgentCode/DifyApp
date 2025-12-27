@@ -1,17 +1,17 @@
-package com.github.app.dify.auth.domain;
+package com.github.app.dify.permission.domain;
 
 import jakarta.persistence.*;
 import java.io.Serializable;
 import java.util.Date;
 /**
- * 用户应用可见性表
- * @TableName USER_APP_VISIBILITY
+ * 用户知识库可见性表
+ * @TableName USER_KNOWLEDGE_BASE_VISIBILITY
  */
 @Entity
-@Table(name = "USER_APP_VISIBILITY", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"user_id", "app_id"})
+@Table(name = "USER_KNOWLEDGE_BASE_VISIBILITY", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"user_id", "knowledge_base_id"})
 })
-public class UserAppVisibility implements Serializable {
+public class UserKnowledgeBaseVisibility implements Serializable {
 
     /**
      * 主键ID
@@ -27,10 +27,10 @@ public class UserAppVisibility implements Serializable {
     private Long userId;
     
     /**
-     * 应用ID
+     * 知识库ID
      */
-    @Column(name = "app_id", nullable = false)
-    private Long appId;
+    @Column(name = "knowledge_base_id", nullable = false)
+    private Long knowledgeBaseId;
     
     /**
      * 是否可见：true-可见，false-不可见
@@ -67,12 +67,12 @@ public class UserAppVisibility implements Serializable {
         this.userId = userId;
     }
 
-    public Long getAppId() {
-        return appId;
+    public Long getKnowledgeBaseId() {
+        return knowledgeBaseId;
     }
 
-    public void setAppId(Long appId) {
-        this.appId = appId;
+    public void setKnowledgeBaseId(Long knowledgeBaseId) {
+        this.knowledgeBaseId = knowledgeBaseId;
     }
 
     public Boolean getVisible() {

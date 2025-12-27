@@ -1,4 +1,4 @@
-package com.github.app.dify.auth.domain;
+package com.github.app.dify.permission.domain;
 
 import jakarta.persistence.*;
 import java.io.Serializable;

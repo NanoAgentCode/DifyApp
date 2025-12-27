@@ -1,6 +1,6 @@
-package com.github.app.dify.auth.repository;
+package com.github.app.dify.permission.repository;
 
-import com.github.app.dify.auth.domain.UserDataSourceVisibility;
+import com.github.app.dify.permission.domain.UserDataSourceVisibility;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;

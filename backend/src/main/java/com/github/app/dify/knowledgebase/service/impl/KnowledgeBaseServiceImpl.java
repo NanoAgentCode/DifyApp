@@ -8,7 +8,7 @@ import com.github.app.dify.knowledgebase.req.UpdateKnowledgeBaseReq;
 import com.github.app.dify.knowledgebase.resp.KnowledgeBaseResp;
 import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.knowledgebase.service.KnowledgeBaseService;
-import com.github.app.dify.auth.service.UserKnowledgeBaseVisibilityService;
+import com.github.app.dify.permission.service.UserKnowledgeBaseVisibilityService;
 import com.github.app.dify.knowledgebase.service.RagRetrievalService;
 import com.github.app.dify.system.service.ModelConfigService;
 import com.github.app.dify.knowledgebase.domain.QAModel;

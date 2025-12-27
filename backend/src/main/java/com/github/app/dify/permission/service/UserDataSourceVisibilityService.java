@@ -1,6 +1,6 @@
-package com.github.app.dify.auth.service;
+package com.github.app.dify.permission.service;
 
-import com.github.app.dify.auth.resp.UserDataSourceVisibilityResp;
+import com.github.app.dify.permission.resp.UserDataSourceVisibilityResp;
 import java.util.List;
 
 /**

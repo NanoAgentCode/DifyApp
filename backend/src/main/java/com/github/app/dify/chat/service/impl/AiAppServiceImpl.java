@@ -1,9 +1,9 @@
 package com.github.app.dify.chat.service.impl;
 
 import com.github.app.dify.chat.domain.AiApp;
-import com.github.app.dify.auth.domain.UserAppVisibility;
+import com.github.app.dify.permission.domain.UserAppVisibility;
 import com.github.app.dify.chat.repository.AiAppRepository;
-import com.github.app.dify.auth.repository.UserAppVisibilityRepository;
+import com.github.app.dify.permission.repository.UserAppVisibilityRepository;
 import com.github.app.dify.chat.req.ChatFlowRequest;
 import com.github.app.dify.chat.req.CreateAiAppReq;
 import com.github.app.dify.chat.req.UpdateAiAppReq;

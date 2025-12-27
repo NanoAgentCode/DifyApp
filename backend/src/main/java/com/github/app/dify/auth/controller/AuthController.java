@@ -6,9 +6,10 @@ import com.github.app.dify.auth.req.RegisterRequest;
 import com.github.app.dify.auth.req.ResetPasswordRequest;
 import com.github.app.dify.auth.resp.LoginResponse;
 import com.github.app.dify.auth.resp.RegisterResponse;
-import com.github.app.dify.auth.resp.UserAppVisibilityResp;
-import com.github.app.dify.auth.resp.UserKnowledgeBaseVisibilityResp;
 import com.github.app.dify.auth.resp.UserResp;
+import com.github.app.dify.permission.resp.UserAppVisibilityResp;
+import com.github.app.dify.permission.resp.UserKnowledgeBaseVisibilityResp;
+import com.github.app.dify.permission.resp.UserDataSourceVisibilityResp;
 import com.github.app.dify.auth.service.AuthService;
 import com.github.app.dify.auth.util.JwtUtil;
 import com.github.app.dify.common.resp.PageResponse;
@@ -36,13 +37,13 @@ public class AuthController {
     private AuthService authService;
     
     @Autowired(required = false)
-    private com.github.app.dify.auth.service.UserAppVisibilityService userAppVisibilityService;
+    private com.github.app.dify.permission.service.UserAppVisibilityService userAppVisibilityService;
     
     @Autowired(required = false)
-    private com.github.app.dify.auth.service.UserKnowledgeBaseVisibilityService userKnowledgeBaseVisibilityService;
+    private com.github.app.dify.permission.service.UserKnowledgeBaseVisibilityService userKnowledgeBaseVisibilityService;
     
     @Autowired(required = false)
-    private com.github.app.dify.auth.service.UserDataSourceVisibilityService userDataSourceVisibilityService;
+    private com.github.app.dify.permission.service.UserDataSourceVisibilityService userDataSourceVisibilityService;
     
     @Autowired
     private JwtUtil jwtUtil;
@@ -296,7 +297,7 @@ public class AuthController {
             if (userDataSourceVisibilityService == null) {
                 return ResponseEntity.ok(new java.util.ArrayList<>());
             }
-            List<com.github.app.dify.auth.resp.UserDataSourceVisibilityResp> resp =
+            List<UserDataSourceVisibilityResp> resp =
                     userDataSourceVisibilityService.getUserDataSourceVisibilities(userId);
             return ResponseEntity.ok(resp);
         } catch (Exception e) {

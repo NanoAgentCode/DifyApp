@@ -7,7 +7,7 @@ import com.github.app.dify.system.req.UpdateDataSourceReq;
 import com.github.app.dify.system.resp.DataSourceResp;
 import com.github.app.dify.system.service.DataSourceService;
 import com.github.app.dify.system.service.DatabaseConnectionService;
-import com.github.app.dify.auth.service.UserDataSourceVisibilityService;
+import com.github.app.dify.permission.service.UserDataSourceVisibilityService;
 import com.github.app.dify.auth.util.PasswordEncryptionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

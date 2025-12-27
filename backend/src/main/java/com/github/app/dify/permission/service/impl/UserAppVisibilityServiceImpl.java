@@ -1,9 +1,9 @@
-package com.github.app.dify.auth.service.impl;
+package com.github.app.dify.permission.service.impl;
 
-import com.github.app.dify.auth.domain.UserAppVisibility;
-import com.github.app.dify.auth.repository.UserAppVisibilityRepository;
-import com.github.app.dify.auth.resp.UserAppVisibilityResp;
-import com.github.app.dify.auth.service.UserAppVisibilityService;
+import com.github.app.dify.permission.domain.UserAppVisibility;
+import com.github.app.dify.permission.repository.UserAppVisibilityRepository;
+import com.github.app.dify.permission.resp.UserAppVisibilityResp;
+import com.github.app.dify.permission.service.UserAppVisibilityService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;

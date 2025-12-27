@@ -1,6 +1,5 @@
 package com.github.app.dify.knowledgebase.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.common.controller.BaseController;
 import com.github.app.dify.common.exception.ForbiddenException;
 import com.github.app.dify.common.util.SSEResponseUtil;
@@ -29,9 +28,6 @@ public class KnowledgeBaseQAController extends BaseController {
     
     @Autowired
     private KnowledgeBaseQAService knowledgeBaseQAService;
-    
-    @Autowired
-    private ObjectMapper objectMapper;
     
     @Autowired(required = false)
     private DocumentVectorizationService documentVectorizationService;
