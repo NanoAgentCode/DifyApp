@@ -155,67 +155,34 @@ const handleTextSelected = (text) => {
 }
 
 // 处理文本解读（将文本插入到输入框，等待用户发送）
-const handleTextInterpret = (text) => {
-  console.log('handleTextInterpret被调用，文本:', text)
-  if (!text || !text.trim()) {
-    console.log('文本为空，返回')
-    return
-  }
+// 处理文本操作的通用方法
+const handleTextOperation = (text, insertMethod) => {
+  if (!text?.trim()) return
   
-  // 将文本设置为选中文本
   selectedText.value = text.trim()
-  
-  // 自动聚焦到问答区域
   qaFocused.value = true
-  console.log('问答区域已聚焦')
   
-  // 等待问答区域展开后，插入文本到输入框
+  // 等待DOM更新后插入文本
   nextTick(() => {
     const tryInsert = (attempts = 0) => {
-      console.log(`尝试插入解读文本，第 ${attempts + 1} 次，documentQARef:`, documentQARef.value)
-      if (documentQARef.value && documentQARef.value.insertSelectedText) {
-        console.log('调用 insertSelectedText，文本:', text.trim())
-        documentQARef.value.insertSelectedText(text.trim())
+      if (documentQARef.value?.[insertMethod]) {
+        documentQARef.value[insertMethod](text.trim())
       } else if (attempts < 10) {
         setTimeout(() => tryInsert(attempts + 1), 100)
-      } else {
-        console.error('documentQARef 未初始化或 insertSelectedText 方法不存在')
       }
     }
     tryInsert()
   })
 }
 
-// 处理文本翻译（将文本插入到输入框，等待用户发送）
+// 处理文本解读
+const handleTextInterpret = (text) => {
+  handleTextOperation(text, 'insertSelectedText')
+}
+
+// 处理文本翻译
 const handleTextTranslate = (text) => {
-  console.log('handleTextTranslate被调用，文本:', text)
-  if (!text || !text.trim()) {
-    console.log('文本为空，返回')
-    return
-  }
-  
-  // 将文本设置为选中文本
-  selectedText.value = text.trim()
-  
-  // 自动聚焦到问答区域
-  qaFocused.value = true
-  console.log('问答区域已聚焦')
-  
-  // 等待问答区域展开后，插入文本到输入框
-  nextTick(() => {
-    const tryInsert = (attempts = 0) => {
-      console.log(`尝试插入翻译文本，第 ${attempts + 1} 次，documentQARef:`, documentQARef.value)
-      if (documentQARef.value && documentQARef.value.insertTranslateText) {
-        console.log('调用 insertTranslateText，文本:', text.trim())
-        documentQARef.value.insertTranslateText(text.trim())
-      } else if (attempts < 10) {
-        setTimeout(() => tryInsert(attempts + 1), 100)
-      } else {
-        console.error('documentQARef 未初始化或 insertTranslateText 方法不存在')
-      }
-    }
-    tryInsert()
-  })
+  handleTextOperation(text, 'insertTranslateText')
 }
 
 onMounted(() => {

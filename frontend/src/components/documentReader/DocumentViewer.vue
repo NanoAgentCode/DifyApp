@@ -563,33 +563,30 @@ const handleTextSelection = (event) => {
 }
 
 // 解读选中的文本（插入到输入框等待用户发送）
-const handleInterpretText = () => {
-  if (selectedText.value) {
-    const text = selectedText.value
-    console.log('解读按钮被点击，选中文本:', text)
-    emit('textInterpret', text)
-    emit('text-interpret', text)
-    emit('interpretText', text)
-    // 延迟清除选择，确保事件已经被处理
-    setTimeout(() => {
-      clearSelection()
-    }, 100)
-  }
+// 处理文本操作的通用函数
+const handleTextAction = (eventPrefix) => {
+  if (!selectedText.value) return
+  
+  const text = selectedText.value
+  // 发送多种格式的事件，确保兼容性
+  emit(eventPrefix, text)
+  emit(`${eventPrefix.replace(/([A-Z])/g, '-$1').toLowerCase()}`, text)
+  emit(`${eventPrefix.charAt(0).toLowerCase()}${eventPrefix.slice(1)}Text`, text)
+  
+  // 延迟清除选择，确保事件已被处理
+  setTimeout(() => {
+    clearSelection()
+  }, 100)
 }
 
-// 翻译选中的文本（插入到输入框等待用户发送）
+// 解读选中的文本
+const handleInterpretText = () => {
+  handleTextAction('textInterpret')
+}
+
+// 翻译选中的文本
 const handleTranslateText = () => {
-  if (selectedText.value) {
-    const text = selectedText.value
-    console.log('翻译按钮被点击，选中文本:', text)
-    emit('textTranslate', text)
-    emit('text-translate', text)
-    emit('translateText', text)
-    // 延迟清除选择，确保事件已经被处理
-    setTimeout(() => {
-      clearSelection()
-    }, 100)
-  }
+  handleTextAction('textTranslate')
 }
 
 // 使用选中的文本（添加到输入器）
