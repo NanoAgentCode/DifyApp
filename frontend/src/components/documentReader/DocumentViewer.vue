@@ -562,11 +562,16 @@ const handleTextSelection = (event) => {
   }, 10)
 }
 
-// 解读选中的文本（直接发送到问答）
+// 解读选中的文本（插入到输入框等待用户发送）
 const handleInterpretText = () => {
   if (selectedText.value) {
-    emit('textInterpret', selectedText.value)
-    clearSelection()
+    const text = selectedText.value
+    console.log('解读按钮被点击，选中文本:', text)
+    emit('textInterpret', text)
+    // 延迟清除选择，确保事件已经被处理
+    setTimeout(() => {
+      clearSelection()
+    }, 100)
   }
 }
 

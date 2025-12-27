@@ -16,6 +16,8 @@
           @favorite="handleFavorite"
           @share="handleShare"
           @export="handleExport"
+          @text-selected="handleTextSelected"
+          @text-interpret="handleTextInterpret"
         />
       </div>
 
@@ -40,11 +42,14 @@
         <!-- 问答区域 -->
         <div class="qa-section" :class="{ 'qa-focused': qaFocused }">
           <DocumentQA
+            ref="documentQARef"
             :doc-id="docId"
             :model-id="selectedModelId"
             :use-stream="useStream"
+            :selected-text="selectedText"
             @focus="qaFocused = true"
             @blur="qaFocused = false"
+            @text-used="selectedText = ''"
           />
         </div>
       </div>
@@ -81,6 +86,8 @@ const selectedModelId = ref(null)
 const useStream = ref(true)
 const availableModels = ref([])
 const qaFocused = ref(false)
+const selectedText = ref('')
+const documentQARef = ref(null)
 
 // 加载文档详情
 const loadDocumentDetail = async () => {
@@ -137,6 +144,39 @@ const handleExport = () => {
   ElMessage.info('导出功能开发中')
 }
 
+// 处理文本选择
+const handleTextSelected = (text) => {
+  selectedText.value = text
+  // 自动聚焦到问答区域
+  qaFocused.value = true
+}
+
+// 处理文本解读（将文本插入到输入框，等待用户发送）
+const handleTextInterpret = (text) => {
+  console.log('handleTextInterpret被调用，文本:', text)
+  if (!text || !text.trim()) {
+    console.log('文本为空，返回')
+    return
+  }
+  
+  // 自动聚焦到问答区域
+  qaFocused.value = true
+  console.log('问答区域已聚焦')
+  
+  // 等待问答区域展开后，设置输入框内容
+  setTimeout(() => {
+    console.log('准备设置输入框文本，documentQARef:', documentQARef.value)
+    if (documentQARef.value) {
+      // 调用DocumentQA的方法设置输入框文本（不发送）
+      const question = `请解读以下内容：\n\n${text.trim()}`
+      console.log('调用setQuestionText，问题:', question)
+      documentQARef.value.setQuestionText(question)
+    } else {
+      console.error('documentQARef.value 为空')
+    }
+  }, 300)
+}
+
 onMounted(() => {
   if (docId.value) {
     loadDocumentDetail()
@@ -158,6 +198,19 @@ onMounted(() => {
   display: flex;
   height: 100%;
   width: 100%;
+  gap: 0;
+}
+
+.reader-container.qa-focused .left-panel {
+  opacity: 0.3;
+  pointer-events: none;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reader-container.qa-focused .right-panel .function-tabs {
+  opacity: 0.3;
+  pointer-events: none;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .left-panel {
@@ -165,6 +218,7 @@ onMounted(() => {
   flex-shrink: 0;
   border-right: 1px solid #e4e7ed;
   overflow: hidden;
+  background: var(--el-bg-color-page, #f5f7fa);
 }
 
 .right-panel {
@@ -174,6 +228,7 @@ onMounted(() => {
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  background: var(--el-bg-color, #ffffff);
 }
 
 .function-tabs {
@@ -206,7 +261,7 @@ onMounted(() => {
 .qa-section {
   flex: 0 0 auto;
   flex-shrink: 0;
-  border-top: 1px solid #e4e7ed;
+  border-top: 1px solid var(--el-border-color-lighter, #e4e7ed);
   overflow: visible;
   background: var(--el-bg-color, #ffffff);
   position: relative;
@@ -216,6 +271,7 @@ onMounted(() => {
   opacity: 1;
   transform: scaleY(1) translateY(0);
   height: auto;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .qa-section.qa-focused {

@@ -580,8 +580,37 @@ const sendQuestion = (questionText) => {
   handleSend()
 }
 
+// 设置输入框文本但不发送
+const setQuestionText = (text) => {
+  console.log('setQuestionText被调用，文本:', text)
+  if (!text) {
+    console.log('文本为空，返回')
+    return
+  }
+  
+  // 设置输入框内容
+  question.value = text
+  console.log('输入框内容已设置，question.value:', question.value)
+  
+  // 聚焦到输入框
+  nextTick(() => {
+    console.log('nextTick执行，inputRef.value:', inputRef.value)
+    if (inputRef.value?.$el) {
+      const textarea = inputRef.value.$el.querySelector('textarea')
+      console.log('找到textarea:', textarea)
+      if (textarea) {
+        textarea.focus()
+        // 将光标移到末尾
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+        console.log('输入框已聚焦，光标已移到末尾')
+      }
+    }
+  })
+}
+
 defineExpose({
-  sendQuestion
+  sendQuestion,
+  setQuestionText
 })
 
 onMounted(() => {
@@ -708,7 +737,7 @@ onMounted(() => {
 
 .qa-input {
   padding: 12px 16px;
-  margin: 0 0  0 8px;
+  margin: 0;
   border-top: 1px solid #e4e7ed;
   flex-shrink: 0;
   position: sticky;

@@ -45,6 +45,7 @@
         <!-- 问答区域 -->
         <div class="qa-section" :class="{ 'qa-focused': qaFocused }">
           <DocumentQA
+            ref="documentQARef"
             :doc-id="docId"
             :model-id="selectedModelId"
             :use-stream="useStream"
@@ -243,19 +244,28 @@ const handleTextSelected = (text) => {
   qaFocused.value = true
 }
 
-// 处理文本解读（直接发送到问答）
+// 处理文本解读（将文本插入到输入框，等待用户发送）
 const handleTextInterpret = (text) => {
-  if (!text || !text.trim()) return
+  console.log('handleTextInterpret被调用，文本:', text)
+  if (!text || !text.trim()) {
+    console.log('文本为空，返回')
+    return
+  }
   
   // 自动聚焦到问答区域
   qaFocused.value = true
+  console.log('问答区域已聚焦')
   
-  // 等待问答区域展开后，发送问题
+  // 等待问答区域展开后，设置输入框内容
   setTimeout(() => {
+    console.log('准备设置输入框文本，documentQARef:', documentQARef.value)
     if (documentQARef.value) {
-      // 调用DocumentQA的方法直接发送问题
+      // 调用DocumentQA的方法设置输入框文本（不发送）
       const question = `请解读以下内容：\n\n${text.trim()}`
-      documentQARef.value.sendQuestion(question)
+      console.log('调用setQuestionText，问题:', question)
+      documentQARef.value.setQuestionText(question)
+    } else {
+      console.error('documentQARef.value 为空')
     }
   }, 300)
 }
