@@ -25,6 +25,7 @@ import java.nio.charset.StandardCharsets;
  * - statistics: 数据统计模块
  * - mcp: MCP服务集成模块（浏览器搜索、地理位置、时间服务等）
  * - model: 模型配置模块（问答模型、向量化模型配置管理）
+ * - datasource: 数据源管理模块（数据源配置、连接管理、表结构管理）
  * - common: 公共组件模块（工具类、异常、响应格式）
  */
 @SpringBootApplication(exclude = {
@@ -43,6 +44,7 @@ import java.nio.charset.StandardCharsets;
         "com.github.app.dify.documentreader",
         "com.github.app.dify.mcp",
         "com.github.app.dify.model",
+        "com.github.app.dify.datasource",
         "com.github.app.dify.common",
         "com.github.app.dify"
 })
@@ -52,7 +54,8 @@ import java.nio.charset.StandardCharsets;
         "com.github.app.dify.chat.domain",
         "com.github.app.dify.knowledgebase.domain",
         "com.github.app.dify.system.domain",
-        "com.github.app.dify.documentreader.domain"
+        "com.github.app.dify.documentreader.domain",
+        "com.github.app.dify.datasource.domain"
 })
 @EnableJpaRepositories(basePackages = {
         "com.github.app.dify.auth.repository",
@@ -60,7 +63,8 @@ import java.nio.charset.StandardCharsets;
         "com.github.app.dify.chat.repository",
         "com.github.app.dify.knowledgebase.repository",
         "com.github.app.dify.system.repository",
-        "com.github.app.dify.documentreader.repository"
+        "com.github.app.dify.documentreader.repository",
+        "com.github.app.dify.datasource.repository"
 })
 public class DifyAppApplication {
 

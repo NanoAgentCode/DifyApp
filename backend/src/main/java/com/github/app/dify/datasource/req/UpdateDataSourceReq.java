@@ -1,15 +1,13 @@
-package com.github.app.dify.system.req;
+package com.github.app.dify.datasource.req;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 /**
- * 创建数据源请求
+ * 更新数据源请求
  */
-@Schema(description = "创建数据源请求")
-public class CreateDataSourceReq {
+@Schema(description = "更新数据源请求")
+public class UpdateDataSourceReq {
     
-    @NotBlank(message = "数据源名称不能为空")
     @Size(max = 100, message = "数据源名称长度不能超过100")
     @Schema(description = "数据源名称")
     private String name;
@@ -18,12 +16,10 @@ public class CreateDataSourceReq {
     @Schema(description = "数据源描述")
     private String description;
     
-    @NotBlank(message = "数据库类型不能为空")
     @Size(max = 20, message = "数据库类型长度不能超过20")
     @Schema(description = "数据库类型：postgresql, mysql, oracle, mongodb")
     private String type;
     
-    @NotBlank(message = "主机地址不能为空")
     @Size(max = 255, message = "主机地址长度不能超过255")
     @Schema(description = "主机地址")
     private String host;
@@ -40,17 +36,14 @@ public class CreateDataSourceReq {
     private String username;
     
     @Size(max = 500, message = "密码长度不能超过500")
-    @Schema(description = "密码")
+    @Schema(description = "密码（如果为空则不更新）")
     private String password;
     
-    @Schema(description = "数据源状态：1-启用，0-禁用，默认为1")
+    @Schema(description = "数据源状态：1-启用，0-禁用")
     private Integer status;
     
-    @Schema(description = "是否公开：true-公开，false-私有，默认为false（私有）")
+    @Schema(description = "是否公开：true-公开，false-私有")
     private Boolean isPublic;
-    
-    @Schema(description = "租户编号")
-    private Integer tenantId;
     
     // Getters and Setters
     public String getName() {
@@ -132,12 +125,5 @@ public class CreateDataSourceReq {
     public void setIsPublic(Boolean isPublic) {
         this.isPublic = isPublic;
     }
-    
-    public Integer getTenantId() {
-        return tenantId;
-    }
-    
-    public void setTenantId(Integer tenantId) {
-        this.tenantId = tenantId;
-    }
 }
+

@@ -2,8 +2,9 @@ package com.github.app.dify.system.controller;
 
 import com.github.app.dify.common.controller.BaseController;
 import com.github.app.dify.common.exception.BusinessException;
-import com.github.app.dify.system.service.DataSourceService;
-import com.github.app.dify.system.service.DatabaseSchemaService;
+import com.github.app.dify.datasource.domain.DataSource;
+import com.github.app.dify.datasource.service.DataSourceService;
+import com.github.app.dify.datasource.service.DatabaseSchemaService;
 import com.github.app.dify.system.service.Text2SqlService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
@@ -58,7 +59,7 @@ public class Text2SqlController extends BaseController {
     @Operation(summary = "获取表列表")
     @GetMapping("/{dataSourceId}/tables")
     public ResponseEntity<List<String>> getTableList(@PathVariable Long dataSourceId) {
-        com.github.app.dify.system.domain.DataSource dataSource = dataSourceService.getDataSourceEntityById(dataSourceId);
+        DataSource dataSource = dataSourceService.getDataSourceEntityById(dataSourceId);
         List<String> tables = schemaService.getTableList(dataSource);
         return ResponseEntity.ok(tables);
     }
@@ -72,7 +73,7 @@ public class Text2SqlController extends BaseController {
             @PathVariable Long dataSourceId,
             @PathVariable String tableName,
             @RequestParam(required = false, defaultValue = "false") Boolean forceRefresh) {
-        com.github.app.dify.system.domain.DataSource dataSource = dataSourceService.getDataSourceEntityById(dataSourceId);
+        DataSource dataSource = dataSourceService.getDataSourceEntityById(dataSourceId);
         String schema = schemaService.getTableSchema(dataSource, tableName, forceRefresh);
         return ResponseEntity.ok(schema);
     }

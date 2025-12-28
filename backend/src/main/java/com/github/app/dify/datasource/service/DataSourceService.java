@@ -1,9 +1,9 @@
-package com.github.app.dify.system.service;
+package com.github.app.dify.datasource.service;
 
-import com.github.app.dify.system.domain.DataSource;
-import com.github.app.dify.system.req.CreateDataSourceReq;
-import com.github.app.dify.system.req.UpdateDataSourceReq;
-import com.github.app.dify.system.resp.DataSourceResp;
+import com.github.app.dify.datasource.domain.DataSource;
+import com.github.app.dify.datasource.req.CreateDataSourceReq;
+import com.github.app.dify.datasource.req.UpdateDataSourceReq;
+import com.github.app.dify.datasource.resp.DataSourceResp;
 import java.util.List;
 /**
  * 数据源服务接口
@@ -61,3 +61,4 @@ public interface DataSourceService {
      */
     boolean testConnectionConfig(CreateDataSourceReq req);
 }
+

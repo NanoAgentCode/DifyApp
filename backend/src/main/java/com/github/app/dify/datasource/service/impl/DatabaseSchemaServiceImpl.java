@@ -1,12 +1,12 @@
-package com.github.app.dify.system.service.impl;
+package com.github.app.dify.datasource.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.app.dify.system.domain.DataSource;
-import com.github.app.dify.system.domain.TableSchemaCache;
-import com.github.app.dify.system.repository.TableSchemaCacheRepository;
-import com.github.app.dify.system.service.DatabaseConnectionService;
-import com.github.app.dify.system.service.DatabaseSchemaService;
-import com.github.app.dify.system.util.DatabaseDriverManager;
+import com.github.app.dify.datasource.domain.DataSource;
+import com.github.app.dify.datasource.domain.TableSchemaCache;
+import com.github.app.dify.datasource.repository.TableSchemaCacheRepository;
+import com.github.app.dify.datasource.service.DatabaseConnectionService;
+import com.github.app.dify.datasource.service.DatabaseSchemaService;
+import com.github.app.dify.datasource.util.DatabaseDriverManager;
 import com.mongodb.client.MongoDatabase;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.Result;
@@ -403,3 +403,4 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
         }
     }
 }
+

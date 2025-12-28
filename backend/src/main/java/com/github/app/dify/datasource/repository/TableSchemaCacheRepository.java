@@ -1,6 +1,6 @@
-package com.github.app.dify.system.repository;
+package com.github.app.dify.datasource.repository;
 
-import com.github.app.dify.system.domain.TableSchemaCache;
+import com.github.app.dify.datasource.domain.TableSchemaCache;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;
@@ -31,3 +31,4 @@ public interface TableSchemaCacheRepository extends JpaRepository<TableSchemaCac
      */
     void deleteByDataSourceIdAndTableName(Long dataSourceId, String tableName);
 }
+

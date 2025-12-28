@@ -1,4 +1,4 @@
-package com.github.app.dify.system.resp;
+package com.github.app.dify.datasource.resp;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Date;
@@ -185,3 +185,4 @@ public class DataSourceResp {
         this.tenantId = tenantId;
     }
 }
+

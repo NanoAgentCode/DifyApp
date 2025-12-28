@@ -1,6 +1,6 @@
-package com.github.app.dify.system.repository;
+package com.github.app.dify.datasource.repository;
 
-import com.github.app.dify.system.domain.DataSource;
+import com.github.app.dify.datasource.domain.DataSource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -65,3 +65,4 @@ public interface DataSourceRepository extends JpaRepository<DataSource, Long> {
                                                  @Param("type") String type,
                                                  Pageable pageable);
 }
+

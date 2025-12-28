@@ -1,6 +1,6 @@
-package com.github.app.dify.system.service;
+package com.github.app.dify.datasource.service;
 
-import com.github.app.dify.system.domain.DataSource;
+import com.github.app.dify.datasource.domain.DataSource;
 import java.util.List;
 import java.util.Map;
 /**
@@ -37,3 +37,4 @@ public interface DatabaseSchemaService {
      */
     void saveSchemaToCache(Long dataSourceId, String tableName, Map<String, Object> schemaInfo);
 }
+

@@ -1,12 +1,12 @@
-package com.github.app.dify.system.service.impl;
+package com.github.app.dify.datasource.service.impl;
 
-import com.github.app.dify.system.domain.DataSource;
-import com.github.app.dify.system.repository.DataSourceRepository;
-import com.github.app.dify.system.req.CreateDataSourceReq;
-import com.github.app.dify.system.req.UpdateDataSourceReq;
-import com.github.app.dify.system.resp.DataSourceResp;
-import com.github.app.dify.system.service.DataSourceService;
-import com.github.app.dify.system.service.DatabaseConnectionService;
+import com.github.app.dify.datasource.domain.DataSource;
+import com.github.app.dify.datasource.repository.DataSourceRepository;
+import com.github.app.dify.datasource.req.CreateDataSourceReq;
+import com.github.app.dify.datasource.req.UpdateDataSourceReq;
+import com.github.app.dify.datasource.resp.DataSourceResp;
+import com.github.app.dify.datasource.service.DataSourceService;
+import com.github.app.dify.datasource.service.DatabaseConnectionService;
 import com.github.app.dify.permission.service.UserDataSourceVisibilityService;
 import com.github.app.dify.auth.util.PasswordEncryptionUtil;
 import org.slf4j.Logger;
@@ -52,7 +52,7 @@ public class DataSourceServiceImpl implements DataSourceService {
         
         // 验证数据库类型
         try {
-            com.github.app.dify.system.util.DatabaseDriverManager.DatabaseType.fromString(req.getType());
+            com.github.app.dify.datasource.util.DatabaseDriverManager.DatabaseType.fromString(req.getType());
         } catch (IllegalArgumentException e) {
             throw new RuntimeException("不支持的数据库类型: " + req.getType());
         }
@@ -320,3 +320,4 @@ public class DataSourceServiceImpl implements DataSourceService {
         return resp;
     }
 }
+

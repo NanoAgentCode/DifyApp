@@ -1,13 +1,13 @@
-package com.github.app.dify.system.controller;
+package com.github.app.dify.datasource.controller;
 
 import com.github.app.dify.common.controller.BaseController;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.NotFoundException;
-import com.github.app.dify.system.req.CreateDataSourceReq;
-import com.github.app.dify.system.req.UpdateDataSourceReq;
-import com.github.app.dify.system.resp.DataSourceResp;
-import com.github.app.dify.system.service.DataSourceService;
-import com.github.app.dify.system.service.DatabaseSchemaService;
+import com.github.app.dify.datasource.req.CreateDataSourceReq;
+import com.github.app.dify.datasource.req.UpdateDataSourceReq;
+import com.github.app.dify.datasource.resp.DataSourceResp;
+import com.github.app.dify.datasource.service.DataSourceService;
+import com.github.app.dify.datasource.service.DatabaseSchemaService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -220,7 +220,7 @@ public class DataSourceController extends BaseController {
             @RequestParam(required = false) String tableName) {
         Map<String, Object> result = new HashMap<>();
         try {
-            com.github.app.dify.system.domain.DataSource dataSource = dataSourceService.getDataSourceEntityById(id);
+            com.github.app.dify.datasource.domain.DataSource dataSource = dataSourceService.getDataSourceEntityById(id);
             schemaService.refreshSchema(dataSource, tableName);
             result.put("success", true);
             result.put("message", "刷新成功");

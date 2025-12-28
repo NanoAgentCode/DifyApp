@@ -1,4 +1,4 @@
-package com.github.app.dify.system.domain;
+package com.github.app.dify.datasource.domain;
 
 import jakarta.persistence.*;
 import java.io.Serializable;

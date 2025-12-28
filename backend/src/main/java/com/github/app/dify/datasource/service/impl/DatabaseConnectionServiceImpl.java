@@ -1,8 +1,8 @@
-package com.github.app.dify.system.service.impl;
+package com.github.app.dify.datasource.service.impl;
 
-import com.github.app.dify.system.domain.DataSource;
-import com.github.app.dify.system.service.DatabaseConnectionService;
-import com.github.app.dify.system.util.DatabaseDriverManager;
+import com.github.app.dify.datasource.domain.DataSource;
+import com.github.app.dify.datasource.service.DatabaseConnectionService;
+import com.github.app.dify.datasource.util.DatabaseDriverManager;
 import com.github.app.dify.auth.util.PasswordEncryptionUtil;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -461,3 +461,4 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
         accessFrequency.remove(dataSourceId);
     }
 }
+

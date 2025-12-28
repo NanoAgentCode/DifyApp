@@ -1,6 +1,6 @@
-package com.github.app.dify.system.service;
+package com.github.app.dify.datasource.service;
 
-import com.github.app.dify.system.domain.DataSource;
+import com.github.app.dify.datasource.domain.DataSource;
 import com.mongodb.client.MongoDatabase;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Session;
@@ -61,3 +61,4 @@ public interface DatabaseConnectionService {
      */
     void clearConnectionPool(Long dataSourceId);
 }
+

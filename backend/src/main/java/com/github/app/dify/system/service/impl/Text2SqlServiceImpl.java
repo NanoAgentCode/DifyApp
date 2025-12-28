@@ -1,15 +1,15 @@
 package com.github.app.dify.system.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.app.dify.system.domain.DataSource;
+import com.github.app.dify.datasource.domain.DataSource;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
 import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
-import com.github.app.dify.system.service.DatabaseConnectionService;
-import com.github.app.dify.system.service.DatabaseSchemaService;
-import com.github.app.dify.system.service.DataSourceService;
+import com.github.app.dify.datasource.service.DatabaseConnectionService;
+import com.github.app.dify.datasource.service.DatabaseSchemaService;
+import com.github.app.dify.datasource.service.DataSourceService;
 import com.github.app.dify.model.service.ModelConfigService;
 import com.github.app.dify.system.service.Text2SqlService;
-import com.github.app.dify.system.util.DatabaseDriverManager;
+import com.github.app.dify.datasource.util.DatabaseDriverManager;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.output.Response;
