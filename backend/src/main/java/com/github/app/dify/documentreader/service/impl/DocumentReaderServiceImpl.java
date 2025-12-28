@@ -9,7 +9,7 @@ import com.github.app.dify.documentreader.service.DocumentReaderService;
 import com.github.app.dify.documentreader.service.DocumentReaderVectorizationService;
 import com.github.app.dify.knowledgebase.service.FileStorageService;
 import com.github.app.dify.system.config.DocumentReaderConfig;
-import com.github.app.dify.system.service.ModelConfigService;
+import com.github.app.dify.model.service.ModelConfigService;
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
 import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;

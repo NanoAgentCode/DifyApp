@@ -1,10 +1,10 @@
-package com.github.app.dify.system.service;
+package com.github.app.dify.model.service;
 
 import com.github.app.dify.knowledgebase.domain.EmbeddingModel;
 import com.github.app.dify.knowledgebase.domain.QAModel;
-import com.github.app.dify.system.req.ModelConfigRequest;
-import com.github.app.dify.system.req.TestModelConnectionRequest;
-import com.github.app.dify.system.resp.ModelConfigResponse;
+import com.github.app.dify.model.req.ModelConfigRequest;
+import com.github.app.dify.model.req.TestModelConnectionRequest;
+import com.github.app.dify.model.resp.ModelConfigResponse;
 import com.github.app.dify.knowledgebase.resp.QAModelResp;
 import java.util.List;
 /**
@@ -47,3 +47,4 @@ public interface ModelConfigService {
      */
     void testModelConnection(TestModelConnectionRequest request);
 }
+

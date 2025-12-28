@@ -1,4 +1,4 @@
-package com.github.app.dify.system.resp;
+package com.github.app.dify.model.resp;
 
 import com.github.app.dify.knowledgebase.resp.EmbeddingModelResp;
 import com.github.app.dify.knowledgebase.resp.QAModelResp;
@@ -32,3 +32,4 @@ public class ModelConfigResponse {
         this.embeddingModels = embeddingModels;
     }
 }
+

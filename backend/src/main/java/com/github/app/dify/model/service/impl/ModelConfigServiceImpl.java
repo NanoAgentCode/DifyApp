@@ -1,15 +1,15 @@
-package com.github.app.dify.system.service.impl;
+package com.github.app.dify.model.service.impl;
 
 import com.github.app.dify.knowledgebase.domain.EmbeddingModel;
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.knowledgebase.repository.EmbeddingModelRepository;
 import com.github.app.dify.knowledgebase.repository.QAModelRepository;
-import com.github.app.dify.system.req.ModelConfigRequest;
-import com.github.app.dify.system.req.TestModelConnectionRequest;
+import com.github.app.dify.model.req.ModelConfigRequest;
+import com.github.app.dify.model.req.TestModelConnectionRequest;
 import com.github.app.dify.knowledgebase.resp.EmbeddingModelResp;
-import com.github.app.dify.system.resp.ModelConfigResponse;
+import com.github.app.dify.model.resp.ModelConfigResponse;
 import com.github.app.dify.knowledgebase.resp.QAModelResp;
-import com.github.app.dify.system.service.ModelConfigService;
+import com.github.app.dify.model.service.ModelConfigService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -657,3 +657,4 @@ public class ModelConfigServiceImpl implements ModelConfigService {
                 .block();
     }
 }
+

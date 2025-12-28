@@ -1,4 +1,4 @@
-package com.github.app.dify.system.req;
+package com.github.app.dify.model.req;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -78,3 +78,4 @@ public class TestModelConnectionRequest {
         this.model = model;
     }
 }
+

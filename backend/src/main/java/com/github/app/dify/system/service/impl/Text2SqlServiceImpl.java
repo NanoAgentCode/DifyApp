@@ -7,7 +7,7 @@ import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
 import com.github.app.dify.system.service.DatabaseConnectionService;
 import com.github.app.dify.system.service.DatabaseSchemaService;
 import com.github.app.dify.system.service.DataSourceService;
-import com.github.app.dify.system.service.ModelConfigService;
+import com.github.app.dify.model.service.ModelConfigService;
 import com.github.app.dify.system.service.Text2SqlService;
 import com.github.app.dify.system.util.DatabaseDriverManager;
 import dev.langchain4j.data.message.SystemMessage;

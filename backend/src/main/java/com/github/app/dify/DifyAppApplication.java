@@ -21,8 +21,10 @@ import java.nio.charset.StandardCharsets;
  * - chat: AI应用与对话模块
  * - knowledgebase: 知识库模块
  * - documentreader: 文档解读模块
- * - system: 系统配置与数据源模块
+ * - system: 系统配置模块
  * - statistics: 数据统计模块
+ * - mcp: MCP服务集成模块（浏览器搜索、地理位置、时间服务等）
+ * - model: 模型配置模块（问答模型、向量化模型配置管理）
  * - common: 公共组件模块（工具类、异常、响应格式）
  */
 @SpringBootApplication(exclude = {
@@ -39,6 +41,8 @@ import java.nio.charset.StandardCharsets;
         "com.github.app.dify.system",
         "com.github.app.dify.statistics",
         "com.github.app.dify.documentreader",
+        "com.github.app.dify.mcp",
+        "com.github.app.dify.model",
         "com.github.app.dify.common",
         "com.github.app.dify"
 })

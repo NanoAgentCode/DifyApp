@@ -1,10 +1,10 @@
-package com.github.app.dify.system.controller;
+package com.github.app.dify.model.controller;
 
 import com.github.app.dify.common.controller.BaseController;
-import com.github.app.dify.system.req.ModelConfigRequest;
-import com.github.app.dify.system.req.TestModelConnectionRequest;
-import com.github.app.dify.system.resp.ModelConfigResponse;
-import com.github.app.dify.system.service.ModelConfigService;
+import com.github.app.dify.model.req.ModelConfigRequest;
+import com.github.app.dify.model.req.TestModelConnectionRequest;
+import com.github.app.dify.model.resp.ModelConfigResponse;
+import com.github.app.dify.model.service.ModelConfigService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -79,3 +79,4 @@ public class ModelConfigController extends BaseController {
         return ResponseEntity.ok(modelConfigService.getAvailableQAModels("rag"));
     }
 }
+

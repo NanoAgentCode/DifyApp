@@ -11,7 +11,7 @@ import com.github.app.dify.chat.service.ChatHistoryService;
 import com.github.app.dify.knowledgebase.service.ContextCompressionService;
 import com.github.app.dify.knowledgebase.service.KnowledgeBaseQAService;
 import com.github.app.dify.knowledgebase.service.KnowledgeBaseService;
-import com.github.app.dify.system.service.ModelConfigService;
+import com.github.app.dify.model.service.ModelConfigService;
 import com.github.app.dify.knowledgebase.service.RagRetrievalService;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;

@@ -15,7 +15,7 @@ import com.github.app.dify.system.resp.DrawIOGenerateResponse;
 import com.github.app.dify.system.resp.DrawIODiagramResp;
 import com.github.app.dify.system.resp.DrawIOHistoryResp;
 import com.github.app.dify.system.service.DrawIOService;
-import com.github.app.dify.system.service.ModelConfigService;
+import com.github.app.dify.model.service.ModelConfigService;
 import com.github.app.dify.system.service.SystemConfigService;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;

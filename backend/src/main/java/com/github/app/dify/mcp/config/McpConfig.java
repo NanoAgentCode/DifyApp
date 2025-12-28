@@ -1,4 +1,4 @@
-package com.github.app.dify.chat.mcp;
+package com.github.app.dify.mcp.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
@@ -239,3 +239,4 @@ public class McpConfig {
         }
     }
 }
+

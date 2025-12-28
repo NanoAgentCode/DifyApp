@@ -1,7 +1,8 @@
-package com.github.app.dify.chat.mcp;
+package com.github.app.dify.mcp.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.app.dify.mcp.config.McpConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -320,3 +321,4 @@ public class McpLocationService {
         }
     }
 }
+
