@@ -212,9 +212,25 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             logger.info("模型连接测试成功 - type={}, provider={}, apiUrl={}, model={}", 
                     request.getType(), request.getProvider(), request.getApiUrl(), request.getModel());
         } catch (Exception e) {
+            String errorMessage = e.getMessage();
+            // 如果错误消息已经包含友好的提示，直接使用
+            if (errorMessage != null && errorMessage.contains("模型") && 
+                (errorMessage.contains("不可用") || errorMessage.contains("no available") || 
+                 errorMessage.contains("not found") || errorMessage.contains("不存在"))) {
+                // 已经是友好的错误消息
+            } else {
+                // 提取更友好的错误消息
+                if (e.getCause() instanceof org.springframework.web.reactive.function.client.WebClientResponseException) {
+                    org.springframework.web.reactive.function.client.WebClientResponseException webClientEx = 
+                        (org.springframework.web.reactive.function.client.WebClientResponseException) e.getCause();
+                    String errorBody = webClientEx.getResponseBodyAsString();
+                    errorMessage = extractErrorMessage(errorBody, webClientEx.getStatusCode());
+                }
+            }
+            
             logger.error("模型连接测试失败 - type={}, provider={}, apiUrl={}, model={}, 错误: {}", 
-                    request.getType(), request.getProvider(), request.getApiUrl(), request.getModel(), e.getMessage());
-            throw new RuntimeException("模型连接测试失败: " + e.getMessage(), e);
+                    request.getType(), request.getProvider(), request.getApiUrl(), request.getModel(), errorMessage);
+            throw new RuntimeException(errorMessage != null ? errorMessage : "模型连接测试失败: " + e.getMessage(), e);
         }
     }
     
@@ -606,32 +622,127 @@ public class ModelConfigServiceImpl implements ModelConfigService {
      * 测试 OpenAI 兼容 API 连接
      */
     private void testOpenAICompatibleConnection(String apiUrl, String apiKey, String model) {
+        // 处理完整 URL（包含路径）的情况
+        String baseUrl;
+        String path;
+        
+        if (apiUrl.contains("/v1/chat/completions")) {
+            // 如果 URL 已经包含完整路径，分离基础 URL 和路径
+            int pathIndex = apiUrl.indexOf("/v1/");
+            baseUrl = apiUrl.substring(0, pathIndex);
+            path = apiUrl.substring(pathIndex);
+        } else if (apiUrl.contains("/api/") || apiUrl.contains("/v1/")) {
+            // 如果包含其他路径，尝试提取基础 URL
+            int pathIndex = Math.max(apiUrl.indexOf("/api/"), apiUrl.indexOf("/v1/"));
+            baseUrl = apiUrl.substring(0, pathIndex);
+            path = "/v1/chat/completions"; // 使用标准路径
+        } else {
+            // 基础 URL，需要添加路径
+            baseUrl = apiUrl;
+            path = "/v1/chat/completions";
+        }
+        
         WebClient webClient = WebClient.builder()
-                .baseUrl(apiUrl)
+                .baseUrl(baseUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
         
+        // 构建完整的请求体，与实际调用保持一致
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", model);
+        
+        // 构建消息列表
         Map<String, String> message = new HashMap<>();
         message.put("role", "user");
         message.put("content", "test");
         requestBody.put("messages", Collections.singletonList(message));
-        requestBody.put("max_tokens", 1);
+        
+        // 添加标准参数（与buildRequestBody保持一致）
+        requestBody.put("stream", false);
+        requestBody.put("max_tokens", 10); // 测试时使用较小的值，但不要太小
+        requestBody.put("temperature", 0.7);
         
         WebClient.RequestBodySpec requestSpec = webClient.post()
-                .uri("/v1/chat/completions");
+                .uri(path);
         
         if (apiKey != null && !apiKey.trim().isEmpty()) {
             requestSpec.header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey.trim());
         }
         
-        requestSpec
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(String.class)
-                .timeout(Duration.ofSeconds(10))
-                .block();
+        try {
+            String response = requestSpec
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofSeconds(10))
+                    .block();
+            
+            // 验证响应是否有效
+            if (response == null || response.trim().isEmpty()) {
+                throw new RuntimeException("API返回空响应");
+            }
+            
+            logger.debug("测试连接成功，响应: {}", response.length() > 200 ? response.substring(0, 200) + "..." : response);
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+            // 获取更详细的错误信息
+            String errorBody = e.getResponseBodyAsString();
+            String errorMessage = extractErrorMessage(errorBody, e.getStatusCode());
+            
+            logger.error("API返回错误响应，状态码: {}, 错误消息: {}", e.getStatusCode(), errorMessage);
+            throw new RuntimeException(errorMessage, e);
+        }
+    }
+    
+    /**
+     * 从错误响应中提取友好的错误消息
+     */
+    private String extractErrorMessage(String errorBody, org.springframework.http.HttpStatusCode statusCode) {
+        if (errorBody == null || errorBody.trim().isEmpty()) {
+            return "API返回错误: " + statusCode;
+        }
+        
+        try {
+            // 尝试解析 JSON 错误响应
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(errorBody);
+            
+            // 尝试提取 error.message 字段（OpenAI 格式）
+            if (root.has("error") && root.get("error").has("message")) {
+                String message = root.get("error").get("message").asText();
+                // 转换为更友好的中文提示
+                if (message.contains("no available channels") || message.contains("no available")) {
+                    return "模型不可用或模型名称不正确。请检查：\n" +
+                           "1. 模型名称是否正确（注意大小写和完整版本号）\n" +
+                           "2. 该模型是否在 API 提供商处可用\n" +
+                           "3. API Key 是否有权限访问该模型\n" +
+                           "错误详情: " + message;
+                } else if (message.contains("invalid") || message.contains("Invalid")) {
+                    return "请求参数无效: " + message;
+                } else if (message.contains("unauthorized") || message.contains("Unauthorized")) {
+                    return "API Key 无效或已过期: " + message;
+                } else if (message.contains("not found") || message.contains("not_found")) {
+                    return "模型不存在: " + message;
+                }
+                return message;
+            }
+            
+            // 尝试提取 message 字段（通用格式）
+            if (root.has("message")) {
+                return root.get("message").asText();
+            }
+            
+            // 尝试提取 error 字段（字符串格式）
+            if (root.has("error") && root.get("error").isTextual()) {
+                return root.get("error").asText();
+            }
+            
+        } catch (Exception e) {
+            logger.debug("解析错误响应失败，使用原始错误信息: {}", e.getMessage());
+        }
+        
+        // 如果无法解析，返回原始错误信息（截取前500字符）
+        return "API返回错误: " + statusCode + " - " + 
+               (errorBody.length() > 500 ? errorBody.substring(0, 500) + "..." : errorBody);
     }
     
     /**
