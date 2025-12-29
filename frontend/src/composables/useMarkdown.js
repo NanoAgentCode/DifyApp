@@ -9,6 +9,7 @@ import '@/styles/vscode-dark.css' // VS Code Dark+ 主题
 import katex from 'katex'
 import 'katex/dist/katex.css'
 import mermaid from 'mermaid'
+import { logger } from '@/utils/logger'
 
 // 配置 marked v17 使用新的 API
 const marked = new Marked(
@@ -19,7 +20,7 @@ const marked = new Marked(
         try {
           return hljs.highlight(code, { language: lang }).value
         } catch (err) {
-          console.error('代码高亮失败:', err)
+          logger.debug('代码高亮失败:', err)
           return hljs.highlightAuto(code).value
         }
       }
@@ -168,7 +169,7 @@ export function renderMarkdown(content) {
                           blockPlaceholder + index + blockPlaceholder + 
                           processedContent.substring(pair.end)
       } catch (e) {
-        console.warn('KaTeX 渲染失败（方括号块级公式）:', e, '公式:', pair.formula)
+        logger.debug('KaTeX 渲染失败（方括号块级公式）:', e)
       }
     }
     
@@ -309,7 +310,7 @@ export function renderMarkdown(content) {
                           processedContent.substring(pair.end)
       } catch (e) {
         // 如果渲染失败，记录错误但继续处理其他公式
-        console.warn('KaTeX 渲染失败（括号公式）:', e, '公式:', pair.formula)
+        logger.debug('KaTeX 渲染失败（括号公式）:', e)
       }
     }
     
@@ -339,7 +340,7 @@ export function renderMarkdown(content) {
           throwOnError: false
         })
       } catch (e) {
-        console.warn('KaTeX 渲染失败（行内）:', e, '公式:', formula)
+        logger.debug('KaTeX 渲染失败（行内）:', e)
         return match
       }
     })
@@ -358,7 +359,7 @@ export function renderMarkdown(content) {
             throwOnError: false
           })
         } catch (e) {
-          console.warn('KaTeX 渲染失败（块级）:', e, '公式:', blockMatch.formula)
+          logger.debug('KaTeX 渲染失败（块级）:', e)
           return blockMatch.original
         }
       }
@@ -415,7 +416,7 @@ export function renderMarkdown(content) {
           mermaid.render(id, code).then(result => {
             element.innerHTML = result.svg
           }).catch(err => {
-            console.error('Mermaid 渲染失败:', err)
+            logger.debug('Mermaid 渲染失败:', err)
             element.innerHTML = `<pre>${code}</pre>`
           })
         }
@@ -450,7 +451,7 @@ export function renderMarkdown(content) {
 
     return html
   } catch (error) {
-    console.error('Markdown 渲染失败:', error)
+    logger.error('Markdown 渲染失败:', error)
     return `<pre>${content}</pre>`
   }
 }

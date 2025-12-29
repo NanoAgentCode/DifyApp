@@ -1,4 +1,5 @@
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { logger } from '@/utils/logger'
 
 /**
  * 统一错误处理 Composable
@@ -73,8 +74,8 @@ export function useErrorHandler() {
       ElMessage.error(errorMessage)
     }
 
-    if (logError && process.env.NODE_ENV === 'development') {
-      console.error('操作失败:', errorMessage, error)
+    if (logError) {
+      logger.error('操作失败:', errorMessage, error)
     }
 
     return errorMessage
@@ -176,9 +177,7 @@ export function useErrorHandler() {
 
     ElMessage.error(errorMessage)
     
-    if (process.env.NODE_ENV === 'development') {
-      console.error('流式响应失败:', errorMessage, error)
-    }
+    logger.error('流式响应失败:', errorMessage, error)
 
     return errorMessage
   }

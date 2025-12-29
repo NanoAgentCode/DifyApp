@@ -12,6 +12,7 @@ import { getConversationMessages, getConversation } from '@/api/chat'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { renderMarkdown, cleanupMarkdown } from '@/composables/useMarkdown'
 import { getModelStyle } from '@/utils/modelColor'
+import { logger } from '@/utils/logger'
 
 export function useKnowledgeBaseQA(options = {}) {
   const {
@@ -121,7 +122,7 @@ export function useKnowledgeBaseQA(options = {}) {
           userId = userInfo.userId
           userRole = userInfo.role
         } catch (e) {
-          console.warn('解析用户信息失败', e)
+          logger.debug('解析用户信息失败', e)
         }
       }
       
@@ -221,7 +222,7 @@ export function useKnowledgeBaseQA(options = {}) {
         enabledVectorStoreTypes.value = ['qdrant', 'faiss', 'milvus', 'chroma', 'weaviate', 'elasticsearch']
       }
     } catch (error) {
-      console.error('加载向量库配置列表失败', error)
+      logger.error('加载向量库配置列表失败', error)
       // 如果加载失败，默认允许所有类型（向后兼容）
       enabledVectorStoreTypes.value = ['qdrant', 'faiss', 'milvus', 'chroma', 'weaviate', 'elasticsearch']
     }
@@ -327,7 +328,7 @@ export function useKnowledgeBaseQA(options = {}) {
         const defaultModel = availableQAModels.value.find(m => m.isDefault)
         selectedModelId.value = defaultModel ? defaultModel.id : availableQAModels.value[0].id
       } else if (availableQAModels.value.length === 0) {
-        console.warn('没有可用的RAG问答模型，请先在"大模型管理"页面配置useFor为"rag"或"both"的模型')
+        logger.warn('没有可用的RAG问答模型，请先在"大模型管理"页面配置useFor为"rag"或"both"的模型')
         ElMessage.warning('当前没有可用的RAG问答模型，请先在"大模型管理"页面配置模型')
       }
            } catch (error) {
@@ -525,7 +526,7 @@ export function useKnowledgeBaseQA(options = {}) {
         }
       })
     } catch (error) {
-      console.error('流式响应失败', error)
+      logger.error('流式响应失败', error)
       if (chatHistory.value[aiMessageIndex]) {
         chatHistory.value[aiMessageIndex].content = fullAnswer || '抱歉，生成答案时发生错误。'
       }
@@ -677,7 +678,7 @@ export function useKnowledgeBaseQA(options = {}) {
   // 加载对话历史（仅user版本）
   const loadConversationHistory = async (convId) => {
     if (!enableConversationHistory) {
-      console.warn('对话历史功能未启用')
+      logger.debug('对话历史功能未启用')
       return
     }
 
@@ -700,7 +701,7 @@ export function useKnowledgeBaseQA(options = {}) {
             }
           }
         } catch (e) {
-          console.warn('获取会话信息失败', e)
+          logger.debug('获取会话信息失败', e)
         }
         
         chatHistory.value = messages.map(msg => ({

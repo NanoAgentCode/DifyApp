@@ -81,6 +81,7 @@ import { Connection, Document, MagicStick, Loading, FullScreen } from '@element-
 import { getDocumentMindMap, generateDocumentMindMap } from '@/api/documentReader'
 import jsMind from 'jsmind'
 import 'jsmind/style/jsmind.css'
+import { logger } from '@/utils/logger'
 
 const props = defineProps({
   docId: {
@@ -98,23 +99,14 @@ const isFullscreen = ref(false)
 // 检查是否为HTML URL类型
 const isHtmlUrlType = (data) => {
   if (!data) {
-    console.log('isHtmlUrlType: 数据为空')
     return false
   }
   try {
     const parsed = typeof data === 'string' ? JSON.parse(data) : data
     const result = parsed && parsed.type === 'html_url' && parsed.url
-    console.log('isHtmlUrlType: 检查结果', { 
-      hasData: !!data, 
-      isString: typeof data === 'string',
-      parsed: parsed,
-      type: parsed?.type,
-      url: parsed?.url,
-      result 
-    })
     return result
   } catch (e) {
-    console.warn('isHtmlUrlType: 解析失败', e)
+    logger.debug('isHtmlUrlType: 解析失败', e)
     return false
   }
 }
@@ -122,7 +114,6 @@ const isHtmlUrlType = (data) => {
 // 获取HTML URL（将后端URL替换为前端代理路径）
 const getHtmlUrl = (data) => {
   if (!data) {
-    console.log('getHtmlUrl: 数据为空')
     return ''
   }
   try {
@@ -146,28 +137,19 @@ const getHtmlUrl = (data) => {
       // 如果路径以 /html/ 开头，替换为前端代理路径
       if (path.startsWith('/html/')) {
         url = `/proxy${path}`
-        console.log('getHtmlUrl: URL已替换为前端代理路径', { 
-          originalUrl: parsed.url, 
-          replacedUrl: url,
-          path 
-        })
-      } else {
-        console.log('getHtmlUrl: URL路径不符合预期，保持原样', { originalUrl: parsed.url, path })
       }
     } catch (urlError) {
       // 如果URL解析失败，可能是相对路径，尝试直接处理
       if (url.startsWith('/html/')) {
         url = `/proxy${url}`
-        console.log('getHtmlUrl: 相对路径已替换为前端代理路径', { originalUrl: parsed.url, replacedUrl: url })
       } else {
-        console.warn('getHtmlUrl: URL解析失败，保持原样', { originalUrl: parsed.url, error: urlError })
+        logger.debug('getHtmlUrl: URL解析失败，保持原样', { originalUrl: parsed.url, error: urlError })
       }
     }
     
-    console.log('getHtmlUrl: 最终URL', { originalUrl: parsed.url, finalUrl: url, parsed })
     return url
   } catch (e) {
-    console.warn('getHtmlUrl: 解析失败', e)
+    logger.warn('getHtmlUrl: 解析失败', e)
     return ''
   }
 }
@@ -337,7 +319,7 @@ const convertToJsMindFormat = (data) => {
       }
     }
   } catch (error) {
-    console.error('转换jsMind格式失败:', error)
+    logger.error('转换jsMind格式失败:', error)
     throw error
   }
 }
@@ -396,14 +378,14 @@ const applyAutoFit = () => {
     const containerHeight = containerRect.height
     
     if (containerWidth === 0 || containerHeight === 0) {
-      console.warn('容器尺寸为0，跳过自适应缩放')
+      logger.debug('容器尺寸为0，跳过自适应缩放')
       return
     }
     
     // 获取jsMind的视图对象
     const view = mind.view
     if (!view) {
-      console.warn('jsMind view对象不存在')
+      logger.debug('jsMind view对象不存在')
       return
     }
     
@@ -415,7 +397,7 @@ const applyAutoFit = () => {
                          mindmapContainer.value
     
     if (!jsmindElement) {
-      console.warn('未找到jsMind渲染元素')
+      logger.debug('未找到jsMind渲染元素')
       return
     }
     
@@ -447,7 +429,7 @@ const applyAutoFit = () => {
     }
     
     if (mindMapWidth === 0 || mindMapHeight === 0) {
-      console.warn('无法获取思维导图尺寸，跳过自适应缩放')
+      logger.debug('无法获取思维导图尺寸，跳过自适应缩放')
       return
     }
     
@@ -471,7 +453,7 @@ const applyAutoFit = () => {
     // 应用缩放
     if (view.set_zoom) {
       view.set_zoom(scale)
-      console.log('应用自适应缩放:', { scale, containerWidth, containerHeight, mindMapWidth, mindMapHeight })
+      logger.debug('应用自适应缩放:', { scale, containerWidth, containerHeight, mindMapWidth, mindMapHeight })
     } else if (view.scale) {
       view.scale(scale)
     } else {
@@ -494,7 +476,7 @@ const applyAutoFit = () => {
     }
     
   } catch (error) {
-    console.warn('应用自适应缩放失败:', error)
+    logger.warn('应用自适应缩放失败:', error)
   }
 }
 
@@ -573,7 +555,7 @@ const initJsMind = async () => {
     try {
       // 检查基本条件
       if (!mindmapContainer.value || !mindMapData.value) {
-        console.warn('初始化jsMind：容器或数据为空', {
+        logger.debug('初始化jsMind：容器或数据为空', {
           hasContainer: !!mindmapContainer.value,
           hasData: !!mindMapData.value
         })
@@ -587,7 +569,7 @@ const initJsMind = async () => {
       try {
         await waitForElementVisible(mindmapContainer.value, 5000)
       } catch (e) {
-        console.warn('等待容器可见超时，继续尝试初始化:', e.message)
+        logger.debug('等待容器可见超时，继续尝试初始化:', e.message)
         // 即使超时也继续，因为容器可能已经存在只是不可见
       }
       
@@ -596,13 +578,13 @@ const initJsMind = async () => {
       
       // 再次检查容器是否存在且可见
       if (!mindmapContainer.value) {
-        console.warn('初始化jsMind：容器不存在')
+        logger.debug('初始化jsMind：容器不存在')
         return
       }
       
       const containerStyle = window.getComputedStyle(mindmapContainer.value)
       if (containerStyle.display === 'none') {
-        console.warn('初始化jsMind：容器仍然不可见，延迟重试')
+        logger.debug('初始化jsMind：容器仍然不可见，延迟重试')
         // 延迟重试
         setTimeout(() => initJsMind(), 500)
         return
@@ -616,7 +598,7 @@ const initJsMind = async () => {
           try {
             data = JSON.parse(jsonStr)
           } catch (e) {
-            console.error('解析脑图数据失败:', e)
+            logger.error('解析脑图数据失败:', e)
             throw new Error('无法解析脑图数据: ' + e.message)
           }
         } else {
@@ -635,7 +617,7 @@ const initJsMind = async () => {
           // 清空容器内容
           mindmapContainer.value.innerHTML = ''
         } catch (e) {
-          console.warn('清理旧mind实例失败:', e)
+          logger.debug('清理旧mind实例失败:', e)
         }
       }
       
@@ -648,10 +630,10 @@ const initJsMind = async () => {
         support_html: true
       }
       
-      console.log('创建jsMind实例，容器:', mindmapContainer.value, '数据:', jsmindData)
+      logger.debug('创建jsMind实例')
       mind = new jsMind(options)
       mind.show(jsmindData)
-      console.log('jsMind实例创建成功')
+      logger.debug('jsMind实例创建成功')
       
       // 等待jsMind渲染完成后，应用自适应缩放
       await nextTick()
@@ -663,7 +645,7 @@ const initJsMind = async () => {
       // 设置窗口大小变化监听
       setupResizeObserver()
     } catch (error) {
-      console.error('初始化jsMind失败:', error)
+      logger.error('初始化jsMind失败:', error)
       ElMessage.error('渲染脑图失败：' + (error.message || '未知错误'))
     } finally {
       initJsMindTimer = null
@@ -736,11 +718,11 @@ const loadMindMap = async () => {
           try {
             data = JSON.parse(jsonStr)
           } catch (e2) {
-            console.warn('解析脑图数据失败:', e2, '原始数据:', data)
+            logger.debug('解析脑图数据失败:', e2)
             data = null
           }
         } else {
-          console.warn('无法从字符串中提取JSON，原始数据:', data)
+          logger.debug('无法从字符串中提取JSON')
           data = null
         }
       }
@@ -753,7 +735,7 @@ const loadMindMap = async () => {
       // 如果是HTML URL类型，不需要初始化jsMind，直接显示iframe
       if (isHtmlUrlType(mindMapData.value)) {
         htmlUrl.value = getHtmlUrl(mindMapData.value)
-        console.log('检测到HTML URL类型脑图，URL:', htmlUrl.value)
+        logger.debug('检测到HTML URL类型脑图')
       } else {
         htmlUrl.value = ''
         // 只有非HTML URL类型才需要初始化jsMind
@@ -761,14 +743,14 @@ const loadMindMap = async () => {
       }
     } else {
       // 数据无效或为空，清空并自动生成
-      console.log('脑图数据无效或为空，触发自动生成')
+      logger.debug('脑图数据无效或为空，触发自动生成')
       mindMapData.value = null
       htmlUrl.value = ''
       // 首次打开时自动生成脑图
       await autoGenerateMindMap()
     }
   } catch (error) {
-    console.error('加载脑图失败:', error)
+    logger.error('加载脑图失败:', error)
     mindMapData.value = null
     htmlUrl.value = ''
     // 如果加载失败，也尝试自动生成
@@ -801,7 +783,7 @@ const autoGenerateMindMap = async () => {
             data = null
           }
         } else {
-          console.warn('无法从字符串中提取JSON，原始数据:', data)
+          logger.debug('无法从字符串中提取JSON')
           data = null
         }
       }
@@ -821,7 +803,7 @@ const autoGenerateMindMap = async () => {
       // 如果是HTML URL类型，不需要初始化jsMind，直接显示iframe
       if (isHtmlUrlType(mindMapData.value)) {
         htmlUrl.value = getHtmlUrl(mindMapData.value)
-        console.log('检测到HTML URL类型脑图，URL:', htmlUrl.value)
+        logger.debug('检测到HTML URL类型脑图')
         ElMessage.success('脑图生成成功')
       } else {
         htmlUrl.value = ''
@@ -830,10 +812,10 @@ const autoGenerateMindMap = async () => {
         
         // 确保容器存在且可见后再初始化
         if (mindmapContainer.value) {
-          console.log('自动生成后准备初始化jsMind，容器:', mindmapContainer.value)
+          logger.debug('自动生成后准备初始化jsMind')
           await initJsMind()
         } else {
-          console.warn('自动生成后容器不存在，等待watch触发')
+          logger.debug('自动生成后容器不存在，等待watch触发')
           // 如果容器还不存在，watch会处理
         }
         ElMessage.success('脑图生成成功')
@@ -843,7 +825,7 @@ const autoGenerateMindMap = async () => {
       ElMessage.warning('脑图生成完成，但内容为空')
     }
   } catch (error) {
-    console.error('自动生成脑图失败:', error)
+    logger.error('自动生成脑图失败:', error)
     generating.value = false
     ElMessage.error('自动生成脑图失败：' + (error.message || '未知错误'))
   }
@@ -883,7 +865,7 @@ const handleGenerate = async () => {
               data = null
             }
           } else {
-            console.warn('无法从字符串中提取JSON，原始数据:', data)
+            logger.debug('无法从字符串中提取JSON')
             data = null
           }
         }
@@ -894,7 +876,7 @@ const handleGenerate = async () => {
         // 如果是HTML URL类型，不需要初始化jsMind，直接显示iframe
         if (isHtmlUrlType(mindMapData.value)) {
           htmlUrl.value = getHtmlUrl(mindMapData.value)
-          console.log('检测到HTML URL类型脑图，URL:', htmlUrl.value)
+          logger.debug('检测到HTML URL类型脑图')
           ElMessage.success('脑图生成成功')
         } else {
           htmlUrl.value = ''
@@ -913,7 +895,7 @@ const handleGenerate = async () => {
   } catch (error) {
     // 用户取消
     if (error !== 'cancel') {
-      console.error('生成脑图失败:', error)
+      logger.error('生成脑图失败:', error)
     }
   }
 }
@@ -929,32 +911,28 @@ watch(() => props.docId, () => {
 watch(mindMapData, (newVal, oldVal) => {
   // 如果正在生成，不触发watch（由autoGenerateMindMap自己处理）
   if (generating.value) {
-    console.log('watch mindMapData: 正在生成中，跳过')
     return
   }
   
   // 如果数据为空，不触发
   if (!newVal) {
-    console.log('watch mindMapData: 数据为空，跳过')
     return
   }
   
   // 如果数据没有变化，不触发
   if (newVal === oldVal) {
-    console.log('watch mindMapData: 数据未变化，跳过')
     return
   }
   
   // 如果是HTML URL类型，不需要初始化jsMind
   if (isHtmlUrlType(newVal)) {
     htmlUrl.value = getHtmlUrl(newVal)
-    console.log('watch mindMapData: HTML URL类型，跳过jsMind初始化，URL:', htmlUrl.value)
     return
   } else {
     htmlUrl.value = ''
   }
   
-  console.log('watch mindMapData: 触发初始化', { hasContainer: !!mindmapContainer.value })
+  logger.debug('watch mindMapData: 触发初始化')
   nextTick(() => {
     initJsMind()
   })
@@ -989,7 +967,7 @@ const toggleFullscreen = async () => {
       }
     }
   } catch (error) {
-    console.error('全屏操作失败:', error)
+    logger.error('全屏操作失败:', error)
     ElMessage.error('全屏操作失败')
   }
 }
@@ -1025,7 +1003,7 @@ onUnmounted(() => {
     try {
       mindmapContainer.value.innerHTML = ''
     } catch (e) {
-      console.warn('清空容器失败:', e)
+      logger.debug('清空容器失败:', e)
     }
   }
   mind = null

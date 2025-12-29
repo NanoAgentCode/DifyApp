@@ -2,12 +2,13 @@
  * Chat 功能 Composables
  * 提取 Chat 组件的公共逻辑，提升代码复用
  */
-import { ref, reactive, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, nextTick, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { chat } from '@/api/chat'
 import { getAvailableQAModels } from '@/api/model'
 import { getModelStyle } from '@/utils/modelColor'
 import { renderMarkdown } from '@/composables/useMarkdown'
+import { logger } from '@/utils/logger'
 
 export function useChat(options = {}) {
   const {
@@ -47,7 +48,7 @@ export function useChat(options = {}) {
         selectedModelId.value = defaultModel?.id || availableModels.value[0].id
       }
     } catch (error) {
-      console.error('加载模型列表失败:', error)
+      logger.error('加载模型列表失败:', error)
       ElMessage.error('加载模型列表失败')
     }
   }

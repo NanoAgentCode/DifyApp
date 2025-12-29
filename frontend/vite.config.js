@@ -16,17 +16,20 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:6060',
+        target: 'http://106.54.124.170:9090',
         changeOrigin: true
       },
       // 脑图服务代理：将前端的 /proxy/html/* 代理到脑图服务的 /html/*
       '/proxy/html': {
-        target: 'http://localhost:6066',
+        target: 'http://106.54.124.170:6066',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/proxy/, ''),
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
-            console.log('脑图服务代理错误:', err)
+            // 仅在开发环境记录代理错误
+            if (process.env.NODE_ENV === 'development') {
+              console.error('脑图服务代理错误:', err)
+            }
           })
         }
       }

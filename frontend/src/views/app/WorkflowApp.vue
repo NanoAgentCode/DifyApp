@@ -245,8 +245,8 @@
               </div>
               <div v-else>
                 <!-- 文件预览区域 -->
-                <div v-if="hasPreviewableFiles(result)" class="file-preview-section">
-                  <div v-for="(file, index) in extractFiles(result)" :key="index" class="file-preview-item">
+                <div v-if="hasPreviewableFilesComputed" class="file-preview-section">
+                  <div v-for="(file, index) in extractedFiles" :key="file.fullUrl || file.url || `file-${index}`" class="file-preview-item">
                     <div class="file-info">
                       <span class="file-name">
                         {{ file.filename || file.saved_filename || `文件 ${index + 1}` }}
@@ -374,7 +374,7 @@
                   </div>
                 </div>
                 <!-- JSON数据展示（仅在没有文件时显示） -->
-                <pre v-if="!hasPreviewableFiles(result)">{{ formatResult(result) }}</pre>
+                <pre v-if="!hasPreviewableFilesComputed">{{ formatResult(result) }}</pre>
               </div>
             </div>
             <div v-else class="result-placeholder">
@@ -388,7 +388,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue'
+import { ref, reactive, onMounted, computed, watch, nextTick, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, FullScreen, Document, Picture, Check, Close, Download, Loading } from '@element-plus/icons-vue'
@@ -396,13 +396,17 @@ import { getAppDetail, workflowApp, workflowAppStream, uploadFile } from '@/api/
 import request from '@/utils/request'
 import { getThemeById, getThemeCSSVariables } from '@/utils/themes'
 import AppIcon from '@/components/AppIcon.vue'
+import { logger } from '@/utils/logger'
+import { useThrottleFn } from '@/utils/debounce'
 
 const route = useRoute()
 const router = useRouter()
-const appInfo = ref(null)
+// 使用shallowRef优化性能（appInfo对象较大）
+const appInfo = shallowRef(null)
 const inputs = reactive({})
 const inputsJson = reactive({}) // 用于存储复杂输入的 JSON 字符串
-const result = ref(null)
+// 使用shallowRef优化大型对象性能（result可能包含大量数据）
+const result = shallowRef(null)
 const loading = ref(false)
 const showInputsJson = ref(false) // 是否显示完整 JSON 编辑器
 const fullInputsJson = ref('') // 完整 JSON 字符串
@@ -423,6 +427,17 @@ const currentResizeIndex = ref(-1) // 当前正在调整的文件索引
 // 输入字段配置
 const inputFields = ref([])
 const formLabelWidth = ref('140px')
+
+// 缓存提取的文件列表（性能优化）
+const extractedFiles = computed(() => {
+  if (!result.value) return []
+  return extractFiles(result.value)
+})
+
+// 缓存是否有可预览文件（性能优化）
+const hasPreviewableFilesComputed = computed(() => {
+  return extractedFiles.value.length > 0
+})
 
 // 主题样式计算
 const themeStyles = computed(() => {
@@ -580,7 +595,7 @@ const parseInputFieldsConfig = (inputsStr) => {
       return fields
     }
   } catch (e) {
-    console.error('解析输入字段配置失败:', e)
+    logger.error('解析输入字段配置失败:', e)
     return []
   }
 }
@@ -589,16 +604,19 @@ const fetchAppInfo = async () => {
   try {
     const res = await getAppDetail(route.params.id)
     appInfo.value = res
-    console.log('应用信息:', res)
-    console.log('inputEnabled 值:', res.inputEnabled)
+    logger.debug('应用信息加载完成')
     
     // 清空之前的输入
-    Object.keys(inputs).forEach(key => {
-      delete inputs[key]
-    })
-    Object.keys(inputsJson).forEach(key => {
-      delete inputsJson[key]
-    })
+    for (const key in inputs) {
+      if (Object.prototype.hasOwnProperty.call(inputs, key)) {
+        delete inputs[key]
+      }
+    }
+    for (const key in inputsJson) {
+      if (Object.prototype.hasOwnProperty.call(inputsJson, key)) {
+        delete inputsJson[key]
+      }
+    }
     fullInputsJson.value = ''
     inputFields.value = []
     
@@ -622,13 +640,13 @@ const fetchAppInfo = async () => {
             fullInputsJson.value = JSON.stringify(inputs, null, 2)
           } else {
             // 如果解析的不是对象，使用默认输入
-            console.warn('inputs 配置格式不正确，使用默认配置')
+            logger.debug('inputs 配置格式不正确，使用默认配置')
             inputs['word'] = ''
             inputsJson['word'] = ''
           }
         }
       } catch (e) {
-        console.error('解析 inputs 配置失败:', e)
+        logger.error('解析 inputs 配置失败:', e)
         // 如果解析失败，使用默认输入
         inputs['word'] = ''
         inputsJson['word'] = ''
@@ -699,11 +717,12 @@ const handleRun = async () => {
   result.value = null
 
   try {
-    // 先验证所有 JSON 输入
-    Object.keys(inputsJson).forEach(key => {
-      if (inputsJson[key] && inputsJson[key].trim()) {
-        validateAndUpdateJson(key)
-      }
+    // 先验证所有 JSON 输入（优化：只验证非空值）
+    const keysToValidate = Object.keys(inputsJson).filter(key => 
+      inputsJson[key] && inputsJson[key].trim()
+    )
+    keysToValidate.forEach(key => {
+      validateAndUpdateJson(key)
     })
 
     // 构建输入对象，保留所有非空值
@@ -785,7 +804,7 @@ const handleRun = async () => {
       files: uploadedFiles.length > 0 ? uploadedFiles : undefined
     }
 
-    console.log('发送请求数据:', JSON.stringify(requestData, null, 2))
+    logger.debug('发送工作流请求')
 
     if (appInfo.value?.streamEnabled) {
       await handleStreamWorkflow(requestData)
@@ -921,7 +940,7 @@ const uploadSingleFile = async (fileItem) => {
   } catch (error) {
     fileItem.status = 'fail'
     ElMessage.error(`文件 ${fileItem.name} 上传失败: ${error.message || '未知错误'}`)
-    console.error('文件上传失败:', error)
+    logger.error('文件上传失败:', error)
     throw error
   }
 }
@@ -1079,7 +1098,7 @@ const extractFiles = (result) => {
             transfer_method: fileItem.transfer_method
           }
           
-          console.log('提取到文件信息:', fileInfo)
+          logger.debug('提取到文件信息')
           files.push(fileInfo)
         }
       })
@@ -1131,7 +1150,7 @@ const extractFiles = (result) => {
               download_url: downloadUrl
             }
             
-            console.log('添加文件到列表:', fileInfo)
+            logger.debug('添加文件到列表')
             files.push(fileInfo)
           } else {
             // 如果不是文件信息对象，可能是直接的URL字符串
@@ -1196,7 +1215,7 @@ const extractFiles = (result) => {
   return files
 }
 
-// 检查是否有可预览的文件
+// 检查是否有可预览的文件（已废弃，使用computed替代）
 const hasPreviewableFiles = (result) => {
   return extractFiles(result).length > 0
 }
@@ -1251,7 +1270,7 @@ const downloadFile = (file) => {
     
     ElMessage.success('文件下载已开始')
   } catch (error) {
-    console.error('下载文件失败:', error)
+    logger.error('下载文件失败:', error)
     // 如果下载失败，尝试在新窗口打开
     window.open(url, '_blank')
     ElMessage.info('已在新窗口打开文件，请手动保存')
@@ -1308,7 +1327,7 @@ const loadPdfForPreview = async (file) => {
     
     // 检查是否是PDF类型
     if (blob.type && !blob.type.includes('pdf')) {
-      console.warn('返回的内容不是PDF类型:', blob.type)
+      logger.debug('返回的内容不是PDF类型:', blob.type)
     }
     
     // 创建Blob URL用于预览
@@ -1316,9 +1335,9 @@ const loadPdfForPreview = async (file) => {
     pdfLoading.value = false
     pdfLoadError.value = false
     
-    console.log('PDF加载成功，Blob URL已创建')
+    logger.debug('PDF加载成功')
   } catch (error) {
-    console.error('PDF加载失败:', error)
+    logger.error('PDF加载失败:', error)
     pdfLoading.value = false
     pdfLoadError.value = true
     
@@ -1329,7 +1348,7 @@ const loadPdfForPreview = async (file) => {
 
 // PDF加载成功处理
 const handlePdfLoad = (event) => {
-  console.log('PDF iframe加载完成')
+  logger.debug('PDF iframe加载完成')
   pdfLoadError.value = false
 }
 
@@ -1402,7 +1421,7 @@ const handleHtmlIframeLoad = (event, index) => {
         iframeDoc.head.appendChild(style)
       } catch (e) {
         // 如果无法注入样式，忽略
-        console.log('无法注入样式到iframe:', e)
+        logger.debug('无法注入样式到iframe:', e)
       }
       
       // 等待内容完全加载
@@ -1449,8 +1468,8 @@ const startResize = (event, index) => {
   document.addEventListener('mouseup', stopResize)
 }
 
-// 处理拖拽调整
-const handleResize = (event) => {
+// 处理拖拽调整（使用节流优化性能）
+const handleResizeInternal = (event) => {
   if (!isResizing.value || currentResizeIndex.value === -1) return
   
   const deltaY = event.clientY - resizeStartY.value
@@ -1476,6 +1495,9 @@ const handleResize = (event) => {
   htmlIframeHeights.value[currentResizeIndex.value] = newHeight
 }
 
+// 使用节流优化resize事件处理（16ms约60fps）
+const handleResize = useThrottleFn(handleResizeInternal, 16)
+
 // 停止调整大小
 const stopResize = () => {
   isResizing.value = false
@@ -1495,14 +1517,13 @@ const fetchConfig = async () => {
       fileUrlPrefix.value = config.fileUrlPrefix
     }
   } catch (error) {
-    console.warn('获取配置失败，使用默认值:', error)
+    logger.debug('获取配置失败，使用默认值:', error)
   }
 }
 
-// 监听result变化，自动加载PDF预览
-watch(() => result.value, (newResult) => {
-  if (newResult && hasPreviewableFiles(newResult)) {
-    const files = extractFiles(newResult)
+// 监听result变化，自动加载PDF预览（优化：使用computed避免重复计算）
+watch(extractedFiles, (files) => {
+  if (files && files.length > 0) {
     const pdfFile = files.find(f => isPdf(f))
     if (pdfFile) {
       // 延迟加载，确保DOM已更新
@@ -1515,10 +1536,10 @@ watch(() => result.value, (newResult) => {
       resetPdfError()
     }
   } else {
-    // 如果没有结果或没有文件，重置状态
+    // 如果没有文件，重置状态
     resetPdfError()
   }
-}, { deep: true })
+})
 
 onMounted(() => {
   fetchAppInfo()

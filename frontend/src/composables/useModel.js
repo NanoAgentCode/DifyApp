@@ -2,10 +2,11 @@
  * 模型管理 Composables
  * 统一管理模型相关的逻辑
  */
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getAvailableQAModels } from '@/api/model'
 import { getModelStyle } from '@/utils/modelColor'
+import { logger } from '@/utils/logger'
 
 export function useModel() {
   const qaModels = ref([])
@@ -18,10 +19,10 @@ export function useModel() {
   const loadQAModels = async () => {
     try {
       loading.value = true
-      const models = await getQAModelList()
+      const models = await getAvailableQAModels()
       qaModels.value = models || []
     } catch (error) {
-      console.error('加载问答模型失败:', error)
+      logger.error('加载问答模型失败:', error)
       ElMessage.error('加载问答模型失败')
       qaModels.value = []
     } finally {
@@ -39,9 +40,9 @@ export function useModel() {
       // TODO: 如果后端有向量化模型列表 API，请替换此处的调用
       // const models = await getAvailableEmbeddingModels()
       embeddingModels.value = []
-      console.warn('向量化模型列表 API 未实现')
+      logger.debug('向量化模型列表 API 未实现')
     } catch (error) {
-      console.error('加载向量化模型失败:', error)
+      logger.error('加载向量化模型失败:', error)
       ElMessage.error('加载向量化模型失败')
       embeddingModels.value = []
     } finally {
