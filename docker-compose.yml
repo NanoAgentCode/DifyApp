@@ -1,0 +1,128 @@
+version: '3.8'
+
+services:
+  # 后端服务
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: difyapp-backend
+    ports:
+      - "9090:9090"
+    environment:
+      - TZ=Asia/Shanghai
+      # Spring Boot配置可以通过环境变量覆盖
+      # 例如：SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/postgres
+      # SPRING_DATASOURCE_USERNAME=postgres
+      # SPRING_DATASOURCE_PASSWORD=123456
+      # MINIO_ENDPOINT=http://rustfs:9000  # RustFS 100% 兼容 MinIO 配置
+      # MINIO_ACCESS_KEY=rustfsadmin
+      # MINIO_SECRET_KEY=rustfsadmin
+      # SPRING_DATA_REDIS_HOST=redis  # 如果使用 Redis
+      # SPRING_DATA_REDIS_PORT=6379
+    volumes:
+      # 挂载日志目录（可选，用于持久化日志）
+      - ./backend/logs:/app/logs
+      # 挂载数据目录（如果需要持久化FAISS等数据）
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - difyapp-network
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: difyapp-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - difyapp-network
+
+  # PostgreSQL 数据库（从外部依赖服务引用）
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: difyapp-postgres
+    ports:
+      - "15432:5432"
+    environment:
+      - POSTGRES_PASSWORD=123456
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - difyapp-network
+
+  # RustFS 对象存储（从外部依赖服务引用）
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: difyapp-rustfs
+    ports:
+      - "9000:9000"  # S3 API端口
+      - "9001:9001"  # 控制台端口
+    environment:
+      - RUSTFS_ACCESS_KEY=rustfsadmin
+      - RUSTFS_SECRET_KEY=rustfsadmin
+      - RUSTFS_CONSOLE_ENABLE=true
+      - RUSTFS_ADDRESS=:9000
+    volumes:
+      - rustfs-data:/data
+    command:
+      - /data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - difyapp-network
+
+volumes:
+  postgres-data:
+    driver: local
+  rustfs-data:
+    driver: local
+
+networks:
+  difyapp-network:
+    driver: bridge
+

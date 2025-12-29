@@ -4,9 +4,8 @@ FROM maven:3.9-eclipse-temurin-17 AS build
 # 设置工作目录
 WORKDIR /app
 
-# 复制pom.xml和package.json（用于依赖缓存）
+# 复制pom.xml（用于依赖缓存）
 COPY pom.xml .
-COPY package.json .
 
 # 下载依赖（利用Docker缓存层）
 RUN mvn dependency:go-offline -B
@@ -44,11 +43,11 @@ RUN mkdir -p /app/logs && \
 USER appuser
 
 # 暴露端口
-EXPOSE 6060
+EXPOSE 9090
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:6060/actuator/health || exit 1
+    CMD curl -f http://localhost:9090/actuator/health || exit 1
 
 # 启动应用
 ENTRYPOINT ["java", "-jar", "app.jar"]

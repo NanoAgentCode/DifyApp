@@ -5,13 +5,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        USE_CHINA_MIRROR: "false"  # 设置为 "true" 使用国内镜像源
     image: difyapp/easyocr:latest
     container_name: easyocr-service
     ports:
-      - "8000:8000"
+      - "8001:8000"  # 使用 8001 端口避免与其他服务冲突
     environment:
       - PORT=8000
       - HOST=0.0.0.0
+      - TZ=Asia/Shanghai
     volumes:
       # 可选：挂载模型目录以加速后续启动（模型会下载到容器内）
       - easyocr-models:/root/.EasyOCR
