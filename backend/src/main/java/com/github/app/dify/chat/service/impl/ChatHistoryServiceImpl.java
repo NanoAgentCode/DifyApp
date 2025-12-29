@@ -360,20 +360,27 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
     }
     
     /**
-     * 批量删除会话（管理员）
+     * 批量删除会话（管理员）- 性能优化：使用批量更新
      */
     @Transactional
     @Override
     public void batchDeleteConversations(List<Long> conversationIds) {
-        for (Long id : conversationIds) {
-            Optional<ChatConversation> conversation = conversationRepository.findById(id);
-            if (conversation.isPresent()) {
-                ChatConversation conv = conversation.get();
-                conv.setDeleted(1);
-                conv.setUpdateTime(new Date());
-                conversationRepository.save(conv);
-            }
+        if (conversationIds == null || conversationIds.isEmpty()) {
+            return;
         }
+        
+        // 批量查询
+        List<ChatConversation> conversations = conversationRepository.findAllById(conversationIds);
+        Date now = new Date();
+        
+        // 批量更新
+        for (ChatConversation conv : conversations) {
+            conv.setDeleted(1);
+            conv.setUpdateTime(now);
+        }
+        
+        // 批量保存（JPA会自动批量处理）
+        conversationRepository.saveAll(conversations);
     }
     
     /**
@@ -420,36 +427,49 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         Long totalMessages = messageRepository.count();
         response.setTotalMessages(totalMessages);
         
-        // 用户对话数排行（前10名）
+        // 用户对话数排行（前10名）- 性能优化：使用批量查询避免N+1
         List<ChatHistoryStatisticsResponse.UserConversationRank> ranks = new ArrayList<>();
-        List<User> users = userRepository.findAll();
-        for (User user : users) {
-            Long count = conversationRepository.countByUserId(user.getId());
-            if (count > 0) {
+        List<Object[]> userCounts = conversationRepository.countByUserIdGroupBy();
+        Map<Long, Long> userIdToCountMap = userCounts.stream()
+                .collect(Collectors.toMap(
+                    arr -> ((Number) arr[0]).longValue(),
+                    arr -> ((Number) arr[1]).longValue()
+                ));
+        
+        // 批量查询用户信息
+        List<Long> userIds = new ArrayList<>(userIdToCountMap.keySet());
+        Map<Long, User> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        
+        for (Map.Entry<Long, Long> entry : userIdToCountMap.entrySet()) {
+            User user = userMap.get(entry.getKey());
+            if (user != null) {
                 ChatHistoryStatisticsResponse.UserConversationRank rank = 
                         new ChatHistoryStatisticsResponse.UserConversationRank();
-                rank.setUserId(user.getId());
+                rank.setUserId(entry.getKey());
                 rank.setUsername(user.getUsername());
-                rank.setConversationCount(count);
+                rank.setConversationCount(entry.getValue());
                 ranks.add(rank);
             }
         }
         ranks.sort((a, b) -> Long.compare(b.getConversationCount(), a.getConversationCount()));
         response.setUserConversationRanks(ranks.stream().limit(10).collect(Collectors.toList()));
         
-        // 对话类型分布
+        // 对话类型分布 - 性能优化：使用分组查询
         Map<String, Long> typeDistribution = new HashMap<>();
-        List<ChatConversation> allConversations = conversationRepository.findAll();
-        for (ChatConversation conv : allConversations) {
-            if (conv.getDeleted() == null || conv.getDeleted() == 0) {
-                String typeKey = conv.getType() == 1 ? "普通聊天" : "知识库问答";
-                typeDistribution.put(typeKey, typeDistribution.getOrDefault(typeKey, 0L) + 1);
-            }
+        List<Object[]> typeCounts = conversationRepository.countByTypeGroupBy();
+        for (Object[] arr : typeCounts) {
+            Integer type = (Integer) arr[0];
+            Long count = ((Number) arr[1]).longValue();
+            String typeKey = type == 1 ? "普通聊天" : "知识库问答";
+            typeDistribution.put(typeKey, count);
         }
         response.setTypeDistribution(typeDistribution);
         
-        // 热门问题统计（前10个）
+        // 热门问题统计（前10个）- 性能优化：使用数据库查询而不是加载所有数据
         List<ChatHistoryStatisticsResponse.PopularQuestion> popularQuestions = new ArrayList<>();
+        // 注意：热门问题统计需要加载用户消息内容，如果数据量很大，可以考虑使用数据库聚合查询
+        // 这里暂时保持原逻辑，但建议在数据量大时使用数据库层面的聚合查询
         List<ChatMessage> userMessages = messageRepository.findAll().stream()
                 .filter(m -> "user".equals(m.getRole()))
                 .collect(Collectors.toList());
@@ -496,25 +516,15 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
             cal.add(Calendar.DAY_OF_MONTH, 1);
             Date endOfDay = cal.getTime();
             
-            // 统计当天的对话数和消息数
-            List<ChatConversation> dayConversations = conversationRepository.findAll().stream()
-                    .filter(c -> c.getCreateTime() != null 
-                            && c.getCreateTime().after(startOfDay) 
-                            && c.getCreateTime().before(endOfDay)
-                            && (c.getDeleted() == null || c.getDeleted() == 0))
-                    .collect(Collectors.toList());
-            
-            List<ChatMessage> dayMessages = messageRepository.findAll().stream()
-                    .filter(m -> m.getCreateTime() != null 
-                            && m.getCreateTime().after(startOfDay) 
-                            && m.getCreateTime().before(endOfDay))
-                    .collect(Collectors.toList());
+            // 统计当天的对话数和消息数 - 性能优化：使用数据库查询而不是加载所有数据
+            Long dayConversationCount = conversationRepository.countByDateRange(startOfDay, endOfDay);
+            Long dayMessageCount = messageRepository.countByDateRange(startOfDay, endOfDay);
             
             ChatHistoryStatisticsResponse.DailyStatistics daily = 
                     new ChatHistoryStatisticsResponse.DailyStatistics();
             daily.setDate(dateStr);
-            daily.setConversationCount((long) dayConversations.size());
-            daily.setMessageCount((long) dayMessages.size());
+            daily.setConversationCount(dayConversationCount != null ? dayConversationCount : 0L);
+            daily.setMessageCount(dayMessageCount != null ? dayMessageCount : 0L);
             dailyStats.add(daily);
         }
         response.setDailyStatistics(dailyStats);
@@ -536,7 +546,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         response.setCreateTime(conversation.getCreateTime());
         response.setUpdateTime(conversation.getUpdateTime());
         
-        // 获取用户名
+        // 获取用户名 - 性能优化：可以考虑批量查询，但单个会话查询影响不大
         Optional<User> user = userRepository.findById(conversation.getUserId());
         if (user.isPresent()) {
             response.setUsername(user.get().getUsername());

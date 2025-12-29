@@ -36,4 +36,20 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
      */
     @Query("SELECT COALESCE(MAX(m.sequence), 0) FROM ChatMessage m WHERE m.conversationId = :conversationId")
     Integer getMaxSequenceByConversationId(@Param("conversationId") Long conversationId);
+    
+    /**
+     * 按日期范围统计消息数（性能优化）
+     */
+    @Query("SELECT COUNT(m) FROM ChatMessage m " +
+           "WHERE m.createTime >= :startTime AND m.createTime < :endTime")
+    Long countByDateRange(@Param("startTime") java.util.Date startTime, 
+                          @Param("endTime") java.util.Date endTime);
+    
+    /**
+     * 批量查询会话的消息数（性能优化：避免N+1查询）
+     */
+    @Query("SELECT m.conversationId, COUNT(m) FROM ChatMessage m " +
+           "WHERE m.conversationId IN :conversationIds " +
+           "GROUP BY m.conversationId")
+    List<Object[]> countByConversationIdsGroupBy(@Param("conversationIds") List<Long> conversationIds);
 }

@@ -10,8 +10,10 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -111,13 +113,16 @@ public class UserDataSourceVisibilityServiceImpl implements UserDataSourceVisibi
         }
         
         Date now = new Date();
+        // 性能优化：批量查询现有记录
+        List<UserDataSourceVisibility> existingVisibilities = repository.findByUserIdAndDataSourceIdIn(userId, dataSourceIds);
+        Map<Long, UserDataSourceVisibility> existingMap = existingVisibilities.stream()
+                .collect(Collectors.toMap(UserDataSourceVisibility::getDataSourceId, v -> v));
+        
+        List<UserDataSourceVisibility> toSave = new ArrayList<>();
         for (Long dataSourceId : dataSourceIds) {
-            Optional<UserDataSourceVisibility> optional = repository.findByUserIdAndDataSourceId(userId, dataSourceId);
-            
-            UserDataSourceVisibility visibility;
-            if (optional.isPresent()) {
+            UserDataSourceVisibility visibility = existingMap.get(dataSourceId);
+            if (visibility != null) {
                 // 更新现有记录
-                visibility = optional.get();
                 visibility.setVisible(visible);
                 visibility.setUpdateTime(now);
             } else {
@@ -129,9 +134,11 @@ public class UserDataSourceVisibilityServiceImpl implements UserDataSourceVisibi
                 visibility.setCreateTime(now);
                 visibility.setUpdateTime(now);
             }
-            
-            repository.save(visibility);
+            toSave.add(visibility);
         }
+        
+        // 批量保存（JPA会自动批量处理）
+        repository.saveAll(toSave);
         
         logger.info("批量更新用户数据源可见性 - 用户ID: {}, 数据源数量: {}, 可见性: {}", userId, dataSourceIds.size(), visible);
     }

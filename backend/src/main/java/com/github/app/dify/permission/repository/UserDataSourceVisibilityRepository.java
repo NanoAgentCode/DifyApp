@@ -27,6 +27,11 @@ public interface UserDataSourceVisibilityRepository extends JpaRepository<UserDa
     Optional<UserDataSourceVisibility> findByUserIdAndDataSourceId(Long userId, Long dataSourceId);
     
     /**
+     * 批量查询用户和数据源的可见性（性能优化：避免N+1查询）
+     */
+    List<UserDataSourceVisibility> findByUserIdAndDataSourceIdIn(Long userId, List<Long> dataSourceIds);
+    
+    /**
      * 根据用户ID和可见性状态查找
      */
     List<UserDataSourceVisibility> findByUserIdAndVisible(Long userId, Boolean visible);

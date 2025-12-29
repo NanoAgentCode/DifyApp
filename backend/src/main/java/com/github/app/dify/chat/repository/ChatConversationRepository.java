@@ -78,4 +78,30 @@ public interface ChatConversationRepository extends JpaRepository<ChatConversati
     @Query("SELECT c FROM ChatConversation c WHERE c.userId = :userId " +
            "AND (c.deleted IS NULL OR c.deleted = 0) ORDER BY c.createTime DESC")
     List<ChatConversation> findAllByUserId(@Param("userId") Long userId);
+    
+    /**
+     * 批量查询用户对话数（性能优化：避免N+1查询）
+     * 返回用户ID和对话数的映射
+     */
+    @Query("SELECT c.userId, COUNT(c) FROM ChatConversation c " +
+           "WHERE (c.deleted IS NULL OR c.deleted = 0) " +
+           "GROUP BY c.userId")
+    List<Object[]> countByUserIdGroupBy();
+    
+    /**
+     * 按类型统计对话数（性能优化）
+     */
+    @Query("SELECT c.type, COUNT(c) FROM ChatConversation c " +
+           "WHERE (c.deleted IS NULL OR c.deleted = 0) " +
+           "GROUP BY c.type")
+    List<Object[]> countByTypeGroupBy();
+    
+    /**
+     * 按日期范围统计对话数（性能优化）
+     */
+    @Query("SELECT COUNT(c) FROM ChatConversation c " +
+           "WHERE c.createTime >= :startTime AND c.createTime < :endTime " +
+           "AND (c.deleted IS NULL OR c.deleted = 0)")
+    Long countByDateRange(@Param("startTime") java.util.Date startTime, 
+                          @Param("endTime") java.util.Date endTime);
 }

@@ -21,11 +21,13 @@ import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.connection.lettuce.LettucePoolingClientConfiguration;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import java.time.Duration;
 /**
  * Redis配置类
@@ -45,6 +47,24 @@ public class RedisConfig implements CachingConfigurer {
     private int database = 0;
     private int timeout = 3000;
     
+    // 连接池配置（从application.yml读取）
+    private Lettuce lettuce;
+    
+    @Getter
+    @Setter
+    public static class Lettuce {
+        private Pool pool;
+    }
+    
+    @Getter
+    @Setter
+    public static class Pool {
+        private int maxActive = 20;
+        private int maxIdle = 10;
+        private int minIdle = 5;
+        private long maxWait = 3000;
+    }
+    
     /**
      * Redis连接工厂
      * 如果Redis连接失败，应用仍能正常启动，但缓存功能将不可用
@@ -60,10 +80,35 @@ public class RedisConfig implements CachingConfigurer {
                 config.setPassword(password);
             }
             
-            LettuceConnectionFactory factory = new LettuceConnectionFactory(config);
-            // Lettuce连接工厂的超时时间通过配置中的timeout设置
+            // 配置连接池（性能优化）
+            GenericObjectPoolConfig<?> poolConfig = new GenericObjectPoolConfig<>();
+            if (lettuce != null && lettuce.getPool() != null) {
+                Pool pool = lettuce.getPool();
+                poolConfig.setMaxTotal(pool.getMaxActive());
+                poolConfig.setMaxIdle(pool.getMaxIdle());
+                poolConfig.setMinIdle(pool.getMinIdle());
+                poolConfig.setMaxWaitMillis(pool.getMaxWait());
+            } else {
+                // 使用默认值
+                poolConfig.setMaxTotal(20);
+                poolConfig.setMaxIdle(10);
+                poolConfig.setMinIdle(5);
+                poolConfig.setMaxWaitMillis(3000);
+            }
+            poolConfig.setTestOnBorrow(true);
+            poolConfig.setTestWhileIdle(true);
+            poolConfig.setTimeBetweenEvictionRunsMillis(30000);
             
-            logger.info("Redis连接配置 - Host: {}, Port: {}, Database: {}, Timeout: {}ms", host, port, database, timeout);
+            LettucePoolingClientConfiguration clientConfig = LettucePoolingClientConfiguration.builder()
+                    .poolConfig(poolConfig)
+                    .commandTimeout(Duration.ofMillis(timeout))
+                    .build();
+            
+            LettuceConnectionFactory factory = new LettuceConnectionFactory(config, clientConfig);
+            
+            logger.info("Redis连接配置 - Host: {}, Port: {}, Database: {}, Timeout: {}ms, Pool: {}/{}/{}", 
+                    host, port, database, timeout, 
+                    poolConfig.getMaxTotal(), poolConfig.getMaxIdle(), poolConfig.getMinIdle());
             return factory;
         } catch (Exception e) {
             logger.error("Redis连接工厂初始化失败，应用将继续启动但缓存功能不可用", e);
