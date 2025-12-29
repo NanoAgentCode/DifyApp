@@ -14,6 +14,7 @@ import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.cache.support.NoOpCacheManager;
+import com.github.app.dify.system.config.CustomCacheErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
@@ -88,17 +89,17 @@ public class RedisConfig implements CachingConfigurer {
                 poolConfig.setMaxTotal(pool.getMaxActive());
                 poolConfig.setMaxIdle(pool.getMaxIdle());
                 poolConfig.setMinIdle(pool.getMinIdle());
-                poolConfig.setMaxWaitMillis(pool.getMaxWait());
+                poolConfig.setMaxWait(Duration.ofMillis(pool.getMaxWait()));
             } else {
                 // 使用默认值
                 poolConfig.setMaxTotal(20);
                 poolConfig.setMaxIdle(10);
                 poolConfig.setMinIdle(5);
-                poolConfig.setMaxWaitMillis(3000);
+                poolConfig.setMaxWait(Duration.ofMillis(3000));
             }
             poolConfig.setTestOnBorrow(true);
             poolConfig.setTestWhileIdle(true);
-            poolConfig.setTimeBetweenEvictionRunsMillis(30000);
+            poolConfig.setTimeBetweenEvictionRuns(Duration.ofMillis(30000));
             
             LettucePoolingClientConfiguration clientConfig = LettucePoolingClientConfiguration.builder()
                     .poolConfig(poolConfig)
