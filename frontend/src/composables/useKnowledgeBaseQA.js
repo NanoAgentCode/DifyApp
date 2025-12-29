@@ -419,9 +419,24 @@ export function useKnowledgeBaseQA(options = {}) {
            } catch (error) {
              handleError(error, '问答失败')
       
+      // 提取更详细的错误信息
+      let errorMessage = '抱歉，问答服务暂时不可用，请稍后重试。'
+      if (error?.response?.data?.error) {
+        errorMessage = `错误: ${error.response.data.error}`
+      } else if (error?.response?.data?.message) {
+        errorMessage = `错误: ${error.response.data.message}`
+      } else if (error?.message) {
+        // 网络错误或连接错误
+        if (error.message.includes('Network') || error.message.includes('Failed to fetch') || error.message.includes('ECONNREFUSED')) {
+          errorMessage = '无法连接到服务器，请检查网络连接和后端服务是否正常运行。'
+        } else {
+          errorMessage = `错误: ${error.message}`
+        }
+      }
+      
       chatHistory.value.push({
         type: 'assistant',
-        content: '抱歉，问答服务暂时不可用，请稍后重试。',
+        content: errorMessage,
         time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
       })
     } finally {

@@ -40,7 +40,7 @@ export function chat(question, conversationId, userId, history, modelId, enableB
       headers['Authorization'] = `Bearer ${token}`
     }
     
-    return fetch('/api/chat', {
+    return fetch(getFullAPIUrl('/api/chat'), {
       method: 'POST',
       headers: headers,
       credentials: 'include',

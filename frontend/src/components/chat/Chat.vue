@@ -765,10 +765,28 @@ const handleRegenerate = async (messageIndex) => {
     }
   } catch (error) {
     console.error('重新生成响应失败', error)
-    ElMessage.error('重新生成响应失败：' + (error.message || '未知错误'))
+    
+    // 提取更详细的错误信息
+    let errorMessage = '重新生成响应失败'
+    if (error?.response?.data?.error) {
+      errorMessage = `重新生成响应失败: ${error.response.data.error}`
+    } else if (error?.response?.data?.message) {
+      errorMessage = `重新生成响应失败: ${error.response.data.message}`
+    } else if (error?.message) {
+      // 网络错误或连接错误
+      if (error.message.includes('Failed to fetch') || error.message.includes('Network') || error.message.includes('ECONNREFUSED')) {
+        errorMessage = '无法连接到服务器，请检查网络连接和后端服务是否正常运行。'
+      } else {
+        errorMessage = `重新生成响应失败: ${error.message}`
+      }
+    }
+    
+    ElMessage.error(errorMessage)
     // 移除失败的AI消息
     if (chatHistory.value[aiMessageIndex]) {
-      chatHistory.value[aiMessageIndex].content = '抱歉，重新生成答案时发生错误，请重试。'
+      chatHistory.value[aiMessageIndex].content = errorMessage.includes('无法连接') 
+        ? '无法连接到服务器，请检查网络连接和后端服务是否正常运行。'
+        : '抱歉，重新生成答案时发生错误，请重试。'
       chatHistory.value[aiMessageIndex].isLoading = false
     }
   } finally {

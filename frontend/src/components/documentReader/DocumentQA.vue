@@ -78,11 +78,14 @@
 import { ref, watch, nextTick, onMounted, computed, defineExpose } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ChatLineRound, Promotion, Loading, ArrowUp, DocumentCopy } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
 import { documentQA, documentQAStream } from '@/api/documentReader'
 import { createConversation } from '@/api/chat'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { processSSEStream } from '@/composables/useSSEStream'
 import { extractContent, updateConversationId, updateMessage } from '@/composables/useResponseHandler'
+
+const router = useRouter()
 
 const props = defineProps({
   docId: {
@@ -278,12 +281,12 @@ const handleSend = async () => {
         localStorage.removeItem('userInfo')
         // 跳转到登录页
         setTimeout(() => {
-          window.location.href = '/login'
+          router.push('/login')
         }, 1500)
       } else {
         ElMessage.error('请先登录')
         setTimeout(() => {
-          window.location.href = '/login'
+          router.push('/login')
         }, 1500)
       }
       return
