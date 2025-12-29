@@ -556,7 +556,14 @@ const getVectorizedStatusIcon = (status) => {
 
 // 检查是否有文档正在向量化中
 const hasVectorizingDocuments = () => {
-  return documents.value.some(doc => doc.vectorizedStatus === 1)
+  // 优化：使用for循环替代some
+  const docs = documents.value
+  for (let i = 0; i < docs.length; i++) {
+    if (docs[i].vectorizedStatus === 1) {
+      return true
+    }
+  }
+  return false
 }
 
 // 启动自动刷新（当有文档正在向量化时）

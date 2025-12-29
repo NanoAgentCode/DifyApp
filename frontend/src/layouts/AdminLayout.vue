@@ -243,6 +243,7 @@ import HelpDialog from '@/components/HelpDialog.vue'
 import { getKnowledgeBaseList } from '@/api/knowledgeBase'
 import { getAvailableQAModels, getAvailableQAModelsForRAG } from '@/api/model'
 import { getConfigValue, setOrUpdateConfig, getConfigsByGroup } from '@/api/systemConfig'
+import { logger } from '@/utils/logger'
 
 const route = useRoute()
 const router = useRouter()
@@ -312,7 +313,7 @@ const loadConfigFromDB = async () => {
   try {
     // 加载帮助配置组的所有配置
     const configs = await getConfigsByGroup('help')
-    console.log('从数据库加载的配置:', configs)
+    logger.debug('从数据库加载的配置，数量:', configs?.length || 0)
     
     // 查找知识库ID配置
     const kbConfig = configs.find(c => c.configKey === 'help.knowledgeBaseId')
@@ -334,7 +335,7 @@ const loadConfigFromDB = async () => {
       }
     }
   } catch (error) {
-    console.error('从数据库加载配置失败:', error)
+    logger.error('从数据库加载配置失败:', error)
     // 如果数据库加载失败，尝试从本地存储恢复（兼容旧数据）
     const savedKBId = localStorage.getItem('helpKnowledgeBaseId')
     if (savedKBId) {
@@ -366,7 +367,7 @@ onMounted(async () => {
     try {
       userInfo.value = JSON.parse(userInfoStr)
     } catch (e) {
-      console.error('解析用户信息失败', e)
+      logger.error('解析用户信息失败', e)
     }
   }
   
@@ -392,7 +393,7 @@ onUnmounted(() => {
 const loadKnowledgeBaseList = async () => {
   try {
     const response = await getKnowledgeBaseList({ page: 1, pageSize: 100 })
-    console.log('知识库列表响应:', response)
+    logger.debug('知识库列表响应')
     
     // 处理不同的响应格式
     // 根据日志，响应格式是：{content: Array(11), total: 11, page: 1, pageSize: 100, totalPages: 1}
@@ -417,10 +418,9 @@ const loadKnowledgeBaseList = async () => {
       }
     }
     
-    console.log('解析后的知识库列表:', knowledgeBaseList.value)
-    console.log('知识库列表数量:', knowledgeBaseList.value.length)
+    logger.debug('知识库列表加载完成，数量:', knowledgeBaseList.value.length)
   } catch (error) {
-    console.error('加载知识库列表失败:', error)
+    logger.error('加载知识库列表失败:', error)
     ElMessage.error('加载知识库列表失败：' + (error.message || '未知错误'))
   }
 }
@@ -453,7 +453,7 @@ const loadModelList = async () => {
       selectedModelId.value = defaultModel.id
     }
   } catch (error) {
-    console.error('加载模型列表失败:', error)
+    logger.error('加载模型列表失败:', error)
     ElMessage.error('加载模型列表失败：' + (error.message || '未知错误'))
     availableModels.value = []
   }
@@ -517,7 +517,7 @@ const saveKBConfig = async () => {
     showHelpDialog.value = true
     showKBConfigDialog.value = false
   } catch (error) {
-    console.error('保存配置失败:', error)
+    logger.error('保存配置失败:', error)
     ElMessage.error('保存配置失败：' + (error.message || '未知错误'))
   }
 }
@@ -527,7 +527,7 @@ const handleMenuClick = (path) => {
   router.push(path).catch(err => {
     // 忽略重复导航错误
     if (err.name !== 'NavigationDuplicated') {
-      console.error('导航错误:', err)
+      logger.error('导航错误:', err)
     }
   })
 }

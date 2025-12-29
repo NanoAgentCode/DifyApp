@@ -474,8 +474,15 @@ const loadDocuments = async () => {
       total.value = documents.value.length
     }
     
-    // 检查是否有正在向量化的文档，如果有则启动定时刷新
-    const hasVectorizing = documents.value.some(doc => doc.vectorizedStatus === 1)
+    // 检查是否有正在向量化的文档，如果有则启动定时刷新（优化：使用for循环）
+    let hasVectorizing = false
+    const docs = documents.value
+    for (let i = 0; i < docs.length; i++) {
+      if (docs[i].vectorizedStatus === 1) {
+        hasVectorizing = true
+        break
+      }
+    }
     if (hasVectorizing) {
       startAutoRefresh()
     } else {
@@ -553,13 +560,32 @@ const startAutoRefresh = () => {
             total.value = documents.value.length
           }
           
-          // 更新 recentUploads 中的向量化状态
-          recentUploads.value = recentUploads.value.map(recent => {
-            const updated = documents.value.find(doc => doc.id === recent.id)
-            return updated || recent
-          })
-          // 如果没有正在向量化的文档，停止定时刷新
-          const hasVectorizing = documents.value.some(doc => doc.vectorizedStatus === 1)
+          // 更新 recentUploads 中的向量化状态（优化：使用Map提升查找性能）
+          const docMap = new Map()
+          for (let i = 0; i < documents.value.length; i++) {
+            const doc = documents.value[i]
+            if (doc && doc.id) {
+              docMap.set(doc.id, doc)
+            }
+          }
+          for (let i = 0; i < recentUploads.value.length; i++) {
+            const recent = recentUploads.value[i]
+            if (recent && recent.id) {
+              const updated = docMap.get(recent.id)
+              if (updated) {
+                recentUploads.value[i] = updated
+              }
+            }
+          }
+          // 如果没有正在向量化的文档，停止定时刷新（优化：使用for循环）
+          let hasVectorizing = false
+          const docs = documents.value
+          for (let i = 0; i < docs.length; i++) {
+            if (docs[i].vectorizedStatus === 1) {
+              hasVectorizing = true
+              break
+            }
+          }
           if (!hasVectorizing) {
             stopAutoRefresh()
           }
@@ -595,7 +621,14 @@ const handleDeleteDoc = (doc) => {
       ElMessage.success('删除成功')
       loadDocuments()
       // 从 recentUploads 中移除
-      recentUploads.value = recentUploads.value.filter(item => item.id !== doc.id)
+      // 优化：使用for循环替代filter
+      const filtered = []
+      for (let i = 0; i < recentUploads.value.length; i++) {
+        if (recentUploads.value[i].id !== doc.id) {
+          filtered.push(recentUploads.value[i])
+        }
+      }
+      recentUploads.value = filtered
     } catch (error) {
       ElMessage.error('删除失败：' + (error.message || '未知错误'))
     }

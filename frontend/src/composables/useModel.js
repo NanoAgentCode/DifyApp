@@ -51,28 +51,52 @@ export function useModel() {
   }
 
   /**
-   * 获取默认问答模型
+   * 获取默认问答模型（优化：使用for循环）
    */
   const defaultQAModel = computed(() => {
-    return qaModels.value.find(m => m.isDefault) || qaModels.value[0] || null
+    const models = qaModels.value
+    for (let i = 0; i < models.length; i++) {
+      if (models[i].isDefault) {
+        return models[i]
+      }
+    }
+    return models.length > 0 ? models[0] : null
   })
 
   /**
-   * 获取默认向量化模型
+   * 获取默认向量化模型（优化：使用for循环）
    */
   const defaultEmbeddingModel = computed(() => {
-    return embeddingModels.value.find(m => m.isDefault) || embeddingModels.value[0] || null
+    const models = embeddingModels.value
+    for (let i = 0; i < models.length; i++) {
+      if (models[i].isDefault) {
+        return models[i]
+      }
+    }
+    return models.length > 0 ? models[0] : null
   })
 
   /**
-   * 根据 ID 获取模型
+   * 根据 ID 获取模型（优化：使用for循环）
    */
   const getQAModelById = (id) => {
-    return qaModels.value.find(m => m.id === id)
+    const models = qaModels.value
+    for (let i = 0; i < models.length; i++) {
+      if (models[i].id === id) {
+        return models[i]
+      }
+    }
+    return undefined
   }
 
   const getEmbeddingModelById = (id) => {
-    return embeddingModels.value.find(m => m.id === id)
+    const models = embeddingModels.value
+    for (let i = 0; i < models.length; i++) {
+      if (models[i].id === id) {
+        return models[i]
+      }
+    }
+    return undefined
   }
 
   /**

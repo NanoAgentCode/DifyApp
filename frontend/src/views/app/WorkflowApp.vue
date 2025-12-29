@@ -388,7 +388,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed, watch, nextTick, shallowRef } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, computed, watch, nextTick, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, FullScreen, Document, Picture, Check, Close, Download, Loading } from '@element-plus/icons-vue'
@@ -717,10 +717,15 @@ const handleRun = async () => {
   result.value = null
 
   try {
-    // 先验证所有 JSON 输入（优化：只验证非空值）
-    const keysToValidate = Object.keys(inputsJson).filter(key => 
-      inputsJson[key] && inputsJson[key].trim()
-    )
+    // 先验证所有 JSON 输入（优化：使用for循环替代filter）
+    const allKeys = Object.keys(inputsJson)
+    const keysToValidate = []
+    for (let i = 0; i < allKeys.length; i++) {
+      const key = allKeys[i]
+      if (inputsJson[key] && inputsJson[key].trim()) {
+        keysToValidate.push(key)
+      }
+    }
     keysToValidate.forEach(key => {
       validateAndUpdateJson(key)
     })
@@ -759,19 +764,21 @@ const handleRun = async () => {
         }
       })
     } else {
-      // 旧格式：使用原有的逻辑
-      Object.keys(inputs).forEach(key => {
-        const value = inputs[key]
-        // 对于简单值，过滤空字符串
-        if (isSimpleValue(value)) {
-          if (value !== null && value !== undefined && value !== '') {
+      // 旧格式：使用原有的逻辑（优化：直接遍历对象属性）
+      for (const key in inputs) {
+        if (Object.prototype.hasOwnProperty.call(inputs, key)) {
+          const value = inputs[key]
+          // 对于简单值，过滤空字符串
+          if (isSimpleValue(value)) {
+            if (value !== null && value !== undefined && value !== '') {
+              filteredInputs[key] = value
+            }
+          } else {
+            // 对于复杂结构，直接保留（可能是空数组或空对象）
             filteredInputs[key] = value
           }
-        } else {
-          // 对于复杂结构，直接保留（可能是空数组或空对象）
-          filteredInputs[key] = value
         }
-      })
+      }
     }
 
     // 生成用户ID（用于工作流请求）
@@ -782,16 +789,31 @@ const handleRun = async () => {
     if (appInfo.value?.fileUploadEnabled && fileList.value.length > 0) {
       uploadedFiles = getUploadedFiles()
       
-      // 检查是否有未上传成功的文件
-      const failedFiles = fileList.value.filter(f => f.status === 'fail' || (f.status !== 'success' && f.raw))
-      if (failedFiles.length > 0) {
+      // 检查是否有未上传成功的文件（优化：使用for循环提前退出）
+      let hasFailedFiles = false
+      const files = fileList.value
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i]
+        if (f.status === 'fail' || (f.status !== 'success' && f.raw)) {
+          hasFailedFiles = true
+          break
+        }
+      }
+      if (hasFailedFiles) {
         ElMessage.warning('部分文件上传失败，请重新上传或移除失败的文件')
         throw new Error('存在上传失败的文件')
       }
       
-      // 检查是否有正在上传的文件
-      const uploadingFiles = fileList.value.filter(f => f.status === 'uploading')
-      if (uploadingFiles.length > 0) {
+      // 检查是否有正在上传的文件（优化：使用for循环提前退出）
+      let hasUploadingFiles = false
+      const files = fileList.value
+      for (let i = 0; i < files.length; i++) {
+        if (files[i].status === 'uploading') {
+          hasUploadingFiles = true
+          break
+        }
+      }
+      if (hasUploadingFiles) {
         ElMessage.warning('文件正在上传中，请稍候...')
         throw new Error('文件正在上传中')
       }
@@ -1028,17 +1050,20 @@ const getFileStatusText = (status) => {
 const handleClear = () => {
   result.value = null
   fileList.value = []
-  Object.keys(inputs).forEach(key => {
-    if (isSimpleValue(inputs[key])) {
-      inputs[key] = ''
-    } else {
-      // 对于复杂结构，重置为默认值
-      inputs[key] = Array.isArray(inputs[key]) ? [] : {}
+  // 优化：使用for...in循环替代Object.keys().forEach()
+  for (const key in inputs) {
+    if (Object.prototype.hasOwnProperty.call(inputs, key)) {
+      if (isSimpleValue(inputs[key])) {
+        inputs[key] = ''
+      } else {
+        // 对于复杂结构，重置为默认值
+        inputs[key] = Array.isArray(inputs[key]) ? [] : {}
+      }
+      if (inputsJson[key]) {
+        inputsJson[key] = ''
+      }
     }
-    if (inputsJson[key]) {
-      inputsJson[key] = ''
-    }
-  })
+  }
   fullInputsJson.value = JSON.stringify(inputs, null, 2)
 }
 
@@ -1073,9 +1098,10 @@ const extractFiles = (result) => {
   if (result.data && result.data.outputs && result.data.outputs.body) {
     const bodyContent = result.data.outputs.body
     
-    // 如果是数组，遍历每个文件对象
+    // 如果是数组，遍历每个文件对象（优化：使用for循环）
     if (Array.isArray(bodyContent)) {
-      bodyContent.forEach((fileItem) => {
+      for (let i = 0; i < bodyContent.length; i++) {
+        const fileItem = bodyContent[i]
         if (fileItem && fileItem.url) {
           // 提取URL并拼接前缀
           const url = fileItem.url
@@ -1101,7 +1127,7 @@ const extractFiles = (result) => {
           logger.debug('提取到文件信息')
           files.push(fileInfo)
         }
-      })
+      }
     } else if (typeof bodyContent === 'string') {
       // 兼容旧格式：body 可能是字符串
       let bodyStr = bodyContent.replace(/^["']|["']$/g, '').trim()
@@ -1199,17 +1225,19 @@ const extractFiles = (result) => {
     }
   }
   
-  // 检查 data.outputs.files（兼容旧格式）
+  // 检查 data.outputs.files（兼容旧格式，优化：使用for循环）
   if (result.data && result.data.outputs && result.data.outputs.files) {
-    result.data.outputs.files.forEach(file => {
-      if (file.url) {
+    const filesArray = result.data.outputs.files
+    for (let i = 0; i < filesArray.length; i++) {
+      const file = filesArray[i]
+      if (file && file.url) {
         const fullUrl = file.url.startsWith('http') ? file.url : `${fileUrlPrefix.value}${file.url}`
         files.push({
           ...file,
           fullUrl
         })
       }
-    })
+    }
   }
   
   return files
@@ -1524,7 +1552,14 @@ const fetchConfig = async () => {
 // 监听result变化，自动加载PDF预览（优化：使用computed避免重复计算）
 watch(extractedFiles, (files) => {
   if (files && files.length > 0) {
-    const pdfFile = files.find(f => isPdf(f))
+    // 优化：使用for循环替代find
+    let pdfFile = null
+    for (let i = 0; i < files.length; i++) {
+      if (isPdf(files[i])) {
+        pdfFile = files[i]
+        break
+      }
+    }
     if (pdfFile) {
       // 延迟加载，确保DOM已更新
       nextTick(() => {
@@ -1544,6 +1579,23 @@ watch(extractedFiles, (files) => {
 onMounted(() => {
   fetchAppInfo()
   fetchConfig()
+})
+
+// 清理资源，防止内存泄漏
+onBeforeUnmount(() => {
+  // 清理resize事件监听器
+  if (isResizing.value) {
+    document.removeEventListener('mousemove', handleResize)
+    document.removeEventListener('mouseup', stopResize)
+    isResizing.value = false
+    currentResizeIndex.value = -1
+  }
+  
+  // 清理PDF Blob URL
+  if (pdfBlobUrl.value) {
+    URL.revokeObjectURL(pdfBlobUrl.value)
+    pdfBlobUrl.value = ''
+  }
 })
 </script>
 

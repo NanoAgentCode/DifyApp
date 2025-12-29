@@ -42,10 +42,17 @@ export function useChat(options = {}) {
       const models = await getAvailableQAModels()
       availableModels.value = models || []
       
-      // 设置默认模型
+      // 设置默认模型（优化：使用for循环）
       if (availableModels.value.length > 0 && !selectedModelId.value) {
-        const defaultModel = availableModels.value.find(m => m.isDefault)
-        selectedModelId.value = defaultModel?.id || availableModels.value[0].id
+        const models = availableModels.value
+        let defaultModel = null
+        for (let i = 0; i < models.length; i++) {
+          if (models[i].isDefault) {
+            defaultModel = models[i]
+            break
+          }
+        }
+        selectedModelId.value = defaultModel?.id || models[0].id
       }
     } catch (error) {
       logger.error('加载模型列表失败:', error)

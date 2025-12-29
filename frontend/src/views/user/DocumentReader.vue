@@ -212,7 +212,18 @@ const loadAvailableModels = async () => {
     
     // 默认选择第一个模型或默认模型
     if (availableModels.value.length > 0) {
-      const defaultModel = availableModels.value.find(m => m.isDefault) || availableModels.value[0]
+      // 优化：使用for循环替代find
+      const models = availableModels.value
+      let defaultModel = null
+      for (let i = 0; i < models.length; i++) {
+        if (models[i].isDefault) {
+          defaultModel = models[i]
+          break
+        }
+      }
+      if (!defaultModel && models.length > 0) {
+        defaultModel = models[0]
+      }
       selectedModelId.value = defaultModel.id
     }
   } catch (error) {

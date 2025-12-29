@@ -276,6 +276,7 @@
 
 <script setup>
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
+import { logger } from '@/utils/logger'
 import { ElMessage } from 'element-plus'
 import { Refresh, ArrowUp, ArrowDown } from '@element-plus/icons-vue'
 import { use } from 'echarts/core'
@@ -357,13 +358,17 @@ const ensureCompleteDateRange = (dataArray, dateKey, valueKeys, expectedDays) =>
   if (!dataArray || dataArray.length === 0) {
     // 如果完全没有数据，生成完整日期范围，所有值设为0
     const fullDateRange = generateDateRange(expectedDays)
-    return fullDateRange.map(date => {
+    // 优化：使用for循环替代map
+    const result = []
+    for (let i = 0; i < fullDateRange.length; i++) {
+      const date = fullDateRange[i]
       const item = { [dateKey]: date }
-      valueKeys.forEach(key => {
-        item[key] = 0
-      })
-      return item
-    })
+      for (let j = 0; j < valueKeys.length; j++) {
+        item[valueKeys[j]] = 0
+      }
+      result.push(item)
+    }
+    return result
   }
   
   // 如果数据条数已经等于期望天数，直接返回（后端已保证完整）
@@ -373,14 +378,15 @@ const ensureCompleteDateRange = (dataArray, dateKey, valueKeys, expectedDays) =>
   
   // 如果数据条数不够，补充缺失日期
   if (dataArray.length < expectedDays) {
-    console.warn(`后端数据条目不足：期望${expectedDays}天，实际${dataArray.length}天，正在补充缺失日期`)
+    logger.debug(`后端数据条目不足：期望${expectedDays}天，实际${dataArray.length}天，正在补充缺失日期`)
     
     const fullDateRange = generateDateRange(expectedDays)
     const dataMap = new Map()
     
-    // 将现有数据转换为Map，以日期为key
-    dataArray.forEach(item => {
-      if (item[dateKey]) {
+    // 将现有数据转换为Map，以日期为key（优化：使用for循环）
+    for (let i = 0; i < dataArray.length; i++) {
+      const item = dataArray[i]
+      if (item && item[dateKey]) {
         let dateStr = item[dateKey]
         if (typeof dateStr === 'string') {
           dateStr = dateStr.split(' ')[0].split('T')[0]
@@ -389,31 +395,33 @@ const ensureCompleteDateRange = (dataArray, dateKey, valueKeys, expectedDays) =>
         }
         dataMap.set(dateStr, item)
       }
-    })
+    }
     
-    // 为每个日期创建数据对象，缺失的日期值设为0
-    const filledData = fullDateRange.map(date => {
+    // 为每个日期创建数据对象，缺失的日期值设为0（优化：使用for循环）
+    const filledData = []
+    for (let i = 0; i < fullDateRange.length; i++) {
+      const date = fullDateRange[i]
       const normalizedDate = date.split(' ')[0].split('T')[0]
       
       if (dataMap.has(normalizedDate)) {
         const existingItem = dataMap.get(normalizedDate)
-        return { ...existingItem, [dateKey]: normalizedDate }
+        filledData.push({ ...existingItem, [dateKey]: normalizedDate })
       } else {
         // 创建缺失日期的数据对象，所有值设为0
         const missingItem = { [dateKey]: normalizedDate }
-        valueKeys.forEach(key => {
-          missingItem[key] = 0
-        })
-        return missingItem
+        for (let j = 0; j < valueKeys.length; j++) {
+          missingItem[valueKeys[j]] = 0
+        }
+        filledData.push(missingItem)
       }
-    })
+    }
     
     return filledData
   }
   
   // 如果数据条数超过期望天数，截取最近N天
   if (dataArray.length > expectedDays) {
-    console.warn(`后端数据条目过多：期望${expectedDays}天，实际${dataArray.length}天，截取最近${expectedDays}天`)
+    logger.debug(`后端数据条目过多：期望${expectedDays}天，实际${dataArray.length}天，截取最近${expectedDays}天`)
     return dataArray.slice(-expectedDays)
   }
   
@@ -425,10 +433,13 @@ const userRoleChartOption = computed(() => {
   if (!users.value?.roleDistribution) {
     return { title: { text: '暂无数据' } }
   }
-  const data = Object.entries(users.value.roleDistribution).map(([name, value]) => ({
-    name,
-    value
-  }))
+  // 优化：使用for循环替代map
+  const entries = Object.entries(users.value.roleDistribution)
+  const data = []
+  for (let i = 0; i < entries.length; i++) {
+    const [name, value] = entries[i]
+    data.push({ name, value })
+  }
   return {
     tooltip: {
       trigger: 'item',
@@ -463,10 +474,13 @@ const userStatusChartOption = computed(() => {
   if (!users.value?.statusDistribution) {
     return { title: { text: '暂无数据' } }
   }
-  const data = Object.entries(users.value.statusDistribution).map(([name, value]) => ({
-    name,
-    value
-  }))
+  // 优化：使用for循环替代map
+  const entries = Object.entries(users.value.statusDistribution)
+  const data = []
+  for (let i = 0; i < entries.length; i++) {
+    const [name, value] = entries[i]
+    data.push({ name, value })
+  }
   return {
     tooltip: {
       trigger: 'item',
@@ -514,12 +528,17 @@ const userRegistrationTrendOption = computed(() => {
   
   // 使用后端返回的数据，如果数据条目不够则补充缺失日期（保护性措施）
   const completeData = ensureCompleteDateRange(currentData, 'date', ['count'], rangeDays)
-  const dates = completeData.map(item => item.date)
-  const counts = completeData.map(item => item.count || 0)
+  // 优化：使用for循环替代map
+  const dates = []
+  const counts = []
+  for (let i = 0; i < completeData.length; i++) {
+    dates.push(completeData[i].date)
+    counts.push(completeData[i].count || 0)
+  }
   
   // 确保dates数组有效且长度正确
   if (!dates || dates.length === 0) {
-    console.warn('用户趋势：dates数组为空')
+    logger.debug('用户趋势：dates数组为空')
     return { 
       title: { text: '数据错误', left: 'center', top: 'middle' },
       grid: { left: '3%', right: '4%', bottom: '25%', containLabel: true }
@@ -611,10 +630,13 @@ const appTypeChartOption = computed(() => {
   if (!apps.value?.typeDistribution) {
     return { title: { text: '暂无数据' } }
   }
-  const data = Object.entries(apps.value.typeDistribution).map(([name, value]) => ({
-    name,
-    value
-  }))
+  // 优化：使用for循环替代map
+  const entries = Object.entries(apps.value.typeDistribution)
+  const data = []
+  for (let i = 0; i < entries.length; i++) {
+    const [name, value] = entries[i]
+    data.push({ name, value })
+  }
   return {
     tooltip: {
       trigger: 'item',
@@ -649,8 +671,14 @@ const appUsageChartOption = computed(() => {
   if (!apps.value?.appUsage || apps.value.appUsage.length === 0) {
     return { title: { text: '暂无数据' } }
   }
-  const names = apps.value.appUsage.map(item => item.appName)
-  const counts = apps.value.appUsage.map(item => item.conversationCount)
+  // 优化：使用for循环替代map
+  const usage = apps.value.appUsage
+  const names = []
+  const counts = []
+  for (let i = 0; i < usage.length; i++) {
+    names.push(usage[i].appName)
+    counts.push(usage[i].conversationCount)
+  }
   return {
     grid: {
       left: '3%',
@@ -691,10 +719,13 @@ const kbStatusChartOption = computed(() => {
   if (!knowledgeBases.value?.statusDistribution) {
     return { title: { text: '暂无数据' } }
   }
-  const data = Object.entries(knowledgeBases.value.statusDistribution).map(([name, value]) => ({
-    name,
-    value
-  }))
+  // 优化：使用for循环替代map
+  const entries = Object.entries(knowledgeBases.value.statusDistribution)
+  const data = []
+  for (let i = 0; i < entries.length; i++) {
+    const [name, value] = entries[i]
+    data.push({ name, value })
+  }
   return {
     tooltip: {
       trigger: 'item',
@@ -729,8 +760,14 @@ const kbUsageChartOption = computed(() => {
   if (!knowledgeBases.value?.kbUsage || knowledgeBases.value.kbUsage.length === 0) {
     return { title: { text: '暂无数据' } }
   }
-  const names = knowledgeBases.value.kbUsage.map(item => item.kbName)
-  const counts = knowledgeBases.value.kbUsage.map(item => item.conversationCount)
+  // 优化：使用for循环替代map
+  const usage = knowledgeBases.value.kbUsage
+  const names = []
+  const counts = []
+  for (let i = 0; i < usage.length; i++) {
+    names.push(usage[i].kbName)
+    counts.push(usage[i].conversationCount)
+  }
   return {
     grid: {
       left: '3%',
@@ -771,10 +808,13 @@ const chatTypeChartOption = computed(() => {
   if (!chatHistory.value?.typeDistribution) {
     return { title: { text: '暂无数据' } }
   }
-  const data = Object.entries(chatHistory.value.typeDistribution).map(([name, value]) => ({
-    name,
-    value
-  }))
+  // 优化：使用for循环替代map
+  const entries = Object.entries(chatHistory.value.typeDistribution)
+  const data = []
+  for (let i = 0; i < entries.length; i++) {
+    const [name, value] = entries[i]
+    data.push({ name, value })
+  }
   return {
     tooltip: {
       trigger: 'item',
@@ -809,8 +849,14 @@ const userConversationRankChartOption = computed(() => {
   if (!chatHistory.value?.userConversationRanks || chatHistory.value.userConversationRanks.length === 0) {
     return { title: { text: '暂无数据' } }
   }
-  const names = chatHistory.value.userConversationRanks.map(item => item.username)
-  const counts = chatHistory.value.userConversationRanks.map(item => item.conversationCount)
+  // 优化：使用for循环替代map
+  const ranks = chatHistory.value.userConversationRanks
+  const names = []
+  const counts = []
+  for (let i = 0; i < ranks.length; i++) {
+    names.push(ranks[i].username)
+    counts.push(ranks[i].conversationCount)
+  }
   return {
     grid: {
       left: '3%',
@@ -861,13 +907,19 @@ const chatTrendChartOption = computed(() => {
   
   // 使用后端返回的数据，如果数据条目不够则补充缺失日期（保护性措施）
   const completeData = ensureCompleteDateRange(currentData, 'date', ['conversationCount', 'messageCount'], rangeDays)
-  const dates = completeData.map(item => item.date)
-  const conversationCounts = completeData.map(item => item.conversationCount || 0)
-  const messageCounts = completeData.map(item => item.messageCount || 0)
+  // 优化：使用for循环替代map
+  const dates = []
+  const conversationCounts = []
+  const messageCounts = []
+  for (let i = 0; i < completeData.length; i++) {
+    dates.push(completeData[i].date)
+    conversationCounts.push(completeData[i].conversationCount || 0)
+    messageCounts.push(completeData[i].messageCount || 0)
+  }
   
   // 确保dates数组有效且长度正确
   if (!dates || dates.length === 0) {
-    console.warn('会话趋势：dates数组为空')
+    logger.debug('会话趋势：dates数组为空')
     return { 
       title: { text: '数据错误', left: 'center', top: 'middle' },
       grid: { left: '3%', right: '4%', bottom: '25%', containLabel: true }
@@ -991,9 +1043,16 @@ const modelTokenUsageChartOption = computed(() => {
   if (!modelTokens.value?.modelTokenUsage || modelTokens.value.modelTokenUsage.length === 0) {
     return { title: { text: '暂无数据' } }
   }
-  const names = modelTokens.value.modelTokenUsage.map(item => item.modelName)
-  const promptTokens = modelTokens.value.modelTokenUsage.map(item => item.promptTokens || 0)
-  const completionTokens = modelTokens.value.modelTokenUsage.map(item => item.completionTokens || 0)
+  // 优化：使用for循环替代map
+  const usage = modelTokens.value.modelTokenUsage
+  const names = []
+  const promptTokens = []
+  const completionTokens = []
+  for (let i = 0; i < usage.length; i++) {
+    names.push(usage[i].modelName)
+    promptTokens.push(usage[i].promptTokens || 0)
+    completionTokens.push(usage[i].completionTokens || 0)
+  }
   return {
     grid: {
       left: '3%',
@@ -1044,10 +1103,13 @@ const modelDistributionChartOption = computed(() => {
   if (!modelTokens.value?.modelDistribution) {
     return { title: { text: '暂无数据' } }
   }
-  const data = Object.entries(modelTokens.value.modelDistribution).map(([name, value]) => ({
-    name,
-    value
-  }))
+    // 优化：使用for循环替代map
+    const entries = Object.entries(modelTokens.value.modelDistribution)
+    const data = []
+    for (let i = 0; i < entries.length; i++) {
+      const [name, value] = entries[i]
+      data.push({ name, value })
+    }
   return {
     tooltip: {
       trigger: 'item',
@@ -1104,7 +1166,7 @@ const tokenTrendChartOption = computed(() => {
     
     // 数据验证
     if (!currentData) {
-      console.warn('Token趋势数据不存在:', modelTokens.value)
+      logger.debug('Token趋势数据不存在')
       return {
         title: { text: '暂无数据', left: 'center', top: 'middle' },
         grid: { left: '3%', right: '4%', bottom: '25%', containLabel: true }
@@ -1112,7 +1174,7 @@ const tokenTrendChartOption = computed(() => {
     }
     
     if (currentData.length === 0) {
-      console.warn('Token趋势数据为空数组')
+      logger.debug('Token趋势数据为空数组')
       return {
         title: { text: '暂无数据', left: 'center', top: 'middle' },
         grid: { left: '3%', right: '4%', bottom: '25%', containLabel: true }
@@ -1202,7 +1264,7 @@ const tokenTrendChartOption = computed(() => {
     
     // 确保日期数据有效
     if (!dates || dates.length === 0) {
-      console.warn('Token趋势数据日期为空')
+      logger.debug('Token趋势数据日期为空')
       return {
         title: { text: '数据错误', left: 'center', top: 'middle' },
         grid: { left: '3%', right: '4%', bottom: '25%', containLabel: true }
@@ -1210,7 +1272,7 @@ const tokenTrendChartOption = computed(() => {
     }
     
     // 调试日志
-    console.log('Token趋势图表配置（按模型分组）:', {
+    logger.debug('Token趋势图表配置（按模型分组）', {
       timeRange: currentTimeRange,
       rangeDays: rangeDays,
       modelCount: modelDataMap.size,
@@ -1256,13 +1318,13 @@ const tokenTrendChartOption = computed(() => {
                 }
               }
             } catch (e) {
-              console.warn('Tooltip formatter error for param:', e)
+              logger.debug('Tooltip formatter error for param:', e)
             }
           })
           
           return result
         } catch (e) {
-          console.error('Tooltip formatter error:', e)
+          logger.error('Tooltip formatter error:', e)
           return ''
         }
       }
@@ -1327,7 +1389,7 @@ const tokenTrendChartOption = computed(() => {
     series: series
   }
   } catch (error) {
-    console.error('生成Token趋势图表配置失败:', error)
+    logger.error('生成Token趋势图表配置失败:', error)
     return {
       title: { text: '图表配置错误', left: 'center', top: 'middle' },
       grid: { left: '3%', right: '4%', bottom: '25%', containLabel: true }
@@ -1341,7 +1403,7 @@ const loadAllStatistics = async () => {
   try {
     // 根据timeRange确定天数
     const rangeDays = parseInt(timeRange.value) || 30
-    console.log('加载统计数据，时间范围:', rangeDays, '天')
+    logger.debug('加载统计数据，时间范围:', rangeDays, '天')
     
     // 加载主要统计数据（传递时间范围参数）
     const statsResponse = await getAllStatistics(rangeDays)
@@ -1352,22 +1414,19 @@ const loadAllStatistics = async () => {
     modelTokens.value = statsResponse.modelTokens
     
     // 调试：输出统计数据
-    console.log('用户趋势数据长度:', statsResponse.users?.registrationTrend?.length || 0)
-    console.log('Token趋势数据长度:', statsResponse.modelTokens?.tokenTrend?.length || 0)
-    if (statsResponse.modelTokens?.tokenTrend) {
-      console.log('Token趋势数据:', statsResponse.modelTokens.tokenTrend)
-    }
+    logger.debug('用户趋势数据长度:', statsResponse.users?.registrationTrend?.length || 0)
+    logger.debug('Token趋势数据长度:', statsResponse.modelTokens?.tokenTrend?.length || 0)
 
     // 加载会话历史统计（传递时间范围参数）
     const chatHistoryResponse = await getChatHistoryStatistics(rangeDays)
     chatHistory.value = chatHistoryResponse
-    console.log('会话趋势数据长度:', chatHistoryResponse?.dailyStatistics?.length || 0)
+    logger.debug('会话趋势数据长度:', chatHistoryResponse?.dailyStatistics?.length || 0)
     
     // 数据加载完成后，等待DOM更新，然后强制更新图表
     await nextTick()
     chartUpdateKey.value++
   } catch (error) {
-    console.error('加载统计数据失败:', error)
+    logger.error('加载统计数据失败:', error)
     ElMessage.error('加载统计数据失败：' + (error.message || '未知错误'))
   } finally {
     loading.value = false
@@ -1377,13 +1436,13 @@ const loadAllStatistics = async () => {
 // 时间范围变化处理
 const handleTimeRangeChange = (value) => {
   // 时间范围改变时，重新加载数据
-  console.log('时间范围改变为:', value, '天')
+  logger.debug('时间范围改变为:', value, '天')
   loadAllStatistics()
 }
 
 // Tab切换处理
 const handleTabChange = (tabName) => {
-  console.log('切换到Tab:', tabName)
+  logger.debug('切换到Tab:', tabName)
   // Tab切换后，等待DOM更新完成，然后强制更新图表
   nextTick(() => {
     setTimeout(() => {
@@ -1394,7 +1453,7 @@ const handleTabChange = (tabName) => {
 
 // 柱状图Tab切换处理
 const handleBarTabChange = (tabName) => {
-  console.log('切换到柱状图Tab:', tabName)
+  logger.debug('切换到柱状图Tab:', tabName)
   // Tab切换后，等待DOM更新完成，然后强制更新图表
   nextTick(() => {
     setTimeout(() => {

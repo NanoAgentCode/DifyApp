@@ -77,7 +77,15 @@ const fetchAppList = async () => {
     }
     
     const res = await getAppList(params)
-    appList.value = (res || []).filter(app => app.status === 1)
+    // 优化：使用for循环替代filter
+    const allApps = res || []
+    const filteredApps = []
+    for (let i = 0; i < allApps.length; i++) {
+      if (allApps[i].status === 1) {
+        filteredApps.push(allApps[i])
+      }
+    }
+    appList.value = filteredApps
   } catch (error) {
     ElMessage.error('获取应用列表失败')
   } finally {

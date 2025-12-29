@@ -42,16 +42,25 @@ export function useKnowledgeBaseQA(options = {}) {
   const vectorDatabases = ref([])
   const enabledVectorStoreTypes = ref([])
 
-  // 计算属性
+  // 计算属性（优化：缓存keyword，避免重复toLowerCase）
   const filteredKnowledgeBases = computed(() => {
     if (!kbSearchKeyword.value) {
       return knowledgeBases.value
     }
-    const keyword = kbSearchKeyword.value.toLowerCase()
-    return knowledgeBases.value.filter(kb =>
-      kb.name.toLowerCase().includes(keyword) ||
-      (kb.description && kb.description.toLowerCase().includes(keyword))
-    )
+    const keyword = kbSearchKeyword.value.toLowerCase().trim()
+    if (!keyword) {
+      return knowledgeBases.value
+    }
+    // 优化：使用for循环替代filter，提前退出
+    const result = []
+    for (let i = 0; i < knowledgeBases.value.length; i++) {
+      const kb = knowledgeBases.value[i]
+      if (kb.name.toLowerCase().includes(keyword) ||
+          (kb.description && kb.description.toLowerCase().includes(keyword))) {
+        result.push(kb)
+      }
+    }
+    return result
   })
 
   const displayedKnowledgeBases = computed(() => {
