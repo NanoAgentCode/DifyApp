@@ -48,6 +48,7 @@
           <div
             v-for="pageNum in pdfPageNumbers"
             :key="`pdf-${docId}-page-${pageNum}`"
+            :id="`pdf-page-${pageNum}`"
             class="pdf-page-container"
           >
             <div class="pdf-page-number">第 {{ pageNum }} 页 / 共 {{ pdfTotalPages }} 页</div>
@@ -178,6 +179,27 @@ import mammoth from 'mammoth'
 import VuePdfEmbed from 'vue-pdf-embed'
 import * as pdfjsLib from 'pdfjs-dist'
 
+// 配置pdfjs-dist worker
+if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+}
+
+// 抑制PDF.js的字体警告（这些警告不影响PDF显示）
+if (typeof window !== 'undefined') {
+  const originalWarn = console.warn
+  console.warn = function(...args) {
+    // 过滤掉PDF字体相关的警告
+    const message = args[0]?.toString() || ''
+    if (message.includes('TT: undefined function') || 
+        message.includes('Warning:') && message.includes('TT:')) {
+      // 忽略这些警告，不影响功能
+      return
+    }
+    // 其他警告正常输出
+    originalWarn.apply(console, args)
+  }
+}
+
 const props = defineProps({
   docId: {
     type: Number,
@@ -285,7 +307,11 @@ const loadDocumentContent = async () => {
             pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
           }
           
-          const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
+          // 配置PDF加载选项，抑制字体警告
+          const loadingTask = pdfjsLib.getDocument({ 
+            data: arrayBuffer,
+            verbosity: 0 // 0 = errors only, 1 = warnings (default), 5 = infos
+          })
           const pdfDocument = await loadingTask.promise
           
           if (pdfDocument && pdfDocument.numPages) {
@@ -356,16 +382,68 @@ const loadDocumentContent = async () => {
   }
 }
 
+// 滚动到指定页面
+const scrollToPage = (pageNum) => {
+  // 使用多次尝试，确保页面已渲染
+  let attempts = 0
+  const maxAttempts = 10
+  
+  const tryScroll = () => {
+    attempts++
+    const pageElement = document.getElementById(`pdf-page-${pageNum}`)
+    const container = document.querySelector('.pdf-viewer-wrapper')
+    
+    if (pageElement && container) {
+      // 使用scrollIntoView更可靠
+      pageElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+        inline: 'nearest'
+      })
+      
+      // 额外调整，确保页面顶部有适当间距
+      setTimeout(() => {
+        const containerRect = container.getBoundingClientRect()
+        const pageRect = pageElement.getBoundingClientRect()
+        if (pageRect.top < containerRect.top + 20) {
+          const scrollTop = container.scrollTop + (pageRect.top - containerRect.top) - 20
+          container.scrollTo({
+            top: scrollTop,
+            behavior: 'smooth'
+          })
+        }
+      }, 100)
+    } else if (attempts < maxAttempts) {
+      // 如果元素还没渲染，等待一段时间后重试
+      setTimeout(tryScroll, 100)
+    } else {
+      console.warn(`无法滚动到第${pageNum}页，元素可能还未渲染`)
+    }
+  }
+  
+  tryScroll()
+}
+
 // 翻页处理
 const handlePrevPage = () => {
   if (props.currentPage > 1) {
-    emit('update:currentPage', props.currentPage - 1)
+    const newPage = props.currentPage - 1
+    emit('update:currentPage', newPage)
+    // 等待DOM更新后滚动
+    setTimeout(() => {
+      scrollToPage(newPage)
+    }, 50)
   }
 }
 
 const handleNextPage = () => {
   if (props.currentPage < props.totalPages) {
-    emit('update:currentPage', props.currentPage + 1)
+    const newPage = props.currentPage + 1
+    emit('update:currentPage', newPage)
+    // 等待DOM更新后滚动
+    setTimeout(() => {
+      scrollToPage(newPage)
+    }, 50)
   }
 }
 
@@ -590,10 +668,14 @@ watch(() => props.docId, (newDocId, oldDocId) => {
   }
 }, { immediate: true })
 
-// 监听页码变化（仅对非PDF文件需要重新加载，PDF显示所有页面不需要重新加载）
+// 监听页码变化
 watch(() => props.currentPage, (newPage, oldPage) => {
-  // 对于PDF文件，已经显示所有页面，不需要重新加载
-  if (fileType.value === 'pdf') {
+  // 对于PDF文件，已经显示所有页面，滚动到对应页面
+  if (fileType.value === 'pdf' && newPage !== oldPage) {
+    // 等待DOM更新后滚动
+    setTimeout(() => {
+      scrollToPage(newPage)
+    }, 50)
     return
   }
   
