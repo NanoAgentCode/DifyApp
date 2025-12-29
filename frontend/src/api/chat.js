@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import { getFullAPIUrl } from '@/config/api'
 
 /**
  * 智能问答（非流式）
@@ -112,7 +113,7 @@ export function chatStream(question, conversationId, userId, history, modelId, e
       headers['Authorization'] = `Bearer ${token}`
     }
     
-    return fetch('/api/chat/stream', {
+    return fetch(getFullAPIUrl('/api/chat/stream'), {
       method: 'POST',
       headers: headers,
       credentials: 'include',
@@ -130,7 +131,7 @@ export function chatStream(question, conversationId, userId, history, modelId, e
       headers['Authorization'] = `Bearer ${token}`
     }
     
-    return fetch('/api/chat/stream', {
+    return fetch(getFullAPIUrl('/api/chat/stream'), {
       method: 'POST',
       headers: headers,
       credentials: 'include',

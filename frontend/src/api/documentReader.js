@@ -299,6 +299,8 @@ export function documentQA(docId, question, conversationId, userId, history, mod
  * @param {array} history - 历史对话（可选）
  * @param {number} modelId - 模型ID
  */
+import { getFullAPIUrl } from '@/config/api'
+
 export function documentQAStream(docId, question, conversationId, userId, history, modelId) {
   // 获取JWT token
   const token = localStorage.getItem('token')
@@ -313,7 +315,7 @@ export function documentQAStream(docId, question, conversationId, userId, histor
     headers['Authorization'] = `Bearer ${token}`
   }
   
-  return fetch(`/api/document-reader/documents/${docId}/qa/stream`, {
+  return fetch(getFullAPIUrl(`/api/document-reader/documents/${docId}/qa/stream`), {
     method: 'POST',
     headers: headers,
     credentials: 'include',

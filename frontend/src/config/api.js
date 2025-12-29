@@ -33,3 +33,22 @@ export function getBaseURL() {
   return defaultBaseURL
 }
 
+/**
+ * 获取完整的API URL（用于fetch请求，特别是流式响应）
+ * Tauri打包后需要完整URL，不能使用相对路径
+ * @param {string} path - API路径（如 '/api/chat/stream'）
+ * @returns {string} 完整的URL
+ */
+export function getFullAPIUrl(path) {
+  const baseURL = getBaseURL()
+  // 如果baseURL为空（开发环境），直接返回path（使用Vite代理）
+  if (!baseURL) {
+    return path
+  }
+  // 确保path以/开头
+  const normalizedPath = path.startsWith('/') ? path : '/' + path
+  // 确保baseURL不以/结尾
+  const normalizedBase = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL
+  return normalizedBase + normalizedPath
+}
+

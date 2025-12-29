@@ -56,6 +56,7 @@ import { getAppDetail, chatApp, chatAppStream } from '@/api/aiApp'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { processSSEStream } from '@/composables/useSSEStream'
 import { extractContent, updateConversationId } from '@/composables/useResponseHandler'
+import { getFullAPIUrl } from '@/config/api'
 import AppIcon from '@/components/AppIcon.vue'
 
 const route = useRoute()
@@ -188,7 +189,7 @@ const handleStreamChat = async (requestData) => {
   }
 
   try {
-    const response = await fetch(`/api/ai-apps/${route.params.id}/chat/stream`, {
+    const response = await fetch(getFullAPIUrl(`/api/ai-apps/${route.params.id}/chat/stream`), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

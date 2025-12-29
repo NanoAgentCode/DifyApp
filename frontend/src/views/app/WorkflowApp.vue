@@ -393,6 +393,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, FullScreen, Document, Picture, Check, Close, Download, Loading } from '@element-plus/icons-vue'
 import { getAppDetail, workflowApp, workflowAppStream, uploadFile } from '@/api/aiApp'
+import { getFullAPIUrl } from '@/config/api'
 import request from '@/utils/request'
 import { getThemeById, getThemeCSSVariables } from '@/utils/themes'
 import AppIcon from '@/components/AppIcon.vue'
@@ -866,7 +867,7 @@ const handleStreamWorkflow = async (requestData) => {
   let streamResult = ''
 
   try {
-    const response = await fetch(`/api/ai-apps/${route.params.id}/workflow/stream`, {
+    const response = await fetch(getFullAPIUrl(`/api/ai-apps/${route.params.id}/workflow/stream`), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

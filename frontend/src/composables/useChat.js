@@ -182,7 +182,8 @@ export function useChat(options = {}) {
         headers['Authorization'] = `Bearer ${token}`
       }
 
-      const response = await fetch('/api/chat/stream', {
+      const { getFullAPIUrl } = await import('@/config/api')
+      const response = await fetch(getFullAPIUrl('/api/chat/stream'), {
         method: 'POST',
         headers,
         credentials: 'include',

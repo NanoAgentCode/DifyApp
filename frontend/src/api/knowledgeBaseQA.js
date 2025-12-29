@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import { getFullAPIUrl } from '@/config/api'
 
 /**
  * 知识库问答（非流式）
@@ -34,7 +35,7 @@ export function knowledgeBaseQAStream(kbId, question, conversationId, userId, hi
     headers['Authorization'] = `Bearer ${token}`
   }
   
-  return fetch(`/api/knowledge-bases/${kbId}/qa/stream`, {
+  return fetch(getFullAPIUrl(`/api/knowledge-bases/${kbId}/qa/stream`), {
     method: 'POST',
     headers: headers,
     credentials: 'include', // 包含cookies
