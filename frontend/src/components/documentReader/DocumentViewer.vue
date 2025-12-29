@@ -45,15 +45,22 @@
           <p>正在加载PDF...</p>
         </div>
         <div v-else-if="pdfSource" class="pdf-viewer-wrapper">
-          <vue-pdf-embed
-            ref="pdfEmbedRef"
-            :source="pdfSource"
-            :page="currentPage"
-            :textLayer="true"
-            class="pdf-embed"
-            @rendered="handlePdfRendered"
-            @failed="handlePdfFailed"
-          />
+          <div
+            v-for="pageNum in pdfPageNumbers"
+            :key="`pdf-${docId}-page-${pageNum}`"
+            class="pdf-page-container"
+          >
+            <div class="pdf-page-number">第 {{ pageNum }} 页 / 共 {{ pdfTotalPages }} 页</div>
+            <vue-pdf-embed
+              :source="pdfSource"
+              :page="pageNum"
+              :textLayer="true"
+              class="pdf-embed"
+              :ref="pageNum === 1 ? setPdfEmbedRef : undefined"
+              @rendered="(info) => handlePdfPageRendered(pageNum, info)"
+              @failed="handlePdfFailed"
+            />
+          </div>
         </div>
         <div v-else class="loading-container">
           <el-icon class="loading-icon"><Loading /></el-icon>
@@ -169,6 +176,7 @@ import { getDocumentContent } from '@/api/documentReader'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import mammoth from 'mammoth'
 import VuePdfEmbed from 'vue-pdf-embed'
+import * as pdfjsLib from 'pdfjs-dist'
 
 const props = defineProps({
   docId: {
@@ -217,6 +225,21 @@ const textContent = ref('')
 const docxContent = ref('')
 const loading = ref(false)
 
+// PDF总页数
+const pdfTotalPages = ref(1)
+
+// PDF页码数组（用于v-for循环）
+const pdfPageNumbers = computed(() => {
+  return Array.from({ length: pdfTotalPages.value }, (_, i) => i + 1)
+})
+
+// 设置PDF embed ref（仅用于第一页）
+const setPdfEmbedRef = (el) => {
+  if (el) {
+    pdfEmbedRef.value = el
+  }
+}
+
 const renderedMarkdown = computed(() => {
   if (!markdownContent.value) return ''
   return renderMarkdown(markdownContent.value)
@@ -228,6 +251,7 @@ const loadDocumentContent = async () => {
   
   // 重置所有内容
   pdfSource.value = null
+  pdfTotalPages.value = 1 // 重置总页数，初始显示第一页
   imageUrl.value = ''
   markdownContent.value = ''
   textContent.value = ''
@@ -235,7 +259,10 @@ const loadDocumentContent = async () => {
   
   loading.value = true
   try {
-    const response = await getDocumentContent(props.docId, props.currentPage)
+    // 对于 PDF，获取完整文件（不传页码参数）
+    // 对于其他类型，可能需要按页加载
+    const pageParam = fileType.value === 'pdf' ? null : props.currentPage
+    const response = await getDocumentContent(props.docId, pageParam)
     
     if (fileType.value === 'pdf') {
       // PDF文件，使用vue-pdf-embed显示
@@ -243,13 +270,33 @@ const loadDocumentContent = async () => {
         // response 是 Blob 对象（因为 responseType: 'blob'）
         // vue-pdf-embed 支持 Blob，但为了更好的兼容性，我们创建 Blob URL
         // 注意：Blob URL 不需要认证，因为数据已经在内存中
-        if (response instanceof Blob) {
-          pdfSource.value = URL.createObjectURL(response)
-        } else {
+        let pdfBlob = response
+        if (!(response instanceof Blob)) {
           // 如果不是 Blob，可能是 ArrayBuffer，转换为 Blob
-          const blob = new Blob([response], { type: 'application/pdf' })
-          pdfSource.value = URL.createObjectURL(blob)
+          pdfBlob = new Blob([response], { type: 'application/pdf' })
         }
+        pdfSource.value = URL.createObjectURL(pdfBlob)
+        
+        // 使用pdfjs-dist获取总页数
+        try {
+          const arrayBuffer = await pdfBlob.arrayBuffer()
+          // 配置worker（如果需要）
+          if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+          }
+          
+          const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
+          const pdfDocument = await loadingTask.promise
+          
+          if (pdfDocument && pdfDocument.numPages) {
+            pdfTotalPages.value = pdfDocument.numPages
+            emit('update:totalPages', pdfDocument.numPages)
+            console.log('PDF总页数（从pdfjs-dist获取）:', pdfDocument.numPages)
+          }
+        } catch (pageCountError) {
+          console.warn('使用pdfjs-dist获取总页数失败，将等待vue-pdf-embed渲染:', pageCountError)
+        }
+        
         loading.value = false
       } catch (error) {
         console.error('PDF加载失败:', error)
@@ -335,24 +382,47 @@ const handleZoomOut = () => {
   }
 }
 
-// PDF渲染完成回调
-const handlePdfRendered = async (info) => {
-  console.log('PDF渲染完成:', info)
-  loading.value = false
-  
-  // 尝试从vue-pdf-embed获取总页数
-  try {
-    if (pdfEmbedRef.value && pdfEmbedRef.value.pdf) {
-      const pdf = pdfEmbedRef.value.pdf
-      if (pdf && pdf.numPages) {
-        emit('update:totalPages', pdf.numPages)
-        console.log('PDF总页数:', pdf.numPages)
+// PDF页面渲染完成回调
+const handlePdfPageRendered = async (pageNum, info) => {
+  // 只在第一页渲染时获取总页数并更新状态
+  if (pageNum === 1) {
+    loading.value = false
+    
+    // 尝试从vue-pdf-embed获取总页数
+    try {
+      if (pdfEmbedRef.value && pdfEmbedRef.value.pdf) {
+        const pdf = pdfEmbedRef.value.pdf
+        if (pdf && pdf.numPages) {
+          pdfTotalPages.value = pdf.numPages
+          emit('update:totalPages', pdf.numPages)
+          console.log('PDF渲染完成，总页数:', pdf.numPages)
+          return
+        }
       }
-    } else if (info && info.numPages) {
-      emit('update:totalPages', info.numPages)
+      
+      // 如果从 ref 获取失败，尝试从 info 参数获取
+      if (info && typeof info === 'object') {
+        if (info.numPages) {
+          pdfTotalPages.value = info.numPages
+          emit('update:totalPages', info.numPages)
+          console.log('PDF渲染完成，总页数:', info.numPages)
+          return
+        }
+      } else {
+        // info 为 undefined 或无效值，尝试延迟获取
+        if (pdfEmbedRef.value) {
+          setTimeout(() => {
+            if (pdfEmbedRef.value && pdfEmbedRef.value.pdf && pdfEmbedRef.value.pdf.numPages) {
+              pdfTotalPages.value = pdfEmbedRef.value.pdf.numPages
+              emit('update:totalPages', pdfEmbedRef.value.pdf.numPages)
+              console.log('PDF总页数（延迟获取）:', pdfEmbedRef.value.pdf.numPages)
+            }
+          }, 100)
+        }
+      }
+    } catch (error) {
+      console.warn('获取PDF总页数失败:', error)
     }
-  } catch (error) {
-    console.warn('获取PDF总页数失败:', error)
   }
 }
 
@@ -512,9 +582,26 @@ const convertPdfToHtml_DEPRECATED = async () => {
 }
 
 // 监听文档ID和页码变化
-watch([() => props.docId, () => props.currentPage], () => {
-  loadDocumentContent()
+// 监听文档ID变化（需要重新加载）
+watch(() => props.docId, (newDocId, oldDocId) => {
+  if (newDocId && newDocId !== oldDocId) {
+    // 文档ID改变，强制重新加载
+    loadDocumentContent()
+  }
 }, { immediate: true })
+
+// 监听页码变化（仅对非PDF文件需要重新加载，PDF显示所有页面不需要重新加载）
+watch(() => props.currentPage, (newPage, oldPage) => {
+  // 对于PDF文件，已经显示所有页面，不需要重新加载
+  if (fileType.value === 'pdf') {
+    return
+  }
+  
+  // 对于其他类型（如按页返回的文档），需要重新加载
+  if (fileType.value !== 'pdf' && newPage !== oldPage && props.docId) {
+    loadDocumentContent()
+  }
+})
 
 // 处理文本选择
 const handleTextSelection = (event) => {
@@ -704,11 +791,33 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
   padding: 20px;
   overflow-y: auto;
   overflow-x: hidden;
+  gap: 20px;
+}
+
+.pdf-page-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.pdf-page-number {
+  text-align: center;
+  color: var(--el-text-color-secondary, #909399);
+  font-size: 14px;
+  margin-bottom: 10px;
+  padding: 8px;
+  background: var(--el-bg-color-page, #f5f7fa);
+  border-radius: var(--el-border-radius-base, 4px);
+  width: 100%;
+  max-width: 100%;
 }
 
 .pdf-embed {
