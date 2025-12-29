@@ -806,7 +806,6 @@ const handleRun = async () => {
       
       // 检查是否有正在上传的文件（优化：使用for循环提前退出）
       let hasUploadingFiles = false
-      const files = fileList.value
       for (let i = 0; i < files.length; i++) {
         if (files[i].status === 'uploading') {
           hasUploadingFiles = true
