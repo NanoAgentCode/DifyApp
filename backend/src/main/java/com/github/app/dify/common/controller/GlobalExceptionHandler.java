@@ -70,12 +70,22 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationException(MethodArgumentNotValidException e) {
         logger.warn("参数验证失败", e);
         Map<String, String> errors = new HashMap<>();
-        e.getBindingResult().getAllErrors().forEach(error -> {
-            String fieldName = ((FieldError) error).getField();
-            String errorMessage = error.getDefaultMessage();
-            errors.put(fieldName, errorMessage);
-        });
-        ApiResponse<Map<String, String>> response = ApiResponse.error("参数验证失败", 400);
+        StringBuilder errorMessage = new StringBuilder("参数验证失败：");
+        boolean first = true;
+        
+        for (org.springframework.validation.ObjectError error : e.getBindingResult().getAllErrors()) {
+            String fieldName = error instanceof FieldError ? ((FieldError) error).getField() : error.getObjectName();
+            String message = error.getDefaultMessage();
+            errors.put(fieldName, message);
+            
+            if (!first) {
+                errorMessage.append("；");
+            }
+            errorMessage.append(fieldName).append(": ").append(message);
+            first = false;
+        }
+        
+        ApiResponse<Map<String, String>> response = ApiResponse.error(errorMessage.toString(), 400);
         response.setData(errors);
         return ResponseEntity.badRequest().body(response);
     }
@@ -130,8 +140,23 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiResponse<Object>> handleRuntimeException(RuntimeException e) {
         logger.error("运行时异常", e);
-        String message = e.getMessage() != null ? e.getMessage() : "系统内部错误";
-        return ResponseEntity.badRequest().body(ApiResponse.error(message));
+        String message = e.getMessage();
+        
+        // 提供更友好的错误消息
+        if (message == null || message.trim().isEmpty()) {
+            message = "操作失败，请稍后重试";
+        } else {
+            // 过滤掉技术性的错误信息，提供更友好的提示
+            if (message.contains("SQL") || message.contains("database") || message.contains("connection")) {
+                message = "数据库操作失败，请稍后重试或联系管理员";
+            } else if (message.contains("timeout") || message.contains("超时")) {
+                message = "操作超时，请稍后重试";
+            } else if (message.contains("null") && message.contains("pointer")) {
+                message = "系统内部错误，请稍后重试";
+            }
+        }
+        
+        return ResponseEntity.badRequest().body(ApiResponse.error(message, 400));
     }
     
     /**
@@ -140,8 +165,25 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleException(Exception e) {
         logger.error("系统异常", e);
+        String message = "系统内部错误，请稍后重试";
+        
+        // 根据异常类型提供更具体的错误信息
+        if (e instanceof java.sql.SQLException) {
+            message = "数据库操作失败，请检查数据库连接或联系管理员";
+        } else if (e instanceof java.net.ConnectException) {
+            message = "无法连接到服务，请检查网络连接";
+        } else if (e.getMessage() != null && !e.getMessage().trim().isEmpty()) {
+            // 如果异常有消息且不是技术性错误，则使用原消息
+            String originalMessage = e.getMessage();
+            if (!originalMessage.contains("Exception") && 
+                !originalMessage.contains("at ") && 
+                !originalMessage.contains("java.")) {
+                message = originalMessage;
+            }
+        }
+        
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("系统内部错误", 500));
+                .body(ApiResponse.error(message, 500));
     }
 }
 

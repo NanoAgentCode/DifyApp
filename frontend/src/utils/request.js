@@ -48,7 +48,10 @@ request.interceptors.response.use(
   response => response.data,
   error => {
     const status = error.response?.status
-    const errorMessage = error.response?.data?.error
+    const responseData = error.response?.data
+    
+    // 统一提取错误消息（优先使用message字段，兼容error字段）
+    const errorMessage = responseData?.message || responseData?.error || responseData?.msg
     
     // 处理401未授权错误
     if (status === 401) {
@@ -60,16 +63,49 @@ request.interceptors.response.use(
     // 处理403禁止访问错误
     if (status === 403) {
       const message = errorMessage || '访问被拒绝'
-      if (message.includes('禁用') || message.includes('待审核')) {
+      if (message.includes('禁用') || message.includes('待审核') || message.includes('未激活')) {
         clearAuthAndRedirect()
       }
       ElMessage.error(message)
       return Promise.reject(error)
     }
     
+    // 处理404未找到错误
+    if (status === 404) {
+      ElMessage.error(errorMessage || '请求的资源不存在')
+      return Promise.reject(error)
+    }
+    
+    // 处理400参数错误（不在这里显示，由调用方处理，避免重复提示）
+    if (status === 400) {
+      // 不显示消息，让调用方根据具体情况处理
+      return Promise.reject(error)
+    }
+    
+    // 处理500服务器错误
+    if (status === 500) {
+      ElMessage.error(errorMessage || '服务器内部错误，请稍后重试')
+      return Promise.reject(error)
+    }
+    
     // 处理超时错误
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-      error.message = '请求超时，请稍后重试。如果Workflow任务需要较长时间，请使用流式接口。'
+      error.message = '请求超时，请稍后重试。如果任务需要较长时间，请使用流式接口。'
+      ElMessage.error(error.message)
+      return Promise.reject(error)
+    }
+    
+    // 处理网络错误（不在这里显示，由调用方处理）
+    if (!error.response) {
+      // 网络错误由调用方根据具体情况处理
+      return Promise.reject(error)
+    }
+    
+    // 其他错误，显示错误消息
+    if (errorMessage) {
+      ElMessage.error(errorMessage)
+    } else {
+      ElMessage.error(`请求失败 (${status || '未知错误'})`)
     }
     
     return Promise.reject(error)

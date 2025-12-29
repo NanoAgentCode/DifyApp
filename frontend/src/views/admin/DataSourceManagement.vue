@@ -158,6 +158,9 @@ import {
   testDataSourceConnection,
   testDataSourceConnectionConfig
 } from '@/api/dataSource'
+import { useErrorHandler } from '@/composables/useErrorHandler'
+
+const { handleError } = useErrorHandler()
 
 const dataSources = ref([])
 const loading = ref(false)
@@ -295,7 +298,8 @@ const handleSubmit = async () => {
         dialogVisible.value = false
         loadDataSources()
       } catch (error) {
-        ElMessage.error(error.response?.data?.error || error.message || '操作失败')
+        const { handleError } = useErrorHandler()
+        handleError(error, '操作失败')
       }
     }
   })
@@ -311,7 +315,7 @@ const handleDelete = async (id) => {
     loadDataSources()
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error(error.message || '删除失败')
+      handleError(error, '删除失败')
     }
   }
 }
@@ -325,7 +329,7 @@ const handleTestConnection = async (id) => {
       ElMessage.error(response.message || '连接失败')
     }
   } catch (error) {
-    ElMessage.error(error.message || '测试连接失败')
+    handleError(error, '测试连接失败')
   }
 }
 
@@ -343,7 +347,7 @@ const handleTestConnectionInDialog = async () => {
         ElMessage.error(response.message || '连接失败')
       }
     } catch (error) {
-      ElMessage.error(error.response?.data?.message || error.message || '测试连接失败')
+      handleError(error, '测试连接失败')
     } finally {
       testingConnection.value = false
     }
@@ -389,7 +393,7 @@ const handleTestConnectionInDialog = async () => {
         }
       }
     } catch (error) {
-      ElMessage.error(error.response?.data?.error || error.response?.data?.message || error.message || '测试连接失败')
+      handleError(error, '测试连接失败')
     } finally {
       testingConnection.value = false
     }

@@ -414,6 +414,9 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { createApp, updateApp, getAppDetail } from '@/api/aiApp'
 import { industrialThemes, getThemeById, findThemeByColor } from '@/utils/themes'
 import { builtInIcons, getIconById } from '@/utils/icons'
+import { useErrorHandler } from '@/composables/useErrorHandler'
+
+const { handleError } = useErrorHandler()
 
 // 创建图标组件映射
 const iconComponents = {}
@@ -891,25 +894,8 @@ const handleSubmit = async () => {
     router.push('/admin/apps')
   } catch (error) {
     if (error !== false) {
-      // 显示更详细的错误信息
-      let errorMsg = isEdit.value ? '更新失败' : '创建失败'
-      
-      if (error?.response?.data) {
-        const errorData = error.response.data
-        if (errorData.errors) {
-          // 验证错误，显示字段错误
-          const errorFields = Object.keys(errorData.errors)
-          const firstError = errorFields[0]
-          errorMsg = `${firstError}: ${errorData.errors[firstError]}`
-        } else if (errorData.error) {
-          errorMsg = errorData.error
-        }
-      } else if (error?.message) {
-        errorMsg = error.message
-      }
-      
-      ElMessage.error(errorMsg)
-      console.error('提交失败:', error)
+      const { handleError } = useErrorHandler()
+      handleError(error, isEdit.value ? '更新失败' : '创建失败', { logError: true })
     }
   }
 }

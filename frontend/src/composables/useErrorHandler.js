@@ -15,43 +15,125 @@ export function useErrorHandler() {
   const extractErrorMessage = (error, defaultMessage = '操作失败') => {
     if (!error) return defaultMessage
 
-    // 优先从 response.data 中获取错误信息
+    // 优先从 response.data 中获取错误信息（后端统一格式）
     if (error.response?.data) {
       const data = error.response.data
       
-      // 处理验证错误（字段错误）
+      // 处理验证错误（字段错误）- 后端返回的errors对象
       if (data.errors && typeof data.errors === 'object') {
         const errorFields = Object.keys(data.errors)
         if (errorFields.length > 0) {
-          const firstField = errorFields[0]
-          const firstError = data.errors[firstField]
-          return `${firstField}: ${firstError}`
+          // 如果有多个错误，合并显示
+          if (errorFields.length === 1) {
+            const firstField = errorFields[0]
+            const firstError = data.errors[firstField]
+            // 尝试将字段名转换为中文
+            const fieldName = translateFieldName(firstField)
+            return `${fieldName}: ${firstError}`
+          } else {
+            // 多个错误，显示第一个并提示还有更多
+            const firstField = errorFields[0]
+            const firstError = data.errors[firstField]
+            const fieldName = translateFieldName(firstField)
+            return `${fieldName}: ${firstError}（还有 ${errorFields.length - 1} 个错误）`
+          }
         }
       }
       
-      // 处理标准错误消息字段
-      if (data.error) return data.error
-      if (data.message) return data.message
-      if (data.msg) return data.msg
+      // 处理标准错误消息字段（按优先级）
+      if (data.message) return data.message  // ApiResponse.message 字段
+      if (data.error) return data.error      // 兼容旧格式
+      if (data.msg) return data.msg           // 兼容其他格式
       
       // 处理 HTTP 状态码错误
-      if (error.response.status) {
-        return `请求失败 (${error.response.status})`
+      const status = error.response.status
+      if (status) {
+        return getHttpStatusMessage(status, data.message || data.error)
       }
     }
     
-    // 处理网络错误或超时错误
+    // 处理网络错误
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
       return '请求超时，请稍后重试。如果任务需要较长时间，请使用流式接口。'
     }
     
-    // 处理其他错误消息
-    if (error.message) return error.message
+    // 处理网络连接错误
+    if (error.message) {
+      if (error.message.includes('Network Error') || 
+          error.message.includes('Failed to fetch') || 
+          error.message.includes('ECONNREFUSED') ||
+          error.message.includes('ERR_CONNECTION_REFUSED')) {
+        return '无法连接到服务器，请检查网络连接和后端服务是否正常运行。'
+      }
+      if (error.message.includes('timeout')) {
+        return '请求超时，请稍后重试'
+      }
+      // 过滤技术性错误信息
+      if (error.message.includes('at ') || error.message.includes('Error: ')) {
+        return defaultMessage
+      }
+      return error.message
+    }
     
     // 处理字符串错误
     if (typeof error === 'string') return error
     
     return defaultMessage
+  }
+
+  /**
+   * 将字段名转换为中文（常见字段）
+   * @param {string} fieldName 字段名
+   * @returns {string} 中文字段名
+   */
+  const translateFieldName = (fieldName) => {
+    const fieldMap = {
+      'username': '用户名',
+      'password': '密码',
+      'email': '邮箱',
+      'name': '名称',
+      'title': '标题',
+      'description': '描述',
+      'url': 'URL',
+      'apiKey': 'API密钥',
+      'host': '主机',
+      'port': '端口',
+      'database': '数据库',
+      'type': '类型',
+      'status': '状态',
+      'role': '角色',
+      'modelId': '模型ID',
+      'question': '问题',
+      'content': '内容'
+    }
+    return fieldMap[fieldName] || fieldName
+  }
+
+  /**
+   * 根据HTTP状态码获取友好的错误消息
+   * @param {number} status HTTP状态码
+   * @param {string} customMessage 自定义消息
+   * @returns {string} 错误消息
+   */
+  const getHttpStatusMessage = (status, customMessage) => {
+    if (customMessage) return customMessage
+    
+    const statusMessages = {
+      400: '请求参数错误',
+      401: '登录已过期，请重新登录',
+      403: '没有权限执行此操作',
+      404: '请求的资源不存在',
+      408: '请求超时，请稍后重试',
+      409: '数据冲突，请检查输入',
+      422: '数据验证失败',
+      429: '请求过于频繁，请稍后重试',
+      500: '服务器内部错误，请稍后重试',
+      502: '网关错误，请稍后重试',
+      503: '服务暂时不可用，请稍后重试',
+      504: '网关超时，请稍后重试'
+    }
+    
+    return statusMessages[status] || `请求失败 (${status})`
   }
 
   /**
@@ -188,7 +270,9 @@ export function useErrorHandler() {
     handleApiCall,
     confirmDelete,
     confirmBatchDelete,
-    handleStreamError
+    handleStreamError,
+    translateFieldName,
+    getHttpStatusMessage
   }
 }
 
