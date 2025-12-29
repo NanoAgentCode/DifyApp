@@ -1074,8 +1074,15 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             
             String mindMapJson = objectMapper.writeValueAsString(mindMapData);
             
-            // 保存生成的脑图
-            saveDocumentMindMap(documentId, userId, mindMapJson);
+            // 保存生成的脑图（即使保存失败也不影响返回结果，因为思维导图已经生成）
+            try {
+                saveDocumentMindMap(documentId, userId, mindMapJson);
+                logger.info("文档脑图生成并保存成功 - 文档ID: {}, 模型ID: {}, HTML URL: {}", documentId, effectiveModelId, cleanUrl);
+            } catch (Exception saveException) {
+                // 保存失败只记录警告，不影响返回结果
+                logger.warn("文档脑图生成成功但保存失败 - 文档ID: {}, 模型ID: {}, HTML URL: {}, 错误: {}", 
+                        documentId, effectiveModelId, cleanUrl, saveException.getMessage(), saveException);
+            }
             
             logger.info("文档脑图生成成功 - 文档ID: {}, 模型ID: {}, HTML URL: {}", documentId, effectiveModelId, cleanUrl);
             return mindMapJson;

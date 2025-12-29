@@ -7,7 +7,7 @@
  */
 
 // 默认后端地址（当环境变量未设置时使用）
-const defaultBaseURL = 'http://localhost:8081'
+const defaultBaseURL = 'http://106.54.124.170:9090'
 
 // 从环境变量获取 API 地址，如果未设置则使用默认值
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || defaultBaseURL
