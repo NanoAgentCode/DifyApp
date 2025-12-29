@@ -12,7 +12,7 @@ DifyApp 是一个基于 Spring Boot 和 Vue 3 构建的企业级 AI 应用平台
 - **流式响应**：支持流式和非流式两种响应模式，提供更好的用户体验
 - **多模态支持**：支持文本、图片等多种输入方式，集成 OCR 服务
 - **可扩展性**：模块化设计，易于扩展新功能
-- **跨平台**：支持 Web 应用和桌面应用（基于 Tauri）
+- **跨平台**：支持 Web 应用，可在各种浏览器中运行
 - **丰富的集成**：支持 MCP 协议、多种向量数据库、多种 LLM 模型
 
 ### 核心功能
@@ -180,7 +180,6 @@ graph TB
 - **UI 框架**: Element Plus 2.4.2
 - **HTTP 客户端**: Axios 1.6.2
 - **Markdown 渲染**: marked, highlight.js, katex, mermaid
-- **桌面应用**: Tauri 2.9.6 (可选)
 
 ## 项目结构
 
@@ -203,7 +202,6 @@ DifyApp/
 │   │   ├── views/              # 页面
 │   │   ├── stores/             # 状态管理
 │   │   └── utils/              # 工具函数
-│   ├── src-tauri/              # Tauri 桌面应用配置
 │   ├── dist/                   # 构建产物
 │   ├── package.json            # npm 配置
 │   └── README-frontend.md      # 前端详细文档
@@ -236,9 +234,6 @@ DifyApp/
 - **Node.js**: 16 或更高版本
 - **包管理器**: npm 8+ 或 yarn 1.22+
 - **Git**: 最新版本
-
-#### Tauri 开发（可选）
-- **Rust**: 1.70+ (仅用于桌面应用开发)
 
 ### 1. 克隆项目
 
@@ -599,7 +594,6 @@ graph LR
 - **Word 文档解析**：支持 Word 文档内容提取和显示（mammoth）
 - **帮助文档**：内置帮助对话框，提供使用指南
 - **响应式布局**：适配不同屏幕尺寸，支持移动端访问
-- **桌面应用支持**：基于 Tauri 的跨平台桌面应用（Windows、macOS、Linux）
 - **API 缓存**：智能缓存机制，提升性能
 - **错误处理**：统一的错误提示和处理机制
 - **国际化支持**：预留多语言支持接口
@@ -645,16 +639,6 @@ yarn build
 #### 部署到 Web 服务器
 
 将 `dist/` 目录的内容部署到 Nginx、Apache 或其他 Web 服务器。
-
-#### Tauri 桌面应用构建（可选）
-
-```bash
-npm run tauri:build
-# 或者
-yarn tauri:build
-```
-
-构建产物将输出到 `src-tauri/target/release/` 目录。
 
 ### Docker 部署（可选）
 

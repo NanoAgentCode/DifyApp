@@ -15,22 +15,13 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || defaultBaseURL
 // 开发环境标识
 export const IS_DEV = import.meta.env.DEV
 
-// 检测是否在Tauri环境中运行
-export const IS_TAURI = typeof window !== 'undefined' && window.__TAURI__ !== undefined
-
 // 获取完整的 API Base URL
 // 开发环境且未配置环境变量时，返回空字符串（使用 Vite 代理）
 // 生产环境或配置了环境变量时，返回配置的地址
-// Tauri打包后必须使用完整URL
 export function getBaseURL() {
   // 如果配置了环境变量，直接使用
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL
-  }
-  
-  // Tauri环境：必须使用完整URL
-  if (IS_TAURI) {
-    return defaultBaseURL
   }
   
   // 开发环境：使用空字符串走 Vite 代理
@@ -44,7 +35,6 @@ export function getBaseURL() {
 
 /**
  * 获取完整的API URL（用于fetch请求，特别是流式响应）
- * Tauri打包后需要完整URL，不能使用相对路径
  * @param {string} path - API路径（如 '/api/chat/stream'）
  * @returns {string} 完整的URL
  */
