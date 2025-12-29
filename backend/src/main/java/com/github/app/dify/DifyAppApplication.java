@@ -9,8 +9,6 @@ import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableAsync;
-import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
 
 /**
  * DifyApp 主应用类
