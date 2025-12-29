@@ -28,6 +28,7 @@ import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
+import io.lettuce.core.api.StatefulConnection;
 import java.time.Duration;
 /**
  * Redis配置类
@@ -81,7 +82,7 @@ public class RedisConfig implements CachingConfigurer {
             }
             
             // 配置连接池（性能优化）
-            GenericObjectPoolConfig<?> poolConfig = new GenericObjectPoolConfig<>();
+            GenericObjectPoolConfig<StatefulConnection<?, ?>> poolConfig = new GenericObjectPoolConfig<>();
             if (lettuce != null && lettuce.getPool() != null) {
                 Pool pool = lettuce.getPool();
                 poolConfig.setMaxTotal(pool.getMaxActive());

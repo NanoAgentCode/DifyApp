@@ -26,7 +26,7 @@ import java.util.Optional;
  * 2. Weaviate支持API Key认证（可选）
  * 3. 优先从数据库读取配置，如果数据库没有配置则使用application.yml的配置
  */
-@Configuration
+@Configuration(proxyBeanMethods = false)
 @ConfigurationProperties(prefix = "weaviate")
 @DependsOn("vectorDatabaseRepository")
 public class WeaviateConfig implements CommandLineRunner {
