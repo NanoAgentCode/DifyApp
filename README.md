@@ -70,13 +70,30 @@ DifyApp 是一个基于 Spring Boot 和 Vue 3 构建的企业级 AI 应用平台
   - 自然语言描述生成图表代码
   - 图表预览和导出
 
+- **文档解读功能**
+  - 文档上传和解析
+  - 文档问答（基于文档内容的智能问答）
+  - 文档翻译（多语言翻译支持）
+  - 文档思维导图生成
+  - 文档笔记管理
+  - 文档导读生成
+  - 文档向量化和检索
+
+- **数据统计功能**
+  - 对话历史统计
+  - 应用使用统计
+  - 知识库使用统计
+  - 用户活跃度统计
+  - 数据可视化展示
+
 - **系统管理**
   - 系统配置管理（全局参数设置）
-  - 数据源管理（数据库连接配置）
-  - 模型管理（LLM 模型配置）
+  - 数据源管理（数据库连接配置、表结构管理）
+  - 模型管理（LLM 模型配置、嵌入模型配置）
   - 向量数据库配置管理
   - Prompt 模板管理（可复用的提示词模板）
   - 用户管理（管理员功能，用户审核、禁用等）
+  - 权限管理（用户与应用/数据源/知识库的可见性控制）
   - 系统监控和日志管理
 
 - **MCP 协议支持**
@@ -85,6 +102,13 @@ DifyApp 是一个基于 Spring Boot 和 Vue 3 构建的企业级 AI 应用平台
   - 时间服务（获取当前时间、时区等）
   - 实时信息检测和更新
   - 可扩展的 MCP 服务集成
+
+- **数据源管理**
+  - 数据库连接配置（PostgreSQL、MySQL、Oracle 等）
+  - 连接测试和验证
+  - 表结构自动发现和缓存
+  - 数据源可见性管理
+  - 支持多种数据库方言
 
 - **OCR 服务集成**
   - 图片文字识别
@@ -358,18 +382,24 @@ graph LR
         KB[知识库模块]
         App[AI应用管理模块]
         System[系统管理模块]
+        DocReader[文档解读模块]
+        Statistics[数据统计模块]
     end
     
     subgraph "服务层"
         Text2SQL[Text2SQL]
         MCP[MCP协议服务]
         OCR[OCR服务]
+        DataSource[数据源管理]
+        Model[模型管理]
+        Permission[权限管理]
     end
     
     Auth --> Chat
     Auth --> KB
     Auth --> App
     Auth --> System
+    Auth --> DocReader
     
     Chat --> KB
     Chat --> App
@@ -378,7 +408,17 @@ graph LR
     
     KB --> System
     App --> System
+    DocReader --> KB
+    DocReader --> System
+    
     System --> Text2SQL
+    System --> DataSource
+    System --> Model
+    System --> Permission
+    
+    Statistics --> Chat
+    Statistics --> KB
+    Statistics --> App
     
     style Auth fill:#e74c3c,stroke:#333,stroke-width:2px,color:#fff
     style Chat fill:#3498db,stroke:#333,stroke-width:2px,color:#fff
@@ -388,6 +428,11 @@ graph LR
     style Text2SQL fill:#16a085,stroke:#333,stroke-width:2px,color:#fff
     style MCP fill:#e67e22,stroke:#333,stroke-width:2px,color:#fff
     style OCR fill:#95a5a6,stroke:#333,stroke-width:2px,color:#fff
+    style DocReader fill:#8e44ad,stroke:#333,stroke-width:2px,color:#fff
+    style Statistics fill:#27ae60,stroke:#333,stroke-width:2px,color:#fff
+    style DataSource fill:#2980b9,stroke:#333,stroke-width:2px,color:#fff
+    style Model fill:#c0392b,stroke:#333,stroke-width:2px,color:#fff
+    style Permission fill:#d35400,stroke:#333,stroke-width:2px,color:#fff
 ```
 
 ## 功能模块
@@ -504,7 +549,43 @@ graph LR
 - Text2SQL 界面（输入自然语言、显示 SQL、执行查询、查看结果）
 - 用户管理界面（管理员，用户列表、审核、编辑）
 
-### 6. 其他功能
+### 6. 文档解读模块
+
+**后端功能：**
+- 文档上传和存储
+- 文档解析和向量化
+- 文档问答服务（基于 RAG 技术）
+- 文档翻译服务（多语言支持）
+- 文档思维导图生成
+- 文档笔记管理
+- 文档导读生成
+- 文档检索和相似度搜索
+
+**前端功能：**
+- 文档上传界面
+- 文档查看器（支持 PDF、Word 等格式）
+- 文档问答界面
+- 文档翻译界面
+- 思维导图可视化（基于 jsMind）
+- 笔记编辑和管理
+- 导读展示
+
+### 7. 数据统计模块
+
+**后端功能：**
+- 对话历史统计（按时间、应用等维度）
+- 应用使用统计
+- 知识库使用统计
+- 用户活跃度统计
+- 统计数据聚合和计算
+
+**前端功能：**
+- 统计图表展示（基于 ECharts）
+- 数据可视化
+- 统计报表导出
+- 实时数据更新
+
+### 8. 其他功能
 
 **前端功能：**
 - **主题切换**：支持深色/浅色主题切换，VS Code 风格深色主题
@@ -514,6 +595,8 @@ graph LR
   - 数学公式渲染（KaTeX）
   - 流程图和图表（Mermaid）
   - 自定义样式主题
+- **PDF 预览**：支持 PDF 文档在线预览（pdfjs-dist）
+- **Word 文档解析**：支持 Word 文档内容提取和显示（mammoth）
 - **帮助文档**：内置帮助对话框，提供使用指南
 - **响应式布局**：适配不同屏幕尺寸，支持移动端访问
 - **桌面应用支持**：基于 Tauri 的跨平台桌面应用（Windows、macOS、Linux）

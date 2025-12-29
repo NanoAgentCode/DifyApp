@@ -118,6 +118,12 @@ graph TD
     C --> H[knowledgebase/<br/>知识库模块]
     C --> I[system/<br/>系统配置模块]
     C --> J[common/<br/>公共组件]
+    C --> K[documentreader/<br/>文档解读模块]
+    C --> L[statistics/<br/>数据统计模块]
+    C --> M[mcp/<br/>MCP协议服务]
+    C --> N[model/<br/>模型管理模块]
+    C --> O[datasource/<br/>数据源管理模块]
+    C --> P[permission/<br/>权限管理模块]
     
     F --> F1[controller/]
     F --> F2[domain/]
@@ -173,6 +179,11 @@ graph LR
         Chat[聊天对话模块<br/>chat]
         KB[知识库模块<br/>knowledgebase]
         System[系统配置模块<br/>system]
+        DocReader[文档解读模块<br/>documentreader]
+        Statistics[数据统计模块<br/>statistics]
+        DataSource[数据源管理模块<br/>datasource]
+        Model[模型管理模块<br/>model]
+        Permission[权限管理模块<br/>permission]
         Common[公共组件<br/>common]
     end
     
@@ -186,22 +197,37 @@ graph LR
     Auth --> Chat
     Auth --> KB
     Auth --> System
+    Auth --> DocReader
     Chat --> KB
     Chat --> Dify
     Chat --> MCP
     Chat --> OCR
     KB --> LangChain
     KB --> System
+    DocReader --> KB
+    DocReader --> System
     System --> Dify
+    System --> DataSource
+    System --> Model
+    System --> Permission
+    Statistics --> Chat
+    Statistics --> KB
     Common --> Auth
     Common --> Chat
     Common --> KB
     Common --> System
+    Common --> DocReader
+    Common --> Statistics
     
     style Auth fill:#e74c3c,stroke:#333,stroke-width:2px,color:#fff
     style Chat fill:#3498db,stroke:#333,stroke-width:2px,color:#fff
     style KB fill:#9b59b6,stroke:#333,stroke-width:2px,color:#fff
     style System fill:#1abc9c,stroke:#333,stroke-width:2px,color:#fff
+    style DocReader fill:#8e44ad,stroke:#333,stroke-width:2px,color:#fff
+    style Statistics fill:#27ae60,stroke:#333,stroke-width:2px,color:#fff
+    style DataSource fill:#2980b9,stroke:#333,stroke-width:2px,color:#fff
+    style Model fill:#c0392b,stroke:#333,stroke-width:2px,color:#fff
+    style Permission fill:#d35400,stroke:#333,stroke-width:2px,color:#fff
     style Common fill:#95a5a6,stroke:#333,stroke-width:2px,color:#fff
     style Dify fill:#6366f1,stroke:#333,stroke-width:2px,color:#fff
     style MCP fill:#e67e22,stroke:#333,stroke-width:2px,color:#fff
@@ -324,7 +350,134 @@ graph LR
 - 数据源连接使用 JDBC
 - Text2SQL 使用 LLM 进行自然语言理解
 
-### 5. 公共组件 (common)
+### 5. 文档解读模块 (documentreader)
+
+**核心功能：**
+- 文档管理：
+  - 文档上传和存储
+  - 文档解析（支持多种格式）
+  - 文档向量化处理
+- 文档问答：
+  - 基于 RAG 技术的文档问答
+  - 文档内容检索
+  - 上下文增强生成
+- 文档翻译：
+  - 多语言翻译支持
+  - 翻译历史记录
+- 文档思维导图：
+  - 自动生成文档思维导图
+  - 思维导图数据存储
+- 文档笔记：
+  - 笔记创建和管理
+  - 笔记与文档关联
+- 文档导读：
+  - 自动生成文档导读
+  - 导读内容管理
+
+**技术实现：**
+- 复用知识库的向量化能力
+- 使用 LangChain4j 实现文档检索
+- 思维导图数据使用 JSON 格式存储
+
+### 6. 数据统计模块 (statistics)
+
+**核心功能：**
+- 对话历史统计：
+  - 按时间维度统计
+  - 按应用维度统计
+  - 按用户维度统计
+- 应用使用统计：
+  - 应用调用次数
+  - 应用使用趋势
+- 知识库使用统计：
+  - 知识库访问统计
+  - 文档处理统计
+- 用户活跃度统计：
+  - 用户登录统计
+  - 用户操作统计
+
+**技术实现：**
+- 基于 JPA 查询聚合统计
+- 支持多维度数据统计
+- 统计数据缓存机制
+
+### 7. MCP 协议服务模块 (mcp)
+
+**核心功能：**
+- MCP 服务配置管理
+- 浏览器搜索服务：
+  - 实时网络搜索
+  - 搜索结果处理
+- 地理位置服务：
+  - 获取位置信息
+  - 位置数据缓存
+- 时间服务：
+  - 获取当前时间
+  - 时区信息处理
+
+**技术实现：**
+- HTTP 客户端调用外部服务
+- 服务结果缓存机制
+- 统一的服务接口封装
+
+### 8. 模型管理模块 (model)
+
+**核心功能：**
+- 问答模型管理：
+  - 模型配置（名称、API 地址、密钥等）
+  - 模型测试功能
+  - 模型增删改查
+- 嵌入模型管理：
+  - 嵌入模型配置
+  - 模型测试功能
+  - 模型切换支持
+
+**技术实现：**
+- 模型配置使用 JPA 持久化
+- 模型测试通过 API 调用验证
+- 支持多种模型提供商
+
+### 9. 数据源管理模块 (datasource)
+
+**核心功能：**
+- 数据源配置：
+  - 数据库连接配置（PostgreSQL、MySQL、Oracle 等）
+  - 连接参数管理
+  - 数据源可见性控制
+- 连接管理：
+  - 连接测试功能
+  - 连接池管理
+  - 连接状态监控
+- 表结构管理：
+  - 自动发现表结构
+  - 表结构缓存
+  - 表结构更新机制
+
+**技术实现：**
+- 使用 JDBC 进行数据库连接
+- 动态加载数据库驱动
+- 表结构信息缓存到数据库
+
+### 10. 权限管理模块 (permission)
+
+**核心功能：**
+- 可见性管理：
+  - 用户与应用关联
+  - 用户与数据源关联
+  - 用户与知识库关联
+- 权限控制：
+  - 基于关联关系的权限验证
+  - 权限查询接口
+- 关联关系管理：
+  - 关联关系创建和删除
+  - 批量关联操作
+
+**技术实现：**
+- 使用 JPA 多对多关系映射
+- 中间表存储关联关系
+- 权限验证拦截器
+
+### 11. 公共组件 (common)
 
 **核心功能：**
 - 统一异常处理：
@@ -343,6 +496,9 @@ graph LR
   - 字符串工具
   - 文件工具
   - 加密工具等
+- SSE 响应工具：
+  - 流式响应封装
+  - SSE 格式处理
 
 **技术实现：**
 - 使用 Spring AOP 实现统一异常处理
