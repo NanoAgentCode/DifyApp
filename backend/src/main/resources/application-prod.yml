@@ -22,7 +22,7 @@ spring:
     redis:
       host: localhost
       port: 6379
-      password: # 可选，如果Redis设置了密码，请在此配置
+      password: redis_xdYB4S # 可选，如果Redis设置了密码，请在此配置
 
 server:
   port: 9090
