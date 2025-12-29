@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  mindmap:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        USE_CHINA_MIRROR: "false"  # 设置为 "true" 使用国内镜像源
+    container_name: mindmap-service
+    ports:
+      - "6066:6066"
+    volumes:
+      # 挂载静态文件目录，持久化生成的文件
+      - ./static:/app/static
+    environment:
+      - TZ=Asia/Shanghai
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6066/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
