@@ -74,12 +74,6 @@ public class DifyAppApplication {
         System.setProperty("console.encoding", "UTF-8");
         System.setProperty("user.language", "zh");
         System.setProperty("user.country", "CN");
-        
-        // 设置标准输出和错误输出的编码（Java 8兼容方式）
-        PrintStream utf8Out = new PrintStream(System.out, true, StandardCharsets.UTF_8);
-        PrintStream utf8Err = new PrintStream(System.err, true, StandardCharsets.UTF_8);
-        System.setOut(utf8Out);
-        System.setErr(utf8Err);
 
         SpringApplication.run(DifyAppApplication.class, args);
     }

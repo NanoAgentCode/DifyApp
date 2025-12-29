@@ -9,6 +9,12 @@
 	],
 	"settings": {
 		"powershell.cwd": "backend",
-		"java.compile.nullAnalysis.mode": "automatic"
+		"java.compile.nullAnalysis.mode": "automatic",
+		"java.configuration.updateBuildConfiguration": "automatic",
+		"java.import.maven.enabled": true,
+		"java.project.sourcePaths": [
+			"backend/src/main/java"
+		],
+		"java.project.outputPath": "backend/target/classes"
 	}
 }

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.idea/
+.vscode/
+.git/
+.gitignore
+README*.md
+docs/
+.DS_Store
+*.log
+src-tauri/
+out/
+.env
+.env.local
+.env.*.local
+
