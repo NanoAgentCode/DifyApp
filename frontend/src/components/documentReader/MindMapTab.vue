@@ -119,7 +119,7 @@ const isHtmlUrlType = (data) => {
   }
 }
 
-// 获取HTML URL
+// 获取HTML URL（将后端URL替换为前端代理路径）
 const getHtmlUrl = (data) => {
   if (!data) {
     console.log('getHtmlUrl: 数据为空')
@@ -137,7 +137,34 @@ const getHtmlUrl = (data) => {
       url = url.substring(1, url.length - 1).trim()
     }
     
-    console.log('getHtmlUrl: 提取URL', { originalUrl: parsed.url, cleanedUrl: url, parsed })
+    // 将后端URL的前缀替换为前端代理路径
+    // 例如: http://192.168.1.100:6066/html/xxx.html -> /proxy/html/xxx.html
+    try {
+      const urlObj = new URL(url)
+      // 提取路径部分（如 /html/xxx.html）
+      const path = urlObj.pathname
+      // 如果路径以 /html/ 开头，替换为前端代理路径
+      if (path.startsWith('/html/')) {
+        url = `/proxy${path}`
+        console.log('getHtmlUrl: URL已替换为前端代理路径', { 
+          originalUrl: parsed.url, 
+          replacedUrl: url,
+          path 
+        })
+      } else {
+        console.log('getHtmlUrl: URL路径不符合预期，保持原样', { originalUrl: parsed.url, path })
+      }
+    } catch (urlError) {
+      // 如果URL解析失败，可能是相对路径，尝试直接处理
+      if (url.startsWith('/html/')) {
+        url = `/proxy${url}`
+        console.log('getHtmlUrl: 相对路径已替换为前端代理路径', { originalUrl: parsed.url, replacedUrl: url })
+      } else {
+        console.warn('getHtmlUrl: URL解析失败，保持原样', { originalUrl: parsed.url, error: urlError })
+      }
+    }
+    
+    console.log('getHtmlUrl: 最终URL', { originalUrl: parsed.url, finalUrl: url, parsed })
     return url
   } catch (e) {
     console.warn('getHtmlUrl: 解析失败', e)
@@ -243,7 +270,7 @@ const convertToJsMindFormat = (data) => {
     
     // 如果是节点结构格式，转换为jsMind格式
     if (data.nodes && Array.isArray(data.nodes)) {
-      const rootTopic = data.rootTopic || '中心主题'
+      const rootTopic = data.rootTopic || ''
       const children = []
       
       data.nodes.forEach((node, index) => {
@@ -295,7 +322,7 @@ const convertToJsMindFormat = (data) => {
       }
     }
     
-    // 默认格式
+    // 默认格式（空脑图）
     return {
       meta: {
         name: '思维导图',
@@ -305,7 +332,7 @@ const convertToJsMindFormat = (data) => {
       format: 'node_tree',
       data: {
         id: 'root',
-        topic: '中心主题',
+        topic: '',
         children: []
       }
     }
@@ -644,6 +671,53 @@ const initJsMind = async () => {
   }, 100) // 100ms 防抖延迟
 }
 
+// 检查脑图数据是否有效
+const isValidMindMapData = (data) => {
+  if (!data) return false
+  
+  // 如果是字符串，检查是否为空或只包含空白
+  if (typeof data === 'string') {
+    const trimmed = data.trim()
+    if (!trimmed || trimmed === '{}' || trimmed === '[]' || trimmed === 'null') {
+      return false
+    }
+  }
+  
+  // 如果是对象，检查是否有实际内容
+  if (typeof data === 'object') {
+    // 检查是否是HTML URL类型
+    if (data.type === 'html_url' && data.url) {
+      return true
+    }
+    
+    // 检查是否有data字段且不为空
+    if (data.data) {
+      // 检查data是否有topic或children
+      if (data.data.topic || (data.data.children && data.data.children.length > 0)) {
+        return true
+      }
+    }
+    
+    // 检查是否有nodes数组且不为空
+    if (data.nodes && Array.isArray(data.nodes) && data.nodes.length > 0) {
+      return true
+    }
+    
+    // 如果只有meta和format但没有实际数据，视为无效
+    if (data.meta && data.format && data.data) {
+      const topic = data.data.topic || ''
+      const children = data.data.children || []
+      if (topic.trim() || children.length > 0) {
+        return true
+      }
+    }
+    
+    return false
+  }
+  
+  return true
+}
+
 // 加载脑图数据
 const loadMindMap = async () => {
   try {
@@ -672,9 +746,10 @@ const loadMindMap = async () => {
       }
     }
     
-    mindMapData.value = data
-    
-    if (mindMapData.value) {
+    // 检查数据是否有效
+    if (isValidMindMapData(data)) {
+      mindMapData.value = data
+      
       // 如果是HTML URL类型，不需要初始化jsMind，直接显示iframe
       if (isHtmlUrlType(mindMapData.value)) {
         htmlUrl.value = getHtmlUrl(mindMapData.value)
@@ -685,13 +760,17 @@ const loadMindMap = async () => {
         await initJsMind()
       }
     } else {
+      // 数据无效或为空，清空并自动生成
+      console.log('脑图数据无效或为空，触发自动生成')
+      mindMapData.value = null
       htmlUrl.value = ''
-      // 如果没有脑图数据，自动生成
+      // 首次打开时自动生成脑图
       await autoGenerateMindMap()
     }
   } catch (error) {
     console.error('加载脑图失败:', error)
     mindMapData.value = null
+    htmlUrl.value = ''
     // 如果加载失败，也尝试自动生成
     await autoGenerateMindMap()
   }
