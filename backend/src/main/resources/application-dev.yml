@@ -1,155 +1,47 @@
-server:
-  port: 9090
+# ============================================
+# 开发环境配置 - 需要根据环境修改的配置
+# ============================================
 
-# 日志配置
-logging:
-  charset:
-    console: UTF-8
-    file: UTF-8
-  pattern:
-    # 控制台使用彩色输出（使用 %highlight 和 %cyan 等 Logback 标准转换器）
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %highlight(%-5level) %cyan(%logger{50}) - %msg%n"
-    # 文件不使用彩色（避免ANSI码污染日志文件）
-    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
-
----
+# 引入静态配置
 spring:
-  # 启用ANSI彩色输出（控制台）
-  output:
-    ansi:
-      enabled: always  # 可选值: always, never, detect（自动检测）
+  config:
+    import: application-static.yml
+  # 数据源配置（需要根据环境修改）
   datasource:
     driver-class-name: org.postgresql.Driver
     url: jdbc:postgresql://localhost:15432/difyapp
     username: postgres
     password: 123456
-    # 连接池配置（性能优化）
-    hikari:
-      minimum-idle: 10  # 增加最小空闲连接数，减少连接创建开销
-      maximum-pool-size: 50  # 增加最大连接池大小，支持更高并发
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
-      connection-test-query: SELECT 1
-      # 性能优化配置
-      leak-detection-threshold: 60000  # 连接泄漏检测（60秒）
-      pool-name: DifyAppHikariPool
-      register-mbeans: true  # 启用JMX监控
+  # JPA配置（开发环境特定）
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: false  # 关闭SQL打印
-    open-in-view: false
-    properties:
-      hibernate:
-        format_sql: false  # 关闭SQL格式化（因为show-sql已关闭）
-        # 批量操作优化
-        jdbc:
-          batch_size: 50  # 批量插入/更新大小
-          batch_versioned_data: true  # 启用版本化数据的批量更新
-        order_inserts: true  # 启用插入排序，提高批量插入性能
-        order_updates: true  # 启用更新排序，提高批量更新性能
-        jdbc.batch_size: 50  # 批量操作大小
-        # 查询优化
-        default_batch_fetch_size: 20  # 默认批量获取大小，减少N+1查询
-        generate_statistics: false  # 生产环境关闭统计信息收集
-  # 禁用 Spring Data Elasticsearch Repository 扫描（我们只使用 RestClient，不使用 Repository）
+      ddl-auto: update  # 开发环境使用 update，生产环境应使用 validate
+    show-sql: false  # 开发环境可以设置为 true 查看SQL
+  # Redis配置（需要根据环境修改）
   data:
-    elasticsearch:
-      repositories:
-        enabled: false
-  mvc:
-    pathmatch:
-      matching-strategy: ant_path_matcher
-    # 异步请求超时时间（毫秒），设置为10分钟以支持长时间运行的Workflow任务
-    async:
-      request-timeout: 600000
-  servlet:
-    multipart:
-      # 单个文件最大大小（100MB，知识库文件上传）
-      max-file-size: 100MB
-      # 整个请求最大大小（200MB，允许同时上传多个文件）
-      max-request-size: 200MB
-      # 文件写入磁盘的阈值（超过此大小会写入临时文件）
-      file-size-threshold: 2MB
-# JWT配置
+    redis:
+      host: localhost
+      port: 6379
+      password: # 可选，如果Redis设置了密码，请在此配置
+
+server:
+  port: 9090
+
+# JWT配置（需要根据环境修改密钥）
 jwt:
   # JWT密钥（生产环境请修改为更安全的密钥，至少32个字符以确保256位安全性）
   secret: dify-app-secret-key-2024-this-is-a-very-long-secret-key-for-security
   # JWT过期时间（毫秒），默认7天
   expiration: 604800000
 
-# MinIO配置
+# MinIO配置（需要根据环境修改）
 minio:
   endpoint: http://localhost:9000
   access-key: rustfsadmin
   secret-key: rustfsadmin
   bucket-name: knowledge-base
 
----
-# Redis配置
-spring:
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      password: # 可选，如果Redis设置了密码，请在此配置
-      database: 0
-      timeout: 3000
-      # 连接池配置（性能优化）
-      lettuce:
-        pool:
-          max-active: 20  # 最大连接数
-          max-idle: 10  # 最大空闲连接数
-          min-idle: 5  # 最小空闲连接数
-          max-wait: 3000  # 最大等待时间（毫秒）
-      # 禁用Redis Repositories自动配置（我们只使用缓存功能，不使用Redis Repository）
-      repositories:
-        enabled: false
-  # 缓存配置
-  cache:
-    type: redis
-    redis:
-      time-to-live: 3600000  # 默认缓存过期时间（毫秒），1小时
-      cache-null-values: false  # 不缓存null值
-      use-key-prefix: true  # 使用key前缀
-      key-prefix: "difyapp:"  # key前缀
-
-# RAG配置
-rag:
-  chunk-size: 500
-  chunk-overlap: 50
-  top-k: 10  # 增加检索数量，从5增加到10
-  similarity-threshold: 0.3  # 降低相似度阈值，从0.7降低到0.3，允许更多相关结果通过
-  # 上下文压缩配置（用于连续对话时压缩历史上下文）
-  enable-context-compression: true  # 是否启用上下文压缩
-  compression-strategy: sliding_window  # 压缩策略：sliding_window（滑动窗口）、summary（总结）、hybrid（混合）
-  max-history-rounds: 10  # 最大历史对话轮数（滑动窗口策略，每轮包含一问一答）
-  max-history-tokens: 2000  # 最大历史对话token数（用于判断是否需要压缩）
-  enable-summary: false  # 是否启用总结压缩（需要额外调用LLM，会增加延迟和成本）
-
-# MCP (Model Context Protocol) 配置（自定义配置属性，通过 McpConfig 类绑定）
+# MCP 浏览器搜索服务地址（需要根据环境修改）
 mcp:
-  # 浏览器搜索服务配置
   browser-search:
     searxng-base-url: http://localhost:10086  # SearX-NG服务地址
-    timeout: 10                               # 请求超时时间（秒）
-    default-max-results: 5                    # 默认最大搜索结果数
-    enable-query-optimization: true           # 是否启用查询优化（自动添加时间限制等）
-    # 默认搜索引擎（多个用逗号分隔，例如：google,bing,duckduckgo）
-    # 如果为空，则使用SearX-NG的默认配置
-    # 常用搜索引擎：google, bing, duckduckgo, brave, yandex, baidu, sogou, 360
-    default-engines: "duckduckgo,brave"
-  # 地理位置服务配置
-  location:
-    enabled: true                              # 是否启用地理位置服务
-    cache-seconds: 3600                       # 地理位置信息缓存时间（秒，默认1小时）
-    timeout: 10                               # 请求超时时间（秒）
-  # 时间服务配置
-  time:
-    default-time-zone: Asia/Shanghai          # 默认时区
-    cache-seconds: 1                          # 时间信息缓存时间（秒，避免频繁获取）
-  # 实时信息检测配置
-  realtime-info-detector:
-    enabled: true                              # 是否启用实时信息检测
-    confidence-threshold: 0.3                 # 检测置信度阈值（0.0-1.0），超过此值才认为是实时信息问题（降低阈值使检测更宽松）
