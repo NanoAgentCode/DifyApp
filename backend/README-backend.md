@@ -37,7 +37,7 @@ DifyApp 后端是一个基于 Java 的企业级后端应用，提供用户认证
   - Elasticsearch (向量搜索)
 
 ### 存储与缓存
-- **对象存储**: MinIO
+- **对象存储**: RustFS (S3兼容，MinIO替代品)
 - **缓存**: Redis (Spring Data Redis)
 
 ### AI与LLM集成
@@ -74,7 +74,7 @@ graph TB
         DB[(关系型数据库<br/>PostgreSQL/MySQL)]
         Redis[(Redis<br/>缓存)]
         VectorDB[(向量数据库<br/>Chroma/FAISS/Milvus等)]
-        MinIO[MinIO<br/>对象存储]
+        RustFS[RustFS<br/>对象存储<br/>S3兼容]
     end
     
     subgraph "外部服务"
@@ -88,7 +88,7 @@ graph TB
     Repository --> DB
     Service --> Redis
     Service --> VectorDB
-    Service --> MinIO
+    Service --> RustFS
     Service --> DifyAPI
     Service --> EmbeddingAPI
     
@@ -99,7 +99,7 @@ graph TB
     style DB fill:#336791,stroke:#333,stroke-width:2px,color:#fff
     style Redis fill:#dc382d,stroke:#333,stroke-width:2px,color:#fff
     style VectorDB fill:#0d9488,stroke:#333,stroke-width:2px,color:#fff
-    style MinIO fill:#ff9900,stroke:#333,stroke-width:2px,color:#fff
+    style RustFS fill:#ff9900,stroke:#333,stroke-width:2px,color:#fff
     style DifyAPI fill:#6366f1,stroke:#333,stroke-width:2px,color:#fff
     style EmbeddingAPI fill:#6366f1,stroke:#333,stroke-width:2px,color:#fff
 ```
@@ -274,7 +274,15 @@ graph LR
   - 地理位置服务：获取用户位置信息
   - 时间服务：获取当前时间、时区等信息
   - 实时信息检测：检测和更新实时数据
-- OCR 服务集成：调用外部 OCR 服务进行图片文字识别
+- OCR 服务集成：
+  - 调用外部 OCR 服务进行图片文字识别
+  - PDF 文档文字识别
+  - Word 文档图片识别
+  - 自动回退机制
+- 视觉模型支持：
+  - 支持多模态输入（文本+图片）
+  - 图片理解、文字识别、图表分析
+  - 自动检测模型视觉能力
 
 **技术实现：**
 - Spring WebFlux 实现响应式编程
@@ -304,6 +312,11 @@ graph LR
   - 检索结果排序和过滤
   - 上下文增强生成
   - 支持引用来源
+  - 支持视觉模型（多模态输入）
+- OCR 服务集成：
+  - 图片和PDF文字识别
+  - Word文档图片识别
+  - 自动回退机制
 - 嵌入模型管理：配置、测试嵌入模型
 - QA 模型管理：配置、测试问答模型
 
@@ -311,7 +324,7 @@ graph LR
 - LangChain4j 框架实现 RAG 功能
 - 文档解析使用 Apache Tika 和 Apache POI
 - 向量数据库适配器模式，支持多种向量数据库
-- MinIO 存储原始文档文件
+- RustFS 存储原始文档文件（S3兼容）
 
 ### 4. 系统配置模块 (system)
 
@@ -336,9 +349,11 @@ graph LR
   - 模板变量支持
   - 模板使用统计
 - Text2SQL 功能：
-  - 自然语言转 SQL 查询
-  - 支持多种数据库方言
-  - SQL 查询执行和结果返回
+  - 自然语言转 SQL/MongoDB 查询
+  - 支持多种数据库（PostgreSQL、MySQL、Oracle、MongoDB）
+  - 支持复杂查询（聚合、统计、分组等）
+  - 表结构自动发现和缓存
+  - SQL/MongoDB 查询执行和结果返回
 - 用户管理（管理员功能）：
   - 用户列表查询（支持分页、搜索）
   - 用户审核（激活、禁用用户）
@@ -511,8 +526,9 @@ graph LR
 - **Maven**: 3.6+
 - **数据库**: PostgreSQL 12+ / MySQL 5.7+ / Oracle 12+
 - **Redis**: 6.0+ (可选，用于缓存)
-- **MinIO**: 最新版本 (用于对象存储)
-- **向量数据库**: 根据需求选择安装（Chroma/Qdrant/Milvus等）
+- **对象存储**: RustFS (S3兼容，用于文档存储)
+- **向量数据库**: 根据需求选择安装（Qdrant/Milvus/FAISS/Chroma/Weaviate/PgVector/Elasticsearch）
+- **OCR服务**: EasyOCR (可选，用于图片和PDF文字识别)
 
 ## 快速开始
 
@@ -546,12 +562,12 @@ spring:
       password: # 可选
 ```
 
-#### MinIO配置
+#### RustFS配置（RustFS 100% 兼容 MinIO 配置）
 ```yaml
 minio:
   endpoint: http://localhost:9000
-  access-key: your_access_key
-  secret-key: your_secret_key
+  access-key: rustfsadmin
+  secret-key: rustfsadmin
   bucket-name: knowledge-base
 ```
 

@@ -32,11 +32,14 @@ DifyApp 是一个基于 Spring Boot 和 Vue 3 构建的企业级 AI 应用平台
   - 实时对话交互，支持上下文理解
   - 对话历史完整记录和管理
   - 支持多轮对话和会话管理
+  - 支持视觉模型（图片输入、图片理解、文字识别）
+  - 支持浏览器检索（实时网络信息获取）
 
 - **知识库管理**
   - 知识库创建、编辑、删除、查询
-  - 支持多种文档格式（PDF、Word、Excel、TXT、Markdown 等）
+  - 支持多种文档格式（PDF、Word、Excel、TXT、Markdown、图片等）
   - 自动文档解析和分块处理
+  - OCR 服务集成（图片和PDF文字识别）
   - 文档向量化和语义索引
   - 支持多种向量数据库（Chroma、FAISS、Milvus、Qdrant、Weaviate、PgVector、Elasticsearch）
   - 文档版本管理和更新机制
@@ -59,16 +62,20 @@ DifyApp 是一个基于 Spring Boot 和 Vue 3 构建的企业级 AI 应用平台
 
 - **Text2SQL 功能**
   - 自然语言转 SQL 查询
-  - 支持多种数据库（PostgreSQL、MySQL、Oracle 等）
+  - 支持多种数据库（PostgreSQL、MySQL、Oracle、MongoDB）
+  - 支持复杂查询（聚合、统计、分组等）
   - 数据源连接和管理
-  - SQL 查询结果可视化
+  - 表结构自动发现和缓存
+  - SQL/MongoDB 查询结果可视化
   - 查询历史记录
 
 - **AI 绘图功能**
   - 基于 Mermaid 的图表生成
-  - 支持流程图、时序图、类图等多种图表类型
+  - 支持流程图、时序图、类图、架构图、思维导图等多种图表类型
   - 自然语言描述生成图表代码
+  - 图表修改和编辑功能
   - 图表预览和导出
+  - 图表保存和管理
 
 - **文档解读功能**
   - 文档上传和解析
@@ -111,10 +118,13 @@ DifyApp 是一个基于 Spring Boot 和 Vue 3 构建的企业级 AI 应用平台
   - 支持多种数据库方言
 
 - **OCR 服务集成**
-  - 图片文字识别
-  - 支持多种图片格式
+  - 图片文字识别（EasyOCR）
+  - PDF 文档文字识别
+  - Word 文档图片识别
+  - 支持多种图片格式（PNG、JPEG、GIF、BMP等）
   - 批量图片处理
   - 识别结果结构化输出
+  - 自动回退机制（OCR失败时使用文本解析）
 
 ## 系统架构
 
@@ -131,8 +141,8 @@ graph TB
     subgraph "数据存储层"
         DB[(关系型数据库<br/>PostgreSQL/MySQL)]
         Redis[(Redis<br/>缓存)]
-        VectorDB[(向量数据库<br/>Chroma/FAISS/Milvus<br/>Qdrant/Weaviate等)]
-        MinIO[MinIO<br/>对象存储]
+        VectorDB[(向量数据库<br/>Chroma/FAISS/Milvus<br/>Qdrant/Weaviate/PgVector等)]
+        RustFS[RustFS<br/>对象存储<br/>S3兼容]
     end
     
     subgraph "外部服务"
@@ -143,7 +153,7 @@ graph TB
     Backend --> DB
     Backend --> Redis
     Backend --> VectorDB
-    Backend --> MinIO
+    Backend --> RustFS
     Backend --> DifyAPI
     
     style Frontend fill:#42b983,stroke:#333,stroke-width:2px,color:#fff
@@ -151,7 +161,7 @@ graph TB
     style DB fill:#336791,stroke:#333,stroke-width:2px,color:#fff
     style Redis fill:#dc382d,stroke:#333,stroke-width:2px,color:#fff
     style VectorDB fill:#0d9488,stroke:#333,stroke-width:2px,color:#fff
-    style MinIO fill:#ff9900,stroke:#333,stroke-width:2px,color:#fff
+    style RustFS fill:#ff9900,stroke:#333,stroke-width:2px,color:#fff
     style DifyAPI fill:#6366f1,stroke:#333,stroke-width:2px,color:#fff
 ```
 
@@ -165,7 +175,7 @@ graph TB
 - **ORM 框架**: Spring Data JPA / Hibernate
 - **数据库**: PostgreSQL / MySQL / Oracle / MongoDB / Neo4j
 - **向量数据库**: Chroma / FAISS / Milvus / PgVector / Qdrant / Weaviate / Elasticsearch
-- **存储与缓存**: MinIO (对象存储) / Redis (缓存)
+- **存储与缓存**: RustFS (对象存储，S3兼容) / Redis (缓存)
 - **AI 框架**: LangChain4j 0.34.0
 - **文档解析**: Apache Tika, Apache POI
 - **安全**: JWT (JSON Web Token)
@@ -227,8 +237,9 @@ DifyApp/
 - **Maven**: 3.6+
 - **数据库**: PostgreSQL 12+ / MySQL 5.7+ / Oracle 12+
 - **Redis**: 6.0+ (可选，用于缓存)
-- **MinIO**: 最新版本 (用于对象存储)
-- **向量数据库**: 根据需求选择安装（Chroma/Qdrant/Milvus 等）
+- **对象存储**: RustFS (S3兼容，用于文档存储)
+- **向量数据库**: 根据需求选择安装（Qdrant/Milvus/FAISS/Chroma/Weaviate/PgVector/Elasticsearch）
+- **OCR服务**: EasyOCR (可选，用于图片和PDF文字识别)
 
 #### 前端环境
 - **Node.js**: 16 或更高版本
@@ -269,12 +280,12 @@ spring:
       password: # 可选
 ```
 
-**MinIO 配置**
+**RustFS 配置**（RustFS 100% 兼容 MinIO 配置）
 ```yaml
 minio:
   endpoint: http://localhost:9000
-  access-key: your_access_key
-  secret-key: your_secret_key
+  access-key: rustfsadmin
+  secret-key: rustfsadmin
   bucket-name: knowledge-base
 ```
 
@@ -645,7 +656,8 @@ yarn build
 项目包含一些可选服务的 Docker 配置：
 
 - **OCR 服务**: `easy_ocr/docker-compose.yml`
-- **文件服务**: `rustfs/docker-compose.yml`
+- **对象存储**: `rustfs/docker-compose.yml` (RustFS，S3兼容)
+- **外部依赖**: `docker-compose.dependencies.yml` (包含所有外部依赖服务)
 
 ## 开发规范
 

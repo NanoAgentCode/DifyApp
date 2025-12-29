@@ -1,0 +1,335 @@
+version: '3.8'
+
+services:
+  # ==================== 必需服务 ====================
+  
+  # PostgreSQL 数据库
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: difyapp-postgres
+    ports:
+      - "15432:5432"
+    environment:
+      - POSTGRES_PASSWORD=123456
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - difyapp-dependencies-network
+
+  # RustFS 对象存储（S3兼容，MinIO替代品）
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: difyapp-rustfs
+    ports:
+      - "9000:9000"  # S3 API端口
+      - "9001:9001"  # 控制台端口
+    environment:
+      - RUSTFS_ACCESS_KEY=rustfsadmin
+      - RUSTFS_SECRET_KEY=rustfsadmin
+      - RUSTFS_CONSOLE_ENABLE=true
+      - RUSTFS_ADDRESS=:9000
+    volumes:
+      - rustfs-data:/data
+    command:
+      - /data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - difyapp-dependencies-network
+
+  # ==================== 可选服务（推荐） ====================
+  
+  # Redis 缓存（推荐）
+  redis:
+    image: redis:7-alpine
+    container_name: difyapp-redis
+    ports:
+      - "16379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - difyapp-dependencies-network
+
+  # EasyOCR 服务（推荐）
+  easyocr:
+    build:
+      context: ./easy_ocr
+      dockerfile: Dockerfile
+    image: difyapp/easyocr:latest
+    container_name: difyapp-easyocr
+    ports:
+      - "8001:8000"  # 使用 8001 端口避免与 Chroma 冲突
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+    volumes:
+      - easyocr-models:/root/.EasyOCR
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s  # 首次启动需要下载模型，给足够时间
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+    networks:
+      - difyapp-dependencies-network
+
+  # ==================== 向量数据库（至少选择一种） ====================
+  
+  # Qdrant 向量数据库（推荐用于生产环境）
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: difyapp-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - difyapp-dependencies-network
+
+  # Milvus 向量数据库（需要 etcd 和 minio）
+  milvus-etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    container_name: difyapp-milvus-etcd
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - milvus-etcd-data:/etcd
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - difyapp-dependencies-network
+
+  milvus-storage:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    container_name: difyapp-milvus-storage
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    volumes:
+      - milvus-storage-data:/minio_data
+    command: minio server /minio_data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - difyapp-dependencies-network
+
+  milvus:
+    image: milvusdb/milvus:v2.3.3
+    container_name: difyapp-milvus
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: milvus-etcd:2379
+      MINIO_ADDRESS: milvus-storage:9000
+    volumes:
+      - milvus-data:/var/lib/milvus
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    depends_on:
+      milvus-etcd:
+        condition: service_healthy
+      milvus-storage:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      start_period: 90s
+      timeout: 20s
+      retries: 3
+    networks:
+      - difyapp-dependencies-network
+
+  # Chroma 向量数据库
+  chroma:
+    image: ghcr.io/chroma-core/chroma:latest
+    container_name: difyapp-chroma
+    ports:
+      - "8002:8000"  # 使用 8002 端口避免与其他服务冲突
+    volumes:
+      - chroma-data:/chroma/chroma
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - difyapp-dependencies-network
+
+  # Weaviate 向量数据库
+  weaviate:
+    image: semitechnologies/weaviate:latest
+    container_name: difyapp-weaviate
+    ports:
+      - "8080:8080"
+    environment:
+      - QUERY_DEFAULTS_LIMIT=25
+      - AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=true
+      - PERSISTENCE_DATA_PATH=/var/lib/weaviate
+      - DEFAULT_VECTORIZER_MODULE=none
+      - ENABLE_MODULES=text2vec-openai,text2vec-cohere,text2vec-huggingface
+      - CLUSTER_HOSTNAME=node1
+    volumes:
+      - weaviate-data:/var/lib/weaviate
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - difyapp-dependencies-network
+
+  # Elasticsearch 向量数据库
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: difyapp-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - difyapp-dependencies-network
+
+  # ==================== 其他可选服务 ====================
+  
+  # Mindmap 服务
+  mindmap:
+    build:
+      context: ./mindmap
+      dockerfile: Dockerfile
+      args:
+        USE_CHINA_MIRROR: "false"  # 设置为 "true" 使用国内镜像源
+    image: difyapp/mindmap:latest
+    container_name: difyapp-mindmap
+    ports:
+      - "6066:6066"
+    volumes:
+      # 挂载静态文件目录，持久化生成的文件
+      - ./mindmap/static:/app/static
+    environment:
+      - TZ=Asia/Shanghai
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6066/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - difyapp-dependencies-network
+
+volumes:
+  # PostgreSQL 数据
+  postgres-data:
+    driver: local
+  
+  # RustFS 数据
+  rustfs-data:
+    driver: local
+  
+  # Redis 数据
+  redis-data:
+    driver: local
+  
+  # Qdrant 数据
+  qdrant-data:
+    driver: local
+  
+  # Milvus 数据
+  milvus-etcd-data:
+    driver: local
+  milvus-storage-data:
+    driver: local
+  milvus-data:
+    driver: local
+  
+  # Chroma 数据
+  chroma-data:
+    driver: local
+  
+  # Weaviate 数据
+  weaviate-data:
+    driver: local
+  
+  # Elasticsearch 数据
+  elasticsearch-data:
+    driver: local
+  
+  # EasyOCR 模型
+  easyocr-models:
+    driver: local
+
+networks:
+  difyapp-dependencies-network:
+    driver: bridge
+
