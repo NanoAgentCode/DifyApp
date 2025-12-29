@@ -16,12 +16,12 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://106.54.124.170:9090',
+        target: 'http://localhost:9090',
         changeOrigin: true
       },
       // 脑图服务代理：将前端的 /proxy/html/* 代理到脑图服务的 /html/*
       '/proxy/html': {
-        target: 'http://106.54.124.170:6066',
+        target: 'http://localhost:6066',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/proxy/, ''),
         configure: (proxy, _options) => {

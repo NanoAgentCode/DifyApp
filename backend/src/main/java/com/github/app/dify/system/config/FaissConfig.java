@@ -6,7 +6,6 @@ import com.github.app.dify.knowledgebase.repository.VectorDatabaseRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 import jakarta.annotation.PostConstruct;
@@ -17,10 +16,9 @@ import java.util.Optional;
 /**
  * FAISS配置类
  * 用于配置FAISS向量存储的基础路径
- * 优先从数据库读取配置，如果数据库没有配置则使用application.yml的配置
+ * 仅从数据库读取配置
  */
 @Configuration
-@ConfigurationProperties(prefix = "faiss")
 @DependsOn("vectorDatabaseRepository")
 public class FaissConfig {
     
@@ -30,20 +28,9 @@ public class FaissConfig {
     private VectorDatabaseRepository vectorDatabaseRepository;
     
     /**
-     * FAISS索引文件的基础存储路径（默认值）
-     * 每个知识库的索引文件将存储在：{basePath}/kb_{knowledgeBaseId}/
-     */
-    private String basePath = "./data/faiss";
-    
-    /**
-     * 实际使用的基础路径（从数据库读取或使用默认值）
+     * 实际使用的基础路径（从数据库读取）
      */
     private String actualBasePath;
-    
-    // Setter方法（Spring Boot需要从application.yml读取）
-    public void setBasePath(String basePath) {
-        this.basePath = basePath;
-    }
     
     /**
      * 初始化配置（从数据库读取或使用默认值）
@@ -58,8 +45,7 @@ public class FaissConfig {
      */
     private void loadConfigFromDatabase() {
         if (vectorDatabaseRepository == null) {
-            logger.debug("VectorDatabaseRepository未注入，使用application.yml配置");
-            actualBasePath = basePath;
+            logger.debug("VectorDatabaseRepository未注入，无法加载配置");
             return;
         }
         
@@ -92,12 +78,9 @@ public class FaissConfig {
                 return;
             }
             
-            // 数据库没有配置，使用application.yml的默认值
-            actualBasePath = basePath;
-            logger.info("数据库中没有FAISS配置，使用application.yml配置 - 路径: {}", actualBasePath);
+            logger.warn("数据库中没有FAISS配置");
         } catch (Exception e) {
-            logger.warn("从数据库加载FAISS配置失败，使用application.yml配置: {}", e.getMessage(), e);
-            actualBasePath = basePath;
+            logger.error("从数据库加载FAISS配置失败: {}", e.getMessage(), e);
         }
     }
     
@@ -112,7 +95,11 @@ public class FaissConfig {
      * 获取实际使用的基础路径（转换为绝对路径）
      */
     public String getBasePath() {
-        String path = actualBasePath != null ? actualBasePath : basePath;
+        String path = actualBasePath;
+        if (path == null) {
+            logger.warn("FAISS基础路径未配置，使用默认路径");
+            path = "./data/faiss";
+        }
         // 如果是相对路径，转换为绝对路径（基于项目根目录）
         if (path.startsWith("./") || (!path.startsWith("/") && !path.matches("^[A-Za-z]:.*"))) {
             // 获取项目根目录（backend目录的父目录）
@@ -124,13 +111,13 @@ public class FaissConfig {
             // 移除相对路径前缀
             String cleanPath = path.replaceFirst("^\\./", "");
             path = Paths.get(projectRoot, cleanPath).toAbsolutePath().normalize().toString();
-            logger.debug("转换相对路径为绝对路径: {} -> {}", actualBasePath != null ? actualBasePath : basePath, path);
+            logger.debug("转换相对路径为绝对路径: {} -> {}", actualBasePath != null ? actualBasePath : "./data/faiss", path);
         }
         return path;
     }
     
     /**
-     * 获取知识库的FAISS索引目录路径
+     * @description 获取知识库的FAISS索引目录路径
      * @param knowledgeBaseId 知识库ID
      * @return 索引目录路径
      */
