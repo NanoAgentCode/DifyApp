@@ -278,6 +278,16 @@ onMounted(() => {
   pointer-events: auto; /* 确保可以点击 */
 }
 
+.expand-header-button :deep(.el-button) {
+  background-color: #909399 !important; /* 灰色背景 */
+  border-color: #909399 !important;
+}
+
+.expand-header-button :deep(.el-button:hover) {
+  background-color: #a6a9ad !important; /* 悬停时稍深的灰色 */
+  border-color: #a6a9ad !important;
+}
+
 @keyframes slideDown {
   from {
     opacity: 0;
