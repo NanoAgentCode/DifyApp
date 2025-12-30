@@ -1,29 +1,10 @@
 <template>
   <div class="portal-container">
     <!-- 顶部导航栏 -->
-    <div class="portal-header">
-      <div class="header-left">
-        <h2>NanoAgent智能应用工作台</h2>
-      </div>
-      <div class="header-right">
-        <el-dropdown @command="handleCommand">
-          <span class="user-info">
-            <el-icon><User /></el-icon>
-            <span>{{ userInfo?.username || '用户' }}</span>
-            <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-          </span>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="changePassword">修改密码</el-dropdown-item>
-              <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-      </div>
-    </div>
+    <AppHeader v-model="isHeaderCollapsed" @command="handleCommand" />
 
     <!-- 主要内容区域 -->
-    <div class="portal-content">
+    <div class="portal-content" :class="{ 'content-header-collapsed': isHeaderCollapsed }">
       <!-- 初始欢迎界面（无对话时显示） -->
       <div v-if="chatHistory.length === 0 && !isInputFocused" class="welcome-section">
         <div class="assistant-identity">
@@ -270,6 +251,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ChatLineRound,
   ArrowDown,
+  ArrowUp,
   Connection,
   Paperclip,
   Promotion,
@@ -291,6 +273,7 @@ import { getKnowledgeBaseList } from '@/api/knowledgeBase'
 import { knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
 import MessageList from '@/components/chat/MessageList.vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
+import AppHeader from '@/components/AppHeader.vue'
 
 const router = useRouter()
 
@@ -311,8 +294,8 @@ const selectedKnowledgeBaseId = ref(null)
 const selectedKnowledgeBase = ref(null)
 const conversationMode = ref('chat') // 'chat' 普通对话, 'rag' 知识库问答
 const selectedKnowledgeBaseName = ref('')
-const userInfo = ref(null)
 const showChangePasswordDialog = ref(false)
+const isHeaderCollapsed = ref(false)
 
 const selectedModelName = computed(() => {
   if (!selectedModelId.value) return 'DS V3.2'
@@ -333,28 +316,12 @@ const getUserInfo = () => {
   return null
 }
 
-// 加载用户信息
-const loadUserInfo = () => {
-  userInfo.value = getUserInfo()
-}
-
 // 处理下拉菜单命令
 const handleCommand = (command) => {
   if (command === 'changePassword') {
     showChangePasswordDialog.value = true
-  } else if (command === 'logout') {
-    ElMessageBox.confirm('确定要退出登录吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-      .then(() => {
-        localStorage.removeItem('token')
-        localStorage.removeItem('userInfo')
-        router.push('/login')
-      })
-      .catch(() => {})
   }
+  // logout 命令由 AppHeader 组件内部处理
 }
 
 // 处理密码修改成功
@@ -1096,6 +1063,7 @@ const handleRefresh = () => {
   ElMessage.success('会话已重置')
 }
 
+
 // 处理建议提示点击
 const handlePromptClick = (prompt) => {
   question.value = prompt
@@ -1213,7 +1181,6 @@ const setDropdownWidth = () => {
 }
 
 onMounted(() => {
-  loadUserInfo()
   updateDateTime()
   // 每秒更新时间
   setInterval(updateDateTime, 1000)
@@ -1239,77 +1206,11 @@ onUnmounted(() => {
   margin: 0;
   position: relative;
   width: 100%;
+  overflow-x: hidden; /* 防止水平滚动 */
 }
 
-/* 顶部导航栏 */
-.portal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  margin: 0;
-  width: 100%;
-  height: 60px;
-  background: var(--el-color-primary, #409EFF);
-  border-bottom: 1px solid var(--el-border-color-primary-dark-2, rgba(64, 158, 255, 0.8));
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-}
 
-.header-left {
-  flex: 1;
-  display: flex;
-  align-items: center;
-}
 
-.header-left h2 {
-  margin: 0;
-  font-size: 20px;
-  color: #ffffff;
-  font-weight: 500;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
-
-.header-right {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  position: relative;
-  z-index: 1;
-}
-
-.refresh-button {
-  padding: 8px;
-  color: #ffffff;
-  transition: color 0.2s, background-color 0.2s;
-}
-
-.refresh-button:hover {
-  color: #ffffff;
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: white;
-  cursor: pointer;
-  padding: 5px 10px;
-  border-radius: 4px;
-  transition: background-color 0.3s;
-}
-
-.user-info:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
 
 /* 主要内容区域 */
 .portal-content {
@@ -1317,12 +1218,52 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: 40px 20px;
+  overflow-x: hidden;
+  padding: 40px 0; /* 只保留上下内边距，左右为0让滚动条靠右 */
   padding-top: calc(40px + 60px); /* 为固定导航栏留出空间 */
-  max-width: 1200px;
-  width: 100%;
-  margin: 0 auto;
+  width: 100%; /* 占据全宽，让滚动条在视口最右侧 */
+  margin: 0;
+  transition: padding-top 0.3s ease;
+  position: relative;
+  box-sizing: border-box;
 }
+
+/* 内容容器，用于居中显示内容 */
+.portal-content > .welcome-section,
+.portal-content > .chat-history-section {
+  width: 100%;
+  max-width: 1200px;
+  min-width: 600px; /* 最小宽度，确保在小屏幕上也有良好显示 */
+  margin: 0 auto;
+  padding-left: 20px;
+  padding-right: 20px;
+  box-sizing: border-box;
+}
+
+/* 中等屏幕自适应 */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .portal-content > .welcome-section,
+  .portal-content > .chat-history-section {
+    min-width: 500px;
+    max-width: 900px;
+  }
+}
+
+/* 小屏幕自适应 */
+@media (max-width: 768px) {
+  .portal-content > .welcome-section,
+  .portal-content > .chat-history-section {
+    min-width: auto; /* 小屏幕下取消最小宽度限制 */
+    width: 100%;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+.portal-content.content-header-collapsed {
+  padding-top: 40px; /* 顶部收起时不需要留出导航栏空间 */
+}
+
 
 /* 欢迎界面 */
 .welcome-section {
@@ -1331,10 +1272,28 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   flex: 1;
-  padding: 40px 20px;
-  max-width: 800px;
-  margin: 0 auto;
+  padding: 40px 20px !important; /* 覆盖父容器的padding设置 */
   width: 100%;
+  max-width: 1200px;
+  min-width: 600px; /* 最小宽度，确保在小屏幕上也有良好显示 */
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* 中等屏幕自适应 */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .welcome-section {
+    min-width: 500px;
+    max-width: 900px;
+  }
+}
+
+/* 小屏幕自适应 */
+@media (max-width: 768px) {
+  .welcome-section {
+    min-width: auto; /* 小屏幕下取消最小宽度限制 */
+    padding: 40px 16px !important;
+  }
 }
 
 .assistant-identity {
@@ -1402,13 +1361,32 @@ onUnmounted(() => {
 
 .input-section {
   width: 100%;
-  max-width: 800px;
+  max-width: 1200px; /* 与问答区域同宽 */
+  min-width: 600px; /* 最小宽度，确保在小屏幕上也有良好显示 */
   margin: 0 auto 20px;
   position: sticky;
   bottom: 0;
   background: var(--el-bg-color-page, #f5f7fa);
-  padding: 16px 0;
+  padding: 16px 20px; /* 添加左右内边距，与问答区域保持一致 */
   z-index: 10;
+  box-sizing: border-box;
+}
+
+/* 中等屏幕自适应 */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .input-section {
+    min-width: 500px;
+    max-width: 900px;
+  }
+}
+
+/* 小屏幕自适应 */
+@media (max-width: 768px) {
+  .input-section {
+    min-width: auto; /* 小屏幕下取消最小宽度限制 */
+    width: 100%;
+    padding: 16px;
+  }
 }
 
 .input-wrapper {
@@ -1694,11 +1672,29 @@ onUnmounted(() => {
 
 .chat-history-section {
   width: 100%;
-  max-width: 800px;
+  max-width: 1200px; /* 与输入区域和欢迎区域同宽 */
+  min-width: 600px; /* 最小宽度，确保在小屏幕上也有良好显示 */
   margin: 0 auto;
   flex: 1;
   overflow-y: auto;
-  padding: 20px 0;
+  padding: 20px 20px !important; /* 覆盖父容器的padding设置 */
+  box-sizing: border-box;
+}
+
+/* 中等屏幕自适应 */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .chat-history-section {
+    min-width: 500px;
+    max-width: 900px;
+  }
+}
+
+/* 小屏幕自适应 */
+@media (max-width: 768px) {
+  .chat-history-section {
+    min-width: auto; /* 小屏幕下取消最小宽度限制 */
+    padding: 20px 16px !important;
+  }
 }
 
 /* 底部免责声明 */
@@ -1725,7 +1721,9 @@ onUnmounted(() => {
 
   .input-section {
     max-width: 100%;
+    min-width: auto; /* 小屏幕下取消最小宽度限制 */
     margin-bottom: 60px;
+    padding: 16px;
   }
 
   .input-wrapper {

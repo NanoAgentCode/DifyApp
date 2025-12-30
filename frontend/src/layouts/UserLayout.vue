@@ -1,27 +1,8 @@
 <template>
   <el-container class="user-layout" :class="{ 'portal-mode': isPortalMode }">
-    <el-header v-if="!isPortalMode" class="header">
-      <div class="header-left">
-        <h2>NanoAgent智能应用工作台</h2>
-      </div>
-      <div class="header-right">
-        <el-dropdown @command="handleCommand">
-          <span class="user-info">
-            <el-icon><User /></el-icon>
-            <span>{{ userInfo?.username || '用户' }}</span>
-            <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-          </span>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="changePassword">修改密码</el-dropdown-item>
-              <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-      </div>
-    </el-header>
+    <AppHeader v-if="!isPortalMode" v-model="isHeaderCollapsed" @command="handleCommand" />
     <el-container :class="{ 'portal-container': isPortalMode }">
-      <el-aside width="64px" class="aside portal-sidebar">
+      <el-aside width="64px" class="aside portal-sidebar" :class="{ 'aside-header-collapsed': isHeaderCollapsed && isPortalMode, 'aside-header-collapsed-non-portal': isHeaderCollapsed && !isPortalMode }">
         <el-menu
           :default-active="activeMenu"
           :collapse="true"
@@ -72,9 +53,13 @@
           </el-tooltip>
         </el-menu>
       </el-aside>
-      <el-main class="main" :class="{ 'portal-main': isPortalMode }">
+      <el-main class="main" :class="{ 'portal-main': isPortalMode, 'main-header-collapsed': isHeaderCollapsed && !isPortalMode }">
         <div class="main-content" :class="{ 'portal-content': isPortalMode }">
-          <router-view />
+          <router-view v-slot="{ Component }">
+            <transition name="fade-slide" mode="out-in">
+              <component :is="Component" />
+            </transition>
+          </router-view>
         </div>
       </el-main>
     </el-container>
@@ -100,10 +85,11 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { User, ArrowDown, List, Folder, ChatLineRound, Clock, Document, DataAnalysis, Reading } from '@element-plus/icons-vue'
+import { List, Folder, ChatLineRound, Clock, Document, DataAnalysis, Reading } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import HelpFloatingButton from '@/components/HelpFloatingButton.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
+import AppHeader from '@/components/AppHeader.vue'
 import { getConfigsByGroup } from '@/api/systemConfig'
 
 const route = useRoute()
@@ -126,6 +112,7 @@ const showChangePasswordDialog = ref(false)
 const showHelpDialog = ref(false)
 const helpKnowledgeBaseId = ref(null)
 const helpModelId = ref(null)
+const isHeaderCollapsed = ref(false)
 
 // 从数据库加载配置
 const loadConfigFromDB = async () => {
@@ -182,20 +169,8 @@ onMounted(async () => {
 const handleCommand = (command) => {
   if (command === 'changePassword') {
     showChangePasswordDialog.value = true
-  } else if (command === 'logout') {
-    ElMessageBox.confirm('确定要退出登录吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }).then(() => {
-      localStorage.removeItem('token')
-      localStorage.removeItem('userInfo')
-      ElMessage.success('已退出登录')
-      router.push('/login')
-    }).catch(() => {
-      // 取消操作
-    })
   }
+  // logout 命令由 AppHeader 组件内部处理
 }
 
 const handlePasswordChangeSuccess = () => {
@@ -212,6 +187,7 @@ const handlePasswordChangeSuccess = () => {
     // 用户选择稍后
   })
 }
+
 </script>
 
 <style scoped>
@@ -225,64 +201,22 @@ const handlePasswordChangeSuccess = () => {
   overflow: visible;
 }
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: var(--el-color-primary, #409EFF);
-  color: white;
-  padding: 0 20px;
-  height: 60px;
-  flex-shrink: 0;
-  position: relative;
-}
-
-.header-left {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.header-left h2 {
-  margin: 0;
-  font-size: 20px;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
-
-
-.header-right {
-  display: flex;
-  align-items: center;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: white;
-  cursor: pointer;
-  padding: 5px 10px;
-  border-radius: 4px;
-  transition: background-color 0.3s;
-}
-
-.user-info:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
 
 .aside {
   background: #f5f7fa;
   border-right: 1px solid #e4e7ed;
-  transition: width 0.3s ease;
+  transition: width 0.3s ease, margin-top 0.3s ease;
   height: calc(100vh - 60px); /* 减去header高度 */
   display: flex;
   flex-direction: column;
   overflow: hidden;
   flex-shrink: 0; /* 防止侧边栏被压缩 */
+  margin-top: 60px; /* 为顶部导航栏留出空间 */
+}
+
+.aside.aside-header-collapsed-non-portal {
+  margin-top: 0 !important;
+  height: 100vh;
 }
 
 .aside.portal-sidebar {
@@ -295,6 +229,12 @@ const handlePasswordChangeSuccess = () => {
   padding: 0 !important;
   background: #fff;
   border-right: 1px solid #e4e7ed;
+  transition: top 0.3s ease, height 0.3s ease;
+}
+
+.aside.portal-sidebar.aside-header-collapsed {
+  top: 0;
+  height: 100vh;
 }
 
 .menu {
@@ -350,10 +290,16 @@ const handlePasswordChangeSuccess = () => {
   height: calc(100vh - 60px);
   display: flex;
   flex-direction: column;
-  transition: margin-left 0.3s ease; /* 添加过渡效果 */
+  transition: margin-left 0.3s ease, margin-top 0.3s ease, height 0.3s ease; /* 添加过渡效果 */
   flex: 1; /* 允许主内容区域自动调整 */
   min-width: 0; /* 允许主内容区域缩小 */
   margin-left: 64px !important; /* 为收缩的侧边栏留出空间 */
+  margin-top: 60px !important; /* 为顶部导航栏留出空间 */
+}
+
+.main.main-header-collapsed {
+  margin-top: 0 !important;
+  height: 100vh;
 }
 
 .main.portal-main {
@@ -384,6 +330,22 @@ const handlePasswordChangeSuccess = () => {
   overflow: visible;
 }
 
+/* 路由切换过渡动画 */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.3s ease;
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
 /* 小屏幕适配 (1024x768及以下) */
 @media (max-width: 1024px) {
   .header {
@@ -402,6 +364,7 @@ const handlePasswordChangeSuccess = () => {
 
   .aside {
     height: calc(100vh - 50px);
+    margin-top: 50px; /* 小屏幕header高度为50px */
   }
 
   /* 小屏幕默认折叠侧边栏，但允许手动展开 */
@@ -411,6 +374,7 @@ const handlePasswordChangeSuccess = () => {
 
   .main {
     height: calc(100vh - 50px);
+    margin-top: 50px !important; /* 小屏幕header高度为50px */
   }
 
   .main-content {
@@ -428,5 +392,6 @@ const handlePasswordChangeSuccess = () => {
     padding: 8px;
   }
 }
+
 </style>
 

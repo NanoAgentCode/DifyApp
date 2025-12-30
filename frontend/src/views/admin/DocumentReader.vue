@@ -277,6 +277,30 @@ onMounted(() => {
   overflow: hidden;
 }
 
+/* 选项卡切换过渡动画 */
+.function-tabs :deep(.el-tabs__content) {
+  position: relative;
+}
+
+.function-tabs :deep(.el-tab-pane) {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.function-tabs :deep(.el-tab-pane.is-active) {
+  animation: tabFadeIn 0.3s ease;
+}
+
+@keyframes tabFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .qa-section {
   flex: 0 0 auto;
   flex-shrink: 0;

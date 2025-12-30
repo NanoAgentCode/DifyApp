@@ -1,34 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
   <defs>
-    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+    <!-- 主渐变 -->
+    <linearGradient id="mainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#409EFF;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#66B1FF;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#66B1FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#85C1FF;stop-opacity:1" />
+    </linearGradient>
+    <!-- 高光渐变 -->
+    <linearGradient id="highlightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0" />
     </linearGradient>
   </defs>
   
   <!-- 背景圆形 -->
-  <circle cx="64" cy="64" r="60" fill="url(#grad1)"/>
+  <circle cx="64" cy="64" r="60" fill="url(#mainGrad)"/>
+  <circle cx="64" cy="64" r="60" fill="url(#highlightGrad)"/>
   
-  <!-- AI 大脑图标 -->
+  <!-- 中心N字母（Nano） -->
   <g transform="translate(64, 64)">
-    <!-- 大脑轮廓 -->
-    <path d="M-20,-15 Q-25,-25 -20,-35 Q-15,-40 -5,-40 Q5,-40 10,-35 Q15,-30 15,-20 Q15,-10 10,-5 Q5,0 0,0 Q-5,0 -10,-5 Q-15,-10 -15,-15 Z" 
-          fill="white" opacity="0.9"/>
+    <!-- N字母主体 -->
+    <path d="M-22,-28 L-22,28 L-13,28 L-13,-3 L13,28 L22,28 L22,-28 L13,-28 L13,3 L-13,-28 Z" 
+          fill="white" opacity="0.95"/>
     
-    <!-- 连接节点 -->
-    <circle cx="-12" cy="-20" r="3" fill="#409EFF"/>
-    <circle cx="0" cy="-25" r="3" fill="#409EFF"/>
-    <circle cx="12" cy="-20" r="3" fill="#409EFF"/>
-    <circle cx="-8" cy="-10" r="2.5" fill="#409EFF"/>
-    <circle cx="8" cy="-10" r="2.5" fill="#409EFF"/>
+    <!-- 智能连接点 -->
+    <circle cx="-16" cy="-19" r="2.5" fill="#409EFF" opacity="0.9"/>
+    <circle cx="0" cy="0" r="2.5" fill="#409EFF" opacity="0.9"/>
+    <circle cx="16" cy="19" r="2.5" fill="#409EFF" opacity="0.9"/>
     
     <!-- 连接线 -->
-    <line x1="-12" y1="-20" x2="0" y2="-25" stroke="white" stroke-width="1.5" opacity="0.6"/>
-    <line x1="0" y1="-25" x2="12" y2="-20" stroke="white" stroke-width="1.5" opacity="0.6"/>
-    <line x1="-12" y1="-20" x2="-8" y2="-10" stroke="white" stroke-width="1.5" opacity="0.6"/>
-    <line x1="12" y1="-20" x2="8" y2="-10" stroke="white" stroke-width="1.5" opacity="0.6"/>
+    <line x1="-16" y1="-19" x2="0" y2="0" stroke="white" stroke-width="1.5" opacity="0.6" stroke-linecap="round"/>
+    <line x1="0" y1="0" x2="16" y2="19" stroke="white" stroke-width="1.5" opacity="0.6" stroke-linecap="round"/>
   </g>
-  
-  <!-- D 字母（Dify） -->
-  <text x="64" y="90" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="white" text-anchor="middle" opacity="0.9">D</text>
 </svg>

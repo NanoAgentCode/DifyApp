@@ -1734,6 +1734,19 @@ onMounted(() => {
   padding-bottom: 0;
 }
 
+/* 选项卡切换过渡动画 */
+.bar-chart-card .trend-tabs :deep(.el-tabs__content) {
+  position: relative;
+}
+
+.bar-chart-card .trend-tabs :deep(.el-tab-pane) {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.bar-chart-card .trend-tabs :deep(.el-tab-pane.is-active) {
+  animation: tabFadeIn 0.3s ease;
+}
+
 /* 柱状图项样式 */
 .bar-chart-item {
   flex: 1;
@@ -1900,6 +1913,30 @@ onMounted(() => {
 
 .trend-tabs :deep(.el-tab-pane) {
   padding-bottom: 0;
+}
+
+/* 选项卡切换过渡动画 */
+.trend-tabs :deep(.el-tabs__content) {
+  position: relative;
+}
+
+.trend-tabs :deep(.el-tab-pane) {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.trend-tabs :deep(.el-tab-pane.is-active) {
+  animation: tabFadeIn 0.3s ease;
+}
+
+@keyframes tabFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .chart-title-bar {

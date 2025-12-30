@@ -1,35 +1,54 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
   <defs>
-    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <!-- 主渐变 -->
+    <linearGradient id="mainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#409EFF;stop-opacity:1" />
       <stop offset="50%" style="stop-color:#66B1FF;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#85C1FF;stop-opacity:1" />
     </linearGradient>
+    <!-- 高光渐变 -->
+    <linearGradient id="highlightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0" />
+    </linearGradient>
+    <!-- 阴影 -->
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+      <feOffset dx="0" dy="2" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.3"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
   
   <!-- 背景圆形 -->
-  <circle cx="100" cy="100" r="90" fill="url(#logoGrad)"/>
+  <circle cx="100" cy="100" r="90" fill="url(#mainGrad)"/>
+  <circle cx="100" cy="100" r="90" fill="url(#highlightGrad)"/>
   
-  <!-- AI 大脑图标 -->
-  <g transform="translate(100, 80)">
-    <!-- 大脑轮廓 -->
-    <path d="M-30,-20 Q-35,-35 -30,-50 Q-20,-55 -5,-55 Q10,-55 20,-50 Q30,-40 30,-25 Q30,-10 20,-5 Q10,0 0,0 Q-10,0 -20,-5 Q-30,-10 -30,-20 Z" 
-          fill="white" opacity="0.95"/>
+  <!-- 中心N字母（Nano） -->
+  <g transform="translate(100, 100)">
+    <!-- N字母主体 -->
+    <path d="M-35,-45 L-35,45 L-20,45 L-20,-5 L20,45 L35,45 L35,-45 L20,-45 L20,5 L-20,-45 Z" 
+          fill="white" opacity="0.95" filter="url(#shadow)"/>
     
-    <!-- 连接节点 -->
-    <circle cx="-18" cy="-30" r="4" fill="#409EFF"/>
-    <circle cx="0" cy="-35" r="4" fill="#409EFF"/>
-    <circle cx="18" cy="-30" r="4" fill="#409EFF"/>
-    <circle cx="-12" cy="-15" r="3.5" fill="#409EFF"/>
-    <circle cx="12" cy="-15" r="3.5" fill="#409EFF"/>
+    <!-- 智能连接点 -->
+    <circle cx="-25" cy="-30" r="4" fill="#409EFF" opacity="0.9"/>
+    <circle cx="0" cy="0" r="4" fill="#409EFF" opacity="0.9"/>
+    <circle cx="25" cy="30" r="4" fill="#409EFF" opacity="0.9"/>
     
-    <!-- 连接线 -->
-    <line x1="-18" y1="-30" x2="0" y2="-35" stroke="white" stroke-width="2" opacity="0.7"/>
-    <line x1="0" y1="-35" x2="18" y2="-30" stroke="white" stroke-width="2" opacity="0.7"/>
-    <line x1="-18" y1="-30" x2="-12" y2="-15" stroke="white" stroke-width="2" opacity="0.7"/>
-    <line x1="18" y1="-30" x2="12" y2="-15" stroke="white" stroke-width="2" opacity="0.7"/>
+    <!-- 连接线（表示智能网络） -->
+    <line x1="-25" y1="-30" x2="0" y2="0" stroke="white" stroke-width="2" opacity="0.6" stroke-linecap="round"/>
+    <line x1="0" y1="0" x2="25" y2="30" stroke="white" stroke-width="2" opacity="0.6" stroke-linecap="round"/>
+    
+    <!-- 额外的智能节点 -->
+    <circle cx="-15" cy="15" r="3" fill="white" opacity="0.7"/>
+    <circle cx="15" cy="-15" r="3" fill="white" opacity="0.7"/>
   </g>
   
-  <!-- Dify 文字 -->
-  <text x="100" y="140" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="white" text-anchor="middle" opacity="0.95">Dify</text>
+  <!-- 外圈装饰（科技感） -->
+  <circle cx="100" cy="100" r="75" fill="none" stroke="white" stroke-width="1.5" opacity="0.2" stroke-dasharray="4,4"/>
 </svg>

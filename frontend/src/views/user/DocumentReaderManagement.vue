@@ -616,6 +616,22 @@ onUnmounted(() => {
 <style scoped>
 .document-reader-management {
   height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.document-reader-management :deep(.el-card) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.document-reader-management :deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .card-header {
@@ -641,14 +657,41 @@ onUnmounted(() => {
   gap: 8px;
 }
 
+.doc-list-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.doc-list-section :deep(.el-card) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.doc-list-section :deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
 .search-filter-bar {
   margin-bottom: 16px;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .cards-wrapper {
-  min-height: 400px;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  padding: 0;
 }
 
 .empty-state {
@@ -668,20 +711,36 @@ onUnmounted(() => {
 
 .documents-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 16px;
   padding: 0;
+}
+
+/* 响应式布局 */
+@media (max-width: 1200px) {
+  .documents-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .documents-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
 }
 
 .document-card {
   cursor: pointer;
   transition: all 0.3s ease;
   width: 100%;
-  aspect-ratio: 1 / 3;
-  border-radius: 4px;
+  min-height: 240px;
+  max-height: 320px;
+  border-radius: 8px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 .document-card :deep(.el-card__body) {
@@ -714,9 +773,16 @@ onUnmounted(() => {
 }
 
 .file-type-icon {
-  font-size: 56px;
+  font-size: 48px;
   color: var(--el-color-primary);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .file-type-icon {
+    font-size: 40px;
+  }
 }
 
 .file-type-icon.file-type-pdf {
@@ -813,12 +879,14 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   line-height: 1.4;
   text-align: center;
   word-break: break-word;
+  min-height: 36px;
+  max-height: 36px;
 }
 
 .file-info {
