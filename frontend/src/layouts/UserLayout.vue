@@ -2,57 +2,11 @@
   <el-container class="user-layout" :class="{ 'portal-mode': isPortalMode }">
     <AppHeader v-if="!isPortalMode" v-model="isHeaderCollapsed" @command="handleCommand" />
     <el-container :class="{ 'portal-container': isPortalMode }">
-      <el-aside width="64px" class="aside portal-sidebar" :class="{ 'aside-header-collapsed': isHeaderCollapsed && isPortalMode, 'aside-header-collapsed-non-portal': isHeaderCollapsed && !isPortalMode }">
-        <el-menu
-          :default-active="activeMenu"
-          :collapse="true"
-          router
-          class="menu"
-        >
-          <el-tooltip content="智能问答" placement="right" :show-after="200">
-            <el-menu-item index="/user/chat">
-              <el-icon><ChatLineRound /></el-icon>
-              <span>智能问答</span>
-            </el-menu-item>
-          </el-tooltip>
-          <el-tooltip content="知识检索" placement="right" :show-after="200">
-            <el-menu-item index="/user/kb-qa">
-              <el-icon><Document /></el-icon>
-              <span>知识检索</span>
-            </el-menu-item>
-          </el-tooltip>
-          <el-tooltip content="知识管理" placement="right" :show-after="200">
-            <el-menu-item index="/user/knowledge-base">
-              <el-icon><Folder /></el-icon>
-              <span>知识管理</span>
-            </el-menu-item>
-          </el-tooltip>
-          <el-tooltip content="智能应用" placement="right" :show-after="200">
-            <el-menu-item index="/user/apps">
-              <el-icon><List /></el-icon>
-              <span>智能应用</span>
-            </el-menu-item>
-          </el-tooltip>
-          <el-tooltip content="文档解读" placement="right" :show-after="200">
-            <el-menu-item index="/user/document-reader">
-              <el-icon><Reading /></el-icon>
-              <span>文档解读</span>
-            </el-menu-item>
-          </el-tooltip>
-          <el-tooltip content="智能框图" placement="right" :show-after="200">
-            <el-menu-item index="/user/ai-drawio">
-              <el-icon><DataAnalysis /></el-icon>
-              <span>智能框图</span>
-            </el-menu-item>
-          </el-tooltip>
-          <el-tooltip content="会话历史" placement="right" :show-after="200">
-            <el-menu-item index="/user/chat-history">
-              <el-icon><Clock /></el-icon>
-              <span>会话历史</span>
-            </el-menu-item>
-          </el-tooltip>
-        </el-menu>
-      </el-aside>
+      <AppSidebar 
+        type="user" 
+        :is-header-collapsed="isHeaderCollapsed"
+        :is-portal-mode="isPortalMode"
+      />
       <el-main class="main" :class="{ 'portal-main': isPortalMode, 'main-header-collapsed': isHeaderCollapsed && !isPortalMode }">
         <div class="main-content" :class="{ 'portal-content': isPortalMode }">
           <router-view v-slot="{ Component }">
@@ -82,25 +36,18 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { List, Folder, ChatLineRound, Clock, Document, DataAnalysis, Reading } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import HelpFloatingButton from '@/components/HelpFloatingButton.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
 import AppHeader from '@/components/AppHeader.vue'
+import AppSidebar from '@/components/AppSidebar.vue'
 import { getConfigsByGroup } from '@/api/systemConfig'
 
 const route = useRoute()
 const router = useRouter()
-const activeMenu = computed(() => {
-  // 如果当前路径是 /user，默认选中智能问答
-  if (route.path === '/user' || route.path === '/user/') {
-    return '/user/chat'
-  }
-  return route.path
-})
 
 // 判断是否为门户模式
 const isPortalMode = computed(() => {
@@ -112,7 +59,17 @@ const showChangePasswordDialog = ref(false)
 const showHelpDialog = ref(false)
 const helpKnowledgeBaseId = ref(null)
 const helpModelId = ref(null)
-const isHeaderCollapsed = ref(false)
+
+// 从 localStorage 读取初始状态
+const loadHeaderCollapsedState = () => {
+  const savedState = localStorage.getItem('headerCollapsed')
+  if (savedState !== null) {
+    return savedState === 'true'
+  }
+  return false // 默认展开
+}
+
+const isHeaderCollapsed = ref(loadHeaderCollapsedState())
 
 // 从数据库加载配置
 const loadConfigFromDB = async () => {
@@ -164,6 +121,29 @@ onMounted(async () => {
   
   // 从数据库加载配置
   await loadConfigFromDB()
+  
+  // 监听 localStorage 中 headerCollapsed 的变化（用于门户模式下同步状态）
+  const handleStorageChange = (e) => {
+    if (e.key === 'headerCollapsed') {
+      isHeaderCollapsed.value = e.newValue === 'true'
+    }
+  }
+  window.addEventListener('storage', handleStorageChange)
+  
+  // 使用定时器轮询检查 localStorage 变化（因为同源页面的 storage 事件可能不触发）
+  const checkHeaderCollapsed = () => {
+    const currentState = loadHeaderCollapsedState()
+    if (currentState !== isHeaderCollapsed.value) {
+      isHeaderCollapsed.value = currentState
+    }
+  }
+  const intervalId = setInterval(checkHeaderCollapsed, 100)
+  
+  // 清理函数
+  onUnmounted(() => {
+    window.removeEventListener('storage', handleStorageChange)
+    clearInterval(intervalId)
+  })
 })
 
 const handleCommand = (command) => {
@@ -201,84 +181,12 @@ const handlePasswordChangeSuccess = () => {
   overflow: visible;
 }
 
-
-.aside {
-  background: #f5f7fa;
-  border-right: 1px solid #e4e7ed;
-  transition: width 0.3s ease, margin-top 0.3s ease;
-  height: calc(100vh - 60px); /* 减去header高度 */
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  flex-shrink: 0; /* 防止侧边栏被压缩 */
-  margin-top: 60px; /* 为顶部导航栏留出空间 */
-}
-
-.aside.aside-header-collapsed-non-portal {
-  margin-top: 0 !important;
-  height: 100vh;
-}
-
-.aside.portal-sidebar {
-  position: fixed;
-  left: 0;
-  top: 60px;
-  z-index: 100;
-  height: calc(100vh - 60px);
-  margin: 0 !important;
-  padding: 0 !important;
-  background: #fff;
-  border-right: 1px solid #e4e7ed;
-  transition: top 0.3s ease, height 0.3s ease;
-}
-
-.aside.portal-sidebar.aside-header-collapsed {
-  top: 0;
-  height: 100vh;
-}
-
-.menu {
-  border-right: none;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  background: #fff;
-  margin: 0 !important;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-/* 收缩状态下图标居中 */
-.menu :deep(.el-menu--collapse) {
-  width: 100%;
-  padding: 0 !important;
-}
-
-.menu :deep(.el-menu--collapse .el-menu-item) {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0 !important;
-  margin: 0 !important;
-  height: 48px;
-}
-
-.menu :deep(.el-menu--collapse .el-menu-item .el-icon) {
+.portal-container {
   margin: 0 !important;
   padding: 0 !important;
 }
 
-.menu :deep(.el-menu--collapse .el-sub-menu__title) {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0 !important;
-  margin: 0 !important;
-  height: 48px;
-}
-
-.menu :deep(.el-menu--collapse .el-sub-menu__title .el-icon) {
+.portal-container :deep(.el-container) {
   margin: 0 !important;
   padding: 0 !important;
 }
@@ -293,7 +201,7 @@ const handlePasswordChangeSuccess = () => {
   transition: margin-left 0.3s ease, margin-top 0.3s ease, height 0.3s ease; /* 添加过渡效果 */
   flex: 1; /* 允许主内容区域自动调整 */
   min-width: 0; /* 允许主内容区域缩小 */
-  margin-left: 64px !important; /* 为收缩的侧边栏留出空间 */
+  margin-left: 56px !important; /* 为收缩的侧边栏留出空间（AppSidebar宽度为56px） */
   margin-top: 60px !important; /* 为顶部导航栏留出空间 */
 }
 
@@ -306,7 +214,7 @@ const handlePasswordChangeSuccess = () => {
   height: 100vh;
   background: #f5f5f5;
   margin: 0 !important;
-  margin-left: 64px !important; /* 为收缩的侧边栏留出空间 */
+  margin-left: 56px !important; /* 为收缩的侧边栏留出空间（AppSidebar宽度为56px） */
   padding: 0 !important;
 }
 
@@ -388,16 +296,6 @@ const handlePasswordChangeSuccess = () => {
   .user-info {
     font-size: 14px;
     padding: 4px 8px;
-  }
-
-  .aside {
-    height: calc(100vh - 50px);
-    margin-top: 50px; /* 小屏幕header高度为50px */
-  }
-
-  /* 小屏幕默认折叠侧边栏，但允许手动展开 */
-  .aside {
-    /* 移除 !important，允许手动展开时覆盖 */
   }
 
   .main {
