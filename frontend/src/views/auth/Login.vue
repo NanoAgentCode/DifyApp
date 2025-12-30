@@ -1,7 +1,7 @@
 <template>
   <div class="login-container">
     <div class="login-box">
-      <h2 class="title">NanoAgent智能应用工作台</h2>
+      <h2 class="title">NanoAgent智能工作台</h2>
       <el-form
         ref="loginFormRef"
         :model="loginForm"

@@ -1207,6 +1207,18 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   overflow-x: hidden; /* 防止水平滚动 */
+  z-index: 1; /* 确保在导航栏下方 */
+}
+
+/* 确保 Portal 页面的导航栏始终显示在最上层并占据顶部宽度 */
+.portal-container :deep(.app-header) {
+  z-index: 1000 !important;
+  position: fixed !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
 }
 
 
@@ -1220,9 +1232,10 @@ onUnmounted(() => {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 40px 0; /* 只保留上下内边距，左右为0让滚动条靠右 */
-  padding-top: calc(40px + 60px); /* 为固定导航栏留出空间 */
+  padding-top: calc(40px + 60px) !important; /* 为固定导航栏留出空间，确保不被覆盖 */
   width: 100%; /* 占据全宽，让滚动条在视口最右侧 */
   margin: 0;
+  margin-top: 0 !important; /* 确保没有额外的上边距 */
   transition: padding-top 0.3s ease;
   position: relative;
   box-sizing: border-box;
@@ -1261,10 +1274,10 @@ onUnmounted(() => {
 }
 
 .portal-content.content-header-collapsed {
-  padding-top: 40px; /* 顶部收起时不需要留出导航栏空间 */
+  padding-top: 40px !important; /* 顶部收起时不需要留出导航栏空间 */
 }
 
-
+/* 顶部系统图标（在 padding-top 位置） */
 /* 欢迎界面 */
 .welcome-section {
   display: flex;
@@ -1303,10 +1316,13 @@ onUnmounted(() => {
   margin-bottom: 24px;
   color: #000000;
   font-size: 20px;
+  position: relative; /* 确保定位正确 */
 }
 
 .assistant-icon {
   font-size: 24px;
+  position: relative; /* 确保图标定位正确 */
+  flex-shrink: 0; /* 防止图标被压缩 */
 }
 
 .assistant-name {

@@ -115,12 +115,13 @@
 
         <!-- 右侧：问答区域 -->
         <div class="right-panel">
-          <div v-if="!selectedKB" class="empty-state">
-            <el-icon class="empty-icon"><ChatLineRound /></el-icon>
-            <p>请选择一个知识库开始问答</p>
-          </div>
+          <transition name="fade-slide" mode="out-in">
+            <div v-if="!selectedKB" key="empty" class="empty-state">
+              <el-icon class="empty-icon"><ChatLineRound /></el-icon>
+              <p>请选择一个知识库开始问答</p>
+            </div>
 
-          <div v-else class="qa-content">
+            <div v-else :key="selectedKB.id" class="qa-content">
             <!-- 知识库信息 -->
             <div class="kb-header">
               <div class="kb-header-info">
@@ -1374,6 +1375,39 @@ html {
 :deep(.kb-summary-tooltip .el-tooltip__arrow) {
   border: none !important;
   border-color: transparent !important;
+}
+
+/* 知识库切换过渡动画 - 优化版 */
+.fade-slide-enter-active {
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity, transform; /* 硬件加速 */
+}
+
+.fade-slide-leave-active {
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 1, 1),
+              transform 0.2s cubic-bezier(0.4, 0, 1, 1);
+  will-change: opacity, transform; /* 硬件加速 */
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateX(15px) scale(0.98); /* 轻微缩放效果 */
+}
+
+.fade-slide-enter-to {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.fade-slide-leave-from {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-15px) scale(0.98); /* 轻微缩放效果 */
 }
 </style>
 

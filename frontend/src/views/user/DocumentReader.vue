@@ -411,17 +411,18 @@ onMounted(() => {
 }
 
 .function-tabs :deep(.el-tab-pane.is-active) {
-  animation: tabFadeIn 0.3s ease;
+  animation: tabFadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity, transform; /* 硬件加速 */
 }
 
 @keyframes tabFadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
