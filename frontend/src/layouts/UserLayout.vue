@@ -1,15 +1,8 @@
 <template>
-  <el-container class="user-layout">
-    <el-header class="header">
+  <el-container class="user-layout" :class="{ 'portal-mode': isPortalMode }">
+    <el-header v-if="!isPortalMode" class="header">
       <div class="header-left">
-        <el-button
-          text
-          @click="toggleCollapse"
-          class="collapse-btn"
-        >
-          <el-icon><Fold v-if="!isCollapse" /><Expand v-else /></el-icon>
-        </el-button>
-        <h2>智能应用工作台</h2>
+        <h2>NanoAgent智能应用工作台</h2>
       </div>
       <div class="header-right">
         <el-dropdown @command="handleCommand">
@@ -27,88 +20,60 @@
         </el-dropdown>
       </div>
     </el-header>
-    <el-container>
-      <el-aside :width="isCollapse ? '64px' : '180px'" class="aside">
+    <el-container :class="{ 'portal-container': isPortalMode }">
+      <el-aside width="64px" class="aside portal-sidebar">
         <el-menu
           :default-active="activeMenu"
-          :collapse="isCollapse"
+          :collapse="true"
           router
           class="menu"
         >
-          <el-tooltip v-if="isCollapse" content="智能问答" placement="right" :show-after="200">
+          <el-tooltip content="智能问答" placement="right" :show-after="200">
             <el-menu-item index="/user/chat">
               <el-icon><ChatLineRound /></el-icon>
               <span>智能问答</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else index="/user/chat">
-            <el-icon><ChatLineRound /></el-icon>
-            <span>智能问答</span>
-          </el-menu-item>
-          <el-tooltip v-if="isCollapse" content="知识检索" placement="right" :show-after="200">
+          <el-tooltip content="知识检索" placement="right" :show-after="200">
             <el-menu-item index="/user/kb-qa">
               <el-icon><Document /></el-icon>
               <span>知识检索</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else index="/user/kb-qa">
-            <el-icon><Document /></el-icon>
-            <span>知识检索</span>
-          </el-menu-item>
-          <el-tooltip v-if="isCollapse" content="知识管理" placement="right" :show-after="200">
+          <el-tooltip content="知识管理" placement="right" :show-after="200">
             <el-menu-item index="/user/knowledge-base">
               <el-icon><Folder /></el-icon>
               <span>知识管理</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else index="/user/knowledge-base">
-            <el-icon><Folder /></el-icon>
-            <span>知识管理</span>
-          </el-menu-item>
-          <el-tooltip v-if="isCollapse" content="智能应用" placement="right" :show-after="200">
+          <el-tooltip content="智能应用" placement="right" :show-after="200">
             <el-menu-item index="/user/apps">
               <el-icon><List /></el-icon>
               <span>智能应用</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else index="/user/apps">
-            <el-icon><List /></el-icon>
-            <span>智能应用</span>
-          </el-menu-item>
-          <el-tooltip v-if="isCollapse" content="文档解读" placement="right" :show-after="200">
+          <el-tooltip content="文档解读" placement="right" :show-after="200">
             <el-menu-item index="/user/document-reader">
               <el-icon><Reading /></el-icon>
               <span>文档解读</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else index="/user/document-reader">
-            <el-icon><Reading /></el-icon>
-            <span>文档解读</span>
-          </el-menu-item>
-          <el-tooltip v-if="isCollapse" content="智能框图" placement="right" :show-after="200">
+          <el-tooltip content="智能框图" placement="right" :show-after="200">
             <el-menu-item index="/user/ai-drawio">
               <el-icon><DataAnalysis /></el-icon>
               <span>智能框图</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else index="/user/ai-drawio">
-            <el-icon><DataAnalysis /></el-icon>
-            <span>智能框图</span>
-          </el-menu-item>
-          <el-tooltip v-if="isCollapse" content="会话历史" placement="right" :show-after="200">
+          <el-tooltip content="会话历史" placement="right" :show-after="200">
             <el-menu-item index="/user/chat-history">
               <el-icon><Clock /></el-icon>
               <span>会话历史</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else index="/user/chat-history">
-            <el-icon><Clock /></el-icon>
-            <span>会话历史</span>
-          </el-menu-item>
         </el-menu>
       </el-aside>
-      <el-main class="main">
-        <div class="main-content">
+      <el-main class="main" :class="{ 'portal-main': isPortalMode }">
+        <div class="main-content" :class="{ 'portal-content': isPortalMode }">
           <router-view />
         </div>
       </el-main>
@@ -132,10 +97,10 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { User, ArrowDown, List, Folder, ChatLineRound, Fold, Expand, Clock, Document, DataAnalysis, Reading } from '@element-plus/icons-vue'
+import { User, ArrowDown, List, Folder, ChatLineRound, Clock, Document, DataAnalysis, Reading } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import HelpFloatingButton from '@/components/HelpFloatingButton.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
@@ -150,52 +115,17 @@ const activeMenu = computed(() => {
   }
   return route.path
 })
+
+// 判断是否为门户模式
+const isPortalMode = computed(() => {
+  return route.path === '/user/chat' || route.path === '/admin/chat'
+})
+
 const userInfo = ref(null)
 const showChangePasswordDialog = ref(false)
 const showHelpDialog = ref(false)
 const helpKnowledgeBaseId = ref(null)
 const helpModelId = ref(null)
-
-// 导航菜单收缩状态
-const isCollapse = ref(false)
-
-// 侧边栏正常显示的最小宽度（侧边栏200px + 主内容最小宽度600px）
-const MIN_WIDTH_FOR_SIDEBAR = 1024
-
-// 检查窗口大小并自动调整侧边栏
-const checkAndAutoCollapse = () => {
-  const windowWidth = window.innerWidth
-  // 如果窗口宽度小于阈值，且用户没有手动展开，则自动折叠侧边栏
-  if (windowWidth < MIN_WIDTH_FOR_SIDEBAR) {
-    const manualExpand = localStorage.getItem('userMenuManualExpand') === 'true'
-    if (!isCollapse.value && !manualExpand) {
-      isCollapse.value = true
-      // 不保存到localStorage，因为这是自动行为
-    }
-  } else {
-    // 窗口宽度足够时，清除手动展开标志
-    localStorage.removeItem('userMenuManualExpand')
-  }
-}
-
-// 切换收缩状态
-const toggleCollapse = () => {
-  isCollapse.value = !isCollapse.value
-  // 手动切换时，保存用户的选择到本地存储
-  // 无论窗口大小，都保存用户的手动选择
-  localStorage.setItem('userMenuCollapse', String(isCollapse.value))
-  // 如果用户手动展开，设置一个标志，暂时忽略自动折叠
-  if (!isCollapse.value) {
-    localStorage.setItem('userMenuManualExpand', 'true')
-  } else {
-    localStorage.removeItem('userMenuManualExpand')
-  }
-}
-
-// 窗口大小变化监听器
-const handleResize = () => {
-  checkAndAutoCollapse()
-}
 
 // 从数据库加载配置
 const loadConfigFromDB = async () => {
@@ -236,16 +166,6 @@ const loadConfigFromDB = async () => {
 }
 
 onMounted(async () => {
-  // 先从本地存储恢复用户的手动选择
-  const savedCollapse = localStorage.getItem('userMenuCollapse')
-  if (savedCollapse !== null) {
-    isCollapse.value = savedCollapse === 'true'
-  }
-  
-  // 然后检查窗口大小，决定是否需要自动折叠
-  // 如果用户手动展开且窗口宽度足够，则保持展开状态
-  checkAndAutoCollapse()
-  
   const userInfoStr = localStorage.getItem('userInfo')
   if (userInfoStr) {
     try {
@@ -257,14 +177,6 @@ onMounted(async () => {
   
   // 从数据库加载配置
   await loadConfigFromDB()
-  
-  // 添加窗口大小变化监听
-  window.addEventListener('resize', handleResize)
-})
-
-onUnmounted(() => {
-  // 移除窗口大小变化监听
-  window.removeEventListener('resize', handleResize)
 })
 
 const handleCommand = (command) => {
@@ -308,6 +220,11 @@ const handlePasswordChangeSuccess = () => {
   overflow: hidden;
 }
 
+.user-layout.portal-mode {
+  height: 100vh;
+  overflow: visible;
+}
+
 .header {
   display: flex;
   justify-content: space-between;
@@ -317,9 +234,11 @@ const handlePasswordChangeSuccess = () => {
   padding: 0 20px;
   height: 60px;
   flex-shrink: 0;
+  position: relative;
 }
 
 .header-left {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -328,17 +247,12 @@ const handlePasswordChangeSuccess = () => {
 .header-left h2 {
   margin: 0;
   font-size: 20px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
-.collapse-btn {
-  color: white;
-  font-size: 18px;
-  padding: 8px;
-}
-
-.collapse-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
 
 .header-right {
   display: flex;
@@ -371,6 +285,18 @@ const handlePasswordChangeSuccess = () => {
   flex-shrink: 0; /* 防止侧边栏被压缩 */
 }
 
+.aside.portal-sidebar {
+  position: fixed;
+  left: 0;
+  top: 60px;
+  z-index: 100;
+  height: calc(100vh - 60px);
+  margin: 0 !important;
+  padding: 0 !important;
+  background: #fff;
+  border-right: 1px solid #e4e7ed;
+}
+
 .menu {
   border-right: none;
   flex: 1;
@@ -378,9 +304,9 @@ const handlePasswordChangeSuccess = () => {
   overflow-y: auto;
   overflow-x: hidden;
   background: #fff;
-  margin: 8px;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin: 0 !important;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* 收缩状态下图标居中 */
@@ -427,6 +353,20 @@ const handlePasswordChangeSuccess = () => {
   transition: margin-left 0.3s ease; /* 添加过渡效果 */
   flex: 1; /* 允许主内容区域自动调整 */
   min-width: 0; /* 允许主内容区域缩小 */
+  margin-left: 64px !important; /* 为收缩的侧边栏留出空间 */
+}
+
+.main.portal-main {
+  height: 100vh;
+  background: #f5f5f5;
+  margin: 0 !important;
+  margin-left: 64px !important; /* 为收缩的侧边栏留出空间 */
+  padding: 0 !important;
+}
+
+.main.portal-main :deep(.el-main) {
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .main-content {
@@ -438,6 +378,12 @@ const handlePasswordChangeSuccess = () => {
   min-height: 0;
 }
 
+.main-content.portal-content {
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+}
+
 /* 小屏幕适配 (1024x768及以下) */
 @media (max-width: 1024px) {
   .header {
@@ -447,11 +393,6 @@ const handlePasswordChangeSuccess = () => {
 
   .header-left h2 {
     font-size: 16px;
-  }
-
-  .collapse-btn {
-    font-size: 16px;
-    padding: 6px;
   }
 
   .user-info {

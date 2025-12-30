@@ -1,15 +1,8 @@
 <template>
-  <el-container class="admin-layout">
-    <el-header class="header">
+  <el-container class="admin-layout" :class="{ 'portal-mode': isPortalMode }">
+    <el-header v-if="!isPortalMode" class="header">
       <div class="header-left">
-        <el-button
-          text
-          @click="toggleCollapse"
-          class="collapse-btn"
-        >
-          <el-icon><Fold v-if="!isCollapse" /><Expand v-else /></el-icon>
-        </el-button>
-        <h2>智能应用工作台</h2>
+        <h2>NanoAgent智能应用工作台</h2>
       </div>
       <div class="header-right">
         <el-dropdown @command="handleCommand">
@@ -27,134 +20,90 @@
         </el-dropdown>
       </div>
     </el-header>
-    <el-container>
-      <el-aside :width="isCollapse ? '64px' : '180px'" class="aside">
+    <el-container :class="{ 'portal-container': isPortalMode }">
+      <el-aside width="64px" class="aside portal-sidebar">
         <el-menu
           :default-active="activeMenu"
-          :collapse="isCollapse"
+          :collapse="true"
           router
           class="menu"
         >
           <!-- 核心功能 -->
-          <el-tooltip v-if="isCollapse" content="智能问答" placement="right" :show-after="200">
+          <el-tooltip content="智能问答" placement="right" :show-after="200">
             <el-menu-item index="/admin/chat">
               <el-icon><ChatLineRound /></el-icon>
               <span>智能问答</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else index="/admin/chat">
-            <el-icon><ChatLineRound /></el-icon>
-            <span>智能问答</span>
-          </el-menu-item>
           <!-- 知识库相关 -->
-          <el-tooltip v-if="isAdmin && isCollapse" content="知识问答" placement="right" :show-after="200">
+          <el-tooltip v-if="isAdmin" content="知识问答" placement="right" :show-after="200">
             <el-menu-item index="/admin/kb-qa">
               <el-icon><Document /></el-icon>
               <span>知识问答</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else-if="isAdmin" index="/admin/kb-qa">
-            <el-icon><Document /></el-icon>
-            <span>知识问答</span>
-          </el-menu-item>
-          <el-tooltip v-if="isAdmin && isCollapse" content="知识管理" placement="right" :show-after="200">
+          <el-tooltip v-if="isAdmin" content="知识管理" placement="right" :show-after="200">
             <el-menu-item index="/admin/knowledge-base">
               <el-icon><Folder /></el-icon>
               <span>知识管理</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else-if="isAdmin" index="/admin/knowledge-base">
-            <el-icon><Folder /></el-icon>
-            <span>知识管理</span>
-          </el-menu-item>
-          <el-tooltip v-if="isCollapse" content="文档解读" placement="right" :show-after="200">
+          <el-tooltip content="文档解读" placement="right" :show-after="200">
             <el-menu-item index="/admin/document-reader">
               <el-icon><Reading /></el-icon>
               <span>文档解读</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else index="/admin/document-reader">
-            <el-icon><Reading /></el-icon>
-            <span>文档解读</span>
-          </el-menu-item>
-          <el-tooltip v-if="isCollapse" content="应用列表" placement="right" :show-after="200">
+          <el-tooltip content="应用列表" placement="right" :show-after="200">
             <el-menu-item index="/admin/apps">
               <el-icon><List /></el-icon>
               <span>应用列表</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else index="/admin/apps">
-            <el-icon><List /></el-icon>
-            <span>应用列表</span>
-          </el-menu-item>
           <!-- 工具 -->
-          <el-tooltip v-if="isAdmin && isCollapse" content="高级功能" placement="right" :show-after="200">
+          <el-tooltip v-if="isAdmin" content="高级功能" placement="right" :show-after="200">
             <el-menu-item index="/admin/text2sql">
               <el-icon><Search /></el-icon>
               <span>高级功能</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else-if="isAdmin" index="/admin/text2sql">
-            <el-icon><Search /></el-icon>
-            <span>高级功能</span>
-          </el-menu-item>
           <!-- 系统管理 -->
-          <el-tooltip v-if="isAdmin && isCollapse" content="LLM管理" placement="right" :show-after="200">
+          <el-tooltip v-if="isAdmin" content="LLM管理" placement="right" :show-after="200">
             <el-menu-item index="/admin/models">
               <el-icon><Setting /></el-icon>
               <span>LLM管理</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else-if="isAdmin" index="/admin/models">
-            <el-icon><Setting /></el-icon>
-            <span>LLM管理</span>
-          </el-menu-item>
           <!-- 记录查看 -->
           <!-- 用户管理 -->
-          <el-tooltip v-if="isAdmin && isCollapse" content="用户管理" placement="right" :show-after="200">
+          <el-tooltip v-if="isAdmin" content="用户管理" placement="right" :show-after="200">
             <el-menu-item index="/admin/users">
               <el-icon><User /></el-icon>
               <span>用户管理</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else-if="isAdmin" index="/admin/users">
-            <el-icon><User /></el-icon>
-            <span>用户管理</span>
-          </el-menu-item>
-          <el-tooltip v-if="isAdmin && isCollapse" content="会话历史" placement="right" :show-after="200">
+          <el-tooltip v-if="isAdmin" content="会话历史" placement="right" :show-after="200">
             <el-menu-item index="/admin/chat-history">
               <el-icon><Clock /></el-icon>
               <span>会话历史</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else-if="isAdmin" index="/admin/chat-history">
-            <el-icon><Clock /></el-icon>
-            <span>会话历史</span>
-          </el-menu-item>
-          <el-tooltip v-if="isAdmin && isCollapse" content="系统配置" placement="right" :show-after="200">
+          <el-tooltip v-if="isAdmin" content="系统配置" placement="right" :show-after="200">
             <el-menu-item index="/admin/system-config">
               <el-icon><Tools /></el-icon>
               <span>系统配置</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else-if="isAdmin" index="/admin/system-config">
-            <el-icon><Tools /></el-icon>
-            <span>系统配置</span>
-          </el-menu-item>
-          <el-tooltip v-if="isAdmin && isCollapse" content="数据统计" placement="right" :show-after="200">
+          <el-tooltip v-if="isAdmin" content="数据统计" placement="right" :show-after="200">
             <el-menu-item index="/admin/statistics">
               <el-icon><DataAnalysis /></el-icon>
               <span>数据统计</span>
             </el-menu-item>
           </el-tooltip>
-          <el-menu-item v-else-if="isAdmin" index="/admin/statistics">
-            <el-icon><DataAnalysis /></el-icon>
-            <span>数据统计</span>
-          </el-menu-item>
         </el-menu>
       </el-aside>
-      <el-main class="main">
-        <div class="main-content">
+      <el-main class="main" :class="{ 'portal-main': isPortalMode }">
+        <div class="main-content" :class="{ 'portal-content': isPortalMode }">
           <router-view />
         </div>
       </el-main>
@@ -233,10 +182,10 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { List, User, ArrowDown, Folder, ChatLineRound, Fold, Expand, Clock, Setting, Document, Box, Connection, Search, Tools, DataAnalysis, Edit, Reading } from '@element-plus/icons-vue'
+import { List, User, ArrowDown, Folder, ChatLineRound, Clock, Setting, Document, Box, Connection, Search, Tools, DataAnalysis, Edit, Reading } from '@element-plus/icons-vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import HelpFloatingButton from '@/components/HelpFloatingButton.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
@@ -255,6 +204,12 @@ const activeMenu = computed(() => {
   }
   return route.path
 })
+
+// 判断是否为门户模式
+const isPortalMode = computed(() => {
+  return route.path === '/admin/chat'
+})
+
 const userInfo = ref(null)
 const isAdmin = computed(() => userInfo.value && userInfo.value.role === 1)
 const showChangePasswordDialog = ref(false)
@@ -266,47 +221,6 @@ const helpKnowledgeBaseId = ref(null)
 const availableModels = ref([])
 const selectedModelId = ref(null)
 const helpModelId = ref(null)
-
-// 导航菜单收缩状态
-const isCollapse = ref(false)
-
-// 侧边栏正常显示的最小宽度（侧边栏200px + 主内容最小宽度600px）
-const MIN_WIDTH_FOR_SIDEBAR = 1024
-
-// 检查窗口大小并自动调整侧边栏
-const checkAndAutoCollapse = () => {
-  const windowWidth = window.innerWidth
-  // 如果窗口宽度小于阈值，且用户没有手动展开，则自动折叠侧边栏
-  if (windowWidth < MIN_WIDTH_FOR_SIDEBAR) {
-    const manualExpand = localStorage.getItem('adminMenuManualExpand') === 'true'
-    if (!isCollapse.value && !manualExpand) {
-      isCollapse.value = true
-      // 不保存到localStorage，因为这是自动行为
-    }
-  } else {
-    // 窗口宽度足够时，清除手动展开标志
-    localStorage.removeItem('adminMenuManualExpand')
-  }
-}
-
-// 切换收缩状态
-const toggleCollapse = () => {
-  isCollapse.value = !isCollapse.value
-  // 手动切换时，保存用户的选择到本地存储
-  // 无论窗口大小，都保存用户的手动选择
-  localStorage.setItem('adminMenuCollapse', String(isCollapse.value))
-  // 如果用户手动展开，设置一个标志，暂时忽略自动折叠
-  if (!isCollapse.value) {
-    localStorage.setItem('adminMenuManualExpand', 'true')
-  } else {
-    localStorage.removeItem('adminMenuManualExpand')
-  }
-}
-
-// 窗口大小变化监听器
-const handleResize = () => {
-  checkAndAutoCollapse()
-}
 
 // 从数据库加载配置
 const loadConfigFromDB = async () => {
@@ -352,16 +266,6 @@ const loadConfigFromDB = async () => {
 
 // 从本地存储恢复收缩状态和知识库配置
 onMounted(async () => {
-  // 先从本地存储恢复用户的手动选择
-  const savedCollapse = localStorage.getItem('adminMenuCollapse')
-  if (savedCollapse !== null) {
-    isCollapse.value = savedCollapse === 'true'
-  }
-  
-  // 然后检查窗口大小，决定是否需要自动折叠
-  // 如果用户手动展开且窗口宽度足够，则保持展开状态
-  checkAndAutoCollapse()
-  
   const userInfoStr = localStorage.getItem('userInfo')
   if (userInfoStr) {
     try {
@@ -379,14 +283,6 @@ onMounted(async () => {
   
   // 加载模型列表
   await loadModelList()
-  
-  // 添加窗口大小变化监听
-  window.addEventListener('resize', handleResize)
-})
-
-onUnmounted(() => {
-  // 移除窗口大小变化监听
-  window.removeEventListener('resize', handleResize)
 })
 
 // 加载知识库列表
@@ -588,6 +484,11 @@ const handleHelpButtonClick = () => {
   overflow: hidden;
 }
 
+.admin-layout.portal-mode {
+  height: 100vh;
+  overflow: visible;
+}
+
 .header {
   display: flex;
   justify-content: space-between;
@@ -597,9 +498,11 @@ const handleHelpButtonClick = () => {
   padding: 0 20px;
   flex-shrink: 0;
   height: 60px;
+  position: relative;
 }
 
 .header-left {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -608,17 +511,12 @@ const handleHelpButtonClick = () => {
 .header-left h2 {
   margin: 0;
   font-size: 20px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
-.collapse-btn {
-  color: white;
-  font-size: 18px;
-  padding: 8px;
-}
-
-.collapse-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
 
 .header-right {
   display: flex;
@@ -653,6 +551,28 @@ const handleHelpButtonClick = () => {
   flex-shrink: 0; /* 防止侧边栏被压缩 */
 }
 
+.aside.portal-sidebar {
+  position: fixed;
+  left: 0;
+  top: 60px;
+  z-index: 100;
+  height: calc(100vh - 60px);
+  margin: 0 !important;
+  padding: 0 !important;
+  background: #fff;
+  border-right: 1px solid #e4e7ed;
+}
+
+.portal-container {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.portal-container :deep(.el-container) {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
 .menu {
   border-right: none;
   flex: 1;
@@ -660,9 +580,9 @@ const handleHelpButtonClick = () => {
   overflow-y: auto;
   overflow-x: hidden;
   background: #fff;
-  margin: 8px;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin: 0 !important;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* 收缩状态下图标居中 */
@@ -712,11 +632,28 @@ const handleHelpButtonClick = () => {
   min-width: 0; /* 允许主内容区域缩小 */
 }
 
+.main.portal-main {
+  height: 100vh;
+  background: #f5f5f5;
+  padding: 0;
+  margin: 0;
+  margin-left: 64px; /* 为收缩的侧边栏留出空间 */
+}
+
+.main {
+  margin-left: 64px !important; /* 为收缩的侧边栏留出空间 */
+}
+
 .main-content {
   width: 100%;
   min-height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+.main-content.portal-content {
+  padding: 0;
+  overflow: visible;
 }
 
 /* 小屏幕适配 (1024x768及以下) */
@@ -728,11 +665,6 @@ const handleHelpButtonClick = () => {
 
   .header-left h2 {
     font-size: 16px;
-  }
-
-  .collapse-btn {
-    font-size: 16px;
-    padding: 6px;
   }
 
   .user-info {
