@@ -9,6 +9,10 @@
       'sidebar-header-collapsed-non-portal': isHeaderCollapsed && !isPortalMode 
     }"
   >
+    <!-- 顶部横幅收起时，在导航栏顶部显示系统图标 -->
+    <div v-if="isHeaderCollapsed" class="sidebar-logo">
+      <img src="/logo.svg" alt="系统图标" class="sidebar-logo-img" />
+    </div>
     <el-menu
       :default-active="activeMenu"
       :collapse="true"
@@ -265,6 +269,26 @@ onMounted(() => {
   top: 0 !important; /* 顶部收起时，导航栏贴着顶部 */
 }
 
+/* 导航栏顶部系统图标（仅在顶部横幅收起时显示） */
+.sidebar-logo {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff; /* 与导航栏背景色一致 */
+  border-bottom: 1px solid #e4e7ed; /* 与导航栏边框一致 */
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.sidebar-logo-img {
+  width: 30px; /* 比菜单项图标稍大一些 */
+  height: 30px; /* 比菜单项图标稍大一些 */
+  object-fit: contain;
+  display: block;
+}
+
 .menu {
   border-right: none;
   flex: 1;
@@ -307,9 +331,9 @@ onMounted(() => {
 .menu :deep(.el-menu--collapse .el-menu-item .el-icon) {
   margin: 0 !important;
   padding: 0 !important;
-  font-size: 22px; /* 适当增大图标 */
-  width: 22px; /* 图标宽度 */
-  height: 22px; /* 图标高度，保持方形 */
+  font-size: 24px; /* 稍微放大图标 */
+  width: 24px; /* 图标宽度 */
+  height: 24px; /* 图标高度，保持方形 */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -329,9 +353,9 @@ onMounted(() => {
 .menu :deep(.el-menu--collapse .el-sub-menu__title .el-icon) {
   margin: 0 !important;
   padding: 0 !important;
-  font-size: 22px; /* 适当增大图标 */
-  width: 22px; /* 图标宽度 */
-  height: 22px; /* 图标高度，保持方形 */
+  font-size: 24px; /* 稍微放大图标 */
+  width: 24px; /* 图标宽度 */
+  height: 24px; /* 图标高度，保持方形 */
   display: flex;
   align-items: center;
   justify-content: center;
