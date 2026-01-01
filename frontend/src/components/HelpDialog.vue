@@ -110,6 +110,17 @@
                 <el-icon class="toolbar-icon" title="附件"><Link /></el-icon>
                 <el-icon class="toolbar-icon" title="上传"><UploadFilled /></el-icon>
               </div>
+              <el-button
+                type="primary"
+                :disabled="!question.trim() || sending"
+                @click="handleSend"
+                :loading="sending"
+                class="send-button"
+                size="small"
+              >
+                <el-icon><Promotion /></el-icon>
+                <span class="send-button-text">发送</span>
+              </el-button>
             </div>
           </div>
 
@@ -126,7 +137,7 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import { User, Service, Loading, ChatLineRound, Link, UploadFilled, Close, Refresh, Setting } from '@element-plus/icons-vue'
+import { User, Service, Loading, ChatLineRound, Link, UploadFilled, Close, Refresh, Setting, Promotion } from '@element-plus/icons-vue'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { chat, chatStream } from '@/api/chat'
 import { knowledgeBaseQA, knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
@@ -862,6 +873,9 @@ const handleConfig = () => {
   padding: 16px;
   background: white;
   border-top: 1px solid #e4e7ed;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: visible;
 }
 
 .chat-input :deep(.el-textarea__inner) {
@@ -880,11 +894,14 @@ const handleConfig = () => {
   justify-content: space-between;
   align-items: center;
   margin-top: 8px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .input-icons {
   display: flex;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .toolbar-icon {
@@ -892,10 +909,35 @@ const handleConfig = () => {
   color: #909399;
   cursor: pointer;
   transition: color 0.3s;
+  flex-shrink: 0;
 }
 
 .toolbar-icon:hover {
   color: #409eff;
+}
+
+.send-button {
+  flex-shrink: 0;
+  white-space: nowrap;
+  min-width: auto;
+  padding: 8px 16px;
+}
+
+.send-button-text {
+  margin-left: 4px;
+}
+
+/* 确保在小屏幕上按钮也能完整显示 */
+@media (max-width: 480px) {
+  .input-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .send-button {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 /* 关闭按钮 */

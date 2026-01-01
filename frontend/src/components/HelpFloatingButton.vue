@@ -31,10 +31,12 @@ const handleClick = () => {
   transition: all 0.3s ease;
   z-index: 1000;
   color: white;
-  transform: translateX(-50%);
+  /* 默认只显示1/3，向左移动66.67% */
+  transform: translateX(-66.67%);
 }
 
 .help-floating-button:hover {
+  /* hover时完全显示 */
   transform: translateX(0) scale(1.1);
   box-shadow: 0 6px 16px rgba(64, 158, 255, 0.6);
 }
