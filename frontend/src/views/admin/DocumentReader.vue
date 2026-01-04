@@ -242,7 +242,7 @@ onMounted(() => {
 }
 
 .left-panel {
-  width: 55%;
+  width: 50%;
   flex-shrink: 0;
   border-right: 1px solid var(--el-border-color-lighter, #e4e7ed);
   overflow: hidden;
@@ -250,7 +250,7 @@ onMounted(() => {
 }
 
 .right-panel {
-  width: 45%;
+  width: 50%;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;

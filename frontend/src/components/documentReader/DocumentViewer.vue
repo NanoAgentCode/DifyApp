@@ -145,9 +145,21 @@
           <el-icon><ArrowLeft /></el-icon>
           上一页
         </el-button>
-        <span class="page-info">
-          {{ currentPage }} / {{ totalPages }}
-        </span>
+        <div class="page-jump-wrapper">
+          <el-input-number
+            v-model="pageInput"
+            :min="1"
+            :max="totalPages"
+            :precision="0"
+            size="small"
+            controls-position="right"
+            style="width: 80px"
+            @change="handlePageJump"
+            @keyup.enter="handlePageJump"
+          />
+          <span class="page-separator">/</span>
+          <span class="total-pages">{{ totalPages }}</span>
+        </div>
         <el-button
           :disabled="currentPage >= totalPages"
           @click="handleNextPage"
@@ -162,16 +174,31 @@
           :disabled="zoomLevel <= 50"
           @click="handleZoomOut"
           size="small"
+          title="缩小 (Ctrl + -)"
         >
           <el-icon><Minus /></el-icon>
         </el-button>
-        <span class="zoom-info">{{ zoomLevel }}%</span>
+        <el-button
+          @click="handleZoomReset"
+          size="small"
+          title="重置缩放 (Ctrl + 0)"
+        >
+          <span class="zoom-reset-text">{{ zoomLevel }}%</span>
+        </el-button>
         <el-button
           :disabled="zoomLevel >= 200"
           @click="handleZoomIn"
           size="small"
+          title="放大 (Ctrl + +)"
         >
           <el-icon><Plus /></el-icon>
+        </el-button>
+        <el-button
+          @click="handleFullScreen"
+          size="small"
+          title="全屏 (F11)"
+        >
+          <el-icon><FullScreen /></el-icon>
         </el-button>
       </div>
     </div>
@@ -181,7 +208,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, Star, Share, Download, Loading, Document, ArrowRight, Minus, Plus, DocumentAdd, Close, ChatLineRound } from '@element-plus/icons-vue'
+import { ArrowLeft, Star, Share, Download, Loading, Document, ArrowRight, Minus, Plus, DocumentAdd, Close, ChatLineRound, FullScreen, Search } from '@element-plus/icons-vue'
 import { getDocumentContent } from '@/api/documentReader'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import mammoth from 'mammoth'
@@ -237,6 +264,12 @@ const emit = defineEmits(['update:currentPage', 'update:zoomLevel', 'update:tota
 // 文本选择相关
 const selectedText = ref('')
 const selectionPopupStyle = ref({})
+
+// 页面跳转输入
+const pageInput = ref(1)
+
+// 全屏状态
+const isFullScreen = ref(false)
 
 const fileType = computed(() => {
   const fileName = props.documentInfo?.originalFileName || props.documentInfo?.fileName || ''
@@ -354,7 +387,24 @@ const loadDocumentContent = async () => {
       // Word文档 (docx)，使用mammoth转换为HTML
       const arrayBuffer = await response.arrayBuffer()
       try {
-        const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer })
+        // 配置mammoth转换选项，保留更多样式信息
+        const result = await mammoth.convertToHtml(
+          { arrayBuffer: arrayBuffer },
+          {
+            styleMap: [
+              "p[style-name='Heading 1'] => h1:fresh",
+              "p[style-name='Heading 2'] => h2:fresh",
+              "p[style-name='Heading 3'] => h3:fresh",
+              "p[style-name='Heading 4'] => h4:fresh",
+              "p[style-name='Heading 5'] => h5:fresh",
+              "p[style-name='Heading 6'] => h6:fresh",
+              "r[style-name='Strong'] => strong",
+              "p[style-name='Title'] => h1.title:fresh",
+              "p[style-name='Subtitle'] => h2.subtitle:fresh"
+            ],
+            includeDefaultStyleMap: true
+          }
+        )
         docxContent.value = result.value
         // 如果有警告信息，记录到调试日志（mammoth的警告通常是格式兼容性问题，不影响基本内容显示）
         if (result.messages && result.messages.length > 0) {
@@ -466,6 +516,128 @@ const handleZoomIn = () => {
 const handleZoomOut = () => {
   if (props.zoomLevel > 50) {
     emit('update:zoomLevel', Math.max(props.zoomLevel - 10, 50))
+  }
+}
+
+// 重置缩放
+const handleZoomReset = () => {
+  emit('update:zoomLevel', 100)
+}
+
+// 页面跳转
+const handlePageJump = () => {
+  if (pageInput.value >= 1 && pageInput.value <= props.totalPages) {
+    emit('update:currentPage', pageInput.value)
+    if (fileType.value === 'pdf') {
+      setTimeout(() => {
+        scrollToPage(pageInput.value)
+      }, 50)
+    }
+  } else {
+    pageInput.value = props.currentPage
+  }
+}
+
+// 全屏切换
+const handleFullScreen = () => {
+  const viewer = document.querySelector('.document-viewer')
+  if (!viewer) return
+  
+  if (!isFullScreen.value) {
+    // 进入全屏
+    if (viewer.requestFullscreen) {
+      viewer.requestFullscreen()
+    } else if (viewer.webkitRequestFullscreen) {
+      viewer.webkitRequestFullscreen()
+    } else if (viewer.mozRequestFullScreen) {
+      viewer.mozRequestFullScreen()
+    } else if (viewer.msRequestFullscreen) {
+      viewer.msRequestFullscreen()
+    }
+  } else {
+    // 退出全屏
+    if (document.exitFullscreen) {
+      document.exitFullscreen()
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen()
+    } else if (document.mozCancelFullScreen) {
+      document.mozCancelFullScreen()
+    } else if (document.msExitFullscreen) {
+      document.msExitFullscreen()
+    }
+  }
+}
+
+// 监听全屏状态变化
+const handleFullScreenChange = () => {
+  isFullScreen.value = !!(
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.mozFullScreenElement ||
+    document.msFullscreenElement
+  )
+}
+
+// 鼠标滚轮缩放
+const handleWheel = (event) => {
+  // 按住Ctrl键时使用滚轮缩放
+  if (event.ctrlKey || event.metaKey) {
+    event.preventDefault()
+    const delta = event.deltaY > 0 ? -10 : 10
+    const newZoom = Math.max(50, Math.min(200, props.zoomLevel + delta))
+    emit('update:zoomLevel', newZoom)
+  }
+}
+
+// 双击缩放
+const handleDoubleClick = (event) => {
+  // 双击文档内容区域时，如果缩放小于100%则重置为100%，否则放大到150%
+  if (props.zoomLevel < 100) {
+    emit('update:zoomLevel', 100)
+  } else if (props.zoomLevel < 150) {
+    emit('update:zoomLevel', 150)
+  } else {
+    emit('update:zoomLevel', 100)
+  }
+}
+
+// 键盘快捷键处理
+const handleKeyDown = (event) => {
+  // 如果正在输入，不处理快捷键
+  if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+    return
+  }
+  
+  const { key, ctrlKey, metaKey, shiftKey } = event
+  const isModifier = ctrlKey || metaKey
+  
+  // 翻页快捷键
+  if (key === 'ArrowLeft' || key === 'ArrowUp') {
+    event.preventDefault()
+    handlePrevPage()
+  } else if (key === 'ArrowRight' || key === 'ArrowDown') {
+    event.preventDefault()
+    handleNextPage()
+  }
+  // 缩放快捷键
+  else if (isModifier && (key === '=' || key === '+')) {
+    event.preventDefault()
+    handleZoomIn()
+  } else if (isModifier && key === '-') {
+    event.preventDefault()
+    handleZoomOut()
+  } else if (isModifier && key === '0') {
+    event.preventDefault()
+    handleZoomReset()
+  }
+  // 全屏快捷键
+  else if (key === 'F11') {
+    event.preventDefault()
+    handleFullScreen()
+  }
+  // ESC退出全屏
+  else if (key === 'Escape' && isFullScreen.value) {
+    handleFullScreen()
   }
 }
 
@@ -679,6 +851,9 @@ watch(() => props.docId, (newDocId, oldDocId) => {
 
 // 监听页码变化
 watch(() => props.currentPage, (newPage, oldPage) => {
+  // 更新页面跳转输入框
+  pageInput.value = newPage
+  
   // 对于PDF文件，已经显示所有页面，滚动到对应页面
   if (fileType.value === 'pdf' && newPage !== oldPage) {
     // 等待DOM更新后滚动
@@ -692,6 +867,11 @@ watch(() => props.currentPage, (newPage, oldPage) => {
   if (fileType.value !== 'pdf' && newPage !== oldPage && props.docId) {
     loadDocumentContent()
   }
+})
+
+// 监听缩放变化，同步到输入框
+watch(() => props.zoomLevel, (newZoom) => {
+  // 可以在这里添加其他逻辑
 })
 
 // 处理文本选择
@@ -800,14 +980,51 @@ const handleGlobalClick = (e) => {
 // 监听点击事件，点击其他地方时清除选择
 onMounted(() => {
   loadDocumentContent()
+  // 初始化页面输入框
+  pageInput.value = props.currentPage
+  
   // 添加全局点击监听，点击非文档区域时清除选择
   document.addEventListener('click', handleGlobalClick)
+  
+  // 添加键盘快捷键监听
+  document.addEventListener('keydown', handleKeyDown)
+  
+  // 添加全屏状态监听
+  document.addEventListener('fullscreenchange', handleFullScreenChange)
+  document.addEventListener('webkitfullscreenchange', handleFullScreenChange)
+  document.addEventListener('mozfullscreenchange', handleFullScreenChange)
+  document.addEventListener('MSFullscreenChange', handleFullScreenChange)
+  
+  // 添加鼠标滚轮监听（在文档内容区域）
+  nextTick(() => {
+    const viewerContent = document.querySelector('.viewer-content')
+    if (viewerContent) {
+      viewerContent.addEventListener('wheel', handleWheel, { passive: false })
+      viewerContent.addEventListener('dblclick', handleDoubleClick)
+    }
+  })
 })
 
 // 清理资源
 onBeforeUnmount(() => {
   // 移除全局点击监听器
   document.removeEventListener('click', handleGlobalClick)
+  
+  // 移除键盘快捷键监听
+  document.removeEventListener('keydown', handleKeyDown)
+  
+  // 移除全屏状态监听
+  document.removeEventListener('fullscreenchange', handleFullScreenChange)
+  document.removeEventListener('webkitfullscreenchange', handleFullScreenChange)
+  document.removeEventListener('mozfullscreenchange', handleFullScreenChange)
+  document.removeEventListener('MSFullscreenChange', handleFullScreenChange)
+  
+  // 移除鼠标滚轮监听
+  const viewerContent = document.querySelector('.viewer-content')
+  if (viewerContent) {
+    viewerContent.removeEventListener('wheel', handleWheel)
+    viewerContent.removeEventListener('dblclick', handleDoubleClick)
+  }
   
   // 清理PDF源（如果是Blob URL）
   if (pdfSource.value && typeof pdfSource.value === 'string' && pdfSource.value.startsWith('blob:')) {
@@ -1129,93 +1346,264 @@ onBeforeUnmount(() => {
 
 .docx-container {
   width: 100%;
-  max-width: 900px;
   min-height: 100%;
-  padding: 20px;
-  background: var(--el-bg-color, #ffffff);
-  border-radius: var(--el-border-radius-base, 4px);
-  box-shadow: var(--el-box-shadow-light, 0 2px 12px 0 rgba(0, 0, 0, 0.1));
-  margin: 0 auto;
   display: flex;
-  flex-direction: column;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
+  padding: 40px 20px;
+  background: #d0d0d0; /* 模拟Word的灰色背景 */
+  background-image: 
+    repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(0,0,0,0.03) 1px, rgba(0,0,0,0.03) 2px);
 }
 
 .docx-content {
   width: 100%;
-  line-height: 1.8;
-  color: var(--el-text-color-primary, #303133);
-  font-family: 'Microsoft YaHei', 'SimSun', Arial, sans-serif;
+  max-width: 816px; /* A4纸张宽度（210mm）在96dpi下的像素值 */
+  min-height: 1056px; /* A4纸张高度（297mm）在96dpi下的像素值 */
+  padding: 96px 96px 96px 96px; /* 上下左右各2.54cm（1英寸）的页边距 */
+  margin: 0 auto;
+  background: #ffffff;
+  box-shadow: 
+    0 0 0 1px rgba(0, 0, 0, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    0 4px 16px rgba(0, 0, 0, 0.1);
+  line-height: 1.15; /* Word默认行距 */
+  color: #000000;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+  font-size: 11pt; /* Word默认字体大小 */
+  text-align: left;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  box-sizing: border-box;
 }
 
 .docx-content :deep(p) {
-  margin: 0 0 12px 0;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  line-height: 1.15;
+  font-size: 11pt;
+  color: #000000;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+}
+
+.docx-content :deep(p + p) {
+  margin-top: 0;
 }
 
 .docx-content :deep(p:last-child) {
   margin-bottom: 0;
 }
 
-.docx-content :deep(h1),
-.docx-content :deep(h2),
-.docx-content :deep(h3),
+/* 标题样式 - 模拟Word标题格式 */
+.docx-content :deep(h1) {
+  margin: 12pt 0 6pt 0;
+  padding: 0;
+  font-size: 16pt;
+  font-weight: bold;
+  color: #000000;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+  line-height: 1.15;
+  page-break-after: avoid;
+}
+
+.docx-content :deep(h2) {
+  margin: 12pt 0 6pt 0;
+  padding: 0;
+  font-size: 14pt;
+  font-weight: bold;
+  color: #000000;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+  line-height: 1.15;
+  page-break-after: avoid;
+}
+
+.docx-content :deep(h3) {
+  margin: 12pt 0 6pt 0;
+  padding: 0;
+  font-size: 12pt;
+  font-weight: bold;
+  color: #000000;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+  line-height: 1.15;
+  page-break-after: avoid;
+}
+
 .docx-content :deep(h4),
 .docx-content :deep(h5),
 .docx-content :deep(h6) {
-  margin: 16px 0 12px 0;
+  margin: 12pt 0 6pt 0;
+  padding: 0;
+  font-size: 11pt;
   font-weight: bold;
+  color: #000000;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+  line-height: 1.15;
+  page-break-after: avoid;
 }
 
 .docx-content :deep(ul),
 .docx-content :deep(ol) {
-  margin: 12px 0;
-  padding-left: 30px;
+  margin: 0;
+  padding-left: 36pt; /* Word默认列表缩进 */
+  line-height: 1.15;
+}
+
+.docx-content :deep(ul) {
+  list-style-type: disc;
+}
+
+.docx-content :deep(ol) {
+  list-style-type: decimal;
 }
 
 .docx-content :deep(li) {
-  margin: 4px 0;
+  margin: 0;
+  padding: 0;
+  line-height: 1.15;
+  font-size: 11pt;
+  color: #000000;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+}
+
+.docx-content :deep(li p) {
+  margin: 0;
+  padding: 0;
+}
+
+.docx-content :deep(li + li) {
+  margin-top: 0;
 }
 
 .docx-content :deep(table) {
   border-collapse: collapse;
   width: 100%;
-  margin: 12px 0;
+  margin: 6pt 0;
+  border: 0.5pt solid #000000;
+  font-size: 11pt;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
 }
 
 .docx-content :deep(table td),
 .docx-content :deep(table th) {
-  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
-  padding: 8px;
+  border: 0.5pt solid #000000;
+  padding: 4pt 5.4pt; /* Word默认单元格内边距 */
   text-align: left;
+  vertical-align: top;
+  line-height: 1.15;
+  color: #000000;
 }
 
 .docx-content :deep(table th) {
-  background-color: var(--el-bg-color-page, #f5f7fa);
+  background-color: #f2f2f2; /* Word表头默认背景色 */
   font-weight: bold;
+  text-align: center;
+}
+
+.docx-content :deep(table tr:nth-child(even)) {
+  background-color: #ffffff;
+}
+
+.docx-content :deep(table tr:nth-child(odd)) {
+  background-color: #ffffff;
 }
 
 .docx-content :deep(img) {
   max-width: 100%;
   height: auto;
-  margin: 12px 0;
+  margin: 6pt 0;
+  display: block;
+  border: none;
+  box-shadow: none;
+}
+
+.docx-content :deep(img[style*="float: left"]) {
+  float: left;
+  margin-right: 12pt;
+  margin-bottom: 6pt;
+}
+
+.docx-content :deep(img[style*="float: right"]) {
+  float: right;
+  margin-left: 12pt;
+  margin-bottom: 6pt;
+}
+
+/* 文本格式样式 */
+.docx-content :deep(strong),
+.docx-content :deep(b) {
+  font-weight: bold;
+  color: #000000;
+}
+
+.docx-content :deep(em),
+.docx-content :deep(i) {
+  font-style: italic;
+  color: #000000;
+}
+
+.docx-content :deep(u) {
+  text-decoration: underline;
+  color: #000000;
+}
+
+.docx-content :deep(s),
+.docx-content :deep(strike) {
+  text-decoration: line-through;
+  color: #000000;
+}
+
+.docx-content :deep(code) {
+  font-family: 'Courier New', monospace;
+  font-size: 10pt;
+  background-color: #f5f5f5;
+  padding: 2pt 4pt;
+  border-radius: 2pt;
+}
+
+.docx-content :deep(blockquote) {
+  margin: 12pt 0;
+  padding: 0 12pt;
+  border-left: 3pt solid #cccccc;
+  color: #666666;
+  font-style: italic;
+}
+
+.docx-content :deep(hr) {
+  border: none;
+  border-top: 0.5pt solid #000000;
+  margin: 12pt 0;
+  width: 100%;
+}
+
+/* 超链接样式 */
+.docx-content :deep(a) {
+  color: #0563c1;
+  text-decoration: underline;
+}
+
+.docx-content :deep(a:hover) {
+  color: #0563c1;
+  text-decoration: underline;
 }
 
 .docx-content :deep(.docx-error-message) {
-  color: var(--el-color-error, #f56c6c);
+  color: #c00000;
   padding: 20px;
   text-align: center;
-  background: var(--el-color-error-light-9, #fef0f0);
-  border-radius: var(--el-border-radius-base, 4px);
-  border: 1px solid var(--el-color-error-light-7, #fde2e2);
+  background: #fff4f4;
+  border: 1px solid #ffcccc;
+  font-size: 11pt;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
 }
 
 .docx-content :deep(.docx-tip-message) {
-  color: var(--el-text-color-placeholder, #909399);
+  color: #666666;
   padding: 20px;
   text-align: center;
-  background: var(--el-bg-color-page, #f5f7fa);
-  border-radius: var(--el-border-radius-base, 4px);
+  background: #f5f5f5;
+  font-size: 11pt;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
 }
 
 .other-document-container {
@@ -1293,12 +1681,28 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
-.page-info,
-.zoom-info {
-  min-width: 60px;
-  text-align: center;
+.page-jump-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-separator {
+  color: var(--el-text-color-placeholder, #909399);
+  font-size: 14px;
+}
+
+.total-pages {
+  color: var(--el-text-color-regular, #606266);
+  font-size: 14px;
+  min-width: 30px;
+}
+
+.zoom-reset-text {
   font-size: 14px;
   color: var(--el-text-color-regular, #606266);
+  min-width: 50px;
+  text-align: center;
 }
 
 .text-selection-popup {

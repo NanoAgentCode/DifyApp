@@ -1,23 +1,6 @@
 <template>
   <div class="document-reader-management">
     <el-card>
-      <template #header>
-        <div class="card-header">
-          <div class="header-left">
-            <el-icon class="header-icon"><Reading /></el-icon>
-            <span class="header-title">文档解读</span>
-          </div>
-          <div class="header-right">
-            <el-button type="primary" @click="handleNewDocument" :icon="Plus">
-              新建
-            </el-button>
-            <el-button @click="loadDocuments" :loading="docLoading" :icon="Refresh">
-              刷新
-            </el-button>
-          </div>
-        </div>
-      </template>
-
       <!-- 隐藏的文件上传组件 -->
       <el-upload
         ref="uploadRef"
@@ -38,37 +21,44 @@
         <el-card shadow="never">
           <template #header>
             <div class="section-title">
-              <span class="section-title-text">
-                <el-icon><Document /></el-icon>
-                文档列表
-                <el-tag v-if="total > 0" type="info" size="small" style="margin-left: 8px">
-                  共 {{ total }} 个文件
-                </el-tag>
-              </span>
+              <div class="section-title-left">
+                <el-button type="text" @click="handleBack" style="margin-right: 10px">
+                  <el-icon><ArrowLeft /></el-icon>
+                  返回
+                </el-button>
+                <span class="section-title-text">
+                  <el-icon><Document /></el-icon>
+                  文档列表
+                  <el-tag v-if="total > 0" type="info" size="small" style="margin-left: 8px">
+                    共 {{ total }} 个文件
+                  </el-tag>
+                </span>
+              </div>
             </div>
           </template>
           
           <!-- 搜索和过滤栏 -->
           <div class="search-filter-bar">
-            <el-input
-              v-model="searchKeyword"
-              placeholder="搜索文件名"
-              clearable
-              style="width: 250px"
-              @input="handleSearch"
-              @clear="handleSearch"
-            >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
-            <el-select
-              v-model="filterFileType"
-              placeholder="文件类型"
-              clearable
-              style="width: 150px; margin-left: 10px"
-              @change="handleFilter"
-            >
+            <div class="search-left">
+              <el-input
+                v-model="searchKeyword"
+                placeholder="搜索文件名"
+                clearable
+                style="width: 250px"
+                @input="handleSearch"
+                @clear="handleSearch"
+              >
+                <template #prefix>
+                  <el-icon><Search /></el-icon>
+                </template>
+              </el-input>
+              <el-select
+                v-model="filterFileType"
+                placeholder="文件类型"
+                clearable
+                style="width: 150px; margin-left: 10px"
+                @change="handleFilter"
+              >
               <el-option label="全部" value="" />
               <el-option label="PDF" value="pdf" />
               <el-option label="Word" value="doc" />
@@ -81,6 +71,15 @@
               <el-option label="PowerPoint (pptx)" value="pptx" />
               <el-option label="图片" value="png" />
             </el-select>
+            </div>
+            <div class="search-right">
+              <el-button type="primary" @click="handleNewDocument" :icon="Plus">
+                新建
+              </el-button>
+              <el-button @click="loadDocuments" :loading="docLoading" :icon="Refresh">
+                刷新
+              </el-button>
+            </div>
           </div>
           
           <!-- 卡片容器 -->
@@ -198,7 +197,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { UploadFilled, Refresh, Document, Delete, Search, View, Picture, FolderOpened, Clock, Plus, InfoFilled, Loading, CircleCheck, CircleClose, Reading } from '@element-plus/icons-vue'
+import { UploadFilled, Refresh, Document, Delete, Search, View, Picture, FolderOpened, Clock, Plus, InfoFilled, Loading, CircleCheck, CircleClose, ArrowLeft } from '@element-plus/icons-vue'
 import {
   getDocumentList,
   uploadDocument,
@@ -207,6 +206,10 @@ import {
 } from '@/api/documentReader'
 
 const router = useRouter()
+
+const handleBack = () => {
+  router.push('/user/chat')
+}
 
 const uploadRef = ref(null)
 const fileList = ref([])
@@ -633,42 +636,24 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 20px;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.header-icon {
-  font-size: 20px;
-  color: var(--el-color-primary, #409eff);
-}
-
-.header-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--el-text-color-primary, #303133);
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  padding: 20px; /* 确保与内层 card body 的 padding 一致 */
 }
 
 .section-title {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 0 20px;
+}
+
+.section-title-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.doc-list-section :deep(.el-card__header) {
+  padding: 18px 20px;
 }
 
 .section-title-text {
@@ -704,7 +689,20 @@ onUnmounted(() => {
   margin-bottom: 16px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   flex-shrink: 0;
+}
+
+.search-left {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.search-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .cards-wrapper {
