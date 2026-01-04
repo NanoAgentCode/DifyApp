@@ -4,10 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchRepositoriesAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ReactiveElasticsearchRepositoriesAutoConfiguration;
-import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 /**
@@ -32,38 +29,12 @@ import org.springframework.scheduling.annotation.EnableAsync;
     ReactiveElasticsearchRepositoriesAutoConfiguration.class
 })
 @EnableAsync
-@ComponentScan(basePackages = {
-        "com.github.app.dify.auth",
-        "com.github.app.dify.permission",
-        "com.github.app.dify.chat",
-        "com.github.app.dify.knowledgebase",
-        "com.github.app.dify.system",
-        "com.github.app.dify.statistics",
-        "com.github.app.dify.documentreader",
-        "com.github.app.dify.mcp",
-        "com.github.app.dify.model",
-        "com.github.app.dify.datasource",
-        "com.github.app.dify.common",
-        "com.github.app.dify"
-})
-@EntityScan(basePackages = {
-        "com.github.app.dify.auth.domain",
-        "com.github.app.dify.permission.domain",
-        "com.github.app.dify.chat.domain",
-        "com.github.app.dify.knowledgebase.domain",
-        "com.github.app.dify.system.domain",
-        "com.github.app.dify.documentreader.domain",
-        "com.github.app.dify.datasource.domain"
-})
-@EnableJpaRepositories(basePackages = {
-        "com.github.app.dify.auth.repository",
-        "com.github.app.dify.permission.repository",
-        "com.github.app.dify.chat.repository",
-        "com.github.app.dify.knowledgebase.repository",
-        "com.github.app.dify.system.repository",
-        "com.github.app.dify.documentreader.repository",
-        "com.github.app.dify.datasource.repository"
-})
+// Spring Boot 默认会扫描主应用类所在包及其所有子包
+// 由于主应用类在 com.github.app.dify 包下，会自动扫描所有子模块
+// 如果需要显式指定，可以只指定根包：
+// @ComponentScan(basePackages = "com.github.app.dify")
+// @EntityScan(basePackages = "com.github.app.dify")
+// @EnableJpaRepositories(basePackages = "com.github.app.dify")
 public class DifyAppApplication {
 
     public static void main(String[] args) {
