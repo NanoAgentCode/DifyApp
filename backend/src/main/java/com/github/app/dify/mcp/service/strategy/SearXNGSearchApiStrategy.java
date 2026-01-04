@@ -1,8 +1,8 @@
 package com.github.app.dify.mcp.service.strategy;
 
 import com.github.app.dify.mcp.config.McpConfig;
-import com.github.app.dify.mcp.service.McpBrowserSearchService;
 import com.github.app.dify.mcp.service.McpBrowserSearchService.SearchResult;
+import com.github.app.dify.mcp.service.util.SearXNGSearchHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +23,7 @@ public class SearXNGSearchApiStrategy implements SearchApiStrategy {
     private McpConfig mcpConfig;
     
     @Autowired
-    private McpBrowserSearchService mcpBrowserSearchService;
+    private SearXNGSearchHelper searXNGSearchHelper;
     
     @Override
     public String getType() {
@@ -50,8 +50,7 @@ public class SearXNGSearchApiStrategy implements SearchApiStrategy {
         
         try {
             logger.info("使用SearX-NG搜索（降级方案） - 查询: {}, 最大结果数: {}", query, maxResults);
-            // 使用原有的McpBrowserSearchService实现
-            return mcpBrowserSearchService.search(query, maxResults);
+            return searXNGSearchHelper.search(query, maxResults);
         } catch (Exception e) {
             logger.error("SearX-NG搜索失败 - 查询: {}", query, e);
             return new ArrayList<>();

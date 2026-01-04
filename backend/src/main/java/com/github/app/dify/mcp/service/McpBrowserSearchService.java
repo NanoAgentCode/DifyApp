@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.mcp.config.McpConfig;
 import com.github.app.dify.mcp.service.strategy.SearchApiFactory;
+import com.github.app.dify.mcp.service.util.SearXNGSearchHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,9 @@ public class McpBrowserSearchService {
     
     @Autowired(required = false)
     private SearchApiFactory searchApiFactory;
+    
+    @Autowired(required = false)
+    private SearXNGSearchHelper searXNGSearchHelper;
     
     private final ObjectMapper objectMapper = new ObjectMapper();
     
@@ -109,7 +113,16 @@ public class McpBrowserSearchService {
             // 如果多API工厂不可用或返回空结果，降级到原有的SearX-NG实现
             if (results == null || results.isEmpty()) {
                 logger.info("降级使用SearX-NG搜索");
-                results = searchWithSearXNG(optimizedQuery, maxResults);
+                if (searXNGSearchHelper != null) {
+                    try {
+                        results = searXNGSearchHelper.search(optimizedQuery, maxResults);
+                    } catch (Exception e) {
+                        logger.warn("SearX-NG搜索失败", e);
+                    }
+                } else {
+                    // 如果SearXNGSearchHelper也不可用，使用原有的searchWithSearXNG方法
+                    results = searchWithSearXNG(optimizedQuery, maxResults);
+                }
             }
             
             logger.info("浏览器检索完成 - 查询: {}, 结果数量: {}", query, results != null ? results.size() : 0);

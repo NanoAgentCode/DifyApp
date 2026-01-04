@@ -5,7 +5,6 @@ import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
 import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
 import com.github.app.dify.knowledgebase.langchain4j.StreamingChatLanguageModel;
 import com.github.app.dify.mcp.service.McpBrowserSearchService;
-import com.github.app.dify.mcp.service.McpLocationService;
 import com.github.app.dify.mcp.service.McpTimeService;
 import com.github.app.dify.knowledgebase.repository.QAModelRepository;
 import com.github.app.dify.chat.req.ChatRequest;
@@ -54,9 +53,6 @@ public class ChatServiceImpl implements ChatService {
     
     @Autowired
     private McpTimeService mcpTimeService;
-    
-    @Autowired
-    private McpLocationService mcpLocationService;
     
     @Override
     public ChatResponse chat(ChatRequest request, Long userId) {
@@ -464,16 +460,6 @@ public class ChatServiceImpl implements ChatService {
             McpTimeService.TimeInfo timeInfo = mcpTimeService.getCurrentTime();
             currentYear = timeInfo.getYear();
             systemMessageBuilder.append(currentTimeInfo);
-            
-            // 获取地理位置信息
-            try {
-                String locationInfo = mcpLocationService.getFormattedLocationInfo();
-                systemMessageBuilder.append("\n\n");
-                systemMessageBuilder.append(locationInfo);
-            } catch (Exception e) {
-                logger.warn("获取地理位置信息失败，跳过", e);
-                // 不抛出异常，继续执行
-            }
         } else {
             // MCP支持关闭时，只提供基本的年份信息（不告知用户MCP已关闭）
             systemMessageBuilder.append("【当前时间信息】\n");

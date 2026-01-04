@@ -16,11 +16,6 @@ public class McpConfig {
     private BrowserSearch browserSearch = new BrowserSearch();
     
     /**
-     * 地理位置服务配置
-     */
-    private Location location = new Location();
-    
-    /**
      * 时间服务配置
      */
     private Time time = new Time();
@@ -36,14 +31,6 @@ public class McpConfig {
     
     public void setBrowserSearch(BrowserSearch browserSearch) {
         this.browserSearch = browserSearch;
-    }
-    
-    public Location getLocation() {
-        return location;
-    }
-    
-    public void setLocation(Location location) {
-        this.location = location;
     }
     
     public Time getTime() {
@@ -185,50 +172,6 @@ public class McpConfig {
         
         public void setDefaultEngines(String defaultEngines) {
             this.defaultEngines = defaultEngines;
-        }
-    }
-    
-    /**
-     * 地理位置服务配置
-     */
-    public static class Location {
-        /**
-         * 地理位置信息缓存时间（秒）
-         */
-        private int cacheSeconds = 3600; // 1小时
-        
-        /**
-         * 请求超时时间（秒）
-         */
-        private int timeout = 10;
-        
-        /**
-         * 是否启用地理位置服务
-         */
-        private boolean enabled = true;
-        
-        public int getCacheSeconds() {
-            return cacheSeconds;
-        }
-        
-        public void setCacheSeconds(int cacheSeconds) {
-            this.cacheSeconds = cacheSeconds;
-        }
-        
-        public int getTimeout() {
-            return timeout;
-        }
-        
-        public void setTimeout(int timeout) {
-            this.timeout = timeout;
-        }
-        
-        public boolean isEnabled() {
-            return enabled;
-        }
-        
-        public void setEnabled(boolean enabled) {
-            this.enabled = enabled;
         }
     }
     

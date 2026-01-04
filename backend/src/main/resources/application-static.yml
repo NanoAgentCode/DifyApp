@@ -95,7 +95,7 @@ rag:
 mcp:
   browser-search:
     # 商业搜索API（按优先级自动选择）
-    tavily-api-key: ""        # Tavily API密钥（推荐）
+    tavily-api-key: "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"        # Tavily API密钥（推荐）
     serp-api-key: ""          # SerpAPI密钥
     serp-engine: "google"     # SerpAPI搜索引擎
     bing-api-key: ""          # Bing API密钥
@@ -106,10 +106,6 @@ mcp:
     default-max-results: 5
     enable-query-optimization: true
     default-engines: "duckduckgo,brave"
-  location:
-    enabled: true
-    cache-seconds: 3600
-    timeout: 10
   time:
     default-time-zone: Asia/Shanghai
     cache-seconds: 1
