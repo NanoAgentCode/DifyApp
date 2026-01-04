@@ -1,6 +1,15 @@
 <template>
   <div class="app-list">
     <el-card>
+      <template #header>
+        <div class="card-header">
+          <el-button type="text" @click="handleBack" style="margin-right: 10px">
+            <el-icon><ArrowLeft /></el-icon>
+            返回
+          </el-button>
+          <span>应用列表</span>
+        </div>
+      </template>
       <!-- 搜索栏 -->
       <div class="search-bar">
         <div class="search-left">
@@ -119,7 +128,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search } from '@element-plus/icons-vue'
+import { Plus, Search, ArrowLeft } from '@element-plus/icons-vue'
 import { getAppList, deleteApp } from '@/api/aiApp'
 import AppIcon from '@/components/AppIcon.vue'
 
@@ -187,6 +196,10 @@ const handleUse = (app) => {
   } else {
     router.push(`/app/workflow/${app.id}`)
   }
+}
+
+const handleBack = () => {
+  router.push('/admin/chat')
 }
 
 const handleDelete = async (id) => {
@@ -270,6 +283,12 @@ onBeforeUnmount(() => {
   overflow: hidden;
   padding: 0;
   min-height: 0;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .search-bar {

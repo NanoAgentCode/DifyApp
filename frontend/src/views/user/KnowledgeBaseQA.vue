@@ -3,7 +3,13 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>知识检索</span>
+          <div class="header-left">
+            <el-button type="text" @click="handleBack" style="margin-right: 10px">
+              <el-icon><ArrowLeft /></el-icon>
+              返回
+            </el-button>
+            <span>知识检索</span>
+          </div>
           <div class="header-right">
             <el-button type="primary" @click="handleClearHistory">
               <el-icon><Delete /></el-icon>
@@ -335,6 +341,7 @@ import {
   Plus,
   Warning,
   Refresh,
+  ArrowLeft,
 } from '@element-plus/icons-vue'
 import { getModelStyle } from '@/utils/modelColor'
 import { renderMarkdown } from '@/composables/useMarkdown'
@@ -391,6 +398,10 @@ const {
 
 const router = useRouter()
 
+// 返回主页
+const handleBack = () => {
+  router.push('/user/chat')
+}
 
 // 手动触发代码高亮（用于流式响应中逐步生成的代码块）
 const highlightCodeBlocks = () => {
@@ -512,14 +523,14 @@ html {
   align-items: center;
 }
 
-.header-right {
+.header-left {
   display: flex;
   align-items: center;
+  gap: 10px;
 }
 
-.card-header {
+.header-right {
   display: flex;
-  justify-content: space-between;
   align-items: center;
 }
 

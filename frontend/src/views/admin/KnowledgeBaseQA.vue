@@ -1,6 +1,16 @@
 <template>
   <div class="knowledge-base-qa">
-    <div class="qa-container">
+    <el-card>
+      <template #header>
+        <div class="card-header">
+          <el-button type="text" @click="handleBack" style="margin-right: 10px">
+            <el-icon><ArrowLeft /></el-icon>
+            返回
+          </el-button>
+          <span>知识问答</span>
+        </div>
+      </template>
+      <div class="qa-container">
         <!-- 左侧：知识库选择 -->
         <div class="left-panel">
           <div class="panel-title">
@@ -290,11 +300,13 @@
           </transition>
         </div>
       </div>
-    </div>
+    </el-card>
+  </div>
 </template>
 
 <script setup>
 import { ref, nextTick, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   Delete,
   Folder,
@@ -307,7 +319,8 @@ import {
   Star,
   Search,
   Warning,
-  Refresh
+  Refresh,
+  ArrowLeft
 } from '@element-plus/icons-vue'
 import { getModelStyle } from '@/utils/modelColor'
 import { renderMarkdown } from '@/composables/useMarkdown'
@@ -359,6 +372,13 @@ const {
   enableConversationHistory: false, // admin版本不启用对话历史
   isAdmin: true // admin版本是管理员
 })
+
+const router = useRouter()
+
+// 返回主页
+const handleBack = () => {
+  router.push('/admin/chat')
+}
 
 // 手动触发代码高亮（用于流式响应中逐步生成的代码块）
 const highlightCodeBlocks = () => {
@@ -449,6 +469,27 @@ html {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.knowledge-base-qa :deep(.el-card) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.knowledge-base-qa :deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 :deep(.el-card) {

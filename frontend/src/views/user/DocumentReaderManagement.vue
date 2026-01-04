@@ -3,14 +3,15 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>文档解读</span>
+          <div class="header-left">
+            <el-icon class="header-icon"><Reading /></el-icon>
+            <span class="header-title">文档解读</span>
+          </div>
           <div class="header-right">
-            <el-button type="primary" @click="handleNewDocument">
-              <el-icon><Plus /></el-icon>
+            <el-button type="primary" @click="handleNewDocument" :icon="Plus">
               新建
             </el-button>
-            <el-button @click="loadDocuments" :loading="docLoading">
-              <el-icon><Refresh /></el-icon>
+            <el-button @click="loadDocuments" :loading="docLoading" :icon="Refresh">
               刷新
             </el-button>
           </div>
@@ -197,7 +198,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { UploadFilled, Refresh, Document, Delete, Search, View, Picture, FolderOpened, Clock, Plus, InfoFilled, Loading, CircleCheck, CircleClose } from '@element-plus/icons-vue'
+import { UploadFilled, Refresh, Document, Delete, Search, View, Picture, FolderOpened, Clock, Plus, InfoFilled, Loading, CircleCheck, CircleClose, Reading } from '@element-plus/icons-vue'
 import {
   getDocumentList,
   uploadDocument,
@@ -638,12 +639,30 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 4px 20px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-icon {
+  font-size: 20px;
+  color: var(--el-color-primary, #409eff);
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--el-text-color-primary, #303133);
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .section-title {
@@ -678,6 +697,7 @@ onUnmounted(() => {
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  padding: 20px;
 }
 
 .search-filter-bar {

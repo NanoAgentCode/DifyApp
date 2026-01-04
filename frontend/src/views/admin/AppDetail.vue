@@ -4,6 +4,10 @@
       <template #header>
         <div class="card-header">
           <div class="header-left">
+            <el-button type="text" @click="handleBack" style="margin-right: 10px">
+              <el-icon><ArrowLeft /></el-icon>
+              返回
+            </el-button>
             <AppIcon v-if="appDetail?.icon" :icon="appDetail.icon" :size="32" class="app-icon" />
             <span>应用详情</span>
           </div>
@@ -50,6 +54,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { ArrowLeft } from '@element-plus/icons-vue'
 import { getAppDetail } from '@/api/aiApp'
 import AppIcon from '@/components/AppIcon.vue'
 
@@ -80,6 +85,10 @@ const handleUse = () => {
   } else {
     router.push(`/app/workflow/${route.params.id}`)
   }
+}
+
+const handleBack = () => {
+  router.push('/admin/apps')
 }
 
 const formatDate = (date) => {

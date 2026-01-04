@@ -1,6 +1,15 @@
 <template>
   <div class="knowledge-base-management">
     <el-card>
+      <template #header>
+        <div class="card-header">
+          <el-button type="text" @click="handleBack" style="margin-right: 10px">
+            <el-icon><ArrowLeft /></el-icon>
+            返回
+          </el-button>
+          <span>知识管理</span>
+        </div>
+      </template>
       <!-- 搜索栏 -->
       <div class="search-bar">
         <div class="search-left">
@@ -447,7 +456,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, ElTooltip } from 'element-plus'
-import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Unlock, Lock, Check, Close, Warning, Link, QuestionFilled, DocumentCopy } from '@element-plus/icons-vue'
+import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Unlock, Lock, Check, Close, Warning, Link, QuestionFilled, DocumentCopy, ArrowLeft } from '@element-plus/icons-vue'
 import { 
   getKnowledgeBaseList, 
   createKnowledgeBase, 
@@ -858,6 +867,11 @@ const handleGenerateSummaryFromView = async () => {
 }
 
 const router = useRouter()
+
+// 返回主页
+const handleBack = () => {
+  router.push('/admin/chat')
+}
 
 const handleDocuments = (row) => {
   router.push(`/admin/knowledge-base/${row.id}/documents`)
@@ -1271,6 +1285,12 @@ const getVectorDatabaseDocumentCount = (db) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 :deep(.el-card) {

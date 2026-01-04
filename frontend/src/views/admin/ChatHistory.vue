@@ -3,7 +3,13 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>会话历史管理</span>
+          <div class="header-left">
+            <el-button type="text" @click="handleBack" style="margin-right: 10px">
+              <el-icon><ArrowLeft /></el-icon>
+              返回
+            </el-button>
+            <span>会话历史管理</span>
+          </div>
         </div>
       </template>
 
@@ -149,8 +155,16 @@
 </template>
 
 <script setup>
-import { Search, User, Service } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { Search, User, Service, ArrowLeft } from '@element-plus/icons-vue'
 import { useChatHistory } from '@/composables/useChatHistory'
+
+const router = useRouter()
+
+// 返回主页
+const handleBack = () => {
+  router.push('/admin/chat')
+}
 
 const {
   loading,
@@ -218,6 +232,12 @@ const {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .filter-bar {

@@ -3,7 +3,13 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>我的知识库</span>
+          <div class="header-left">
+            <el-button type="text" @click="handleBack" style="margin-right: 10px">
+              <el-icon><ArrowLeft /></el-icon>
+              返回
+            </el-button>
+            <span>我的知识库</span>
+          </div>
           <div class="header-right">
             <el-button type="primary" @click="handleCreate">
               <el-icon><Plus /></el-icon>
@@ -422,7 +428,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, ElTooltip } from 'element-plus'
-import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Check, Close, Warning, Link, QuestionFilled, DocumentCopy } from '@element-plus/icons-vue'
+import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Check, Close, Warning, Link, QuestionFilled, DocumentCopy, ArrowLeft } from '@element-plus/icons-vue'
 import { 
   getKnowledgeBaseList, 
   createKnowledgeBase, 
@@ -443,6 +449,11 @@ const filterVectorStoreType = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 const router = useRouter()
+
+// 返回主页
+const handleBack = () => {
+  router.push('/user/chat')
+}
 
 const dialogVisible = ref(false)
 const viewDialogVisible = ref(false)
@@ -1217,15 +1228,16 @@ const getVectorDatabaseDocumentCount = (db) => {
   align-items: center;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .header-right {
   display: flex;
   align-items: center;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  gap: 10px;
 }
 
 .search-bar {

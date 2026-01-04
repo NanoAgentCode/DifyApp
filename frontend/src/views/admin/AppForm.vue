@@ -2,7 +2,15 @@
   <div class="app-form">
     <el-card>
       <template #header>
-        <span>{{ isEdit ? '编辑应用' : '创建应用' }}</span>
+        <div class="card-header">
+          <div class="header-left">
+            <el-button type="text" @click="handleBack" style="margin-right: 10px">
+              <el-icon><ArrowLeft /></el-icon>
+              返回
+            </el-button>
+            <span>{{ isEdit ? '编辑应用' : '创建应用' }}</span>
+          </div>
+        </div>
       </template>
 
       <el-form
@@ -409,7 +417,7 @@
 import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Check, Plus, Delete, DocumentCopy, Download, Picture } from '@element-plus/icons-vue'
+import { Check, Plus, Delete, DocumentCopy, Download, Picture, ArrowLeft } from '@element-plus/icons-vue'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { createApp, updateApp, getAppDetail } from '@/api/aiApp'
 import { industrialThemes, getThemeById, findThemeByColor } from '@/utils/themes'
@@ -904,6 +912,10 @@ const handleCancel = () => {
   router.back()
 }
 
+const handleBack = () => {
+  router.push('/admin/apps')
+}
+
 onMounted(() => {
   fetchAppDetail()
 })
@@ -914,6 +926,18 @@ onMounted(() => {
   width: 100%;
   max-width: 900px;
   margin: 0 auto;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .form-section {

@@ -1,6 +1,12 @@
 <template>
   <div class="user-app-list">
     <div class="page-header">
+      <div class="header-top">
+        <el-button type="text" @click="handleBack" style="margin-right: 10px">
+          <el-icon><ArrowLeft /></el-icon>
+          返回
+        </el-button>
+      </div>
       <h1>智能应用</h1>
       <p class="subtitle">选择您要使用的应用</p>
     </div>
@@ -47,6 +53,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { ArrowLeft } from '@element-plus/icons-vue'
 import { getAppList } from '@/api/aiApp'
 import AppIcon from '@/components/AppIcon.vue'
 
@@ -101,6 +108,9 @@ const handleUse = (app) => {
   }
 }
 
+const handleBack = () => {
+  router.push('/user/chat')
+}
 
 onMounted(() => {
   fetchAppList()

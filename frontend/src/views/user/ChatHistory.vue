@@ -3,7 +3,13 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>会话历史</span>
+          <div class="header-left">
+            <el-button type="text" @click="handleBack" style="margin-right: 10px">
+              <el-icon><ArrowLeft /></el-icon>
+              返回
+            </el-button>
+            <span>会话历史</span>
+          </div>
           <div class="header-right">
             <el-button type="primary" @click="handleCreateConversation">
               <el-icon><Plus /></el-icon>
@@ -198,45 +204,16 @@
 </template>
 
 <script setup>
-import { Plus, Search, ChatLineRound, Edit, Delete, User, Service, Right, View, Clock, HomeFilled } from '@element-plus/icons-vue'
+import { Plus, Search, ChatLineRound, Edit, Delete, User, Service, Right, View, Clock, ArrowLeft } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useChatHistory } from '@/composables/useChatHistory'
 
 const router = useRouter()
 
-const {
-  loading,
-  conversations,
-  searchKeyword,
-  selectedType,
-  selectedConversationId,
-  currentPage,
-  pageSize,
-  total,
-  editTitleDialogVisible,
-  editTitle,
-  showConversationDetail,
-  conversationDetail,
-  handleSearch,
-  handleReset,
-  selectConversation,
-  handleCreateConversation,
-  handleEditTitle,
-  handleSaveTitle,
-  handleDelete,
-  handleContinueConversation,
-  handleSizeChange,
-  handlePageChange,
-  formatTime,
-  formatDateTime,
-  formatMessageContent
-} = useChatHistory({
-  isAdmin: false,
-  enableCreate: true,
-  enableEdit: true,
-  enableContinue: true,
-  enableBatchDelete: false,
-})
+// 返回主页
+const handleBack = () => {
+  router.push('/user/chat')
+}
 
 const {
   loading,
@@ -303,6 +280,12 @@ const {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .header-right {

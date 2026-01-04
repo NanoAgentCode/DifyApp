@@ -6,6 +6,10 @@
         <div class="toolbar-header">
           <h3>智能框图助手</h3>
           <div class="header-top">
+            <el-button type="text" @click="handleBack" size="small">
+              <el-icon><ArrowLeft /></el-icon>
+              返回
+            </el-button>
           </div>
         </div>
         
@@ -223,6 +227,7 @@ import {
   ZoomIn,
   ZoomOut,
   FullScreen,
+  ArrowLeft,
 } from '@element-plus/icons-vue'
 import { 
   generateDiagram, 
@@ -233,6 +238,11 @@ import {
 } from '@/api/drawio'
 
 const router = useRouter()
+
+// 返回主页
+const handleBack = () => {
+  router.push('/user/chat')
+}
 
 // Mermaid 图表相关
 const mermaidContainer = ref(null)

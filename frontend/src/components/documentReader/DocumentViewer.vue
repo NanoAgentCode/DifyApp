@@ -3,21 +3,30 @@
     <!-- 工具栏 -->
     <div class="viewer-toolbar">
       <div class="toolbar-left">
-        <el-button type="text" @click="$emit('back')">
-          <el-icon><ArrowLeft /></el-icon>
-        </el-button>
+        <el-tooltip content="返回文档列表" placement="bottom">
+          <el-button type="default" @click="$emit('back')" class="back-button">
+            <el-icon><ArrowLeft /></el-icon>
+            <span>返回</span>
+          </el-button>
+        </el-tooltip>
         <span class="document-title">{{ documentInfo?.originalFileName || documentInfo?.fileName || '未命名文档' }}</span>
       </div>
       <div class="toolbar-right">
-        <el-button type="text" @click="$emit('favorite')">
-          <el-icon><Star /></el-icon>
-        </el-button>
-        <el-button type="text" @click="$emit('share')">
-          <el-icon><Share /></el-icon>
-        </el-button>
-        <el-button type="text" @click="$emit('export')">
-          <el-icon><Download /></el-icon>
-        </el-button>
+        <el-tooltip content="收藏" placement="bottom">
+          <el-button type="text" @click="$emit('favorite')" class="toolbar-action-btn">
+            <el-icon><Star /></el-icon>
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="分享" placement="bottom">
+          <el-button type="text" @click="$emit('share')" class="toolbar-action-btn">
+            <el-icon><Share /></el-icon>
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="导出" placement="bottom">
+          <el-button type="text" @click="$emit('export')" class="toolbar-action-btn">
+            <el-icon><Download /></el-icon>
+          </el-button>
+        </el-tooltip>
       </div>
     </div>
 
@@ -832,19 +841,50 @@ onBeforeUnmount(() => {
 .toolbar-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.back-button:hover {
+  background-color: var(--el-color-primary-light-9, #ecf5ff);
+  color: var(--el-color-primary, #409eff);
+  transform: translateX(-2px);
 }
 
 .document-title {
   font-size: 16px;
   font-weight: 500;
   color: var(--el-text-color-primary, #303133);
+  max-width: 500px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .toolbar-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+}
+
+.toolbar-action-btn {
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.toolbar-action-btn:hover {
+  background-color: var(--el-color-primary-light-9, #ecf5ff);
+  color: var(--el-color-primary, #409eff);
 }
 
 .viewer-content {
