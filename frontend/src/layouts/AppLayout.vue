@@ -1,7 +1,11 @@
 <template>
   <el-container class="app-layout">
     <el-main class="main">
-      <router-view />
+      <router-view v-slot="{ Component, route }">
+        <transition name="fade-slide" mode="out-in">
+          <component :is="Component" :key="route.path" />
+        </transition>
+      </router-view>
     </el-main>
     
     <!-- 帮助悬浮按钮 -->

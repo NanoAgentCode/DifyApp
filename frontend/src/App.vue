@@ -1,5 +1,9 @@
 <template>
-  <router-view />
+  <router-view v-slot="{ Component, route }">
+    <transition name="fade-slide" mode="out-in">
+      <component :is="Component" :key="route.path" />
+    </transition>
+  </router-view>
 </template>
 
 <script setup>
@@ -148,6 +152,51 @@ body.el-popup-parent--hidden {
     width: 95% !important;
     margin: 5vh auto !important;
   }
+}
+
+/* ==================== 全局页面过渡动画 ==================== */
+/* 统一的页面切入切出过渡动画 - 用于所有路由切换 */
+.fade-slide-enter-active {
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 1;
+  will-change: opacity, transform; /* 硬件加速 */
+}
+
+.fade-slide-leave-active {
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 1, 1),
+              transform 0.2s cubic-bezier(0.4, 0, 1, 1);
+  position: relative;
+  z-index: 0;
+  will-change: opacity, transform; /* 硬件加速 */
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateX(15px) scale(0.98); /* 轻微缩放效果 */
+}
+
+.fade-slide-enter-to {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.fade-slide-leave-from {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-15px) scale(0.98); /* 轻微缩放效果 */
+}
+
+/* 确保路由切换动画不会影响导航栏 */
+.fade-slide-enter-active .app-header,
+.fade-slide-leave-active .app-header {
+  z-index: 1000 !important;
+  position: fixed !important;
 }
 </style>
 

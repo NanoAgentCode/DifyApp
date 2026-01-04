@@ -9,9 +9,9 @@
       />
       <el-main class="main" :class="{ 'portal-main': isPortalMode, 'main-header-collapsed': isHeaderCollapsed && !isPortalMode }">
         <div class="main-content" :class="{ 'portal-content': isPortalMode }">
-          <router-view v-slot="{ Component }">
+          <router-view v-slot="{ Component, route }">
             <transition name="fade-slide" mode="out-in">
-              <component :is="Component" />
+              <component :is="Component" :key="route.path" />
             </transition>
           </router-view>
         </div>
@@ -238,49 +238,7 @@ const handlePasswordChangeSuccess = () => {
   overflow: visible;
 }
 
-/* 路由切换过渡动画 - 优化版 */
-.fade-slide-enter-active {
-  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  z-index: 1;
-  will-change: opacity, transform; /* 硬件加速 */
-}
-
-.fade-slide-leave-active {
-  transition: opacity 0.2s cubic-bezier(0.4, 0, 1, 1),
-              transform 0.2s cubic-bezier(0.4, 0, 1, 1);
-  position: relative;
-  z-index: 0;
-  will-change: opacity, transform; /* 硬件加速 */
-}
-
-.fade-slide-enter-from {
-  opacity: 0;
-  transform: translateX(15px) scale(0.98); /* 轻微缩放效果 */
-}
-
-.fade-slide-enter-to {
-  opacity: 1;
-  transform: translateX(0) scale(1);
-}
-
-.fade-slide-leave-from {
-  opacity: 1;
-  transform: translateX(0) scale(1);
-}
-
-.fade-slide-leave-to {
-  opacity: 0;
-  transform: translateX(-15px) scale(0.98); /* 轻微缩放效果 */
-}
-
-/* 确保路由切换动画不会影响导航栏 */
-.fade-slide-enter-active .app-header,
-.fade-slide-leave-active .app-header {
-  z-index: 1000 !important;
-  position: fixed !important;
-}
+/* 路由切换过渡动画使用全局样式（定义在 App.vue 中） */
 
 /* 小屏幕适配 (1024x768及以下) */
 @media (max-width: 1024px) {
