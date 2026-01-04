@@ -21,6 +21,7 @@ public class RagConfig {
     private String compressionStrategy = "sliding_window"; // 压缩策略：sliding_window, summary, hybrid
     private int maxHistoryRounds = 10; // 最大历史对话轮数（滑动窗口策略）
     private int maxHistoryTokens = 2000; // 最大历史对话token数（用于判断是否需要压缩）
+    private int maxSystemMessageLength = 8000; // 最大系统消息长度（字符数），用于压缩检索到的文档内容
     private boolean enableSummary = false; // 是否启用总结压缩（需要额外调用LLM）
     
     public int getChunkSize() {
@@ -85,6 +86,14 @@ public class RagConfig {
     
     public void setMaxHistoryTokens(int maxHistoryTokens) {
         this.maxHistoryTokens = maxHistoryTokens;
+    }
+    
+    public int getMaxSystemMessageLength() {
+        return maxSystemMessageLength;
+    }
+    
+    public void setMaxSystemMessageLength(int maxSystemMessageLength) {
+        this.maxSystemMessageLength = maxSystemMessageLength;
     }
     
     public boolean isEnableSummary() {

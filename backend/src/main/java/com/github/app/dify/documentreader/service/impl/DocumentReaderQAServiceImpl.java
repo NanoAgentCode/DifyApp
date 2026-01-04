@@ -11,6 +11,7 @@ import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
 import com.github.app.dify.knowledgebase.langchain4j.StreamingChatLanguageModel;
+import com.github.app.dify.knowledgebase.service.ContextCompressionService;
 import com.github.app.dify.system.config.DocumentReaderConfig;
 import com.github.app.dify.model.service.ModelConfigService;
 import dev.langchain4j.data.message.AiMessage;
@@ -57,6 +58,9 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
     @Autowired
     private ChatHistoryService chatHistoryService;
     
+    @Autowired
+    private ContextCompressionService contextCompressionService;
+    
     /**
      * 文档问答（非流式）
      */
@@ -79,6 +83,10 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
             
             // 构建消息列表（包含历史对话和检索到的文档片段）
             List<ChatMessage> messages = buildMessages(request, retrievalResults, document.getOriginalFileName());
+            
+            // 应用上下文压缩策略（压缩历史对话和文档内容）
+            messages = contextCompressionService.compressContext(messages, request);
+            logger.debug("压缩后的消息列表大小: {}", messages.size());
             
             // 获取模型
             QAModel qaModel = getQAModel(request.getModelId());
@@ -171,6 +179,10 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
             
             // 构建消息列表
             List<ChatMessage> messages = buildMessages(request, retrievalResults, document.getOriginalFileName());
+            
+            // 应用上下文压缩策略（压缩历史对话和文档内容）
+            messages = contextCompressionService.compressContext(messages, request);
+            logger.debug("压缩后的消息列表大小: {}", messages.size());
             
             // 获取模型
             QAModel qaModel = getQAModel(request.getModelId());

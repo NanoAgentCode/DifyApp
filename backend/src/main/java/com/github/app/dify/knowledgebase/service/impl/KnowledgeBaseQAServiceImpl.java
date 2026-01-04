@@ -13,6 +13,7 @@ import com.github.app.dify.knowledgebase.service.KnowledgeBaseQAService;
 import com.github.app.dify.knowledgebase.service.KnowledgeBaseService;
 import com.github.app.dify.model.service.ModelConfigService;
 import com.github.app.dify.knowledgebase.service.RagRetrievalService;
+import com.github.app.dify.system.config.RagConfig;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -48,6 +49,9 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     
     @Autowired
     private ContextCompressionService contextCompressionService;
+    
+    @Autowired
+    private RagConfig ragConfig;
     
     @Autowired
     private ChatHistoryService chatHistoryService;
@@ -421,8 +425,8 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                 contextBuilder.append(retrievalResults.get(i).getText()).append("\n\n");
             }
             
-            // 替换系统消息
-            messages.set(0, SystemMessage.from(contextBuilder.toString() +
+            // 构建完整的系统消息
+            String fullSystemMessage = contextBuilder.toString() +
                     "如果知识库中没有相关信息，请明确说明无法回答。" +
                     "\n\n重要：请使用Markdown格式来组织你的回答，包括：\n" +
                     "- 使用标题（#、##、###）来组织内容结构\n" +
@@ -440,7 +444,14 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                     "   [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]\n" +
                     "5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式\n" +
                     "6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等\n" +
-                    "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符"));
+                    "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符";
+            
+            // 压缩系统消息中的文档内容
+            String compressedSystemMessage = contextCompressionService.compressDocumentContent(
+                    fullSystemMessage, ragConfig.getMaxSystemMessageLength());
+            
+            // 替换系统消息
+            messages.set(0, SystemMessage.from(compressedSystemMessage));
         }
         
         // 获取问答模型（优先使用请求中的modelId，否则使用默认的RAG模型）
