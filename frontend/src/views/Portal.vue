@@ -1388,8 +1388,8 @@ onUnmounted(() => {
 
 .input-section {
   width: 100%;
-  max-width: 1200px; /* 与问答区域同宽 */
-  min-width: 600px; /* 最小宽度，确保在小屏幕上也有良好显示 */
+  max-width: 900px; /* 输入区域宽度，比问答区域窄一些 */
+  min-width: 500px; /* 最小宽度，确保在小屏幕上也有良好显示 */
   margin: 0 auto 20px;
   position: sticky;
   bottom: 0;
@@ -1402,8 +1402,8 @@ onUnmounted(() => {
 /* 中等屏幕自适应 */
 @media (max-width: 1024px) and (min-width: 769px) {
   .input-section {
-    min-width: 500px;
-    max-width: 900px;
+    min-width: 400px;
+    max-width: 700px;
   }
 }
 
