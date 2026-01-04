@@ -3,6 +3,7 @@ package com.github.app.dify.mcp.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.mcp.config.McpConfig;
+import com.github.app.dify.mcp.service.strategy.SearchApiFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 /**
  * MCP浏览器检索服务
- * 使用SearX-NG本地部署实现浏览器检索功能
+ * 支持多种搜索API，自动选择最优方案并支持降级
+ * 支持的API：Tavily（推荐）、SerpAPI、Bing、SearX-NG（降级）
  */
 @Service
 public class McpBrowserSearchService {
@@ -23,6 +25,9 @@ public class McpBrowserSearchService {
     
     @Autowired
     private McpConfig mcpConfig;
+    
+    @Autowired(required = false)
+    private SearchApiFactory searchApiFactory;
     
     private final ObjectMapper objectMapper = new ObjectMapper();
     
@@ -61,6 +66,7 @@ public class McpBrowserSearchService {
     
     /**
      * 执行浏览器检索
+     * 优先使用商业API（Tavily、SerpAPI、Bing），如果都不可用则降级到SearX-NG
      * @param query 搜索查询
      * @param maxResults 最大结果数量（如果<=0，使用默认值）
      * @return 检索结果列表
@@ -87,8 +93,24 @@ public class McpBrowserSearchService {
                 logger.debug("优化后的搜索查询: {}", optimizedQuery);
             }
             
-            // 使用SearX-NG搜索
-            List<SearchResult> results = searchWithSearXNG(optimizedQuery, maxResults);
+            // 优先使用新的多API工厂（支持自动降级）
+            List<SearchResult> results = null;
+            if (searchApiFactory != null) {
+                try {
+                    results = searchApiFactory.search(optimizedQuery, maxResults);
+                    if (results != null && !results.isEmpty()) {
+                        logger.info("使用多API工厂搜索成功，返回 {} 个结果", results.size());
+                    }
+                } catch (Exception e) {
+                    logger.warn("多API工厂搜索失败，降级到SearX-NG: {}", e.getMessage());
+                }
+            }
+            
+            // 如果多API工厂不可用或返回空结果，降级到原有的SearX-NG实现
+            if (results == null || results.isEmpty()) {
+                logger.info("降级使用SearX-NG搜索");
+                results = searchWithSearXNG(optimizedQuery, maxResults);
+            }
             
             logger.info("浏览器检索完成 - 查询: {}, 结果数量: {}", query, results != null ? results.size() : 0);
             

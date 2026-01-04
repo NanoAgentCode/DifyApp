@@ -67,9 +67,32 @@ public class McpConfig {
      */
     public static class BrowserSearch {
         /**
-         * SearX-NG服务地址
+         * SearX-NG服务地址（降级方案）
          */
         private String searxngBaseUrl = "http://localhost:10086";
+        
+        /**
+         * Tavily API密钥（推荐：专为AI优化的搜索API）
+         * 官网：https://tavily.com
+         */
+        private String tavilyApiKey = "";
+        
+        /**
+         * SerpAPI密钥（支持Google、Bing等）
+         * 官网：https://serpapi.com
+         */
+        private String serpApiKey = "";
+        
+        /**
+         * SerpAPI使用的搜索引擎（google, bing, yahoo等）
+         */
+        private String serpEngine = "google";
+        
+        /**
+         * Bing Search API密钥（微软官方API）
+         * 官网：https://www.microsoft.com/en-us/bing/apis/bing-web-search-api
+         */
+        private String bingApiKey = "";
         
         /**
          * 请求超时时间（秒）
@@ -98,6 +121,38 @@ public class McpConfig {
         
         public void setSearxngBaseUrl(String searxngBaseUrl) {
             this.searxngBaseUrl = searxngBaseUrl;
+        }
+        
+        public String getTavilyApiKey() {
+            return tavilyApiKey;
+        }
+        
+        public void setTavilyApiKey(String tavilyApiKey) {
+            this.tavilyApiKey = tavilyApiKey;
+        }
+        
+        public String getSerpApiKey() {
+            return serpApiKey;
+        }
+        
+        public void setSerpApiKey(String serpApiKey) {
+            this.serpApiKey = serpApiKey;
+        }
+        
+        public String getSerpEngine() {
+            return serpEngine;
+        }
+        
+        public void setSerpEngine(String serpEngine) {
+            this.serpEngine = serpEngine;
+        }
+        
+        public String getBingApiKey() {
+            return bingApiKey;
+        }
+        
+        public void setBingApiKey(String bingApiKey) {
+            this.bingApiKey = bingApiKey;
         }
         
         public int getTimeout() {
