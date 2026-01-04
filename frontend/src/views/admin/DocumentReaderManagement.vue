@@ -4,7 +4,7 @@
       <template #header>
         <div class="card-header">
           <span>文档解读</span>
-          <div class="header-actions">
+          <div class="header-right">
             <el-button type="primary" @click="handleNewDocument">
               <el-icon><Plus /></el-icon>
               新建
@@ -607,6 +607,22 @@ onUnmounted(() => {
 <style scoped>
 .document-reader-management {
   height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.document-reader-management :deep(.el-card) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.document-reader-management :deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .card-header {
@@ -615,8 +631,9 @@ onUnmounted(() => {
   align-items: center;
 }
 
-.header-actions {
+.header-right {
   display: flex;
+  align-items: center;
   gap: 10px;
 }
 
@@ -632,14 +649,41 @@ onUnmounted(() => {
   gap: 8px;
 }
 
+.doc-list-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.doc-list-section :deep(.el-card) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.doc-list-section :deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
 .search-filter-bar {
   margin-bottom: 16px;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .cards-wrapper {
-  min-height: 400px;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  padding: 0;
 }
 
 .empty-state {
@@ -659,38 +703,78 @@ onUnmounted(() => {
 
 .documents-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
   padding: 0;
+}
+
+/* 响应式布局 */
+@media (max-width: 1200px) {
+  .documents-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .documents-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
 }
 
 .document-card {
   cursor: pointer;
   transition: all 0.3s ease;
+  width: 100%;
+  min-height: 240px;
+  max-height: 320px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.document-card :deep(.el-card__body) {
+  padding: 0;
   height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .document-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
 
 .card-content {
   display: flex;
   flex-direction: column;
   height: 100%;
+  padding: 0;
 }
 
 .card-header {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+  padding: 12px 8px 0;
 }
 
 .file-type-icon {
   font-size: 48px;
   color: var(--el-color-primary);
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .file-type-icon {
+    font-size: 40px;
+  }
 }
 
 .file-type-icon.file-type-pdf {
@@ -724,16 +808,22 @@ onUnmounted(() => {
 .header-tags {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-left: auto;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
 }
 
 .file-type-tag {
   flex-shrink: 0;
+  font-size: 10px;
+  padding: 2px 6px;
+  height: 18px;
+  line-height: 14px;
 }
 
 .vectorized-status-icon {
-  font-size: 18px;
+  font-size: 14px;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -766,51 +856,72 @@ onUnmounted(() => {
 
 .card-body {
   flex: 1;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+  padding: 0 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .file-name {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--el-text-color-primary);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
-  line-height: 1.5;
-  min-height: 48px;
+  line-height: 1.4;
+  text-align: center;
+  word-break: break-word;
+  min-height: 36px;
+  max-height: 36px;
 }
 
 .file-info {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  font-size: 12px;
+  gap: 4px;
+  font-size: 10px;
   color: var(--el-text-color-secondary);
+  margin-top: auto;
 }
 
 .file-info span {
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 3px;
 }
 
 .file-size,
 .upload-time {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+}
+
+.file-size .el-icon,
+.upload-time .el-icon {
+  font-size: 11px;
 }
 
 .card-footer {
   display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  padding-top: 12px;
+  gap: 6px;
+  justify-content: center;
+  padding: 8px 10px;
   border-top: 1px solid var(--el-border-color-lighter);
+  margin-top: auto;
+}
+
+.card-footer .el-button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
 }
 
 .pagination {

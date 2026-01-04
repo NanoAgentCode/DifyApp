@@ -4,10 +4,12 @@
       <template #header>
         <div class="card-header">
           <span>知识检索</span>
-          <el-button type="primary" @click="handleClearHistory">
-            <el-icon><Delete /></el-icon>
-            清空历史
-          </el-button>
+          <div class="header-right">
+            <el-button type="primary" @click="handleClearHistory">
+              <el-icon><Delete /></el-icon>
+              清空历史
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -308,7 +310,8 @@
                 </div>
               </div>
             </div>
-          </div>
+            </div>
+          </transition>
         </div>
       </div>
     </el-card>
@@ -317,6 +320,7 @@
 
 <script setup>
 import { nextTick, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   Delete,
   Folder,
@@ -330,7 +334,7 @@ import {
   Search,
   Plus,
   Warning,
-  Refresh
+  Refresh,
 } from '@element-plus/icons-vue'
 import { getModelStyle } from '@/utils/modelColor'
 import { renderMarkdown } from '@/composables/useMarkdown'
@@ -384,6 +388,8 @@ const {
   enableConversationHistory: true, // user版本启用对话历史
   isAdmin: false // user版本不是管理员
 })
+
+const router = useRouter()
 
 
 // 手动触发代码高亮（用于流式响应中逐步生成的代码块）
@@ -498,6 +504,17 @@ html {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
 }
 
 .card-header {

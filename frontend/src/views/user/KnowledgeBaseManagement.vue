@@ -4,10 +4,12 @@
       <template #header>
         <div class="card-header">
           <span>我的知识库</span>
-          <el-button type="primary" @click="handleCreate">
-            <el-icon><Plus /></el-icon>
-            创建知识库
-          </el-button>
+          <div class="header-right">
+            <el-button type="primary" @click="handleCreate">
+              <el-icon><Plus /></el-icon>
+              创建知识库
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -730,6 +732,7 @@ const handleFilter = () => {
   loadKnowledgeBases()
 }
 
+
 const handleCreate = () => {
   isEdit.value = false
   currentEditId.value = null
@@ -1206,6 +1209,17 @@ const getVectorDatabaseDocumentCount = (db) => {
 
 .knowledge-base-management {
   padding: 0;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
 }
 
 .card-header {

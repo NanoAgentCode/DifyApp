@@ -26,6 +26,9 @@
     <!-- 帮助悬浮按钮 -->
     <HelpFloatingButton @click="handleHelpButtonClick" />
     
+    <!-- 回到主页悬浮按钮 -->
+    <HomeFloatingButton />
+    
     <!-- 用户手册配置对话框 -->
     <el-dialog
       v-model="showKBConfigDialog"
@@ -96,6 +99,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import HelpFloatingButton from '@/components/HelpFloatingButton.vue'
+import HomeFloatingButton from '@/components/HomeFloatingButton.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
 import AppHeader from '@/components/AppHeader.vue'
 import AppSidebar from '@/components/AppSidebar.vue'

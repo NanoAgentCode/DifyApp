@@ -5,6 +5,8 @@
       <el-aside width="300px" class="toolbar-panel">
         <div class="toolbar-header">
           <h3>智能框图助手</h3>
+          <div class="header-top">
+          </div>
         </div>
         
         <!-- 图表类型选择 -->
@@ -188,6 +190,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import mermaid from 'mermaid'
 import {
@@ -219,7 +222,7 @@ import {
   DataBoard,
   ZoomIn,
   ZoomOut,
-  FullScreen
+  FullScreen,
 } from '@element-plus/icons-vue'
 import { 
   generateDiagram, 
@@ -228,6 +231,8 @@ import {
   getHistoryList,
   deleteHistory
 } from '@/api/drawio'
+
+const router = useRouter()
 
 // Mermaid 图表相关
 const mermaidContainer = ref(null)
@@ -892,6 +897,15 @@ onMounted(async () => {
 .toolbar-header {
   margin-bottom: 15px;
   flex-shrink: 0;
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
 }
 
 .toolbar-header h3 {

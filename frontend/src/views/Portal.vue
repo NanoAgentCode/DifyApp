@@ -7,27 +7,100 @@
     <div class="portal-content" :class="{ 'content-header-collapsed': isHeaderCollapsed }">
       <!-- 初始欢迎界面（无对话时显示） -->
       <div v-if="chatHistory.length === 0 && !isInputFocused" class="welcome-section">
-        <div class="assistant-identity">
-          <el-icon class="assistant-icon"><Service /></el-icon>
-          <span class="assistant-name">NanoAgent</span>
-        </div>
-        <div class="welcome-message">
-          你好！我是NanoAgent，很高兴为你提供帮助。有什么问题或需要协助的地方吗？
-        </div>
-        <div class="suggested-prompts">
-          <div class="prompt-item" @click="handlePromptClick('最近有什么有趣的事情吗')">
-            <span class="prompt-bullet">•</span>
-            <span class="prompt-text">最近有什么有趣的事情吗</span>
+        <!-- 页面切换标签 -->
+        <div class="view-tabs">
+          <div 
+            class="tab-item" 
+            :class="{ active: currentView === 'welcome' }"
+            @click="currentView = 'welcome'"
+          >
+            <el-icon><ChatLineRound /></el-icon>
+            <span>智能对话</span>
           </div>
-          <div class="prompt-item" @click="handlePromptClick('你喜欢什么样的音乐')">
-            <span class="prompt-bullet">•</span>
-            <span class="prompt-text">你喜欢什么样的音乐</span>
-          </div>
-          <div class="prompt-item" @click="handlePromptClick('有什么特别的兴趣爱好吗')">
-            <span class="prompt-bullet">•</span>
-            <span class="prompt-text">有什么特别的兴趣爱好吗</span>
+          <div 
+            class="tab-item" 
+            :class="{ active: currentView === 'features' }"
+            @click="currentView = 'features'"
+          >
+            <el-icon><Grid /></el-icon>
+            <span>快捷入口</span>
           </div>
         </div>
+
+        <!-- 欢迎视图 -->
+        <transition name="fade-slide" mode="out-in">
+          <div v-if="currentView === 'welcome'" key="welcome" class="view-content">
+            <div class="assistant-identity">
+              <el-icon class="assistant-icon"><Service /></el-icon>
+              <span class="assistant-name">NanoAgent</span>
+            </div>
+            <div class="welcome-message">
+              你好！我是NanoAgent，很高兴为你提供帮助。有什么问题或需要协助的地方吗？
+            </div>
+            <div class="suggested-prompts">
+              <div class="prompt-item" @click="handlePromptClick('最近有什么有趣的事情吗')">
+                <span class="prompt-bullet">•</span>
+                <span class="prompt-text">最近有什么有趣的事情吗</span>
+              </div>
+              <div class="prompt-item" @click="handlePromptClick('你喜欢什么样的音乐')">
+                <span class="prompt-bullet">•</span>
+                <span class="prompt-text">你喜欢什么样的音乐</span>
+              </div>
+              <div class="prompt-item" @click="handlePromptClick('有什么特别的兴趣爱好吗')">
+                <span class="prompt-bullet">•</span>
+                <span class="prompt-text">有什么特别的兴趣爱好吗</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 系统功能视图 -->
+          <div v-else-if="currentView === 'features'" key="features" class="view-content">
+            <div class="feature-entries">
+              <div class="feature-title">
+                <el-icon class="feature-title-icon"><Service /></el-icon>
+                <span class="feature-title-text">NanoAgent</span>
+              </div>
+              <div class="feature-grid">
+                <div class="feature-item" @click="handleFeatureClick('apps')">
+                  <div class="feature-circle">
+                    <el-icon class="feature-icon"><Grid /></el-icon>
+                  </div>
+                  <span class="feature-name">智能应用</span>
+                </div>
+                <div class="feature-item" @click="handleFeatureClick('kb-qa')">
+                  <div class="feature-circle">
+                    <el-icon class="feature-icon"><Search /></el-icon>
+                  </div>
+                  <span class="feature-name">知识检索</span>
+                </div>
+                <div class="feature-item" @click="handleFeatureClick('knowledge-base')">
+                  <div class="feature-circle">
+                    <el-icon class="feature-icon"><Folder /></el-icon>
+                  </div>
+                  <span class="feature-name">知识管理</span>
+                </div>
+                <div class="feature-item" @click="handleFeatureClick('ai-drawio')">
+                  <div class="feature-circle">
+                    <el-icon class="feature-icon"><Picture /></el-icon>
+                  </div>
+                  <span class="feature-name">智能框图</span>
+                </div>
+                <div class="feature-item" @click="handleFeatureClick('document')">
+                  <div class="feature-circle">
+                    <el-icon class="feature-icon"><Document /></el-icon>
+                  </div>
+                  <span class="feature-name">文档解读</span>
+                </div>
+                <div class="feature-item" @click="handleFeatureClick('chat-history')">
+                  <div class="feature-circle">
+                    <el-icon class="feature-icon"><Clock /></el-icon>
+                  </div>
+                  <span class="feature-name">会话历史</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </transition>
       </div>
 
       <!-- 对话历史区域（有对话时显示） -->
@@ -275,7 +348,10 @@ import {
   Refresh,
   Service,
   Check,
-  User
+  User,
+  Grid,
+  Search,
+  Folder
 } from '@element-plus/icons-vue'
 import { chat, chatStream } from '@/api/chat'
 import { getAvailableQAModels, getAvailableQAModelsForRAG } from '@/api/model'
@@ -307,6 +383,7 @@ const selectedKnowledgeBaseName = ref('')
 const showChangePasswordDialog = ref(false)
 const isHeaderCollapsed = ref(false)
 const enableBrowserSearch = ref(false) // 联网搜索开关状态
+const currentView = ref('welcome') // 'welcome' 或 'features'
 
 const selectedModelName = computed(() => {
   if (!selectedModelId.value) return 'DS V3.2'
@@ -464,6 +541,9 @@ const handleFeatureClick = (feature) => {
       break
     case 'chat-history':
       router.push(`${basePath}/chat-history`)
+      break
+    case 'knowledge-base':
+      router.push(`${basePath}/knowledge-base`)
       break
   }
 }
@@ -1320,20 +1400,70 @@ onUnmounted(() => {
   }
 }
 
+/* 页面切换标签 */
+.view-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: var(--el-text-color-regular, #606266);
+  font-size: 14px;
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.tab-item:hover {
+  background: var(--el-fill-color-light, #f5f7fa);
+  color: var(--el-color-primary, #409eff);
+}
+
+.tab-item.active {
+  background: var(--el-color-primary, #409eff);
+  color: #ffffff;
+  border-color: var(--el-color-primary, #409eff);
+}
+
+.tab-item .el-icon {
+  font-size: 16px;
+}
+
+/* 视图内容区域 */
+.view-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 500px; /* 固定最小高度，避免切换时跳动 */
+  justify-content: flex-start;
+}
+
 .assistant-identity {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 24px;
+  margin-top: 0;
   color: #000000;
   font-size: 20px;
-  position: relative; /* 确保定位正确 */
+  position: relative;
+  height: 32px; /* 固定高度，与 feature-title 保持一致 */
 }
 
 .assistant-icon {
   font-size: 24px;
-  position: relative; /* 确保图标定位正确 */
-  flex-shrink: 0; /* 防止图标被压缩 */
+  position: relative;
+  flex-shrink: 0;
+  color: var(--el-color-primary, #409eff); /* 与快捷入口图标颜色一致 */
 }
 
 .assistant-name {
@@ -1343,11 +1473,18 @@ onUnmounted(() => {
 
 .welcome-message {
   font-size: 16px;
-  line-height: 1.6;
+  line-height: 1.8;
   color: var(--el-text-color-primary, #303133);
   text-align: center;
   margin-bottom: 32px;
   max-width: 600px;
+  padding: 0 20px;
+  font-weight: 400;
+}
+
+/* 确保智能对话视图内容也保持固定高度 */
+.view-content .assistant-identity {
+  margin-top: 0;
 }
 
 .suggested-prompts {
@@ -1362,18 +1499,20 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 14px 18px;
   background: var(--el-bg-color, #ffffff);
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
   border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .prompt-item:hover {
-  background: var(--el-fill-color-light, #f5f7fa);
+  background: var(--el-color-primary-light-9, #ecf5ff);
   border-color: var(--el-color-primary, #409eff);
   transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
 }
 
 .prompt-bullet {
@@ -1384,6 +1523,173 @@ onUnmounted(() => {
 .prompt-text {
   color: var(--el-text-color-regular, #606266);
   font-size: 14px;
+  font-weight: 400;
+  transition: color 0.3s ease;
+}
+
+.prompt-item:hover .prompt-text {
+  color: var(--el-color-primary, #409eff);
+}
+
+/* 系统功能入口区域 */
+.feature-entries {
+  width: 100%;
+  max-width: 800px;
+  margin-top: -40px; /* 向上移动 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 500px; /* 与 view-content 保持一致的高度 */
+  padding-top: 20px;
+}
+
+.feature-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  margin-top: 0;
+  height: 32px; /* 固定高度，与 assistant-identity 保持一致 */
+}
+
+.feature-title-icon {
+  font-size: 24px;
+  color: var(--el-color-primary, #409eff);
+  flex-shrink: 0;
+}
+
+.feature-title-text {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--el-text-color-primary, #303133);
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px 16px;
+  width: 100%;
+  justify-items: center;
+}
+
+.feature-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  gap: 12px;
+}
+
+.feature-item:hover {
+  transform: translateY(-4px);
+}
+
+.feature-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--el-bg-color, #ffffff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--el-border-color-lighter, #e4e7ed);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px var(--el-box-shadow-light, rgba(0, 0, 0, 0.08));
+  position: relative;
+}
+
+/* 优化图标显示 - 添加渐变背景效果 */
+.feature-circle::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, rgba(64, 158, 255, 0.05) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.feature-item:hover .feature-circle::before {
+  opacity: 1;
+}
+
+.feature-item:hover .feature-circle {
+  background: var(--el-color-primary-light-9, #ecf5ff);
+  border-color: var(--el-color-primary, #409eff);
+  box-shadow: 0 4px 16px var(--el-box-shadow-base, rgba(64, 158, 255, 0.2));
+  transform: scale(1.05);
+}
+
+.feature-icon {
+  font-size: 36px;
+  color: var(--el-color-primary, #409eff);
+  transition: transform 0.3s ease;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 1px 2px rgba(64, 158, 255, 0.2)); /* 图标阴影效果 */
+}
+
+.feature-item:hover .feature-icon {
+  transform: scale(1.1);
+}
+
+.feature-name {
+  font-size: 14px;
+  color: var(--el-text-color-regular, #606266);
+  font-weight: 500;
+  transition: color 0.3s ease;
+  text-align: center;
+}
+
+.feature-item:hover .feature-name {
+  color: var(--el-color-primary, #409eff);
+}
+
+/* 中等屏幕自适应 */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .feature-grid {
+    gap: 28px 12px;
+  }
+  
+  .feature-circle {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .feature-icon {
+    font-size: 32px;
+  }
+}
+
+/* 小屏幕自适应 */
+@media (max-width: 768px) {
+  .feature-entries {
+    margin-top: 32px;
+  }
+  
+  .feature-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px 12px;
+  }
+  
+  .feature-circle {
+    width: 64px;
+    height: 64px;
+  }
+  
+  .feature-icon {
+    font-size: 28px;
+  }
+  
+  .feature-name {
+    font-size: 13px;
+  }
 }
 
 .input-section {

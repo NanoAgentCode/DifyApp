@@ -4,10 +4,12 @@
       <template #header>
         <div class="card-header">
           <span>会话历史</span>
-          <el-button type="primary" @click="handleCreateConversation">
-            <el-icon><Plus /></el-icon>
-            新建会话
-          </el-button>
+          <div class="header-right">
+            <el-button type="primary" @click="handleCreateConversation">
+              <el-icon><Plus /></el-icon>
+              新建会话
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -196,8 +198,45 @@
 </template>
 
 <script setup>
-import { Plus, Search, ChatLineRound, Edit, Delete, User, Service, Right, View, Clock } from '@element-plus/icons-vue'
+import { Plus, Search, ChatLineRound, Edit, Delete, User, Service, Right, View, Clock, HomeFilled } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
 import { useChatHistory } from '@/composables/useChatHistory'
+
+const router = useRouter()
+
+const {
+  loading,
+  conversations,
+  searchKeyword,
+  selectedType,
+  selectedConversationId,
+  currentPage,
+  pageSize,
+  total,
+  editTitleDialogVisible,
+  editTitle,
+  showConversationDetail,
+  conversationDetail,
+  handleSearch,
+  handleReset,
+  selectConversation,
+  handleCreateConversation,
+  handleEditTitle,
+  handleSaveTitle,
+  handleDelete,
+  handleContinueConversation,
+  handleSizeChange,
+  handlePageChange,
+  formatTime,
+  formatDateTime,
+  formatMessageContent
+} = useChatHistory({
+  isAdmin: false,
+  enableCreate: true,
+  enableEdit: true,
+  enableContinue: true,
+  enableBatchDelete: false,
+})
 
 const {
   loading,
@@ -263,6 +302,11 @@ const {
 .card-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+
+.header-right {
+  display: flex;
   align-items: center;
 }
 

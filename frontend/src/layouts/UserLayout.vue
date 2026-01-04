@@ -2,11 +2,6 @@
   <el-container class="user-layout" :class="{ 'portal-mode': isPortalMode }">
     <AppHeader v-if="!isPortalMode" v-model="isHeaderCollapsed" @command="handleCommand" />
     <el-container :class="{ 'portal-container': isPortalMode }">
-      <AppSidebar 
-        type="user" 
-        :is-header-collapsed="isHeaderCollapsed"
-        :is-portal-mode="isPortalMode"
-      />
       <el-main class="main" :class="{ 'portal-main': isPortalMode, 'main-header-collapsed': isHeaderCollapsed && !isPortalMode }">
         <div class="main-content" :class="{ 'portal-content': isPortalMode }">
           <router-view v-slot="{ Component, route }">
@@ -26,6 +21,9 @@
     <!-- 帮助悬浮按钮 -->
     <HelpFloatingButton @click="showHelpDialog = true" />
     
+    <!-- 回到主页悬浮按钮 -->
+    <HomeFloatingButton />
+    
     <!-- 帮助对话框 -->
     <HelpDialog 
       v-model="showHelpDialog" 
@@ -41,9 +39,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import HelpFloatingButton from '@/components/HelpFloatingButton.vue'
+import HomeFloatingButton from '@/components/HomeFloatingButton.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
 import AppHeader from '@/components/AppHeader.vue'
-import AppSidebar from '@/components/AppSidebar.vue'
 import { getConfigsByGroup } from '@/api/systemConfig'
 
 const route = useRoute()
@@ -201,7 +199,7 @@ const handlePasswordChangeSuccess = () => {
   transition: margin-left 0.3s ease, margin-top 0.3s ease, height 0.3s ease; /* 添加过渡效果 */
   flex: 1; /* 允许主内容区域自动调整 */
   min-width: 0; /* 允许主内容区域缩小 */
-  margin-left: 56px !important; /* 为收缩的侧边栏留出空间（AppSidebar宽度为56px） */
+  margin-left: 0 !important; /* 用户端不显示侧边栏 */
   margin-top: 60px !important; /* 为顶部导航栏留出空间 */
 }
 
@@ -214,7 +212,7 @@ const handlePasswordChangeSuccess = () => {
   height: 100vh;
   background: #f5f5f5;
   margin: 0 !important;
-  margin-left: 56px !important; /* 为收缩的侧边栏留出空间（AppSidebar宽度为56px） */
+  margin-left: 0 !important; /* 用户端不显示侧边栏 */
   padding: 0 !important;
 }
 

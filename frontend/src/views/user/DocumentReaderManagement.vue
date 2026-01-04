@@ -4,7 +4,7 @@
       <template #header>
         <div class="card-header">
           <span>文档解读</span>
-          <div class="header-actions">
+          <div class="header-right">
             <el-button type="primary" @click="handleNewDocument">
               <el-icon><Plus /></el-icon>
               新建
@@ -640,8 +640,9 @@ onUnmounted(() => {
   align-items: center;
 }
 
-.header-actions {
+.header-right {
   display: flex;
+  align-items: center;
   gap: 10px;
 }
 

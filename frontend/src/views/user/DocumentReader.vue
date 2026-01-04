@@ -95,6 +95,7 @@ const qaFocused = ref(false)
 const selectedText = ref('')
 const documentQARef = ref(null)
 
+
 // 检测文档的主要语言
 const detectDocumentLanguage = async () => {
   if (!docId.value) return null
@@ -309,7 +310,9 @@ onMounted(() => {
   width: 100%;
   overflow: hidden;
   background: var(--el-bg-color-page, #f5f7fa);
+  position: relative;
 }
+
 
 .reader-container {
   display: flex;

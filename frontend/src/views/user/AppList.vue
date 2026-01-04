@@ -101,6 +101,7 @@ const handleUse = (app) => {
   }
 }
 
+
 onMounted(() => {
   fetchAppList()
 })
@@ -117,6 +118,15 @@ onMounted(() => {
 .page-header {
   text-align: center;
   margin-bottom: 40px;
+  position: relative;
+}
+
+.header-top {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
 }
 
 .page-header h1 {

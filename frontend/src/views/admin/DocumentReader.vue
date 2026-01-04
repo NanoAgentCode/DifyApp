@@ -27,7 +27,7 @@
       <!-- 右侧：功能区域 -->
       <div class="right-panel">
         <!-- 标签页 -->
-        <el-tabs v-model="activeTab" class="function-tabs">
+        <el-tabs v-model="activeTab" class="function-tabs" @tab-click="handleTabClick">
           <el-tab-pane label="导读" name="guide">
             <GuideTab :doc-id="docId" />
           </el-tab-pane>
@@ -91,6 +91,12 @@ const availableModels = ref([])
 const qaFocused = ref(false)
 const selectedText = ref('')
 const documentQARef = ref(null)
+
+
+// 处理标签页点击
+const handleTabClick = (tab) => {
+  // 不再需要特殊处理
+}
 
 // 加载文档详情
 const loadDocumentDetail = async () => {
@@ -211,7 +217,10 @@ onMounted(() => {
   height: 100%;
   width: 100%;
   overflow: hidden;
+  background: var(--el-bg-color-page, #f5f7fa);
+  position: relative;
 }
+
 
 .reader-container {
   display: flex;
@@ -233,15 +242,15 @@ onMounted(() => {
 }
 
 .left-panel {
-  width: 50%;
+  width: 55%;
   flex-shrink: 0;
-  border-right: 1px solid #e4e7ed;
+  border-right: 1px solid var(--el-border-color-lighter, #e4e7ed);
   overflow: hidden;
   background: var(--el-bg-color-page, #f5f7fa);
 }
 
 .right-panel {
-  width: 50%;
+  width: 45%;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -256,13 +265,48 @@ onMounted(() => {
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  background: var(--el-bg-color, #ffffff);
 }
 
 .function-tabs :deep(.el-tabs__header) {
   margin: 0;
-  padding: 0 16px;
-  border-bottom: 1px solid #e4e7ed;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--el-border-color-lighter, #e4e7ed);
   flex-shrink: 0;
+  background: var(--el-bg-color, #ffffff);
+}
+
+.function-tabs :deep(.el-tabs__nav-wrap) {
+  padding: 0;
+}
+
+.function-tabs :deep(.el-tabs__item) {
+  padding: 0 20px;
+  height: 48px;
+  line-height: 48px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--el-text-color-regular, #606266);
+  transition: all 0.3s;
+}
+
+.function-tabs :deep(.el-tabs__item:hover) {
+  color: var(--el-color-primary, #409eff);
+}
+
+.function-tabs :deep(.el-tabs__item.is-active) {
+  color: var(--el-color-primary, #409eff);
+  font-weight: 600;
+}
+
+.function-tabs :deep(.el-tabs__active-bar) {
+  height: 3px;
+  background: var(--el-color-primary, #409eff);
+}
+
+.function-tabs :deep(.el-tabs__item.is-disabled) {
+  color: var(--el-text-color-disabled, #c0c4cc);
+  cursor: not-allowed;
 }
 
 .function-tabs :deep(.el-tabs__content) {

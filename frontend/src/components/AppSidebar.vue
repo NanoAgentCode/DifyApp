@@ -27,42 +27,6 @@
             <span>智能问答</span>
           </el-menu-item>
         </el-tooltip>
-        <el-tooltip content="知识检索" placement="right" :show-after="200">
-          <el-menu-item index="/user/kb-qa">
-            <el-icon><Document /></el-icon>
-            <span>知识检索</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip content="知识管理" placement="right" :show-after="200">
-          <el-menu-item index="/user/knowledge-base">
-            <el-icon><Folder /></el-icon>
-            <span>知识管理</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip content="智能应用" placement="right" :show-after="200">
-          <el-menu-item index="/user/apps">
-            <el-icon><List /></el-icon>
-            <span>智能应用</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip content="文档解读" placement="right" :show-after="200">
-          <el-menu-item index="/user/document-reader">
-            <el-icon><Reading /></el-icon>
-            <span>文档解读</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip content="智能框图" placement="right" :show-after="200">
-          <el-menu-item index="/user/ai-drawio">
-            <el-icon><DataAnalysis /></el-icon>
-            <span>智能框图</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip content="会话历史" placement="right" :show-after="200">
-          <el-menu-item index="/user/chat-history">
-            <el-icon><Clock /></el-icon>
-            <span>会话历史</span>
-          </el-menu-item>
-        </el-tooltip>
       </template>
 
       <!-- 管理员端菜单 -->
@@ -72,31 +36,6 @@
           <el-menu-item index="/admin/chat">
             <el-icon><ChatLineRound /></el-icon>
             <span>智能问答</span>
-          </el-menu-item>
-        </el-tooltip>
-        <!-- 知识库相关 -->
-        <el-tooltip v-if="isAdmin" content="知识问答" placement="right" :show-after="200">
-          <el-menu-item index="/admin/kb-qa">
-            <el-icon><Document /></el-icon>
-            <span>知识问答</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip v-if="isAdmin" content="知识管理" placement="right" :show-after="200">
-          <el-menu-item index="/admin/knowledge-base">
-            <el-icon><Folder /></el-icon>
-            <span>知识管理</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip content="文档解读" placement="right" :show-after="200">
-          <el-menu-item index="/admin/document-reader">
-            <el-icon><Reading /></el-icon>
-            <span>文档解读</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip content="应用列表" placement="right" :show-after="200">
-          <el-menu-item index="/admin/apps">
-            <el-icon><List /></el-icon>
-            <span>应用列表</span>
           </el-menu-item>
         </el-tooltip>
         <!-- 工具 -->
@@ -118,12 +57,6 @@
           <el-menu-item index="/admin/users">
             <el-icon><User /></el-icon>
             <span>用户管理</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip v-if="isAdmin" content="会话历史" placement="right" :show-after="200">
-          <el-menu-item index="/admin/chat-history">
-            <el-icon><Clock /></el-icon>
-            <span>会话历史</span>
           </el-menu-item>
         </el-tooltip>
         <el-tooltip v-if="isAdmin" content="系统配置" placement="right" :show-after="200">
@@ -148,12 +81,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { 
   ChatLineRound, 
-  Document, 
-  Folder, 
-  List, 
-  Reading, 
   DataAnalysis, 
-  Clock,
   Search,
   Setting,
   User,
