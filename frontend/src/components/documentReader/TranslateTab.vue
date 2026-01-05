@@ -175,9 +175,51 @@ const loadedSegments = ref(new Set()) // 已加载的分段索引
 const loadingSegments = ref(new Set()) // 正在加载的分段索引
 const segmentTranslations = ref([]) // 分段翻译内容数组
 const translationContainerRef = ref(null) // 翻译内容容器引用
+const isUpdatingContent = ref(false) // 标记是否正在更新内容，防止滚动事件触发
+const lastScrollTop = ref(0) // 记录上次滚动位置
+const lastScrollTime = ref(0) // 记录上次滚动时间
 
-// 处理文本，识别并标记标题，过滤多余空行，为标题添加对齐空行
-function processTextForDisplay(text) {
+// 分析文本结构，提取段落分隔信息
+function analyzeTextStructure(text) {
+  if (!text) return { lines: [], structure: [] }
+  
+  const lines = text.split('\n')
+  const structure = []
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const trimmed = line.trim()
+    
+    if (trimmed.length === 0) {
+      structure.push({ type: 'empty', index: i, originalLine: line })
+    } else {
+      // 识别标题模式
+      const isTitle = 
+        // 数字编号模式：1. 1.1 第一章 第一节
+        /^(\d+[\.、]\s*|\d+\.\d+[\.、]\s*|第[一二三四五六七八九十\d]+[章节部分])/.test(trimmed) ||
+        // 全大写且长度适中（可能是英文标题）
+        (trimmed === trimmed.toUpperCase() && trimmed.length < 100 && trimmed.length > 3 && /^[A-Z\s\-]+$/.test(trimmed)) ||
+        // Markdown风格标题
+        /^#{1,6}\s/.test(trimmed) ||
+        // 短行且可能是标题（长度小于80且不以句号结尾）
+        (trimmed.length < 80 && !trimmed.endsWith('。') && !trimmed.endsWith('.') && 
+         (trimmed.includes('章') || trimmed.includes('节') || trimmed.includes('部分') || 
+          trimmed.includes('Chapter') || trimmed.includes('Section') || trimmed.includes('Part')))
+      
+      structure.push({ 
+        type: isTitle ? 'title' : 'text', 
+        index: i, 
+        originalLine: line,
+        trimmed: trimmed
+      })
+    }
+  }
+  
+  return { lines, structure }
+}
+
+// 处理文本，识别并标记标题，保持原始段落结构
+function processTextForDisplay(text, preserveStructure = true) {
   if (!text) return ''
   
   // 转义HTML
@@ -187,86 +229,84 @@ function processTextForDisplay(text) {
     return div.innerHTML
   }
   
-  // 按行分割
-  const lines = text.split('\n')
+  // 分析文本结构
+  const { lines, structure } = analyzeTextStructure(text)
   
-  // 第一步：识别标题并标记
-  const processedLines = []
-  let lastWasEmpty = false
+  if (structure.length === 0) return ''
   
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    const trimmed = line.trim()
-    
-    // 检查是否是空行
-    if (trimmed.length === 0) {
-      // 过滤连续的空行：如果上一个也是空行，跳过
-      if (!lastWasEmpty) {
-        processedLines.push({ type: 'empty', originalIndex: i })
-        lastWasEmpty = true
-      }
-      continue
-    }
-    
-    lastWasEmpty = false
-    
-    // 转义当前行的HTML
-    const escapedLine = escapeHtml(line)
-    
-    // 识别标题模式
-    const isTitle = 
-      // 数字编号模式：1. 1.1 第一章 第一节
-      /^(\d+[\.、]\s*|\d+\.\d+[\.、]\s*|第[一二三四五六七八九十\d]+[章节部分])/.test(trimmed) ||
-      // 全大写且长度适中（可能是英文标题）
-      (trimmed === trimmed.toUpperCase() && trimmed.length < 100 && trimmed.length > 3 && /^[A-Z\s\-]+$/.test(trimmed)) ||
-      // Markdown风格标题
-      /^#{1,6}\s/.test(trimmed) ||
-      // 短行且可能是标题（长度小于80且不以句号结尾）
-      (trimmed.length < 80 && !trimmed.endsWith('。') && !trimmed.endsWith('.') && 
-       (trimmed.includes('章') || trimmed.includes('节') || trimmed.includes('部分') || 
-        trimmed.includes('Chapter') || trimmed.includes('Section') || trimmed.includes('Part')))
-    
-    if (isTitle) {
-      processedLines.push({ type: 'title', content: escapedLine, originalIndex: i })
-    } else {
-      processedLines.push({ type: 'text', content: escapedLine, originalIndex: i })
-    }
-  }
-  
-  // 第二步：为标题添加对齐空行，过滤多余空行
+  // 处理文本，保持原始结构
   const finalLines = []
-  for (let i = 0; i < processedLines.length; i++) {
-    const item = processedLines[i]
-    const prevItem = i > 0 ? processedLines[i - 1] : null
-    const nextItem = i < processedLines.length - 1 ? processedLines[i + 1] : null
+  let consecutiveEmptyLines = 0
+  
+  for (let i = 0; i < structure.length; i++) {
+    const item = structure[i]
+    const prevItem = i > 0 ? structure[i - 1] : null
+    const nextItem = i < structure.length - 1 ? structure[i + 1] : null
     
-    if (item.type === 'title') {
-      // 标题前：如果前面不是空行且不是另一个标题，添加一个空行
-      if (prevItem && prevItem.type === 'title') {
-        // 如果前一个也是标题，添加两个空行以分隔
-        finalLines.push('<br><br>')
-      } else if (!prevItem || prevItem.type !== 'empty') {
-        // 如果前面不是空行，添加一个空行
-        finalLines.push('<br>')
+    if (item.type === 'empty') {
+      // 处理空行：保留段落分隔，但限制连续空行数量
+      consecutiveEmptyLines++
+      if (consecutiveEmptyLines <= 2) {
+        // 如果前后都是文本，保留空行用于段落分隔
+        if (prevItem && nextItem && prevItem.type === 'text' && nextItem.type === 'text') {
+          finalLines.push('<br>')
+        } else if (prevItem && prevItem.type === 'title' && nextItem && nextItem.type === 'title') {
+          // 标题之间的空行，保留
+          finalLines.push('<br>')
+        } else if (prevItem && prevItem.type === 'title' && nextItem && nextItem.type === 'text') {
+          // 标题和文本之间的空行，保留
+          finalLines.push('<br>')
+        } else if (prevItem && prevItem.type === 'text' && nextItem && nextItem.type === 'title') {
+          // 文本和标题之间的空行，保留
+          finalLines.push('<br>')
+        }
       }
-      
-      // 标题本身
-      finalLines.push(`<div class="text-title">${item.content}</div>`)
-      
-      // 标题后：如果后面不是空行，添加一个空行
-      if (!nextItem || (nextItem.type !== 'empty' && nextItem.type !== 'title')) {
-        finalLines.push('<br>')
-      }
-    } else if (item.type === 'empty') {
-      // 空行：如果前后都是文本，保留一个空行用于段落分隔
-      // 但如果前后有标题，则跳过（标题已经自带空行）
-      if (prevItem && nextItem && prevItem.type === 'text' && nextItem.type === 'text') {
-        finalLines.push('<br>')
-      }
-      // 其他情况跳过空行（标题已经处理了空行）
     } else {
-      // 普通文本
-      finalLines.push(item.content + '<br>')
+      consecutiveEmptyLines = 0
+      const escapedLine = escapeHtml(item.originalLine)
+      
+      if (item.type === 'title') {
+        // 标题前：根据前一个元素类型决定空行
+        if (prevItem) {
+          if (prevItem.type === 'title') {
+            // 连续标题，添加两个空行分隔
+            finalLines.push('<br><br>')
+          } else if (prevItem.type === 'text') {
+            // 文本后接标题，添加两个空行
+            finalLines.push('<br><br>')
+          } else if (prevItem.type === 'empty' && i > 0 && structure[i - 2] && structure[i - 2].type === 'text') {
+            // 空行前是文本，标题前已有空行，不再添加
+          } else {
+            // 其他情况，添加一个空行
+            finalLines.push('<br>')
+          }
+        }
+        
+        // 标题本身
+        finalLines.push(`<div class="text-title">${escapedLine}</div>`)
+        
+        // 标题后：如果后面是文本，添加一个空行
+        if (nextItem && nextItem.type === 'text') {
+          finalLines.push('<br>')
+        } else if (nextItem && nextItem.type === 'empty' && i < structure.length - 1 && structure[i + 2] && structure[i + 2].type === 'text') {
+          // 空行后是文本，标题后已有空行，不再添加
+        }
+      } else {
+        // 普通文本
+        // 如果前一个是标题且当前是文本的第一行，不需要额外空行（标题后已添加）
+        if (prevItem && prevItem.type === 'title') {
+          // 标题后已有空行，直接添加文本
+        } else if (prevItem && prevItem.type === 'empty' && i > 1) {
+          const beforeEmpty = structure[i - 2]
+          if (beforeEmpty && beforeEmpty.type === 'title') {
+            // 标题后的空行，文本前不需要额外空行
+          } else if (beforeEmpty && beforeEmpty.type === 'text') {
+            // 文本后的空行，这是段落分隔，不需要额外处理
+          }
+        }
+        
+        finalLines.push(escapedLine + '<br>')
+      }
     }
   }
   
@@ -479,14 +519,24 @@ const handleTranslate = async () => {
     return
   }
   
-  // 先尝试加载已有翻译
-  const hasTranslation = await loadTranslation()
-  if (hasTranslation) {
-    // 如果已有翻译，加载分段信息并显示
-    await loadSegmentsInfo()
-    ElMessage.success('已加载已保存的翻译内容')
-    return
+  // 如果已有翻译内容，说明用户想要重新翻译，跳过加载已保存翻译的步骤
+  // 如果没有翻译内容，先尝试加载已有翻译
+  if (!translationContent.value && segmentTranslations.value.length === 0) {
+    const hasTranslation = await loadTranslation()
+    if (hasTranslation) {
+      // 如果已有翻译，加载分段信息并显示
+      await loadSegmentsInfo()
+      ElMessage.success('已加载已保存的翻译内容')
+      return
+    }
   }
+  
+  // 重新翻译：清空现有翻译内容
+  translationContent.value = ''
+  segmentsInfo.value = null
+  loadedSegments.value.clear()
+  loadingSegments.value.clear()
+  segmentTranslations.value = []
   
   translating.value = true
   try {
@@ -536,6 +586,14 @@ const loadTranslationSegment = async (segmentIndex) => {
     return // 索引无效
   }
   
+  // 如果正在更新内容，延迟加载
+  if (isUpdatingContent.value) {
+    setTimeout(() => {
+      loadTranslationSegment(segmentIndex)
+    }, 100)
+    return
+  }
+  
   loadingSegments.value.add(segmentIndex)
   
   try {
@@ -551,8 +609,13 @@ const loadTranslationSegment = async (segmentIndex) => {
       segmentTranslations.value[segmentIndex] = content
       loadedSegments.value.add(segmentIndex)
       
-      // 更新显示的翻译内容
-      updateTranslationDisplay()
+      // 批量更新：延迟更新显示，避免频繁更新导致卡顿
+      if (!isUpdatingContent.value) {
+        // 使用 requestAnimationFrame 优化更新时机
+        requestAnimationFrame(() => {
+          updateTranslationDisplay()
+        })
+      }
     }
   } catch (error) {
     console.error(`加载分段 ${segmentIndex} 翻译失败:`, error)
@@ -563,22 +626,112 @@ const loadTranslationSegment = async (segmentIndex) => {
   }
 }
 
+// 智能合并分段翻译，保持段落结构
+const smartJoinSegments = (segments) => {
+  if (segments.length === 0) return ''
+  
+  const result = []
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i]
+    if (!segment) continue
+    
+    // 检查分段是否为空（只包含空白字符）
+    const trimmed = segment.trim()
+    if (trimmed === '') {
+      // 空分段，如果前一个分段存在，添加一个换行
+      if (i > 0 && segments[i - 1] && segments[i - 1].trim()) {
+        // 检查是否已经有换行，避免重复
+        if (result.length > 0 && !result[result.length - 1].endsWith('\n\n')) {
+          result.push('\n')
+        }
+      }
+      continue
+    }
+    
+    // 检查分段边界，智能添加分隔符
+    if (result.length > 0) {
+      const prevSegment = segments[i - 1]
+      if (prevSegment && prevSegment.trim()) {
+        const prevTrimmed = prevSegment.trim()
+        const prevEndsWithPunctuation = /[。.！!？?]$/.test(prevTrimmed)
+        const prevEndsWithNewline = prevSegment.endsWith('\n') || prevSegment.endsWith('\n\n')
+        const currentStartsWithNewline = segment.startsWith('\n')
+        
+        // 如果前一个分段以换行结尾，或当前分段以换行开头
+        if (prevEndsWithNewline || currentStartsWithNewline) {
+          // 检查是否需要额外的段落分隔
+          if (prevEndsWithPunctuation && !currentStartsWithNewline) {
+            result.push('\n\n')
+          } else {
+            result.push('\n')
+          }
+        } else {
+          // 根据标点符号判断是否需要段落分隔
+          if (prevEndsWithPunctuation) {
+            // 前一个分段以标点结尾，使用双换行作为段落分隔
+            result.push('\n\n')
+          } else {
+            // 其他情况，使用单换行
+            result.push('\n')
+          }
+        }
+      } else {
+        // 前一个分段为空，添加单换行
+        result.push('\n')
+      }
+    }
+    
+    // 添加当前分段（保留原始格式，但移除首尾空白）
+    result.push(trimmed)
+  }
+  
+  return result.join('')
+}
+
 // 更新翻译显示内容
 const updateTranslationDisplay = () => {
+  if (isUpdatingContent.value) {
+    return // 防止重复更新
+  }
+  
+  isUpdatingContent.value = true
+  
+  // 保存当前滚动位置
+  const container = translationContainerRef.value
+  const savedScrollTop = container ? container.scrollTop : 0
+  
   const translatedParts = []
   for (let i = 0; i < segmentTranslations.value.length; i++) {
     if (segmentTranslations.value[i]) {
       translatedParts.push(segmentTranslations.value[i])
     } else if (loadedSegments.value.has(i)) {
-      // 已加载但为空，可能是加载失败
-      translatedParts.push('')
+      // 已加载但为空，可能是加载失败，跳过
+      continue
     }
   }
-  translationContent.value = translatedParts.join('\n\n')
+  
+  // 使用智能合并，保持段落结构
+  translationContent.value = smartJoinSegments(translatedParts)
+  
+  // 在下一个tick恢复滚动位置
+  setTimeout(() => {
+    if (container) {
+      // 恢复滚动位置，但允许向下滚动（如果内容增加了）
+      const newScrollHeight = container.scrollHeight
+      const maxScrollTop = newScrollHeight - container.clientHeight
+      container.scrollTop = Math.min(savedScrollTop, maxScrollTop)
+    }
+    isUpdatingContent.value = false
+  }, 0)
 }
 
-// 处理翻译内容滚动（懒加载）- 使用防抖优化
+// 处理翻译内容滚动（懒加载）- 使用防抖和节流优化
 const handleTranslationScrollForLazyLoad = debounce(() => {
+  // 如果正在更新内容，跳过滚动处理
+  if (isUpdatingContent.value) {
+    return
+  }
+  
   if (!translationContainerRef.value || !segmentsInfo.value || segmentsInfo.value.totalSegments === 0) {
     return
   }
@@ -593,6 +746,15 @@ const handleTranslationScrollForLazyLoad = debounce(() => {
     return
   }
   
+  // 检查滚动是否真的发生了变化（避免重复处理）
+  const now = Date.now()
+  if (Math.abs(scrollTop - lastScrollTop.value) < 10 && now - lastScrollTime.value < 100) {
+    return // 滚动位置变化很小且时间间隔很短，跳过
+  }
+  
+  lastScrollTop.value = scrollTop
+  lastScrollTime.value = now
+  
   // 计算当前滚动位置对应的分段索引
   // 使用更准确的计算方式：基于已加载内容的高度比例
   const scrollRatio = scrollTop / (scrollHeight - clientHeight)
@@ -601,17 +763,19 @@ const handleTranslationScrollForLazyLoad = debounce(() => {
     segmentsInfo.value.totalSegments - 1
   )
   
-  // 预加载当前分段及后续2个分段
-  const preloadCount = 3
-  for (let i = 0; i < preloadCount; i++) {
+  // 预加载当前分段及后续2个分段（减少预加载数量，避免一次性加载太多）
+  const preloadCount = 2
+  let loadedCount = 0
+  for (let i = 0; i < preloadCount && loadedCount < 2; i++) {
     const segmentIndex = currentSegmentIndex + i
     if (segmentIndex >= 0 && segmentIndex < segmentsInfo.value.totalSegments) {
       if (!loadedSegments.value.has(segmentIndex) && !loadingSegments.value.has(segmentIndex)) {
         loadTranslationSegment(segmentIndex)
+        loadedCount++
       }
     }
   }
-}, 300) // 300ms防抖
+}, 500) // 增加防抖时间到500ms，减少触发频率
 
 // 语言切换
 const handleLanguageChange = () => {
@@ -998,6 +1162,8 @@ onUnmounted(() => {
   white-space: pre-wrap;
   word-wrap: break-word;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 15px;
+  letter-spacing: 0.3px;
 }
 
 .original-content {
@@ -1046,10 +1212,12 @@ onUnmounted(() => {
   margin-top: 0;
 }
 
-/* 增强对比效果 */
-.text-content {
+/* 确保原文和译文样式一致 */
+.original-content,
+.translation-content-display {
   font-size: 15px;
   letter-spacing: 0.3px;
+  line-height: 1.8;
 }
 
 .text-content :deep(p) {
@@ -1057,9 +1225,22 @@ onUnmounted(() => {
   line-height: 1.8;
 }
 
-/* 段落间距优化 */
+/* 段落间距优化 - 确保原文和译文一致 */
 .text-content :deep(br) {
   line-height: 1.8;
+}
+
+/* 确保普通文本段落样式一致 */
+.text-content :deep(div:not(.text-title)) {
+  margin: 0;
+  padding: 0;
+  line-height: 1.8;
+}
+
+.translation-display {
+  line-height: 1.8;
+  font-size: 15px;
+  letter-spacing: 0.3px;
 }
 
 .empty-state {

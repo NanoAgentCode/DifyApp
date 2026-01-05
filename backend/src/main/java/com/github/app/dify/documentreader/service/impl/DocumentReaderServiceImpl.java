@@ -646,6 +646,9 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 throw new RuntimeException("文档内容为空，无法翻译");
             }
             
+            // 去除页眉页脚
+            documentContent = removeHeaderFooter(documentContent);
+            
             // 检查是否为同种语言翻译（禁止同种语言翻译）
             if (isSameLanguageTranslation(documentContent, targetLang)) {
                 String detectedLang = detectDocumentLanguage(documentContent);
@@ -825,6 +828,9 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             if (documentContent == null || documentContent.trim().isEmpty()) {
                 throw new RuntimeException("文档内容为空，无法翻译");
             }
+            
+            // 去除页眉页脚
+            documentContent = removeHeaderFooter(documentContent);
             
             // 检查是否为同种语言翻译（禁止同种语言翻译）
             if (isSameLanguageTranslation(documentContent, targetLang)) {
@@ -1361,6 +1367,145 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         
         // 如果找不到合适的截断点，返回原结束位置
         return end;
+    }
+    
+    /**
+     * 去除文档的页眉页脚
+     * 页眉页脚通常出现在文档的开头和结尾，包含页码、标题、日期等信息
+     */
+    private String removeHeaderFooter(String documentContent) {
+        if (documentContent == null || documentContent.trim().isEmpty()) {
+            return documentContent;
+        }
+        
+        String[] lines = documentContent.split("\n");
+        if (lines.length <= 3) {
+            // 内容太短，不处理
+            return documentContent;
+        }
+        
+        int startIndex = 0;
+        int endIndex = lines.length;
+        
+        // 识别并去除页眉（通常在前几行）
+        // 页眉特征：短行、包含页码、日期、标题等
+        int headerLines = 0;
+        for (int i = 0; i < Math.min(5, lines.length); i++) {
+            String line = lines[i].trim();
+            if (line.isEmpty()) {
+                continue;
+            }
+            
+            // 检查是否是页眉特征
+            boolean isHeader = false;
+            
+            // 1. 短行（通常页眉较短）
+            if (line.length() < 50) {
+                // 2. 包含页码模式
+                if (line.matches(".*[第]?[\\d]+[页]?.*") || 
+                    line.matches(".*[Pp]age\\s*[\\d]+.*") ||
+                    line.matches(".*[\\d]+\\s*[页]?.*")) {
+                    isHeader = true;
+                }
+                // 3. 包含日期模式
+                else if (line.matches(".*\\d{4}[年\\-/]\\d{1,2}[月\\-/]\\d{1,2}[日]?.*") ||
+                         line.matches(".*\\d{1,2}/\\d{1,2}/\\d{4}.*") ||
+                         line.matches(".*\\d{4}-\\d{2}-\\d{2}.*")) {
+                    isHeader = true;
+                }
+                // 4. 只包含数字、标点或少量文字
+                else if (line.matches("^[\\d\\s\\p{Punct}]+$") && line.length() < 30) {
+                    isHeader = true;
+                }
+                // 5. 重复出现的短行（可能是页眉）
+                else if (i > 0 && line.equals(lines[i-1].trim()) && line.length() < 40) {
+                    isHeader = true;
+                }
+            }
+            
+            if (isHeader) {
+                headerLines = i + 1;
+            } else {
+                // 遇到非页眉内容，停止检查
+                break;
+            }
+        }
+        
+        // 识别并去除页脚（通常在最后几行）
+        int footerLines = 0;
+        for (int i = lines.length - 1; i >= Math.max(lines.length - 5, headerLines); i--) {
+            String line = lines[i].trim();
+            if (line.isEmpty()) {
+                continue;
+            }
+            
+            // 检查是否是页脚特征
+            boolean isFooter = false;
+            
+            // 1. 短行
+            if (line.length() < 50) {
+                // 2. 包含页码模式
+                if (line.matches(".*[第]?[\\d]+[页]?.*") || 
+                    line.matches(".*[Pp]age\\s*[\\d]+.*") ||
+                    line.matches(".*[\\d]+\\s*[页]?.*")) {
+                    isFooter = true;
+                }
+                // 3. 包含日期模式
+                else if (line.matches(".*\\d{4}[年\\-/]\\d{1,2}[月\\-/]\\d{1,2}[日]?.*") ||
+                         line.matches(".*\\d{1,2}/\\d{1,2}/\\d{4}.*") ||
+                         line.matches(".*\\d{4}-\\d{2}-\\d{2}.*")) {
+                    isFooter = true;
+                }
+                // 4. 只包含数字、标点或少量文字
+                else if (line.matches("^[\\d\\s\\p{Punct}]+$") && line.length() < 30) {
+                    isFooter = true;
+                }
+                // 5. 重复出现的短行（可能是页脚）
+                else if (i < lines.length - 1 && line.equals(lines[i+1].trim()) && line.length() < 40) {
+                    isFooter = true;
+                }
+            }
+            
+            if (isFooter) {
+                footerLines = lines.length - i;
+            } else {
+                // 遇到非页脚内容，停止检查
+                break;
+            }
+        }
+        
+        // 提取去除页眉页脚后的内容
+        startIndex = headerLines;
+        endIndex = lines.length - footerLines;
+        
+        // 确保至少保留一些内容
+        if (endIndex <= startIndex) {
+            // 如果去除后没有内容，保留原内容
+            return documentContent;
+        }
+        
+        // 重新组合内容
+        StringBuilder result = new StringBuilder();
+        for (int i = startIndex; i < endIndex; i++) {
+            result.append(lines[i]);
+            if (i < endIndex - 1) {
+                result.append("\n");
+            }
+        }
+        
+        String cleanedContent = result.toString().trim();
+        
+        // 如果去除后内容太少，保留原内容
+        if (cleanedContent.length() < documentContent.length() * 0.3) {
+            logger.warn("去除页眉页脚后内容过少，保留原内容 - 原长度: {}, 处理后长度: {}", 
+                       documentContent.length(), cleanedContent.length());
+            return documentContent;
+        }
+        
+        logger.debug("去除页眉页脚 - 原行数: {}, 去除页眉: {}行, 去除页脚: {}行, 处理后行数: {}", 
+                    lines.length, headerLines, footerLines, endIndex - startIndex);
+        
+        return cleanedContent;
     }
     
     /**

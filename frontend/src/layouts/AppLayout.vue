@@ -8,8 +8,8 @@
       </router-view>
     </el-main>
     
-    <!-- 帮助悬浮按钮 -->
-    <HelpFloatingButton @click="showHelpDialog = true" />
+    <!-- 回到主页悬浮按钮（集成用户手册智能问答） -->
+    <HomeFloatingButton @help-click="showHelpDialog = true" />
     
     <!-- 帮助对话框 -->
     <HelpDialog 
@@ -22,7 +22,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import HelpFloatingButton from '@/components/HelpFloatingButton.vue'
+import HomeFloatingButton from '@/components/HomeFloatingButton.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
 import { getConfigsByGroup } from '@/api/systemConfig'
 

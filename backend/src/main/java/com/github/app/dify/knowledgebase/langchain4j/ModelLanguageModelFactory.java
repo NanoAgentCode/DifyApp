@@ -81,34 +81,61 @@ public class ModelLanguageModelFactory {
                     // 构建请求体
                     Map<String, Object> requestBody = buildRequestBody(messages, qaModel);
                     
-                    // 调用LLM API，添加重试机制
+                    // 调用LLM API，添加重试机制（增加重试次数和间隔）
                     String responseJson = client.post()
                             .uri("")
                             .bodyValue(requestBody)
                             .retrieve()
                             .bodyToMono(String.class)
                             .timeout(Duration.ofSeconds(120))
-                            .retryWhen(Retry.backoff(2, Duration.ofSeconds(1))
+                            .retryWhen(Retry.backoff(4, Duration.ofSeconds(2))
+                                    .maxBackoff(Duration.ofSeconds(10))
                                     .filter(throwable -> {
-                                        // 只对网络错误和连接重置进行重试
-                                        if (throwable instanceof java.net.SocketException) {
-                                            logger.warn("检测到网络连接错误，将重试: {}", throwable.getMessage());
-                                            return true;
-                                        }
-                                        if (throwable instanceof java.util.concurrent.TimeoutException) {
-                                            logger.warn("检测到超时错误，将重试: {}", throwable.getMessage());
-                                            return true;
-                                        }
-                                        if (throwable.getMessage() != null && 
-                                            (throwable.getMessage().contains("Connection reset") ||
-                                             throwable.getMessage().contains("connection reset"))) {
-                                            logger.warn("检测到连接重置错误，将重试: {}", throwable.getMessage());
-                                            return true;
+                                        // 检查异常及其原因链，查找网络错误和连接重置
+                                        Throwable current = throwable;
+                                        while (current != null) {
+                                            // 检查 SocketException
+                                            if (current instanceof java.net.SocketException) {
+                                                logger.warn("检测到网络连接错误，将重试: {}", current.getMessage());
+                                                return true;
+                                            }
+                                            // 检查超时异常
+                                            if (current instanceof java.util.concurrent.TimeoutException) {
+                                                logger.warn("检测到超时错误，将重试: {}", current.getMessage());
+                                                return true;
+                                            }
+                                            // 检查 WebClientRequestException（可能包装了 Connection reset）
+                                            if (current instanceof org.springframework.web.reactive.function.client.WebClientRequestException) {
+                                                String message = current.getMessage();
+                                                if (message != null && 
+                                                    (message.contains("Connection reset") ||
+                                                     message.contains("connection reset") ||
+                                                     message.contains("Connection refused") ||
+                                                     message.contains("connection refused"))) {
+                                                    logger.warn("检测到连接错误（WebClientRequestException），将重试: {}", message);
+                                                    return true;
+                                                }
+                                            }
+                                            // 检查异常消息中是否包含连接重置相关关键词
+                                            String message = current.getMessage();
+                                            if (message != null && 
+                                                (message.contains("Connection reset") ||
+                                                 message.contains("connection reset") ||
+                                                 message.contains("Connection refused") ||
+                                                 message.contains("connection refused") ||
+                                                 message.contains("Broken pipe") ||
+                                                 message.contains("broken pipe"))) {
+                                                logger.warn("检测到连接错误，将重试: {}", message);
+                                                return true;
+                                            }
+                                            // 继续检查异常链
+                                            current = current.getCause();
                                         }
                                         return false;
                                     })
                                     .doBeforeRetry(retrySignal -> 
-                                        logger.info("重试LLM API调用，第{}次重试", retrySignal.totalRetries() + 1)))
+                                        logger.info("重试LLM API调用，第{}次重试（总重试次数: {}）", 
+                                                retrySignal.totalRetries() + 1, retrySignal.totalRetriesInARow() + 1)))
                             .block();
                     
                     // 解析响应
@@ -183,23 +210,43 @@ public class ModelLanguageModelFactory {
                             })
                             .bodyToFlux(DataBuffer.class)
                             .timeout(Duration.ofSeconds(300))
-                            .retryWhen(Retry.backoff(1, Duration.ofSeconds(2))
+                            .retryWhen(Retry.backoff(2, Duration.ofSeconds(3))
+                                    .maxBackoff(Duration.ofSeconds(10))
                                     .filter(throwable -> {
-                                        // 只对网络错误和连接重置进行重试（流式请求只重试1次，避免重复数据）
-                                        if (throwable instanceof java.net.SocketException) {
-                                            logger.warn("流式响应检测到网络连接错误，将重试: {}", throwable.getMessage());
-                                            return true;
-                                        }
-                                        if (throwable.getMessage() != null && 
-                                            (throwable.getMessage().contains("Connection reset") ||
-                                             throwable.getMessage().contains("connection reset"))) {
-                                            logger.warn("流式响应检测到连接重置错误，将重试: {}", throwable.getMessage());
-                                            return true;
+                                        // 流式请求重试2次，检查异常链
+                                        Throwable current = throwable;
+                                        while (current != null) {
+                                            if (current instanceof java.net.SocketException) {
+                                                logger.warn("流式响应检测到网络连接错误，将重试: {}", current.getMessage());
+                                                return true;
+                                            }
+                                            if (current instanceof org.springframework.web.reactive.function.client.WebClientRequestException) {
+                                                String message = current.getMessage();
+                                                if (message != null && 
+                                                    (message.contains("Connection reset") ||
+                                                     message.contains("connection reset") ||
+                                                     message.contains("Connection refused") ||
+                                                     message.contains("connection refused"))) {
+                                                    logger.warn("流式响应检测到连接错误（WebClientRequestException），将重试: {}", message);
+                                                    return true;
+                                                }
+                                            }
+                                            String message = current.getMessage();
+                                            if (message != null && 
+                                                (message.contains("Connection reset") ||
+                                                 message.contains("connection reset") ||
+                                                 message.contains("Connection refused") ||
+                                                 message.contains("connection refused"))) {
+                                                logger.warn("流式响应检测到连接错误，将重试: {}", message);
+                                                return true;
+                                            }
+                                            current = current.getCause();
                                         }
                                         return false;
                                     })
                                     .doBeforeRetry(retrySignal -> 
-                                        logger.info("重试流式LLM API调用，第{}次重试", retrySignal.totalRetries() + 1)))
+                                        logger.info("重试流式LLM API调用，第{}次重试（总重试次数: {}）", 
+                                                retrySignal.totalRetries() + 1, retrySignal.totalRetriesInARow() + 1)))
                             .doOnError(error -> {
                                 logger.error("接收流式响应时发生错误", error);
                             })
