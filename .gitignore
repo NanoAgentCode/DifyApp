@@ -38,3 +38,4 @@ build/
 
 ### RustFS ###
 rustfs/data/
+/mindmap/static/
