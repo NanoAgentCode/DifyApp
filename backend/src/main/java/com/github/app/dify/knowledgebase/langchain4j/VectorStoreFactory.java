@@ -114,7 +114,7 @@ public class VectorStoreFactory {
      * 优先从vectorDatabaseId获取具体实例配置，然后从实例配置中读取类型
      * 如果没有vectorDatabaseId，才使用vectorStoreType配置
      * @param knowledgeBaseId 知识库ID
-     * @return 向量存储类型（qdrant、faiss、milvus、chroma、weaviate、elasticsearch、pgvector），默认为qdrant
+     * @return 向量存储类型（qdrant、faiss、milvus、chroma、weaviate、elasticsearch、pgvector），文档解读默认为pgvector，知识库默认为qdrant
      */
     private String getVectorStoreType(Long knowledgeBaseId) {
         try {
@@ -143,6 +143,10 @@ public class VectorStoreFactory {
                     logger.debug("从文档解读配置读取向量存储类型: {}", type);
                     return type.toLowerCase();
                 }
+                // 如果文档解读配置中没有类型，使用DocumentReaderConfig的默认值（pgvector）
+                // 注意：DocumentReaderConfig在初始化时会设置默认值，所以这里理论上不会执行
+                logger.warn("文档解读配置中向量存储类型为空，使用DocumentReaderConfig默认值pgvector");
+                return "pgvector";
             }
             
             // 对于知识库，优先从vectorDatabaseId获取实例配置
@@ -176,10 +180,16 @@ public class VectorStoreFactory {
                 }
             }
         } catch (Exception e) {
-            logger.warn("获取知识库向量存储类型失败，使用默认值qdrant - 知识库ID: {}", knowledgeBaseId, e);
+            // 如果是文档解读，使用pgvector作为默认值；否则使用qdrant
+            if (knowledgeBaseId != null && knowledgeBaseId == 0L) {
+                logger.warn("获取文档解读向量存储类型失败，使用默认值pgvector - 知识库ID: {}", knowledgeBaseId, e);
+                return "pgvector";
+            } else {
+                logger.warn("获取知识库向量存储类型失败，使用默认值qdrant - 知识库ID: {}", knowledgeBaseId, e);
+            }
         }
         
-        // 默认返回qdrant
+        // 默认返回qdrant（仅用于知识库，文档解读应该在上面已经返回）
         logger.debug("使用默认向量存储类型qdrant - 知识库ID: {}", knowledgeBaseId);
         return "qdrant";
     }

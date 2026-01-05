@@ -27,7 +27,7 @@ public class DocumentReaderConfig {
     private static final String CONFIG_KEY_MIND_MAP_SERVICE_URL = "documentReader.mindMapServiceUrl";
     
     // 默认值
-    private static final String DEFAULT_VECTOR_STORE_TYPE = "qdrant";
+    private static final String DEFAULT_VECTOR_STORE_TYPE = "pgvector";
     private static final Integer DEFAULT_TOP_K = 5;
     
     @Autowired(required = false)
