@@ -609,12 +609,21 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
      * 翻译文档（懒加载模式：只翻译第一段）
      */
     @Override
-    public void translateDocument(Long documentId, Long userId, String targetLang) {
+    public void translateDocument(Long documentId, Long userId, String targetLang, boolean forceRetranslate) {
         validateDocumentAccess(documentId, userId);
         
-        logger.info("开始翻译文档（懒加载模式） - 文档ID: {}, 目标语言: {}", documentId, targetLang);
+        logger.info("开始翻译文档（懒加载模式） - 文档ID: {}, 目标语言: {}, 强制重新翻译: {}", documentId, targetLang, forceRetranslate);
         
         try {
+            // 如果强制重新翻译，先删除旧的翻译记录
+            if (forceRetranslate) {
+                Optional<DocumentTranslation> existingTranslation = translationRepository.findByDocumentIdAndTargetLanguage(documentId, targetLang);
+                if (existingTranslation.isPresent()) {
+                    translationRepository.delete(existingTranslation.get());
+                    logger.info("已删除旧的翻译记录 - 文档ID: {}, 目标语言: {}", documentId, targetLang);
+                }
+            }
+            
             // 检查是否已有翻译内容
             List<DocumentSegment> existingSegments = loadDocumentTranslationSegments(documentId, targetLang);
             if (existingSegments != null && !existingSegments.isEmpty()) {
@@ -622,7 +631,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 boolean allTranslated = existingSegments.stream()
                     .allMatch(seg -> seg.getTranslatedText() != null && !seg.getTranslatedText().trim().isEmpty());
                 
-                if (allTranslated) {
+                if (allTranslated && !forceRetranslate) {
                     logger.info("文档已完全翻译，无需重新翻译 - 文档ID: {}, 目标语言: {}", documentId, targetLang);
                     return; // 已完全翻译，直接返回
                 } else {

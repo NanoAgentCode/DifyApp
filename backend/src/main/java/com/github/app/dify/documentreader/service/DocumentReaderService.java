@@ -58,8 +58,12 @@ public interface DocumentReaderService {
     
     /**
      * 翻译文档
+     * @param documentId 文档ID
+     * @param userId 用户ID
+     * @param targetLang 目标语言
+     * @param forceRetranslate 是否强制重新翻译（清除旧的翻译记录）
      */
-    void translateDocument(Long documentId, Long userId, String targetLang);
+    void translateDocument(Long documentId, Long userId, String targetLang, boolean forceRetranslate);
     
     /**
      * 获取文档翻译内容

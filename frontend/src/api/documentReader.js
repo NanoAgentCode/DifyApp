@@ -131,12 +131,13 @@ export function getDocumentText(docId) {
  * 翻译文档
  * @param {number} docId - 文档ID
  * @param {string} targetLang - 目标语言（如：zh, en）
+ * @param {boolean} forceRetranslate - 是否强制重新翻译（清除旧的翻译记录）
  */
-export function translateDocument(docId, targetLang) {
+export function translateDocument(docId, targetLang, forceRetranslate = false) {
   return request({
     url: `/api/document-reader/documents/${docId}/translate`,
     method: 'post',
-    data: { targetLang }
+    data: { targetLang, forceRetranslate }
   })
 }
 

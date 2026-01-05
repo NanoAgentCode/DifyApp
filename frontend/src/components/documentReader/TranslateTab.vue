@@ -126,6 +126,9 @@
           <div v-if="loadingSegments.size > 0" class="loading-segment">
             <el-icon class="loading-icon is-loading"><Loading /></el-icon>
             <span>正在翻译后续内容...</span>
+            <span v-if="loadingSegments.size > 0" class="loading-info">
+              ({{ Array.from(loadingSegments).sort((a, b) => a - b).join(', ') }})
+            </span>
           </div>
         </div>
         <div v-else class="empty-state">
@@ -775,15 +778,18 @@ const handleTranslate = async () => {
     return
   }
   
+  // 判断是否为重新翻译（已有翻译内容）
+  const isRetranslate = translationContent.value || segmentTranslations.value.length > 0
+  
   // 如果已有翻译内容，说明用户想要重新翻译，跳过加载已保存翻译的步骤
   // 如果没有翻译内容，先尝试加载已有翻译
-  if (!translationContent.value && segmentTranslations.value.length === 0) {
-  const hasTranslation = await loadTranslation()
-  if (hasTranslation) {
-    // 如果已有翻译，加载分段信息并显示
-    await loadSegmentsInfo()
-    ElMessage.success('已加载已保存的翻译内容')
-    return
+  if (!isRetranslate) {
+    const hasTranslation = await loadTranslation()
+    if (hasTranslation) {
+      // 如果已有翻译，加载分段信息并显示
+      await loadSegmentsInfo()
+      ElMessage.success('已加载已保存的翻译内容')
+      return
     }
   }
   
@@ -797,7 +803,8 @@ const handleTranslate = async () => {
   translating.value = true
   try {
     // 初始化翻译（只翻译第一段）
-    await translateDocument(props.docId, targetLanguage.value)
+    // 如果是重新翻译，传递 forceRetranslate=true 以清除旧的翻译记录
+    await translateDocument(props.docId, targetLanguage.value, isRetranslate)
     
     // 获取分段信息
     await loadSegmentsInfo()
@@ -954,7 +961,7 @@ const smartJoinSegments = (segments) => {
   return result.join('')
 }
 
-// 更新翻译显示内容
+// 更新翻译显示内容（按索引顺序追加，避免覆盖）
 const updateTranslationDisplay = () => {
   if (isUpdatingContent.value) {
     return // 防止重复更新
@@ -966,18 +973,27 @@ const updateTranslationDisplay = () => {
   const container = translationContainerRef.value
   const savedScrollTop = container ? container.scrollTop : 0
   
+  // 按索引顺序收集所有已翻译的分段，确保按顺序追加
+  // 使用数组保持索引对应关系，确保分段按正确顺序显示
   const translatedParts = []
   for (let i = 0; i < segmentTranslations.value.length; i++) {
     if (segmentTranslations.value[i]) {
-      translatedParts.push(segmentTranslations.value[i])
-    } else if (loadedSegments.value.has(i)) {
-      // 已加载但为空，可能是加载失败，跳过
-      continue
+      // 有翻译内容，按索引顺序添加到数组
+      translatedParts.push({
+        index: i,
+        content: segmentTranslations.value[i]
+      })
     }
   }
   
+  // 按索引排序，确保顺序正确
+  translatedParts.sort((a, b) => a.index - b.index)
+  
+  // 提取内容数组，按索引顺序
+  const contentArray = translatedParts.map(item => item.content)
+  
   // 使用智能合并，保持段落结构
-  translationContent.value = smartJoinSegments(translatedParts)
+  translationContent.value = smartJoinSegments(contentArray)
   
   // 在下一个tick恢复滚动位置
   setTimeout(() => {
@@ -991,6 +1007,86 @@ const updateTranslationDisplay = () => {
   }, 0)
 }
 
+// 智能合并分段，保持分段顺序和段落结构
+const smartJoinSegmentsWithIndices = (segments) => {
+  if (!segments || segments.length === 0) return ''
+  
+  const result = []
+  let lastValidIndex = -1
+  
+  // 按索引顺序处理分段
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i]
+    
+    // 跳过未定义的分段（还未加载）
+    if (segment === undefined) {
+      continue
+    }
+    
+    // 处理空分段（已加载但为空）
+    if (segment === null || segment === '') {
+      // 如果前一个有效分段存在，添加换行
+      if (lastValidIndex >= 0 && result.length > 0) {
+        if (!result[result.length - 1].endsWith('\n\n')) {
+          result.push('\n')
+        }
+      }
+      continue
+    }
+    
+    // 处理有效分段
+    const trimmed = segment.trim()
+    if (trimmed === '') {
+      // 只包含空白字符的分段
+      if (lastValidIndex >= 0 && result.length > 0) {
+        if (!result[result.length - 1].endsWith('\n\n')) {
+          result.push('\n')
+        }
+      }
+      continue
+    }
+    
+    // 检查分段边界，智能添加分隔符
+    if (result.length > 0 && lastValidIndex >= 0) {
+      const prevSegment = segments[lastValidIndex]
+      if (prevSegment && prevSegment.trim()) {
+        const prevTrimmed = prevSegment.trim()
+        const prevEndsWithPunctuation = /[。.！!？?]$/.test(prevTrimmed)
+        const prevEndsWithNewline = prevSegment.endsWith('\n') || prevSegment.endsWith('\n\n')
+        const currentStartsWithNewline = segment.startsWith('\n')
+        
+        // 如果前一个分段以换行结尾，或当前分段以换行开头
+        if (prevEndsWithNewline || currentStartsWithNewline) {
+          // 检查是否需要额外的段落分隔
+          if (prevEndsWithPunctuation && !currentStartsWithNewline) {
+            result.push('\n\n')
+          } else {
+            result.push('\n')
+          }
+        } else {
+          // 根据标点符号判断是否需要段落分隔
+          if (prevEndsWithPunctuation) {
+            // 前一个分段以标点结尾，使用双换行作为段落分隔
+            result.push('\n\n')
+          } else {
+            // 其他情况，使用单换行
+            result.push('\n')
+          }
+        }
+      } else {
+        // 前一个分段为空，添加单换行
+        result.push('\n')
+      }
+    }
+    
+    // 添加当前分段（保留原始格式，但移除首尾空白）
+    result.push(trimmed)
+    lastValidIndex = i
+  }
+  
+  return result.join('')
+}
+
 // 处理翻译内容滚动（懒加载）- 使用防抖和节流优化
 const handleTranslationScrollForLazyLoad = debounce(() => {
   // 如果正在更新内容，跳过滚动处理
@@ -998,7 +1094,8 @@ const handleTranslationScrollForLazyLoad = debounce(() => {
     return
   }
   
-  if (!translationContainerRef.value || !segmentsInfo.value || segmentsInfo.value.totalSegments === 0) {
+  // 确保分段信息存在且有效
+  if (!translationContainerRef.value || !segmentsInfo.value || !segmentsInfo.value.totalSegments || segmentsInfo.value.totalSegments <= 0) {
     return
   }
   
@@ -1021,16 +1118,17 @@ const handleTranslationScrollForLazyLoad = debounce(() => {
   lastScrollTop.value = scrollTop
   lastScrollTime.value = now
   
+  // 获取最新的总段数，确保使用正确的值
+  const totalSegments = segmentsInfo.value.totalSegments
+  if (!totalSegments || totalSegments <= 0) {
+    return
+  }
+  
   // 计算当前滚动位置对应的分段索引（页面索引）
   // 使用更准确的计算方式：基于已加载内容的高度比例
   const scrollRatio = (scrollHeight - clientHeight) > 0 
     ? scrollTop / (scrollHeight - clientHeight) 
     : 0
-  
-  // 确保分段索引在有效范围内
-  if (!segmentsInfo.value || !segmentsInfo.value.totalSegments || segmentsInfo.value.totalSegments <= 0) {
-    return
-  }
   
   // 确保 scrollRatio 是有效数字
   if (isNaN(scrollRatio) || !isFinite(scrollRatio)) {
@@ -1040,20 +1138,60 @@ const handleTranslationScrollForLazyLoad = debounce(() => {
   // 限制 scrollRatio 在 [0, 1] 范围内
   const clampedRatio = Math.max(0, Math.min(1, scrollRatio))
   const currentSegmentIndex = Math.min(
-    Math.max(0, Math.floor(clampedRatio * segmentsInfo.value.totalSegments)),
-    segmentsInfo.value.totalSegments - 1
+    Math.max(0, Math.floor(clampedRatio * totalSegments)),
+    totalSegments - 1
   )
   
-  // 预加载当前分段及后续2个分段（减少预加载数量，避免一次性加载太多）
-  const preloadCount = 2
-  let loadedCount = 0
-  for (let i = 0; i < preloadCount && loadedCount < 2; i++) {
-    const segmentIndex = currentSegmentIndex + i
-    // 严格检查索引范围
-    if (segmentIndex >= 0 && segmentIndex < segmentsInfo.value.totalSegments) {
-      if (!loadedSegments.value.has(segmentIndex) && !loadingSegments.value.has(segmentIndex)) {
-        loadTranslationSegment(segmentIndex)
-        loadedCount++
+  // 检查是否滚动到底部（距离底部小于100px视为到底部）
+  const scrollBottom = scrollTop + clientHeight
+  const isNearBottom = scrollHeight - scrollBottom < 100
+  
+  // 如果滚动到底部，查找下一个未翻译的分段并自动加载
+  if (isNearBottom) {
+    // 从已加载的最大索引开始，向后查找第一个未翻译的分段
+    let startIndex = currentSegmentIndex
+    
+    if (loadedSegments.value.size > 0) {
+      // 找到已加载的最大索引
+      const loadedIndices = Array.from(loadedSegments.value)
+      if (loadedIndices.length > 0) {
+        const maxLoadedIndex = Math.max(...loadedIndices)
+        // 确保 startIndex 不超过总段数
+        startIndex = Math.min(
+          Math.max(currentSegmentIndex, maxLoadedIndex + 1),
+          totalSegments - 1
+        )
+      }
+    }
+    
+    // 确保 startIndex 在有效范围内
+    startIndex = Math.max(0, Math.min(startIndex, totalSegments - 1))
+    
+    // 从起始索引开始，向后查找第一个未翻译的分段
+    for (let i = startIndex; i < totalSegments; i++) {
+      // 再次检查索引有效性（双重保险）
+      if (i < 0 || i >= totalSegments) {
+        break
+      }
+      
+      if (!loadedSegments.value.has(i) && !loadingSegments.value.has(i)) {
+        // 找到未翻译的分段，自动加载
+        loadTranslationSegment(i)
+        break
+      }
+    }
+  } else {
+    // 未到底部时，预加载当前分段及后续2个分段（减少预加载数量，避免一次性加载太多）
+    const preloadCount = 2
+    let loadedCount = 0
+    for (let i = 0; i < preloadCount && loadedCount < 2; i++) {
+      const segmentIndex = currentSegmentIndex + i
+      // 严格检查索引范围，使用 totalSegments 变量
+      if (segmentIndex >= 0 && segmentIndex < totalSegments) {
+        if (!loadedSegments.value.has(segmentIndex) && !loadingSegments.value.has(segmentIndex)) {
+          loadTranslationSegment(segmentIndex)
+          loadedCount++
+        }
       }
     }
   }
@@ -1374,6 +1512,7 @@ onUnmounted(() => {
 .translation-content {
   flex: 1;
   overflow: auto;
+  position: relative;
 }
 
 .translation-display {
@@ -1561,13 +1700,27 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px 20px;
   color: var(--el-text-color-regular, #606266);
   gap: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  border-top: 1px solid #e4e7ed;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+  margin-top: 20px;
 }
 
 .loading-segment .loading-icon {
-  font-size: 16px;
+  font-size: 18px;
+  color: var(--el-color-primary, #409eff);
+}
+
+.loading-segment .loading-info {
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+  margin-left: 4px;
 }
 
 /* 全屏模式样式 */

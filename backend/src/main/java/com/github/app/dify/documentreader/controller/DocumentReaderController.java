@@ -247,11 +247,15 @@ public class DocumentReaderController extends BaseController {
     @PostMapping("/{docId}/translate")
     public ResponseEntity<Void> translateDocument(
             @PathVariable Long docId,
-            @RequestBody Map<String, String> requestBody,
+            @RequestBody Map<String, Object> requestBody,
             HttpServletRequest request) {
         Long userId = getUserId(request);
-        String targetLang = requestBody.get("targetLang");
-        documentReaderService.translateDocument(docId, userId, targetLang);
+        String targetLang = (String) requestBody.get("targetLang");
+        Boolean forceRetranslate = (Boolean) requestBody.get("forceRetranslate");
+        if (forceRetranslate == null) {
+            forceRetranslate = false;
+        }
+        documentReaderService.translateDocument(docId, userId, targetLang, forceRetranslate);
         return ResponseEntity.ok().build();
     }
     
