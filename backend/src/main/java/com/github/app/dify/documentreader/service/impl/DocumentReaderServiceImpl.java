@@ -73,6 +73,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     private static final int MAX_TEXT_LENGTH_FOR_MINDMAP = 12000;
     private static final int MAX_TEXT_LENGTH_FOR_MINDMAP_FINAL = 15000;
     private static final int TRANSLATION_SEGMENT_SIZE = 5000;
+    private static final int TRANSLATION_PAGE_LINES = 80; // 每页约80行（按页面翻译）
     private static final int LANGUAGE_DETECTION_SAMPLE_SIZE = 2000;
     private static final double LANGUAGE_DETECTION_THRESHOLD = 0.3;
     private static final int WEB_CLIENT_TIMEOUT_SECONDS = 60;
@@ -859,6 +860,8 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             
             // 检查索引有效性
             if (segmentIndex < 0 || segmentIndex >= segments.size()) {
+                logger.warn("分段索引无效 - 文档ID: {}, 目标语言: {}, 请求索引: {}, 总段数: {}", 
+                           documentId, targetLang, segmentIndex, segments.size());
                 throw new IllegalArgumentException("分段索引无效: " + segmentIndex + ", 总段数: " + segments.size());
             }
             
@@ -1509,39 +1512,75 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     }
     
     /**
-     * 将文档分段（用于懒加载翻译）
+     * 将文档按页面分段（用于按页面翻译）
      */
     private List<DocumentSegment> splitDocumentForTranslation(String documentContent) {
         List<DocumentSegment> segments = new ArrayList<>();
-        int segmentSize = TRANSLATION_SEGMENT_SIZE;
-        int totalLength = documentContent.length();
-        int processedLength = 0;
-        int segmentIndex = 0;
         
-        while (processedLength < totalLength) {
-            int segmentStart = processedLength;
-            int segmentEnd = Math.min(processedLength + segmentSize, totalLength);
+        // 按行分割文档
+        String[] lines = documentContent.split("\n", -1);
+        int totalLines = lines.length;
+        int linesPerPage = TRANSLATION_PAGE_LINES;
+        int segmentIndex = 0;
+        int lineStart = 0;
+        
+        while (lineStart < totalLines) {
+            int lineEnd = Math.min(lineStart + linesPerPage, totalLines);
             
-            // 尝试在段落边界处截断
-            if (segmentEnd < totalLength) {
-                int bestBreakPoint = findBestBreakPoint(documentContent, segmentStart, segmentEnd);
-                if (bestBreakPoint > segmentStart) {
-                    segmentEnd = bestBreakPoint;
-                }
+            // 计算字符位置
+            int charStart = 0;
+            for (int i = 0; i < lineStart; i++) {
+                charStart += lines[i].length() + 1; // +1 for newline
             }
             
-            String segmentText = documentContent.substring(segmentStart, segmentEnd);
+            // 尝试在段落边界处优化截断点（如果不是最后一页）
+            if (lineEnd < totalLines) {
+                // 向前查找更好的截断点（在空行或句号处）
+                int bestLineEnd = lineEnd;
+                for (int i = lineEnd - 1; i >= lineStart + linesPerPage / 2; i--) {
+                    String line = lines[i].trim();
+                    // 如果是空行，或者以句号、问号、感叹号结尾
+                    if (line.isEmpty() || 
+                        line.endsWith("。") || line.endsWith(".") || 
+                        line.endsWith("？") || line.endsWith("?") ||
+                        line.endsWith("！") || line.endsWith("!")) {
+                        bestLineEnd = i + 1;
+                        break;
+                    }
+                }
+                lineEnd = bestLineEnd;
+            }
+            
+            // 构建页面内容
+            StringBuilder pageText = new StringBuilder();
+            for (int i = lineStart; i < lineEnd; i++) {
+                if (i > lineStart) {
+                    pageText.append("\n");
+                }
+                pageText.append(lines[i]);
+            }
+            
+            // 计算结束位置
+            int charEnd = charStart;
+            for (int i = lineStart; i < lineEnd; i++) {
+                charEnd += lines[i].length() + (i < lineEnd - 1 ? 1 : 0); // +1 for newline except last line
+            }
+            
+            String segmentText = pageText.toString();
             DocumentSegment segment = new DocumentSegment();
             segment.setIndex(segmentIndex);
-            segment.setStartIndex(segmentStart);
-            segment.setEndIndex(segmentEnd);
+            segment.setStartIndex(charStart);
+            segment.setEndIndex(charEnd);
             segment.setText(segmentText);
             segment.setTranslatedText(null); // 初始未翻译
             
             segments.add(segment);
-            processedLength = segmentEnd;
             segmentIndex++;
+            lineStart = lineEnd; // 移动到下一页
         }
+        
+        logger.info("文档按页面分段完成 - 总行数: {}, 每页行数: {}, 总页数: {}", 
+                   totalLines, linesPerPage, segments.size());
         
         return segments;
     }

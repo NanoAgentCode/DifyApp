@@ -101,6 +101,7 @@
                 class="text-content original-content" 
                 v-html="renderedOriginal"
                 @scroll="handleOriginalScroll"
+                @mouseup="handleTextSelection('original')"
               ></div>
             </div>
             <div class="text-panel translation-panel">
@@ -110,6 +111,7 @@
                 class="text-content translation-content-display" 
                 v-html="renderedTranslation"
                 @scroll="handleTranslationScroll"
+                @mouseup="handleTextSelection('translation')"
               ></div>
             </div>
           </div>
@@ -178,6 +180,9 @@ const translationContainerRef = ref(null) // 翻译内容容器引用
 const isUpdatingContent = ref(false) // 标记是否正在更新内容，防止滚动事件触发
 const lastScrollTop = ref(0) // 记录上次滚动位置
 const lastScrollTime = ref(0) // 记录上次滚动时间
+const selectedTextInfo = ref(null) // 选中的文本信息
+const highlightTimeout = ref(null) // 高亮清除定时器
+const pageHeight = ref(0) // 页面高度（用于页面对齐）
 
 // 分析文本结构，提取段落分隔信息
 function analyzeTextStructure(text) {
@@ -193,19 +198,19 @@ function analyzeTextStructure(text) {
     if (trimmed.length === 0) {
       structure.push({ type: 'empty', index: i, originalLine: line })
     } else {
-      // 识别标题模式
-      const isTitle = 
-        // 数字编号模式：1. 1.1 第一章 第一节
-        /^(\d+[\.、]\s*|\d+\.\d+[\.、]\s*|第[一二三四五六七八九十\d]+[章节部分])/.test(trimmed) ||
-        // 全大写且长度适中（可能是英文标题）
-        (trimmed === trimmed.toUpperCase() && trimmed.length < 100 && trimmed.length > 3 && /^[A-Z\s\-]+$/.test(trimmed)) ||
-        // Markdown风格标题
-        /^#{1,6}\s/.test(trimmed) ||
-        // 短行且可能是标题（长度小于80且不以句号结尾）
-        (trimmed.length < 80 && !trimmed.endsWith('。') && !trimmed.endsWith('.') && 
-         (trimmed.includes('章') || trimmed.includes('节') || trimmed.includes('部分') || 
-          trimmed.includes('Chapter') || trimmed.includes('Section') || trimmed.includes('Part')))
-      
+    // 识别标题模式
+    const isTitle = 
+      // 数字编号模式：1. 1.1 第一章 第一节
+      /^(\d+[\.、]\s*|\d+\.\d+[\.、]\s*|第[一二三四五六七八九十\d]+[章节部分])/.test(trimmed) ||
+      // 全大写且长度适中（可能是英文标题）
+      (trimmed === trimmed.toUpperCase() && trimmed.length < 100 && trimmed.length > 3 && /^[A-Z\s\-]+$/.test(trimmed)) ||
+      // Markdown风格标题
+      /^#{1,6}\s/.test(trimmed) ||
+      // 短行且可能是标题（长度小于80且不以句号结尾）
+      (trimmed.length < 80 && !trimmed.endsWith('。') && !trimmed.endsWith('.') && 
+       (trimmed.includes('章') || trimmed.includes('节') || trimmed.includes('部分') || 
+        trimmed.includes('Chapter') || trimmed.includes('Section') || trimmed.includes('Part')))
+    
       structure.push({ 
         type: isTitle ? 'title' : 'text', 
         index: i, 
@@ -264,13 +269,13 @@ function processTextForDisplay(text, preserveStructure = true) {
     } else {
       consecutiveEmptyLines = 0
       const escapedLine = escapeHtml(item.originalLine)
-      
-      if (item.type === 'title') {
+    
+    if (item.type === 'title') {
         // 标题前：根据前一个元素类型决定空行
         if (prevItem) {
           if (prevItem.type === 'title') {
             // 连续标题，添加两个空行分隔
-            finalLines.push('<br><br>')
+        finalLines.push('<br><br>')
           } else if (prevItem.type === 'text') {
             // 文本后接标题，添加两个空行
             finalLines.push('<br><br>')
@@ -278,21 +283,21 @@ function processTextForDisplay(text, preserveStructure = true) {
             // 空行前是文本，标题前已有空行，不再添加
           } else {
             // 其他情况，添加一个空行
-            finalLines.push('<br>')
+        finalLines.push('<br>')
           }
-        }
-        
-        // 标题本身
+      }
+      
+      // 标题本身
         finalLines.push(`<div class="text-title">${escapedLine}</div>`)
-        
+      
         // 标题后：如果后面是文本，添加一个空行
         if (nextItem && nextItem.type === 'text') {
-          finalLines.push('<br>')
+        finalLines.push('<br>')
         } else if (nextItem && nextItem.type === 'empty' && i < structure.length - 1 && structure[i + 2] && structure[i + 2].type === 'text') {
           // 空行后是文本，标题后已有空行，不再添加
         }
-      } else {
-        // 普通文本
+    } else {
+      // 普通文本
         // 如果前一个是标题且当前是文本的第一行，不需要额外空行（标题后已添加）
         if (prevItem && prevItem.type === 'title') {
           // 标题后已有空行，直接添加文本
@@ -328,64 +333,34 @@ const renderedOriginal = computed(() => {
   return processTextForDisplay(originalText.value)
 })
 
-// 同步滚动处理 - 改进版本，基于标题对齐
-const handleOriginalScroll = () => {
-  if (isScrolling.value) return
-  if (!originalContentRef.value || !translationContentRef.value) return
+// 获取容器可见区域中心点在内容中的位置比例（0-1）
+const getVisibleCenterRatio = (container) => {
+  const scrollTop = container.scrollTop
+  const scrollHeight = container.scrollHeight
+  const clientHeight = container.clientHeight
   
-  isScrolling.value = true
-  const originalEl = originalContentRef.value
-  const translationEl = translationContentRef.value
+  if (scrollHeight <= clientHeight) return 0.5 // 内容未超出容器，返回中间位置
   
-  // 获取当前可见区域中的第一个标题元素
-  const originalTitles = originalEl.querySelectorAll('.text-title')
-  let nearestTitleIndex = -1
-  let minDistance = Infinity
-  
-  originalTitles.forEach((title, index) => {
-    const rect = title.getBoundingClientRect()
-    const containerRect = originalEl.getBoundingClientRect()
-    
-    // 如果标题在可见区域内或刚刚离开可见区域顶部
-    if (rect.top >= containerRect.top - 50 && rect.top <= containerRect.top + 100) {
-      const distance = Math.abs(rect.top - containerRect.top)
-      if (distance < minDistance) {
-        minDistance = distance
-        nearestTitleIndex = index
-      }
-    }
-  })
-  
-  // 如果找到了对应的标题，尝试在译文中找到对应的标题并滚动到相同位置
-  if (nearestTitleIndex >= 0) {
-    const translationTitles = translationEl.querySelectorAll('.text-title')
-    if (translationTitles[nearestTitleIndex]) {
-      const targetTitle = translationTitles[nearestTitleIndex]
-      const targetRect = targetTitle.getBoundingClientRect()
-      const containerRect = translationEl.getBoundingClientRect()
-      
-      // 计算需要滚动的距离，使标题对齐
-      const scrollOffset = targetRect.top - containerRect.top + translationEl.scrollTop
-      translationEl.scrollTop = scrollOffset
-    } else {
-      // 如果找不到对应标题，使用比例滚动
-      const scrollRatio = originalEl.scrollTop / (originalEl.scrollHeight - originalEl.clientHeight)
-      const targetScrollTop = scrollRatio * (translationEl.scrollHeight - translationEl.clientHeight)
-      translationEl.scrollTop = targetScrollTop
-    }
-  } else {
-    // 没有找到标题，使用比例滚动
-    const scrollRatio = originalEl.scrollTop / (originalEl.scrollHeight - originalEl.clientHeight)
-    const targetScrollTop = scrollRatio * (translationEl.scrollHeight - translationEl.clientHeight)
-    translationEl.scrollTop = targetScrollTop
-  }
-  
-  setTimeout(() => {
-    isScrolling.value = false
-  }, 50)
+  // 计算可见区域中心点在总内容中的位置比例
+  const visibleCenter = scrollTop + clientHeight / 2
+  return Math.max(0, Math.min(1, visibleCenter / scrollHeight))
 }
 
-const handleTranslationScroll = () => {
+// 根据内容比例计算目标滚动位置
+const getScrollTopForRatio = (container, ratio) => {
+  const scrollHeight = container.scrollHeight
+  const clientHeight = container.clientHeight
+  const maxScroll = scrollHeight - clientHeight
+  
+  if (maxScroll <= 0) return 0
+  
+  // 将比例转换为滚动位置，使中心点对齐
+  const targetCenter = ratio * scrollHeight
+  return Math.max(0, Math.min(maxScroll, targetCenter - clientHeight / 2))
+}
+
+// 改进的同步滚动处理 - 基于可见区域中心点比例映射（带防抖）
+const handleOriginalScrollInternal = () => {
   if (isScrolling.value) return
   if (!originalContentRef.value || !translationContentRef.value) return
   
@@ -393,52 +368,333 @@ const handleTranslationScroll = () => {
   const originalEl = originalContentRef.value
   const translationEl = translationContentRef.value
   
-  // 获取当前可见区域中的第一个标题元素
-  const translationTitles = translationEl.querySelectorAll('.text-title')
-  let nearestTitleIndex = -1
-  let minDistance = Infinity
+  // 获取原文可见区域中心点的比例
+  const originalRatio = getVisibleCenterRatio(originalEl)
   
-  translationTitles.forEach((title, index) => {
-    const rect = title.getBoundingClientRect()
-    const containerRect = translationEl.getBoundingClientRect()
-    
-    // 如果标题在可见区域内或刚刚离开可见区域顶部
-    if (rect.top >= containerRect.top - 50 && rect.top <= containerRect.top + 100) {
-      const distance = Math.abs(rect.top - containerRect.top)
-      if (distance < minDistance) {
-        minDistance = distance
-        nearestTitleIndex = index
+  // 计算译文的目标滚动位置（保持相同的比例）
+  const targetScrollTop = getScrollTopForRatio(translationEl, originalRatio)
+  
+  // 平滑滚动到目标位置
+  requestAnimationFrame(() => {
+    translationEl.scrollTop = targetScrollTop
+    setTimeout(() => {
+      isScrolling.value = false
+    }, 100)
+  })
+}
+
+// 使用防抖优化滚动性能
+const handleOriginalScroll = debounce(handleOriginalScrollInternal, 50)
+
+// 改进的同步滚动处理 - 基于可见区域中心点比例映射（带防抖）
+const handleTranslationScrollInternal = () => {
+  if (isScrolling.value) return
+  if (!originalContentRef.value || !translationContentRef.value) return
+  
+  isScrolling.value = true
+  const originalEl = originalContentRef.value
+  const translationEl = translationContentRef.value
+  
+  // 获取译文可见区域中心点的比例
+  const translationRatio = getVisibleCenterRatio(translationEl)
+  
+  // 计算原文的目标滚动位置（保持相同的比例）
+  const targetScrollTop = getScrollTopForRatio(originalEl, translationRatio)
+  
+  // 平滑滚动到目标位置
+  requestAnimationFrame(() => {
+    originalEl.scrollTop = targetScrollTop
+    setTimeout(() => {
+      isScrolling.value = false
+    }, 100)
+  })
+}
+
+// 使用防抖优化滚动性能
+const handleTranslationScroll = debounce(handleTranslationScrollInternal, 50)
+
+// 处理文本选择，实现原文和译文的对应高亮
+const handleTextSelection = (source) => {
+  // 清除之前的高亮
+  clearHighlights()
+  
+  // 清除之前的定时器
+  if (highlightTimeout.value) {
+    clearTimeout(highlightTimeout.value)
+  }
+  
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0) {
+    return
+  }
+  
+  const selectedText = selection.toString().trim()
+  if (!selectedText || selectedText.length === 0) {
+    return
+  }
+  
+  const range = selection.getRangeAt(0)
+  
+  // 只在全屏模式下处理文本选择
+  if (!isFullscreen.value) {
+    return
+  }
+  
+  const container = source === 'original' ? originalContentRef.value : translationContentRef.value
+  const targetContainer = source === 'original' ? translationContentRef.value : originalContentRef.value
+  
+  if (!container || !targetContainer || !range.intersectsNode(container)) {
+    return
+  }
+  
+  // 获取选中文本在容器中的位置信息
+  const containerRect = container.getBoundingClientRect()
+  const rangeRect = range.getBoundingClientRect()
+  
+  // 计算选中文本在容器中的相对位置（基于垂直位置）
+  const relativeTop = rangeRect.top - containerRect.top + container.scrollTop
+  const relativeBottom = rangeRect.bottom - containerRect.top + container.scrollTop
+  const containerHeight = container.scrollHeight
+  
+  // 计算对应的位置比例
+  const topRatio = relativeTop / containerHeight
+  const bottomRatio = relativeBottom / containerHeight
+  
+  // 在目标容器中找到对应位置并高亮
+  highlightCorrespondingText(targetContainer, topRatio, bottomRatio, selectedText)
+  
+  // 保存选中信息
+  selectedTextInfo.value = {
+    source,
+    text: selectedText,
+    topRatio,
+    bottomRatio
+  }
+  
+  // 5秒后自动清除高亮
+  highlightTimeout.value = setTimeout(() => {
+    clearHighlights()
+    selectedTextInfo.value = null
+  }, 5000)
+}
+
+// 在目标容器中高亮对应位置的文本
+const highlightCorrespondingText = (targetContainer, topRatio, bottomRatio, selectedText) => {
+  if (!targetContainer) return
+  
+  // 计算目标位置
+  const containerHeight = targetContainer.scrollHeight
+  const targetTop = topRatio * containerHeight
+  const targetBottom = bottomRatio * containerHeight
+  
+  // 获取目标容器中的所有元素和文本节点
+  const allNodes = []
+  
+  // 先获取所有元素节点
+  const elementWalker = document.createTreeWalker(
+    targetContainer,
+    NodeFilter.SHOW_ELEMENT,
+    {
+      acceptNode: (node) => {
+        const tagName = node.tagName?.toLowerCase()
+        // 跳过script、style、mark等标签
+        if (tagName === 'script' || tagName === 'style' || tagName === 'mark') {
+          return NodeFilter.FILTER_REJECT
+        }
+        return NodeFilter.FILTER_ACCEPT
       }
+    },
+    false
+  )
+  
+  let elementNode
+  while (elementNode = elementWalker.nextNode()) {
+    const rect = elementNode.getBoundingClientRect()
+    if (rect && rect.height > 0) {
+      const containerRect = targetContainer.getBoundingClientRect()
+      const elTop = rect.top - containerRect.top + targetContainer.scrollTop
+      const elBottom = elTop + rect.height
+      
+      // 如果元素在目标范围内或与目标范围重叠
+      if ((elTop >= targetTop && elTop <= targetBottom) ||
+          (elBottom >= targetTop && elBottom <= targetBottom) ||
+          (elTop <= targetTop && elBottom >= targetBottom)) {
+        allNodes.push({ node: elementNode, type: 'element', top: elTop, bottom: elBottom })
+      }
+    }
+  }
+  
+  // 再获取所有文本节点
+  const textWalker = document.createTreeWalker(
+    targetContainer,
+    NodeFilter.SHOW_TEXT,
+    null,
+    false
+  )
+  
+  let textNode
+  while (textNode = textWalker.nextNode()) {
+    // 跳过已经在高亮元素中的文本节点
+    if (textNode.parentElement?.classList.contains('text-highlight') ||
+        textNode.parentElement?.tagName === 'MARK') {
+      continue
+    }
+    
+    const nodeRect = getTextNodeRect(textNode)
+    if (nodeRect && nodeRect.height > 0) {
+      const containerRect = targetContainer.getBoundingClientRect()
+      const nodeTop = nodeRect.top - containerRect.top + targetContainer.scrollTop
+      const nodeBottom = nodeTop + nodeRect.height
+      
+      // 如果节点在目标范围内或与目标范围重叠
+      if ((nodeTop >= targetTop && nodeTop <= targetBottom) ||
+          (nodeBottom >= targetTop && nodeBottom <= targetBottom) ||
+          (nodeTop <= targetTop && nodeBottom >= targetBottom)) {
+        allNodes.push({ node: textNode, type: 'text', top: nodeTop, bottom: nodeBottom })
+      }
+    }
+  }
+  
+  // 高亮找到的节点
+  if (allNodes.length > 0) {
+    allNodes.forEach(({ node, type }) => {
+      try {
+        if (type === 'text') {
+          const range = document.createRange()
+          range.selectNodeContents(node)
+          highlightRange(range)
+    } else {
+          // 对于元素节点，添加高亮类
+          if (!node.classList.contains('text-highlight')) {
+            node.classList.add('text-highlight')
+          }
+        }
+      } catch (e) {
+        console.warn('高亮节点失败:', e)
+      }
+    })
+  } else {
+    // 如果找不到精确的节点，尝试基于位置比例高亮
+    highlightByPositionRatio(targetContainer, topRatio, bottomRatio)
+  }
+}
+
+// 获取文本节点的位置信息
+const getTextNodeRect = (textNode) => {
+  if (!textNode || !textNode.parentElement) return null
+  
+  const range = document.createRange()
+  range.selectNodeContents(textNode)
+  return range.getBoundingClientRect()
+}
+
+// 基于位置比例高亮文本
+const highlightByPositionRatio = (container, topRatio, bottomRatio) => {
+  if (!container) return
+  
+  const containerHeight = container.scrollHeight
+  const targetTop = topRatio * containerHeight
+  const targetBottom = bottomRatio * containerHeight
+  
+  // 获取容器中的所有元素
+  const allElements = container.querySelectorAll('*')
+  const elementsInRange = []
+  
+  allElements.forEach(el => {
+    const rect = el.getBoundingClientRect()
+    const containerRect = container.getBoundingClientRect()
+    const elTop = rect.top - containerRect.top + container.scrollTop
+    const elBottom = elTop + rect.height
+    
+    // 如果元素在目标范围内
+    if ((elTop >= targetTop && elTop <= targetBottom) ||
+        (elBottom >= targetTop && elBottom <= targetBottom) ||
+        (elTop <= targetTop && elBottom >= targetBottom)) {
+      elementsInRange.push(el)
     }
   })
   
-  // 如果找到了对应的标题，尝试在原文中找到对应的标题并滚动到相同位置
-  if (nearestTitleIndex >= 0) {
-    const originalTitles = originalEl.querySelectorAll('.text-title')
-    if (originalTitles[nearestTitleIndex]) {
-      const targetTitle = originalTitles[nearestTitleIndex]
-      const targetRect = targetTitle.getBoundingClientRect()
-      const containerRect = originalEl.getBoundingClientRect()
-      
-      // 计算需要滚动的距离，使标题对齐
-      const scrollOffset = targetRect.top - containerRect.top + originalEl.scrollTop
-      originalEl.scrollTop = scrollOffset
-    } else {
-      // 如果找不到对应标题，使用比例滚动
-      const scrollRatio = translationEl.scrollTop / (translationEl.scrollHeight - translationEl.clientHeight)
-      const targetScrollTop = scrollRatio * (originalEl.scrollHeight - originalEl.clientHeight)
-      originalEl.scrollTop = targetScrollTop
+  // 高亮找到的元素
+  elementsInRange.forEach(el => {
+    try {
+      const range = document.createRange()
+      range.selectNodeContents(el)
+      highlightRange(range)
+    } catch (e) {
+      console.warn('高亮元素失败:', e)
+    }
+  })
+}
+
+// 高亮指定的范围
+const highlightRange = (range) => {
+  try {
+    // 使用mark标签进行高亮（更语义化）
+    const mark = document.createElement('mark')
+    mark.className = 'text-highlight'
+    
+    try {
+      range.surroundContents(mark)
+    } catch (e) {
+      // 如果surroundContents失败，尝试使用extractContents
+      try {
+        const contents = range.extractContents()
+        mark.appendChild(contents)
+        range.insertNode(mark)
+      } catch (e2) {
+        // 如果还是失败，尝试高亮整个父元素
+        const parent = range.commonAncestorContainer
+        if (parent.nodeType === Node.TEXT_NODE && parent.parentElement) {
+          const parentEl = parent.parentElement
+          if (!parentEl.classList.contains('text-highlight')) {
+            parentEl.classList.add('text-highlight')
+          }
+        } else if (parent.nodeType === Node.ELEMENT_NODE) {
+          const el = parent
+          if (!el.classList.contains('text-highlight')) {
+            el.classList.add('text-highlight')
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('高亮范围失败:', e)
+  }
+}
+
+// 清除所有高亮
+const clearHighlights = () => {
+  if (!originalContentRef.value || !translationContentRef.value) return
+  
+  // 清除原文中的高亮（移除mark标签或class）
+  const originalHighlights = originalContentRef.value.querySelectorAll('mark.text-highlight, .text-highlight')
+  originalHighlights.forEach(highlight => {
+    if (highlight.tagName === 'MARK') {
+      const parent = highlight.parentNode
+      if (parent) {
+        const textNode = document.createTextNode(highlight.textContent)
+        parent.replaceChild(textNode, highlight)
+        parent.normalize()
     }
   } else {
-    // 没有找到标题，使用比例滚动
-    const scrollRatio = translationEl.scrollTop / (translationEl.scrollHeight - translationEl.clientHeight)
-    const targetScrollTop = scrollRatio * (originalEl.scrollHeight - originalEl.clientHeight)
-    originalEl.scrollTop = targetScrollTop
-  }
+      highlight.classList.remove('text-highlight')
+    }
+  })
   
-  setTimeout(() => {
-    isScrolling.value = false
-  }, 50)
+  // 清除译文中的高亮
+  const translationHighlights = translationContentRef.value.querySelectorAll('mark.text-highlight, .text-highlight')
+  translationHighlights.forEach(highlight => {
+    if (highlight.tagName === 'MARK') {
+      const parent = highlight.parentNode
+      if (parent) {
+        const textNode = document.createTextNode(highlight.textContent)
+        parent.replaceChild(textNode, highlight)
+        parent.normalize()
+      }
+    } else {
+      highlight.classList.remove('text-highlight')
+    }
+  })
 }
 
 // 检测文档的主要语言
@@ -522,12 +778,12 @@ const handleTranslate = async () => {
   // 如果已有翻译内容，说明用户想要重新翻译，跳过加载已保存翻译的步骤
   // 如果没有翻译内容，先尝试加载已有翻译
   if (!translationContent.value && segmentTranslations.value.length === 0) {
-    const hasTranslation = await loadTranslation()
-    if (hasTranslation) {
-      // 如果已有翻译，加载分段信息并显示
-      await loadSegmentsInfo()
-      ElMessage.success('已加载已保存的翻译内容')
-      return
+  const hasTranslation = await loadTranslation()
+  if (hasTranslation) {
+    // 如果已有翻译，加载分段信息并显示
+    await loadSegmentsInfo()
+    ElMessage.success('已加载已保存的翻译内容')
+    return
     }
   }
   
@@ -573,6 +829,14 @@ const loadSegmentsInfo = async () => {
 
 // 加载指定分段的翻译
 const loadTranslationSegment = async (segmentIndex) => {
+  // 严格检查索引有效性
+  if (!segmentsInfo.value || 
+      segmentIndex < 0 || 
+      segmentIndex >= segmentsInfo.value.totalSegments) {
+    console.warn(`分段索引无效: ${segmentIndex}, 总段数: ${segmentsInfo.value?.totalSegments || 0}`)
+    return // 索引无效
+  }
+  
   if (loadingSegments.value.has(segmentIndex) || loadedSegments.value.has(segmentIndex)) {
     return // 正在加载或已加载
   }
@@ -580,10 +844,6 @@ const loadTranslationSegment = async (segmentIndex) => {
   if (!targetLanguage.value) {
     console.warn('未选择目标语言，无法加载翻译分段')
     return
-  }
-  
-  if (!segmentsInfo.value || segmentIndex >= segmentsInfo.value.totalSegments) {
-    return // 索引无效
   }
   
   // 如果正在更新内容，延迟加载
@@ -613,12 +873,18 @@ const loadTranslationSegment = async (segmentIndex) => {
       if (!isUpdatingContent.value) {
         // 使用 requestAnimationFrame 优化更新时机
         requestAnimationFrame(() => {
-          updateTranslationDisplay()
+      updateTranslationDisplay()
         })
       }
     }
   } catch (error) {
     console.error(`加载分段 ${segmentIndex} 翻译失败:`, error)
+    // 如果是因为索引超出范围，不再尝试加载
+    if (error.message && (error.message.includes('分段索引无效') || error.message.includes('索引无效'))) {
+      console.warn(`分段索引 ${segmentIndex} 超出范围，停止加载`)
+      // 从加载集合中移除，避免重复尝试
+      loadedSegments.value.add(segmentIndex) // 标记为已处理，避免重复请求
+    }
     // 只在用户主动操作时显示错误消息，避免自动加载时的错误提示
     // 错误消息会在用户点击翻译按钮时显示
   } finally {
@@ -755,11 +1021,26 @@ const handleTranslationScrollForLazyLoad = debounce(() => {
   lastScrollTop.value = scrollTop
   lastScrollTime.value = now
   
-  // 计算当前滚动位置对应的分段索引
+  // 计算当前滚动位置对应的分段索引（页面索引）
   // 使用更准确的计算方式：基于已加载内容的高度比例
-  const scrollRatio = scrollTop / (scrollHeight - clientHeight)
+  const scrollRatio = (scrollHeight - clientHeight) > 0 
+    ? scrollTop / (scrollHeight - clientHeight) 
+    : 0
+  
+  // 确保分段索引在有效范围内
+  if (!segmentsInfo.value || !segmentsInfo.value.totalSegments || segmentsInfo.value.totalSegments <= 0) {
+    return
+  }
+  
+  // 确保 scrollRatio 是有效数字
+  if (isNaN(scrollRatio) || !isFinite(scrollRatio)) {
+    return
+  }
+  
+  // 限制 scrollRatio 在 [0, 1] 范围内
+  const clampedRatio = Math.max(0, Math.min(1, scrollRatio))
   const currentSegmentIndex = Math.min(
-    Math.floor(scrollRatio * segmentsInfo.value.totalSegments),
+    Math.max(0, Math.floor(clampedRatio * segmentsInfo.value.totalSegments)),
     segmentsInfo.value.totalSegments - 1
   )
   
@@ -768,6 +1049,7 @@ const handleTranslationScrollForLazyLoad = debounce(() => {
   let loadedCount = 0
   for (let i = 0; i < preloadCount && loadedCount < 2; i++) {
     const segmentIndex = currentSegmentIndex + i
+    // 严格检查索引范围
     if (segmentIndex >= 0 && segmentIndex < segmentsInfo.value.totalSegments) {
       if (!loadedSegments.value.has(segmentIndex) && !loadingSegments.value.has(segmentIndex)) {
         loadTranslationSegment(segmentIndex)
@@ -996,6 +1278,12 @@ onUnmounted(() => {
   document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
   document.removeEventListener('mozfullscreenchange', handleFullscreenChange)
   document.removeEventListener('msfullscreenchange', handleFullscreenChange)
+  
+  // 清除高亮和定时器
+  if (highlightTimeout.value) {
+    clearTimeout(highlightTimeout.value)
+  }
+  clearHighlights()
 })
 </script>
 
@@ -1297,6 +1585,35 @@ onUnmounted(() => {
 
 .translate-tab.fullscreen-mode .tab-content {
   height: calc(100vh - 60px);
+}
+
+/* 文本高亮样式 */
+.text-content :deep(mark.text-highlight),
+.text-content :deep(.text-highlight) {
+  background-color: rgba(255, 235, 59, 0.5) !important;
+  padding: 2px 0;
+  border-radius: 2px;
+  transition: background-color 0.3s ease;
+  cursor: pointer;
+}
+
+.text-content :deep(mark.text-highlight:hover),
+.text-content :deep(.text-highlight:hover) {
+  background-color: rgba(255, 235, 59, 0.7) !important;
+}
+
+.translation-display :deep(mark.text-highlight),
+.translation-display :deep(.text-highlight) {
+  background-color: rgba(255, 235, 59, 0.5) !important;
+  padding: 2px 0;
+  border-radius: 2px;
+  transition: background-color 0.3s ease;
+  cursor: pointer;
+}
+
+.translation-display :deep(mark.text-highlight:hover),
+.translation-display :deep(.text-highlight:hover) {
+  background-color: rgba(255, 235, 59, 0.7) !important;
 }
 </style>
 
