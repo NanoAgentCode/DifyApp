@@ -4,7 +4,7 @@
     <AppHeader v-model="isHeaderCollapsed" @command="handleCommand" />
 
     <!-- 主要内容区域 -->
-    <div class="portal-content" :class="{ 'content-header-collapsed': isHeaderCollapsed }">
+    <div class="portal-content" :class="{ 'content-header-collapsed': isHeaderCollapsed, 'no-scroll': isContentOverflow }">
       <!-- 初始欢迎界面（无对话时显示） -->
       <div v-if="chatHistory.length === 0 && !isInputFocused" class="welcome-section">
         <!-- 页面切换标签 -->
@@ -38,17 +38,34 @@
               你好！我是NanoAgent，很高兴为你提供帮助。有什么问题或需要协助的地方吗？
             </div>
             <div class="suggested-prompts">
-              <div class="prompt-item" @click="handlePromptClick('最近有什么有趣的事情吗')">
+              <div 
+                v-for="(conversation, index) in recentConversations" 
+                :key="conversation.id"
+                class="prompt-item"
+              >
+                <div class="prompt-item-content" @click="handleConversationClick(conversation)">
+                  <span class="prompt-bullet">•</span>
+                  <span class="prompt-text">{{ conversation.title || '未命名会话' }}</span>
+                </div>
+                <el-tooltip content="继续对话" placement="top">
+                  <el-button
+                    class="prompt-continue-btn"
+                    type="primary"
+                    text
+                    size="small"
+                    @click.stop="handleConversationClick(conversation)"
+                  >
+                    <el-icon><ArrowRight /></el-icon>
+                  </el-button>
+                </el-tooltip>
+              </div>
+              <div 
+                v-if="recentConversations.length === 0"
+                class="prompt-item"
+                @click="handlePromptClick('最近有什么有趣的事情吗')"
+              >
                 <span class="prompt-bullet">•</span>
                 <span class="prompt-text">最近有什么有趣的事情吗</span>
-              </div>
-              <div class="prompt-item" @click="handlePromptClick('你喜欢什么样的音乐')">
-                <span class="prompt-bullet">•</span>
-                <span class="prompt-text">你喜欢什么样的音乐</span>
-              </div>
-              <div class="prompt-item" @click="handlePromptClick('有什么特别的兴趣爱好吗')">
-                <span class="prompt-bullet">•</span>
-                <span class="prompt-text">有什么特别的兴趣爱好吗</span>
               </div>
             </div>
           </div>
@@ -104,7 +121,12 @@
       </div>
 
       <!-- 对话历史区域（有对话时显示） -->
-      <div v-if="chatHistory.length > 0 || isInputFocused" class="chat-history-section">
+      <div 
+        v-if="chatHistory.length > 0 || isInputFocused" 
+        class="chat-history-section"
+        :class="{ 'content-overflow': isContentOverflow }"
+        ref="chatHistorySectionRef"
+      >
         <MessageList
           :messages="chatHistory"
           :sending="sending"
@@ -115,8 +137,8 @@
     </div>
 
     <!-- 中央输入区域 -->
-    <div class="input-section">
-      <div class="input-wrapper">
+    <div class="input-section" :class="{ 'transparent': isContentOverflow }" ref="inputSectionRef">
+      <div class="input-wrapper" ref="inputWrapperRef">
         <!-- 输入框 -->
         <el-input
           v-model="question"
@@ -129,8 +151,34 @@
           @keydown.ctrl.enter="handleSend"
           @focus="handleInputFocus"
           @blur="handleInputBlur"
+          @input="handleInputChange"
+          @keydown="handleKeydown"
           :disabled="sending"
+          ref="inputRef"
         />
+        <!-- 知识库选择列表（@触发） -->
+        <div 
+          v-if="showKbList && conversationMode === 'rag'"
+          class="kb-mention-list"
+          :style="kbListStyle"
+        >
+          <div v-if="filteredKnowledgeBases.length === 0" class="kb-mention-empty">
+            <el-icon><Document /></el-icon>
+            <div>暂无可用知识库</div>
+          </div>
+          <div v-else class="kb-mention-items">
+            <div
+              v-for="(kb, index) in filteredKnowledgeBases"
+              :key="kb.id"
+              :class="['kb-mention-item', { 'kb-mention-item-active': selectedKbIndex === index }]"
+              @click="selectKnowledgeBase(kb)"
+              @mouseenter="selectedKbIndex = index"
+            >
+              <div class="kb-mention-item-name">{{ kb.name }}</div>
+              <div class="kb-mention-item-docs">{{ kb.documentCount || 0 }} 个文档</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 浮动控制选项 -->
@@ -178,60 +226,6 @@
                     <span>{{ model.name }}</span>
                     <el-tag v-if="model.isDefault" type="primary" size="small">默认</el-tag>
                   </div>
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-
-          <!-- 知识库选择区域（仅在知识库问答模式下显示） -->
-          <el-dropdown 
-            v-if="conversationMode === 'rag'"
-            @command="handleKnowledgeBaseSelect" 
-            @visible-change="handleDropdownVisibleChange"
-            trigger="click" 
-            class="kb-selector-dropdown"
-            popper-class="kb-dropdown-popper"
-          >
-            <div class="control-item kb-control-item" :class="{ 'kb-selected': selectedKnowledgeBaseId }">
-              <span>@</span>
-              <el-input
-                v-model="selectedKnowledgeBaseName"
-                placeholder="选择知识库"
-                readonly
-                class="kb-input-readonly"
-              />
-            </div>
-            <template #dropdown>
-              <el-dropdown-menu class="kb-dropdown-menu">
-                <div v-if="availableKnowledgeBases.length === 0" style="padding: 20px; text-align: center; color: #909399;">
-                  <el-icon style="font-size: 24px; margin-bottom: 8px;"><Document /></el-icon>
-                  <div style="font-size: 14px;">暂无可用知识库</div>
-                  <div style="font-size: 12px; margin-top: 4px;">请先在知识管理中创建知识库</div>
-                </div>
-                <template v-else>
-                  <el-dropdown-item 
-                    v-for="kb in availableKnowledgeBases"
-                    :key="kb.id"
-                    :command="kb.id"
-                    class="kb-dropdown-item"
-                  >
-                    <div class="kb-item-content">
-                      <el-radio 
-                        :model-value="selectedKnowledgeBaseId === kb.id"
-                        :label="kb.id"
-                        @change="handleKnowledgeBaseSelect(kb.id)"
-                        @click.stop
-                      >
-                        <div class="kb-item-info">
-                          <div style="font-weight: 500;">{{ kb.name }}</div>
-                          <div style="font-size: 12px; color: #909399;">{{ kb.documentCount || 0 }} 个文档</div>
-                        </div>
-                      </el-radio>
-                    </div>
-                  </el-dropdown-item>
-                </template>
-                <el-dropdown-item v-if="selectedKnowledgeBaseId" divided command="clear" class="kb-dropdown-item">
-                  <span style="color: #909399;">清除选择</span>
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -335,6 +329,7 @@ import {
   ChatLineRound,
   ArrowDown,
   ArrowUp,
+  ArrowRight,
   Connection,
   Paperclip,
   Promotion,
@@ -353,7 +348,7 @@ import {
   Search,
   Folder
 } from '@element-plus/icons-vue'
-import { chat, chatStream } from '@/api/chat'
+import { chat, chatStream, getMyConversations, getConversationMessages } from '@/api/chat'
 import { getAvailableQAModels, getAvailableQAModelsForRAG } from '@/api/model'
 import { getKnowledgeBaseList } from '@/api/knowledgeBase'
 import { knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
@@ -384,6 +379,18 @@ const showChangePasswordDialog = ref(false)
 const isHeaderCollapsed = ref(false)
 const enableBrowserSearch = ref(false) // 联网搜索开关状态
 const currentView = ref('welcome') // 'welcome' 或 'features'
+const isContentOverflow = ref(false) // 内容是否溢出
+const chatHistorySectionRef = ref(null)
+const inputSectionRef = ref(null)
+const inputRef = ref(null)
+const inputWrapperRef = ref(null)
+const showKbList = ref(false) // 是否显示知识库列表
+const atSymbolIndex = ref(-1) // @符号在输入框中的位置
+const selectedKbIndex = ref(0) // 当前选中的知识库索引
+const kbListStyle = ref({}) // 知识库列表的样式
+const recentConversations = ref([]) // 最近三条会话历史
+const selectedConversationId = ref(null) // 选中的会话ID
+const loadingConversations = ref(false) // 是否正在加载会话列表
 
 const selectedModelName = computed(() => {
   if (!selectedModelId.value) return 'DS V3.2'
@@ -429,7 +436,147 @@ const handleInputBlur = () => {
     if (!sending.value && chatHistory.value.length === 0) {
       isInputFocused.value = false
     }
+    // 延迟隐藏知识库列表，以便点击列表项时不会立即隐藏
+    setTimeout(() => {
+      showKbList.value = false
+    }, 200)
   }, 200)
+}
+
+// 处理输入框内容变化
+const handleInputChange = () => {
+  if (conversationMode.value !== 'rag') {
+    showKbList.value = false
+    return
+  }
+
+  const text = question.value
+  const cursorPos = getCursorPosition()
+  
+  // 查找@符号
+  let atIndex = -1
+  for (let i = cursorPos - 1; i >= 0; i--) {
+    if (text[i] === '@') {
+      // 检查@后面是否有空格或其他@符号
+      if (i === cursorPos - 1 || text[i + 1] === ' ' || text[i + 1] === '@') {
+        atIndex = i
+        break
+      }
+    } else if (text[i] === ' ' || text[i] === '\n') {
+      break
+    }
+  }
+
+  if (atIndex >= 0) {
+    atSymbolIndex.value = atIndex
+    const searchText = text.substring(atIndex + 1, cursorPos).toLowerCase()
+    updateKbListPosition()
+    showKbList.value = true
+    selectedKbIndex.value = 0
+  } else {
+    showKbList.value = false
+    atSymbolIndex.value = -1
+  }
+}
+
+// 获取光标位置
+const getCursorPosition = () => {
+  if (!inputRef.value) return 0
+  const textarea = inputRef.value.$el?.querySelector('textarea')
+  if (!textarea) return question.value.length
+  return textarea.selectionStart || question.value.length
+}
+
+// 更新知识库列表位置
+const updateKbListPosition = () => {
+  nextTick(() => {
+    if (!inputWrapperRef.value || !inputRef.value) return
+    
+    const textarea = inputRef.value.$el?.querySelector('textarea')
+    if (!textarea) return
+
+    const wrapperRect = inputWrapperRef.value.getBoundingClientRect()
+    const textareaRect = textarea.getBoundingClientRect()
+    
+    // 计算@符号的位置，将列表显示在输入框上方，使用固定宽度
+    kbListStyle.value = {
+      bottom: `${wrapperRect.bottom - textareaRect.top + 8}px`,
+      left: '16px',
+      width: '280px',
+      top: 'auto'
+    }
+  })
+}
+
+// 处理键盘事件
+const handleKeydown = (e) => {
+  if (!showKbList.value || conversationMode.value !== 'rag') return
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    selectedKbIndex.value = Math.min(selectedKbIndex.value + 1, filteredKnowledgeBases.value.length - 1)
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    selectedKbIndex.value = Math.max(selectedKbIndex.value - 1, 0)
+  } else if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) {
+    e.preventDefault()
+    if (filteredKnowledgeBases.value[selectedKbIndex.value]) {
+      selectKnowledgeBase(filteredKnowledgeBases.value[selectedKbIndex.value])
+    }
+  } else if (e.key === 'Escape') {
+    showKbList.value = false
+  }
+}
+
+// 过滤后的知识库列表（最多5个）
+const filteredKnowledgeBases = computed(() => {
+  if (!showKbList.value || atSymbolIndex.value < 0) return []
+  
+  const searchText = question.value.substring(atSymbolIndex.value + 1, getCursorPosition()).toLowerCase()
+  let filtered = availableKnowledgeBases.value
+  
+  if (searchText) {
+    filtered = availableKnowledgeBases.value.filter(kb => 
+      kb.name.toLowerCase().includes(searchText)
+    )
+  }
+  
+  return filtered.slice(0, 5) // 最多显示5个
+})
+
+// 选择知识库
+const selectKnowledgeBase = (kb) => {
+  if (!kb) return
+  
+  const text = question.value
+  const beforeAt = text.substring(0, atSymbolIndex.value)
+  const afterCursor = text.substring(getCursorPosition())
+  
+  // 插入知识库名称
+  question.value = beforeAt + '@' + kb.name + ' ' + afterCursor
+  
+  // 设置选中的知识库
+  selectedKnowledgeBaseId.value = kb.id
+  selectedKnowledgeBase.value = kb
+  selectedKnowledgeBaseName.value = kb.name
+  
+  // 隐藏列表
+  showKbList.value = false
+  atSymbolIndex.value = -1
+  
+  // 设置光标位置
+  nextTick(() => {
+    if (inputRef.value) {
+      const textarea = inputRef.value.$el?.querySelector('textarea')
+      if (textarea) {
+        const newPos = beforeAt.length + 1 + kb.name.length + 1
+        textarea.setSelectionRange(newPos, newPos)
+        textarea.focus()
+      }
+    }
+  })
+  
+  ElMessage.success(`已选择知识库：${kb.name}`)
 }
 
 // 处理模式切换
@@ -438,13 +585,14 @@ const handleModeChange = (mode) => {
   if (mode === 'rag') {
     // 切换到知识库问答模式时，如果没有选择知识库，提示用户
     if (!selectedKnowledgeBaseId.value && availableKnowledgeBases.value.length > 0) {
-      ElMessage.info('请先选择知识库（点击@符号）')
+      ElMessage.info('请在输入框中输入@选择知识库')
     }
   } else {
     // 切换到普通对话模式时，清除知识库选择
     selectedKnowledgeBaseId.value = null
     selectedKnowledgeBase.value = null
     selectedKnowledgeBaseName.value = ''
+    showKbList.value = false
   }
   // 重新加载模型列表（因为知识库问答和普通对话使用的模型可能不同）
   loadAvailableModels()
@@ -455,15 +603,8 @@ const handleModelChange = (modelId) => {
   selectedModelId.value = modelId
 }
 
-// 处理下拉菜单显示状态变化
-const handleDropdownVisibleChange = (visible) => {
-  if (visible) {
-    // 下拉菜单打开时，更新宽度
-    setDropdownWidth()
-  }
-}
 
-// 处理知识库选择
+// 处理知识库选择（保留用于其他可能的调用）
 const handleKnowledgeBaseSelect = (kbId) => {
   if (kbId === 'clear') {
     selectedKnowledgeBaseId.value = null
@@ -629,7 +770,7 @@ const handleSend = async () => {
         selectedModelId.value
       )
     } else if (conversationMode.value === 'rag' && !selectedKnowledgeBaseId.value) {
-      ElMessage.warning('请先选择知识库（点击@符号）')
+      ElMessage.warning('请先在输入框中输入@选择知识库')
       // 移除AI回复占位
       chatHistory.value.pop()
       sending.value = false
@@ -1094,7 +1235,7 @@ const handleRegenerate = async (messageIndex) => {
         selectedModelId.value
       )
     } else if (conversationMode.value === 'rag' && !selectedKnowledgeBaseId.value) {
-      ElMessage.warning('请先选择知识库（点击@符号）')
+      ElMessage.warning('请先在输入框中输入@选择知识库')
       // 移除AI回复占位
       chatHistory.value.pop()
       sending.value = false
@@ -1165,6 +1306,121 @@ const handlePromptClick = (prompt) => {
       inputElement.focus()
     }
   })
+}
+
+// 加载最近三条会话历史
+const loadRecentConversations = async () => {
+  try {
+    loadingConversations.value = true
+    const userInfo = getUserInfo()
+    if (!userInfo) {
+      recentConversations.value = []
+      return
+    }
+
+    const response = await getMyConversations(1, 3) // 获取第一页，每页3条
+    
+    let conversations = []
+    if (response && response.content && Array.isArray(response.content)) {
+      conversations = response.content
+    } else if (response && response.list && Array.isArray(response.list)) {
+      conversations = response.list
+    } else if (Array.isArray(response)) {
+      conversations = response
+    } else if (response && response.data) {
+      const data = response.data
+      if (data.content && Array.isArray(data.content)) {
+        conversations = data.content
+      } else if (data.list && Array.isArray(data.list)) {
+        conversations = data.list
+      } else if (Array.isArray(data)) {
+        conversations = data
+      }
+    }
+    
+    // 取最近3条，不限类型
+    recentConversations.value = conversations.slice(0, 3)
+  } catch (error) {
+    console.error('加载最近会话失败', error)
+    recentConversations.value = []
+  } finally {
+    loadingConversations.value = false
+  }
+}
+
+// 处理会话点击
+const handleConversationClick = async (conversation) => {
+  if (!conversation || !conversation.id) return
+  
+  selectedConversationId.value = conversation.id
+  await loadConversationMessages(conversation.id)
+}
+
+// 加载会话消息
+const loadConversationMessages = async (convId) => {
+  try {
+    const response = await getConversationMessages(convId)
+    
+    let messages = []
+    if (response && response.content && Array.isArray(response.content)) {
+      messages = response.content
+    } else if (response && response.list && Array.isArray(response.list)) {
+      messages = response.list
+    } else if (Array.isArray(response)) {
+      messages = response
+    } else if (response && response.data) {
+      const data = response.data
+      if (data.content && Array.isArray(data.content)) {
+        messages = data.content
+      } else if (data.list && Array.isArray(data.list)) {
+        messages = data.list
+      } else if (Array.isArray(data)) {
+        messages = data
+      }
+    }
+    
+    // 转换消息格式
+    chatHistory.value = messages.map(msg => ({
+      type: msg.role === 'user' ? 'user' : 'assistant',
+      content: msg.content || msg.answer || '',
+      time: msg.createTime ? new Date(msg.createTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      isLoading: false
+    }))
+    
+    // 设置会话ID
+    conversationId.value = convId.toString()
+    
+    // 滚动到底部
+    await nextTick()
+    scrollToBottom(true)
+    
+    // 聚焦输入框
+    isInputFocused.value = true
+    nextTick(() => {
+      const inputElement = document.querySelector('.portal-input textarea')
+      if (inputElement) {
+        inputElement.focus()
+      }
+    })
+  } catch (error) {
+    console.error('加载会话消息失败', error)
+    ElMessage.error('加载会话消息失败：' + (error.message || '未知错误'))
+  }
+}
+
+// 处理继续对话
+const handleContinueConversation = async () => {
+  if (!selectedConversationId.value) {
+    // 如果没有选中的会话，使用最近一条
+    if (recentConversations.value.length > 0) {
+      await handleConversationClick(recentConversations.value[0])
+    } else {
+      ElMessage.warning('没有可继续的会话')
+    }
+    return
+  }
+  
+  await loadConversationMessages(selectedConversationId.value)
 }
 
 // 加载可用模型列表
@@ -1260,15 +1516,63 @@ watch(conversationMode, () => {
   loadAvailableModels()
 })
 
-// 设置下拉菜单宽度（与@控制区域同宽）
-const setDropdownWidth = () => {
+
+// 检测内容是否溢出
+const checkContentOverflow = () => {
   nextTick(() => {
-    const kbControlItem = document.querySelector('.kb-control-item')
-    if (kbControlItem) {
-      const width = kbControlItem.offsetWidth
-      document.documentElement.style.setProperty('--input-section-width', `${width}px`)
+    if (!chatHistorySectionRef.value || !inputSectionRef.value) {
+      isContentOverflow.value = false
+      return
     }
+
+    // 如果没有消息，不显示溢出状态
+    if (chatHistory.value.length === 0 && !isInputFocused.value) {
+      isContentOverflow.value = false
+      return
+    }
+
+    const portalContent = document.querySelector('.portal-content')
+    if (!portalContent) {
+      isContentOverflow.value = false
+      return
+    }
+
+    // 获取输入框的位置
+    const inputRect = inputSectionRef.value.getBoundingClientRect()
+    const portalContentRect = portalContent.getBoundingClientRect()
+    
+    // 计算聊天历史区域的实际内容高度
+    const chatHistoryContent = chatHistorySectionRef.value.querySelector('.chat-history-content')
+    if (!chatHistoryContent) {
+      isContentOverflow.value = false
+      return
+    }
+
+    const contentHeight = chatHistoryContent.scrollHeight
+    // 可用高度 = 输入框顶部位置 - 内容区域顶部位置 - 上下padding
+    const availableHeight = inputRect.top - portalContentRect.top - 40
+
+    // 如果内容高度超过可用高度，则认为内容溢出
+    isContentOverflow.value = contentHeight > availableHeight
   })
+}
+
+// 监听消息变化，检测内容溢出
+watch(() => chatHistory.value, () => {
+  checkContentOverflow()
+}, { deep: true })
+
+// 监听输入框焦点变化
+watch(() => isInputFocused.value, () => {
+  checkContentOverflow()
+})
+
+// 监听窗口大小变化
+const handleResize = () => {
+  checkContentOverflow()
+  if (showKbList.value) {
+    updateKbListPosition()
+  }
 }
 
 onMounted(() => {
@@ -1277,19 +1581,34 @@ onMounted(() => {
   setInterval(updateDateTime, 1000)
   loadKnowledgeBases()
   loadAvailableModels()
-  setDropdownWidth()
-  // 监听窗口大小变化，更新下拉菜单宽度
-  window.addEventListener('resize', setDropdownWidth)
+  loadRecentConversations()
+  checkContentOverflow()
+  // 监听窗口大小变化
+  window.addEventListener('resize', handleResize)
+  // 使用 ResizeObserver 监听内容区域变化
+  nextTick(() => {
+    if (chatHistorySectionRef.value) {
+      const resizeObserver = new ResizeObserver(() => {
+        checkContentOverflow()
+      })
+      resizeObserver.observe(chatHistorySectionRef.value)
+      // 也监听聊天历史内容的变化
+      const chatHistoryContent = chatHistorySectionRef.value.querySelector('.chat-history-content')
+      if (chatHistoryContent) {
+        resizeObserver.observe(chatHistoryContent)
+      }
+    }
+  })
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', setDropdownWidth)
+  window.removeEventListener('resize', handleResize)
 })
 </script>
 
 <style scoped>
 .portal-container {
-  min-height: 100vh;
+  height: 100vh; /* 固定高度，确保只有一个滚动条 */
   background: var(--el-bg-color-page, #f5f7fa);
   display: flex;
   flex-direction: column;
@@ -1297,7 +1616,7 @@ onUnmounted(() => {
   margin: 0;
   position: relative;
   width: 100%;
-  overflow-x: hidden; /* 防止水平滚动 */
+  overflow: hidden; /* 防止容器本身滚动，只让portal-content滚动 */
   z-index: 1; /* 确保在导航栏下方 */
 }
 
@@ -1320,7 +1639,7 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  overflow-y: auto; /* 唯一的滚动条 */
   overflow-x: hidden;
   padding: 40px 0; /* 只保留上下内边距，左右为0让滚动条靠右 */
   padding-top: calc(40px + 60px) !important; /* 为固定导航栏留出空间，确保不被覆盖 */
@@ -1330,11 +1649,17 @@ onUnmounted(() => {
   transition: padding-top 0.3s ease;
   position: relative;
   box-sizing: border-box;
+  min-height: 0; /* 确保flex子元素可以正确收缩 */
+  background: transparent; /* 确保透明，让输入框能够透过看到后面的内容 */
+}
+
+/* 当内容溢出时，禁用 portal-content 的滚动，只让 chat-history-section 滚动 */
+.portal-content.no-scroll {
+  overflow-y: hidden;
 }
 
 /* 内容容器，用于居中显示内容 */
-.portal-content > .welcome-section,
-.portal-content > .chat-history-section {
+.portal-content > .welcome-section {
   width: 100%;
   max-width: 1200px;
   min-width: 600px; /* 最小宽度，确保在小屏幕上也有良好显示 */
@@ -1344,12 +1669,26 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 
+.portal-content > .chat-history-section {
+  width: 100%;
+  max-width: 900px; /* 与输入区域同宽 */
+  min-width: 500px; /* 最小宽度，与输入区域保持一致 */
+  margin: 0 auto;
+  padding-left: 20px;
+  padding-right: 20px;
+  box-sizing: border-box;
+}
+
 /* 中等屏幕自适应 */
 @media (max-width: 1024px) and (min-width: 769px) {
-  .portal-content > .welcome-section,
-  .portal-content > .chat-history-section {
+  .portal-content > .welcome-section {
     min-width: 500px;
     max-width: 900px;
+  }
+  
+  .portal-content > .chat-history-section {
+    min-width: 400px;
+    max-width: 700px;
   }
 }
 
@@ -1498,14 +1837,23 @@ onUnmounted(() => {
 .prompt-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   padding: 14px 18px;
   background: var(--el-bg-color, #ffffff);
   border-radius: 10px;
-  cursor: pointer;
   transition: all 0.3s ease;
   border: 1px solid var(--el-border-color-lighter, #e4e7ed);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.prompt-item-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  cursor: pointer;
+  min-width: 0;
 }
 
 .prompt-item:hover {
@@ -1529,6 +1877,22 @@ onUnmounted(() => {
 
 .prompt-item:hover .prompt-text {
   color: var(--el-color-primary, #409eff);
+}
+
+.prompt-continue-btn {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: translateX(-4px);
+}
+
+.prompt-item:hover .prompt-continue-btn {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.prompt-continue-btn:hover {
+  transform: translateX(2px);
 }
 
 /* 系统功能入口区域 */
@@ -1703,6 +2067,14 @@ onUnmounted(() => {
   padding: 16px 20px; /* 添加左右内边距，与问答区域保持一致 */
   z-index: 10;
   box-sizing: border-box;
+  transition: background-color 0.3s ease, backdrop-filter 0.3s ease;
+}
+
+/* 当内容溢出时，输入框变为半透明 */
+.input-section.transparent {
+  background: rgba(245, 247, 250, 0.3);
+  backdrop-filter: blur(8px) saturate(180%);
+  -webkit-backdrop-filter: blur(8px) saturate(180%);
 }
 
 /* 中等屏幕自适应 */
@@ -1728,9 +2100,18 @@ onUnmounted(() => {
   border-radius: 16px;
   box-shadow: 0 2px 12px var(--el-box-shadow-light, rgba(0, 0, 0, 0.08));
   padding: 16px;
-  transition: box-shadow 0.3s;
+  transition: box-shadow 0.3s, background-color 0.3s ease;
   border: 1px solid var(--el-border-color-lighter, #e4e7ed);
   margin-bottom: 8px;
+}
+
+/* 当内容溢出时，输入框背景也变为半透明 */
+.input-section.transparent .input-wrapper {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px) saturate(180%);
+  -webkit-backdrop-filter: blur(8px) saturate(180%);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  border-color: rgba(228, 231, 237, 0.5);
 }
 
 .input-wrapper:focus-within {
@@ -1747,6 +2128,15 @@ onUnmounted(() => {
   border-radius: 12px;
   box-shadow: 0 1px 4px var(--el-box-shadow-light, rgba(0, 0, 0, 0.06));
   border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  transition: background-color 0.3s ease, backdrop-filter 0.3s ease;
+}
+
+/* 当内容溢出时，控制区域背景也变为半透明 */
+.input-section.transparent .input-controls-float {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px) saturate(180%);
+  -webkit-backdrop-filter: blur(8px) saturate(180%);
+  border-color: rgba(228, 231, 237, 0.5);
 }
 
 .input-left-controls {
@@ -1785,76 +2175,123 @@ onUnmounted(() => {
   color: var(--el-color-primary, #409eff);
 }
 
-.kb-control-item {
-  cursor: pointer;
+/* 知识库@提及列表样式 */
+.kb-mention-list {
+  position: absolute;
+  background: var(--el-bg-color, #ffffff);
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px var(--el-box-shadow-base, rgba(0, 0, 0, 0.12));
+  z-index: 1000;
+  max-height: 240px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  bottom: 0;
+  width: 280px;
+  min-width: 280px;
 }
 
-.kb-input-readonly {
-  margin-left: 8px;
-  width: 120px;
-  pointer-events: none;
+.kb-mention-empty {
+  padding: 24px 20px;
+  text-align: center;
+  color: var(--el-text-color-placeholder, #909399);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
-.kb-input-readonly :deep(.el-input__inner) {
+.kb-mention-empty .el-icon {
+  font-size: 28px;
+  color: var(--el-text-color-placeholder, #c0c4cc);
+}
+
+.kb-mention-empty div {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.kb-mention-items {
+  padding: 4px 0;
+}
+
+.kb-mention-item {
+  padding: 12px 16px;
   cursor: pointer;
-  background-color: transparent;
-  border: none;
-  padding: 0;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid var(--el-border-color-lighter, #f0f0f0);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kb-mention-item:first-child {
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.kb-mention-item:last-child {
+  border-bottom: none;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+.kb-mention-item:hover,
+.kb-mention-item-active {
+  background-color: var(--el-color-primary-light-9, #ecf5ff);
+  border-color: var(--el-color-primary-light-7, #b3d8ff);
+}
+
+.kb-mention-item-name {
   font-size: 14px;
-  color: var(--el-text-color-regular, #606266);
-  pointer-events: none;
+  font-weight: 500;
+  color: var(--el-text-color-primary, #303133);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.2s ease;
 }
 
-.kb-input-readonly :deep(.el-input__inner):focus {
-  border: none;
-  box-shadow: none;
-}
-
-.control-item.kb-selected .kb-input-readonly :deep(.el-input__inner) {
+.kb-mention-item:hover .kb-mention-item-name,
+.kb-mention-item-active .kb-mention-item-name {
   color: var(--el-color-primary, #409eff);
 }
 
-/* 知识库下拉菜单样式 */
-.kb-selector-dropdown {
-  position: relative;
+.kb-mention-item-docs {
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.kb-dropdown-menu {
-  max-height: 400px;
-  overflow-y: auto;
+.kb-mention-item-docs::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: var(--el-text-color-placeholder, #c0c4cc);
 }
 
-/* 使用 popper-class 来设置下拉菜单宽度，与@控制区域同宽 */
-:deep(.kb-dropdown-popper) {
-  width: var(--input-section-width, 300px) !important;
-  min-width: 280px !important;
+/* 知识库列表滚动条样式 */
+.kb-mention-list::-webkit-scrollbar {
+  width: 6px;
 }
 
-:deep(.kb-dropdown-popper .el-dropdown-menu) {
-  width: 100%;
+.kb-mention-list::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.kb-dropdown-item {
-  padding: 8px 16px;
+.kb-mention-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
 }
 
-.kb-item-content {
-  width: 100%;
-}
-
-.kb-item-content :deep(.el-radio) {
-  width: 100%;
-  margin: 0;
-}
-
-.kb-item-content :deep(.el-radio__label) {
-  width: 100%;
-  padding-left: 8px;
-}
-
-.kb-item-info {
-  flex: 1;
-  width: 100%;
+.kb-mention-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
 }
 
 .portal-input {
@@ -1906,6 +2343,14 @@ onUnmounted(() => {
   background: var(--el-bg-color, #ffffff);
   border-radius: 8px;
   box-shadow: 0 1px 4px var(--el-box-shadow-light, rgba(0, 0, 0, 0.06));
+  transition: background-color 0.3s ease, backdrop-filter 0.3s ease;
+}
+
+/* 当内容溢出时，附件预览区域背景也变为半透明 */
+.input-section.transparent .attachments-preview {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px) saturate(180%);
+  -webkit-backdrop-filter: blur(8px) saturate(180%);
 }
 
 .attachment-item {
@@ -2005,20 +2450,29 @@ onUnmounted(() => {
 
 .chat-history-section {
   width: 100%;
-  max-width: 1200px; /* 与输入区域和欢迎区域同宽 */
-  min-width: 600px; /* 最小宽度，确保在小屏幕上也有良好显示 */
+  max-width: 900px; /* 与输入区域同宽 */
+  min-width: 500px; /* 最小宽度，与输入区域保持一致 */
   margin: 0 auto;
   flex: 1;
-  overflow-y: auto;
+  overflow: visible; /* 移除滚动条，由父容器portal-content统一处理 */
   padding: 20px 20px !important; /* 覆盖父容器的padding设置 */
   box-sizing: border-box;
+  transition: height 0.3s ease;
+}
+
+/* 当内容溢出时，固定高度到输入框底部 */
+.chat-history-section.content-overflow {
+  flex: 0 0 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: calc(100vh - 280px); /* 减去输入框、header和padding的高度 */
 }
 
 /* 中等屏幕自适应 */
 @media (max-width: 1024px) and (min-width: 769px) {
   .chat-history-section {
-    min-width: 500px;
-    max-width: 900px;
+    min-width: 400px;
+    max-width: 700px;
   }
 }
 

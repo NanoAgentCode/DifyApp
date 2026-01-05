@@ -210,8 +210,7 @@ defineExpose({
 <style scoped>
 .chat-history {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: visible; /* 移除滚动条，由父容器统一处理 */
   padding: 0;
   min-height: 0;
 }
