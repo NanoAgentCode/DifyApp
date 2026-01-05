@@ -21,11 +21,11 @@ public class OcrConfig {
     
     // 配置键
     private static final String CONFIG_KEY_URL = "ocr.service.url";
-    private static final String CONFIG_KEY_TIMEOUT = "ocr.service.timeout";
+    // 已移除：ocr.service.timeout，统一使用默认30秒
     
     // 默认值
     private static final String DEFAULT_URL = "http://localhost:8000";
-    private static final int DEFAULT_TIMEOUT = 30000;
+    private static final int DEFAULT_TIMEOUT = 30000;  // 固定30秒，不再从系统配置读取
     
     @Autowired
     private SystemConfigService systemConfigService;
@@ -46,20 +46,10 @@ public class OcrConfig {
         String url = systemConfigService.getConfigValue(CONFIG_KEY_URL);
         this.serviceUrl = (url != null && !url.trim().isEmpty()) ? url.trim() : DEFAULT_URL;
         
-        // 读取超时时间
-        String timeoutStr = systemConfigService.getConfigValue(CONFIG_KEY_TIMEOUT);
-        if (timeoutStr != null && !timeoutStr.trim().isEmpty()) {
-            try {
-                this.timeout = Integer.parseInt(timeoutStr.trim());
-            } catch (NumberFormatException e) {
-                logger.warn("OCR超时时间配置无效: {}, 使用默认值: {}", timeoutStr, DEFAULT_TIMEOUT);
-                this.timeout = DEFAULT_TIMEOUT;
-            }
-        } else {
-            this.timeout = DEFAULT_TIMEOUT;
-        }
+        // 超时时间固定为30秒，不再从系统配置读取
+        this.timeout = DEFAULT_TIMEOUT;
         
-        logger.info("OCR配置加载完成 - URL: {}, 超时时间: {}ms", this.serviceUrl, this.timeout);
+        logger.info("OCR配置加载完成 - URL: {}, 超时时间: {}ms (固定值)", this.serviceUrl, this.timeout);
     }
     
     /**

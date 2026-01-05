@@ -425,32 +425,11 @@ const predefinedConfigKeys = [
     type: 'string'
   },
   {
-    key: 'dify.api.timeout',
-    label: 'dify.api.timeout',
-    description: 'Dify API 超时时间（毫秒）',
-    group: 'dify',
-    type: 'number'
-  },
-  {
     key: 'ocr.service.url',
     label: 'ocr.service.url',
     description: 'EasyOCR服务地址',
     group: 'ocr',
     type: 'string'
-  },
-  {
-    key: 'ocr.service.timeout',
-    label: 'ocr.service.timeout',
-    description: 'EasyOCR服务超时时间（毫秒）',
-    group: 'ocr',
-    type: 'number'
-  },
-  {
-    key: 'dify.api.connectTimeout',
-    label: 'dify.api.connectTimeout',
-    description: 'Dify API 连接超时（毫秒）',
-    group: 'dify',
-    type: 'number'
   },
   {
     key: 'dify.api.fileUrlPrefix',

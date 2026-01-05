@@ -23,14 +23,13 @@ public class DifyConfig {
     
     // 默认值
     private static final String DEFAULT_BASE_URL = "http://localhost:80";
-    private static final int DEFAULT_TIMEOUT = 30000;
-    private static final int DEFAULT_CONNECT_TIMEOUT = 10000;
+    private static final int DEFAULT_TIMEOUT = 30000;  // 固定30秒，不再从系统配置读取
+    private static final int DEFAULT_CONNECT_TIMEOUT = 30000;  // 固定30秒，不再从系统配置读取
     private static final String DEFAULT_FILE_URL_PREFIX = "http://localhost:80";
     
     // 配置键
     private static final String CONFIG_KEY_BASE_URL = "dify.api.defaultBaseUrl";
-    private static final String CONFIG_KEY_TIMEOUT = "dify.api.timeout";
-    private static final String CONFIG_KEY_CONNECT_TIMEOUT = "dify.api.connectTimeout";
+    // 已移除：dify.api.timeout 和 dify.api.connectTimeout，统一使用默认30秒
     private static final String CONFIG_KEY_FILE_URL_PREFIX = "dify.api.fileUrlPrefix";
     
     @Autowired(required = false)
@@ -62,27 +61,10 @@ public class DifyConfig {
                 logger.info("从系统配置加载 Dify Base URL: {}", this.defaultBaseUrl);
             }
             
-            // 加载超时时间
-            String timeoutStr = systemConfigService.getConfigValue(CONFIG_KEY_TIMEOUT);
-            if (timeoutStr != null && !timeoutStr.trim().isEmpty()) {
-                try {
-                    this.timeout = Integer.parseInt(timeoutStr.trim());
-                    logger.info("从系统配置加载 Dify Timeout: {} 毫秒", this.timeout);
-                } catch (NumberFormatException e) {
-                    logger.warn("系统配置中的 Dify Timeout 格式错误: {}, 使用默认值: {}", timeoutStr, DEFAULT_TIMEOUT);
-                }
-            }
-            
-            // 加载连接超时时间
-            String connectTimeoutStr = systemConfigService.getConfigValue(CONFIG_KEY_CONNECT_TIMEOUT);
-            if (connectTimeoutStr != null && !connectTimeoutStr.trim().isEmpty()) {
-                try {
-                    this.connectTimeout = Integer.parseInt(connectTimeoutStr.trim());
-                    logger.info("从系统配置加载 Dify Connect Timeout: {} 毫秒", this.connectTimeout);
-                } catch (NumberFormatException e) {
-                    logger.warn("系统配置中的 Dify Connect Timeout 格式错误: {}, 使用默认值: {}", connectTimeoutStr, DEFAULT_CONNECT_TIMEOUT);
-                }
-            }
+            // 超时时间固定为30秒，不再从系统配置读取
+            this.timeout = DEFAULT_TIMEOUT;
+            this.connectTimeout = DEFAULT_CONNECT_TIMEOUT;
+            logger.info("Dify 超时时间使用默认值: {} 毫秒, 连接超时: {} 毫秒", this.timeout, this.connectTimeout);
             
             // 加载文件URL前缀
             String fileUrlPrefix = systemConfigService.getConfigValue(CONFIG_KEY_FILE_URL_PREFIX);
