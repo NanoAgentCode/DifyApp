@@ -5,10 +5,12 @@ import os
 import subprocess
 import shutil
 import time
+import re
+from typing import Tuple
 from pathlib import Path
 from fastapi import Request, HTTPException
 from fastapi.responses import FileResponse
-from ..config import MARKDOWN_DIR, STATIC_HTML_DIR
+from ..config import MARKDOWN_DIR, STATIC_HTML_DIR, MAX_MARKDOWN_LENGTH, MAX_MARKDOWN_LENGTH_WARNING
 
 
 class MindmapService:
@@ -37,6 +39,145 @@ class MindmapService:
     def generate_filename() -> str:
         """生成基于时间戳的文件名"""
         return str(int(time.time()))
+    
+    @staticmethod
+    def _truncate_markdown_intelligently(content: str, max_length: int) -> str:
+        """
+        智能截断Markdown内容，保留主要结构（标题层级）
+        
+        Args:
+            content: 原始Markdown内容
+            max_length: 最大长度（字符数）
+            
+        Returns:
+            str: 截断后的Markdown内容
+        """
+        if len(content) <= max_length:
+            return content
+        
+        # 按行分割
+        lines = content.split('\n')
+        truncated_lines = []
+        current_length = 0
+        warning_added = False
+        
+        # 首先，识别所有标题行及其级别
+        header_lines = []
+        for i, line in enumerate(lines):
+            header_match = re.match(r'^(#{1,6})\s+(.+)$', line.strip())
+            if header_match:
+                header_level = len(header_match.group(1))
+                header_lines.append((i, header_level, line))
+        
+        # 优先保留高级别标题（# 和 ##）
+        important_headers = [h for h in header_lines if h[1] <= 2]
+        
+        for i, line in enumerate(lines):
+            line_length = len(line) + 1  # +1 for newline
+            
+            # 检查是否是标题行
+            header_match = re.match(r'^(#{1,6})\s+(.+)$', line.strip())
+            if header_match:
+                header_level = len(header_match.group(1))
+                
+                # 如果当前长度加上这行会超过限制
+                if current_length + line_length > max_length:
+                    # 如果这是第一级或第二级标题，尝试保留
+                    if header_level <= 2:
+                        # 检查是否还有空间保留这个重要标题
+                        remaining = max_length - current_length
+                        if remaining > 50:  # 至少保留50字符空间
+                            truncated_lines.append(line)
+                            current_length += line_length
+                            if not warning_added:
+                                truncated_lines.append("\n\n> **注意：内容已截断，仅保留主要结构**\n")
+                                warning_added = True
+                            break
+                    else:
+                        # 低级别标题，直接截断
+                        if not warning_added:
+                            truncated_lines.append("\n\n> **注意：内容已截断，仅保留主要结构**\n")
+                            warning_added = True
+                        break
+                else:
+                    truncated_lines.append(line)
+                    current_length += line_length
+            else:
+                # 非标题行
+                if current_length + line_length > max_length:
+                    # 尝试在段落边界截断
+                    if line.strip() == '':
+                        # 空行，可以保留
+                        truncated_lines.append(line)
+                        current_length += line_length
+                        if not warning_added:
+                            truncated_lines.append("\n\n> **注意：内容已截断，仅保留主要结构**\n")
+                            warning_added = True
+                        break
+                    elif line.strip().startswith('-') or line.strip().startswith('*'):
+                        # 列表项，如果空间足够就保留，否则截断
+                        if current_length + line_length <= max_length:
+                            truncated_lines.append(line)
+                            current_length += line_length
+                        else:
+                            if not warning_added:
+                                truncated_lines.append("\n\n> **注意：内容已截断，仅保留主要结构**\n")
+                                warning_added = True
+                            break
+                    else:
+                        # 普通文本行，尝试在句子边界截断
+                        remaining = max_length - current_length
+                        if remaining > 30:
+                            # 截断当前行，保留一些内容
+                            truncated_line = line[:remaining-30].rstrip() + "..."
+                            truncated_lines.append(truncated_line)
+                            current_length += len(truncated_line) + 1
+                        if not warning_added:
+                            truncated_lines.append("\n\n> **注意：内容已截断，仅保留主要结构**\n")
+                            warning_added = True
+                        break
+                else:
+                    truncated_lines.append(line)
+                    current_length += line_length
+        
+        result = '\n'.join(truncated_lines)
+        
+        # 确保结果不超过最大长度
+        if len(result) > max_length:
+            # 如果还是超过，直接截断到最大长度
+            result = result[:max_length].rsplit('\n', 1)[0]  # 在最后一个换行符处截断
+            if not result.endswith("\n\n> **注意：内容已截断，仅保留主要结构**\n"):
+                result += "\n\n> **注意：内容已截断**\n"
+        
+        return result
+    
+    @staticmethod
+    def _preprocess_markdown_content(content: str) -> Tuple[str, bool]:
+        """
+        预处理Markdown内容，检查长度并进行智能截断
+        
+        Args:
+            content: 原始Markdown内容
+            
+        Returns:
+            tuple[str, bool]: (处理后的内容, 是否进行了截断)
+        """
+        original_length = len(content)
+        was_truncated = False
+        
+        # 检查是否超过警告长度
+        if original_length > MAX_MARKDOWN_LENGTH_WARNING:
+            # 记录警告日志
+            print(f"警告：Markdown内容较长 ({original_length} 字符)，建议精简")
+        
+        # 如果超过最大长度，进行智能截断
+        if original_length > MAX_MARKDOWN_LENGTH:
+            print(f"信息：Markdown内容超过最大长度 ({original_length} > {MAX_MARKDOWN_LENGTH})，进行智能截断")
+            content = MindmapService._truncate_markdown_intelligently(content, MAX_MARKDOWN_LENGTH)
+            was_truncated = True
+            print(f"信息：截断后长度: {len(content)} 字符")
+        
+        return content, was_truncated
     
     @staticmethod
     def _execute_markmap_command(md_file_path: Path, html_file_name: str) -> subprocess.CompletedProcess:
@@ -144,6 +285,11 @@ class MindmapService:
                            "4. Make sure markmap is in your system PATH"
                 )
             
+            # 预处理Markdown内容（检查长度并智能截断）
+            processed_content, was_truncated = MindmapService._preprocess_markdown_content(content)
+            if was_truncated:
+                print(f"警告：Markdown内容已截断，原始长度: {len(content)}, 截断后长度: {len(processed_content)}")
+            
             # 生成文件名
             time_name = MindmapService.generate_filename()
             md_file_name = f"{time_name}.md"
@@ -152,7 +298,7 @@ class MindmapService:
             # 保存Markdown文件
             md_file_path = MARKDOWN_DIR / md_file_name
             with open(md_file_path, "w", encoding='utf-8') as f:
-                f.write(content)
+                f.write(processed_content)
             
             # 执行markmap命令
             MindmapService._execute_markmap_command(md_file_path, html_file_name)

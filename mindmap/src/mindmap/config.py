@@ -116,6 +116,10 @@ MIME_TYPES: Final[Dict[str, str]] = {
 # 默认MIME类型
 DEFAULT_MIME_TYPE: Final[str] = 'application/octet-stream'
 
+# 思维导图配置
+MAX_MARKDOWN_LENGTH: Final[int] = config.getint('mindmap', 'max_markdown_length', fallback=50000) if 'mindmap' in config else 50000
+MAX_MARKDOWN_LENGTH_WARNING: Final[int] = config.getint('mindmap', 'max_markdown_length_warning', fallback=30000) if 'mindmap' in config else 30000
+
 # 获取可用的JS文件列表
 def get_available_js_files() -> List[str]:
     """
