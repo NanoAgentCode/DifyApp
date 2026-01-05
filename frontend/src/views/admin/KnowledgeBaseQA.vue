@@ -3,11 +3,19 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <el-button type="text" @click="handleBack" style="margin-right: 10px">
-            <el-icon><ArrowLeft /></el-icon>
-            返回
-          </el-button>
-          <span>知识问答</span>
+          <div class="header-left">
+            <el-button type="text" @click="handleBack" style="margin-right: 10px">
+              <el-icon><ArrowLeft /></el-icon>
+              返回
+            </el-button>
+            <span>知识问答</span>
+          </div>
+          <div class="header-right">
+            <el-button type="default" @click="goToKnowledgeBaseManagement" class="kb-management-btn">
+              <el-icon><Setting /></el-icon>
+              知识库管理
+            </el-button>
+          </div>
         </div>
       </template>
       <div class="qa-container">
@@ -319,6 +327,7 @@ import {
   Star,
   Search,
   Warning,
+  Setting,
   Refresh,
   ArrowLeft
 } from '@element-plus/icons-vue'
@@ -378,6 +387,11 @@ const router = useRouter()
 // 返回主页
 const handleBack = () => {
   router.push('/admin/chat')
+}
+
+// 前往知识库管理页面
+const goToKnowledgeBaseManagement = () => {
+  router.push({ name: 'KnowledgeBaseManagement' })
 }
 
 // 手动触发代码高亮（用于流式响应中逐步生成的代码块）
@@ -488,8 +502,34 @@ html {
 
 .card-header {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-left {
+  display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.kb-management-btn {
+  border: 1px solid var(--el-border-color, #dcdfe6);
+  border-color: var(--el-color-primary, #409eff);
+  color: var(--el-color-primary, #409eff);
+  transition: all 0.3s ease;
+}
+
+.kb-management-btn:hover {
+  border-color: var(--el-color-primary-light-3, #79bbff);
+  background-color: var(--el-color-primary-light-9, #ecf5ff);
+  color: var(--el-color-primary-light-3, #79bbff);
 }
 
 :deep(.el-card) {

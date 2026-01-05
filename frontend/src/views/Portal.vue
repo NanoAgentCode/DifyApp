@@ -36,6 +36,10 @@
             </div>
             <div class="welcome-message">
               你好！我是NanoAgent，很高兴为你提供帮助。有什么问题或需要协助的地方吗？
+              <div class="welcome-tips">
+                <span class="tip-item">输入 <span class="tip-symbol">@</span> 选择知识库</span>
+                <span class="tip-item">输入 <span class="tip-symbol">/</span> 选择文档</span>
+              </div>
             </div>
             <div class="suggested-prompts">
               <div 
@@ -139,26 +143,58 @@
     <!-- 中央输入区域 -->
     <div class="input-section" :class="{ 'transparent': isContentOverflow }" ref="inputSectionRef">
       <div class="input-wrapper" ref="inputWrapperRef">
-        <!-- 输入框 -->
-        <el-input
-          v-model="question"
-          type="textarea"
-          :rows="3"
-          :autosize="{ minRows: 3, maxRows: 8 }"
-          placeholder="有问题尽管问ima"
-          class="portal-input"
-          @keydown.enter.exact.prevent="handleSend"
-          @keydown.ctrl.enter="handleSend"
-          @focus="handleInputFocus"
-          @blur="handleInputBlur"
-          @input="handleInputChange"
-          @keydown="handleKeydown"
-          :disabled="sending"
-          ref="inputRef"
-        />
+        <!-- 输入框容器（标签作为输入内容的一部分，不单独占行或列） -->
+        <div class="input-container">
+          <!-- 输入框 -->
+          <el-input
+            v-model="question"
+            type="textarea"
+            :rows="3"
+            :autosize="{ minRows: 3, maxRows: 8 }"
+            placeholder="有问题尽管问ima"
+            class="portal-input"
+            :class="{ 'has-mentions': selectedKnowledgeBase || selectedDocument }"
+            :style="{ '--mention-width': mentionWidth + 'px' }"
+            @keydown.enter.exact.prevent="handleSend"
+            @keydown.ctrl.enter="handleSend"
+            @focus="handleInputFocus"
+            @blur="handleInputBlur"
+            @input="handleInputChange"
+            @keydown="handleKeydown"
+            :disabled="sending"
+            ref="inputRef"
+          />
+          <!-- 选中的知识库和文档标签（作为输入内容的一部分，浮动在输入框内） -->
+          <div 
+            v-if="selectedKnowledgeBase || selectedDocument" 
+            class="selected-mentions-inline"
+            ref="mentionContainerRef"
+          >
+            <el-tag
+              v-if="selectedKnowledgeBase"
+              type="primary"
+              closable
+              @close="clearKnowledgeBase"
+              class="mention-tag-inline"
+            >
+              <el-icon class="mention-icon"><Search /></el-icon>
+              @{{ selectedKnowledgeBase.name }}
+            </el-tag>
+            <el-tag
+              v-if="selectedDocument"
+              type="success"
+              closable
+              @close="clearDocument"
+              class="mention-tag-inline"
+            >
+              <el-icon class="mention-icon"><Document /></el-icon>
+              /{{ selectedDocument.originalFileName || selectedDocument.fileName || selectedDocument.name }}
+            </el-tag>
+          </div>
+        </div>
         <!-- 知识库选择列表（@触发） -->
         <div 
-          v-if="showKbList && conversationMode === 'rag'"
+          v-if="showKbList"
           class="kb-mention-list"
           :style="kbListStyle"
         >
@@ -179,6 +215,29 @@
             </div>
           </div>
         </div>
+        <!-- 文档选择列表（/触发） -->
+        <div 
+          v-if="showDocList"
+          class="kb-mention-list doc-mention-list"
+          :style="docListStyle"
+        >
+          <div v-if="filteredDocuments.length === 0" class="kb-mention-empty">
+            <el-icon><Document /></el-icon>
+            <div>暂无可用文档</div>
+          </div>
+          <div v-else class="kb-mention-items">
+            <div
+              v-for="(doc, index) in filteredDocuments"
+              :key="doc.id"
+              :class="['kb-mention-item', { 'kb-mention-item-active': selectedDocIndex === index }]"
+              @click="selectDocument(doc)"
+              @mouseenter="selectedDocIndex = index"
+            >
+              <div class="kb-mention-item-name">{{ doc.originalFileName || doc.fileName || doc.name || '未命名文档' }}</div>
+              <div class="kb-mention-item-docs">{{ doc.fileType || '' }}</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 浮动控制选项 -->
@@ -190,9 +249,13 @@
             trigger="click"
             placement="top-start"
           >
-            <div class="control-item" :class="{ 'mode-selected': conversationMode === 'rag' }">
+            <div class="control-item" :class="{ 'mode-selected': conversationMode === 'rag' || conversationMode === 'document' }">
               <el-icon><ChatLineRound /></el-icon>
-              <span>{{ conversationMode === 'rag' ? '知识库问答' : '对话模式' }}</span>
+              <span>{{ 
+                conversationMode === 'rag' ? '知识库问答' : 
+                conversationMode === 'document' ? '文档对话' : 
+                '对话模式' 
+              }}</span>
               <el-icon class="arrow"><ArrowDown /></el-icon>
             </div>
             <template #dropdown>
@@ -204,6 +267,10 @@
                 <el-dropdown-item command="rag" :class="{ 'is-selected': conversationMode === 'rag' }">
                   <span>知识库问答</span>
                   <el-icon v-if="conversationMode === 'rag'" style="margin-left: 8px;"><Check /></el-icon>
+                </el-dropdown-item>
+                <el-dropdown-item command="document" :class="{ 'is-selected': conversationMode === 'document' }">
+                  <span>文档对话</span>
+                  <el-icon v-if="conversationMode === 'document'" style="margin-left: 8px;"><Check /></el-icon>
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -352,6 +419,8 @@ import { chat, chatStream, getMyConversations, getConversationMessages } from '@
 import { getAvailableQAModels, getAvailableQAModelsForRAG } from '@/api/model'
 import { getKnowledgeBaseList } from '@/api/knowledgeBase'
 import { knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
+import { getDocumentList } from '@/api/documentReader'
+import { documentQAStream } from '@/api/documentReader'
 import MessageList from '@/components/chat/MessageList.vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import AppHeader from '@/components/AppHeader.vue'
@@ -373,7 +442,7 @@ const currentTime = ref('')
 const availableKnowledgeBases = ref([])
 const selectedKnowledgeBaseId = ref(null)
 const selectedKnowledgeBase = ref(null)
-const conversationMode = ref('chat') // 'chat' 普通对话, 'rag' 知识库问答
+const conversationMode = ref('chat') // 'chat' 普通对话, 'rag' 知识库问答, 'document' 文档对话
 const selectedKnowledgeBaseName = ref('')
 const showChangePasswordDialog = ref(false)
 const isHeaderCollapsed = ref(false)
@@ -388,6 +457,16 @@ const showKbList = ref(false) // 是否显示知识库列表
 const atSymbolIndex = ref(-1) // @符号在输入框中的位置
 const selectedKbIndex = ref(0) // 当前选中的知识库索引
 const kbListStyle = ref({}) // 知识库列表的样式
+const showDocList = ref(false) // 是否显示文档列表
+const slashSymbolIndex = ref(-1) // /符号在输入框中的位置
+const selectedDocIndex = ref(0) // 当前选中的文档索引
+const docListStyle = ref({}) // 文档列表的样式
+const availableDocuments = ref([]) // 可用文档列表
+const selectedDocumentId = ref(null) // 选中的文档ID
+const selectedDocument = ref(null) // 选中的文档对象
+const loadingDocuments = ref(false) // 是否正在加载文档列表
+const mentionWidth = ref(0) // 标签的宽度
+const mentionContainerRef = ref(null) // 标签容器的引用
 const recentConversations = ref([]) // 最近三条会话历史
 const selectedConversationId = ref(null) // 选中的会话ID
 const loadingConversations = ref(false) // 是否正在加载会话列表
@@ -436,24 +515,20 @@ const handleInputBlur = () => {
     if (!sending.value && chatHistory.value.length === 0) {
       isInputFocused.value = false
     }
-    // 延迟隐藏知识库列表，以便点击列表项时不会立即隐藏
+    // 延迟隐藏知识库和文档列表，以便点击列表项时不会立即隐藏
     setTimeout(() => {
       showKbList.value = false
+      showDocList.value = false
     }, 200)
   }, 200)
 }
 
 // 处理输入框内容变化
 const handleInputChange = () => {
-  if (conversationMode.value !== 'rag') {
-    showKbList.value = false
-    return
-  }
-
   const text = question.value
   const cursorPos = getCursorPosition()
   
-  // 查找@符号
+  // 查找@符号（知识库）
   let atIndex = -1
   for (let i = cursorPos - 1; i >= 0; i--) {
     if (text[i] === '@') {
@@ -467,15 +542,44 @@ const handleInputChange = () => {
     }
   }
 
+  // 查找/符号（文档）
+  let slashIndex = -1
+  for (let i = cursorPos - 1; i >= 0; i--) {
+    if (text[i] === '/') {
+      // 检查/后面是否有空格或其他/符号
+      if (i === cursorPos - 1 || text[i + 1] === ' ' || text[i + 1] === '/') {
+        slashIndex = i
+        break
+      }
+    } else if (text[i] === ' ' || text[i] === '\n' || text[i] === '@') {
+      break
+    }
+  }
+
+  // 优先处理@符号（知识库）
   if (atIndex >= 0) {
     atSymbolIndex.value = atIndex
-    const searchText = text.substring(atIndex + 1, cursorPos).toLowerCase()
     updateKbListPosition()
     showKbList.value = true
     selectedKbIndex.value = 0
-  } else {
+    // 隐藏文档列表
+    showDocList.value = false
+    slashSymbolIndex.value = -1
+  } else if (slashIndex >= 0) {
+    // 处理/符号（文档）
+    slashSymbolIndex.value = slashIndex
+    updateDocListPosition()
+    showDocList.value = true
+    selectedDocIndex.value = 0
+    // 隐藏知识库列表
     showKbList.value = false
     atSymbolIndex.value = -1
+  } else {
+    // 都没有，隐藏所有列表
+    showKbList.value = false
+    atSymbolIndex.value = -1
+    showDocList.value = false
+    slashSymbolIndex.value = -1
   }
 }
 
@@ -508,23 +612,188 @@ const updateKbListPosition = () => {
   })
 }
 
+// 更新文档列表位置
+const updateDocListPosition = () => {
+  nextTick(() => {
+    if (!inputWrapperRef.value || !inputRef.value) return
+    
+    const textarea = inputRef.value.$el?.querySelector('textarea')
+    if (!textarea) return
+
+    const wrapperRect = inputWrapperRef.value.getBoundingClientRect()
+    const textareaRect = textarea.getBoundingClientRect()
+    
+    // 计算/符号的位置，将列表显示在输入框上方
+    docListStyle.value = {
+      bottom: `${wrapperRect.bottom - textareaRect.top + 8}px`,
+      left: '16px',
+      width: '280px',
+      top: 'auto'
+    }
+  })
+}
+
+// 选择文档
+const selectDocument = (doc) => {
+  if (!doc) return
+  
+  const text = question.value
+  const beforeSlash = text.substring(0, slashSymbolIndex.value)
+  const afterCursor = text.substring(getCursorPosition())
+  
+  // 设置选中的文档
+  selectedDocumentId.value = doc.id
+  selectedDocument.value = doc
+  
+  // 如果在非文档对话模式下选择文档，自动切换到文档对话模式
+  if (conversationMode.value !== 'document') {
+    conversationMode.value = 'document'
+    loadAvailableModels()
+    const docName = doc.originalFileName || doc.fileName || doc.name || '未命名文档'
+    ElMessage.success(`已切换到文档对话模式，并选择文档：${docName}`)
+  } else {
+    const docName = doc.originalFileName || doc.fileName || doc.name || '未命名文档'
+    ElMessage.success(`已选择文档：${docName}`)
+  }
+  
+  // 隐藏列表
+  showDocList.value = false
+  slashSymbolIndex.value = -1
+  
+  // 清空输入框中的/文档名称，只保留其他内容
+  question.value = beforeSlash + afterCursor.trim()
+  
+  // 设置光标位置
+  nextTick(() => {
+    if (inputRef.value) {
+      const textarea = inputRef.value.$el?.querySelector('textarea')
+      if (textarea) {
+        const newPos = beforeSlash.length
+        textarea.setSelectionRange(newPos, newPos)
+        textarea.focus()
+      }
+    }
+  })
+  
+  // 更新标签宽度
+  updateMentionWidth()
+}
+
+// 清除知识库选择
+const clearKnowledgeBase = () => {
+  selectedKnowledgeBaseId.value = null
+  selectedKnowledgeBase.value = null
+  selectedKnowledgeBaseName.value = ''
+  
+  // 从输入框中移除@知识库名称
+  const text = question.value
+  const atPattern = /@[^\s@]+\s*/g
+  question.value = text.replace(atPattern, '')
+  
+  ElMessage.success('已清除知识库选择')
+}
+
+// 清除文档选择
+const clearDocument = () => {
+  selectedDocumentId.value = null
+  selectedDocument.value = null
+  
+  // 从输入框中移除/文档名称
+  const text = question.value
+  const slashPattern = /\/[^\s/]+\s*/g
+  question.value = text.replace(slashPattern, '')
+  
+  // 如果当前是文档对话模式，清除后切换回普通对话模式
+  if (conversationMode.value === 'document') {
+    conversationMode.value = 'chat'
+    loadAvailableModels()
+  }
+  
+  // 更新标签宽度
+  updateMentionWidth()
+  
+  ElMessage.success('已清除文档选择')
+}
+
+// 加载文档列表
+const loadDocuments = async () => {
+  try {
+    loadingDocuments.value = true
+    const userInfo = getUserInfo()
+    if (!userInfo) {
+      availableDocuments.value = []
+      return
+    }
+
+    const response = await getDocumentList({
+      page: 1,
+      pageSize: 100
+    })
+    
+    let documents = []
+    if (response && response.content && Array.isArray(response.content)) {
+      documents = response.content
+    } else if (response && response.list && Array.isArray(response.list)) {
+      documents = response.list
+    } else if (Array.isArray(response)) {
+      documents = response
+    } else if (response && response.data) {
+      const data = response.data
+      if (data.content && Array.isArray(data.content)) {
+        documents = data.content
+      } else if (data.list && Array.isArray(data.list)) {
+        documents = data.list
+      } else if (Array.isArray(data)) {
+        documents = data
+      }
+    }
+    
+    availableDocuments.value = documents
+  } catch (error) {
+    console.error('加载文档列表失败', error)
+    availableDocuments.value = []
+  } finally {
+    loadingDocuments.value = false
+  }
+}
+
 // 处理键盘事件
 const handleKeydown = (e) => {
-  if (!showKbList.value || conversationMode.value !== 'rag') return
-
-  if (e.key === 'ArrowDown') {
-    e.preventDefault()
-    selectedKbIndex.value = Math.min(selectedKbIndex.value + 1, filteredKnowledgeBases.value.length - 1)
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault()
-    selectedKbIndex.value = Math.max(selectedKbIndex.value - 1, 0)
-  } else if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) {
-    e.preventDefault()
-    if (filteredKnowledgeBases.value[selectedKbIndex.value]) {
-      selectKnowledgeBase(filteredKnowledgeBases.value[selectedKbIndex.value])
+  // 处理知识库列表
+  if (showKbList.value) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      selectedKbIndex.value = Math.min(selectedKbIndex.value + 1, filteredKnowledgeBases.value.length - 1)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      selectedKbIndex.value = Math.max(selectedKbIndex.value - 1, 0)
+    } else if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) {
+      e.preventDefault()
+      if (filteredKnowledgeBases.value[selectedKbIndex.value]) {
+        selectKnowledgeBase(filteredKnowledgeBases.value[selectedKbIndex.value])
+      }
+    } else if (e.key === 'Escape') {
+      showKbList.value = false
     }
-  } else if (e.key === 'Escape') {
-    showKbList.value = false
+    return
+  }
+  
+  // 处理文档列表
+  if (showDocList.value) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      selectedDocIndex.value = Math.min(selectedDocIndex.value + 1, filteredDocuments.value.length - 1)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      selectedDocIndex.value = Math.max(selectedDocIndex.value - 1, 0)
+    } else if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) {
+      e.preventDefault()
+      if (filteredDocuments.value[selectedDocIndex.value]) {
+        selectDocument(filteredDocuments.value[selectedDocIndex.value])
+      }
+    } else if (e.key === 'Escape') {
+      showDocList.value = false
+    }
   }
 }
 
@@ -544,6 +813,23 @@ const filteredKnowledgeBases = computed(() => {
   return filtered.slice(0, 5) // 最多显示5个
 })
 
+// 过滤后的文档列表（最多5个）
+const filteredDocuments = computed(() => {
+  if (!showDocList.value || slashSymbolIndex.value < 0) return []
+  
+  const searchText = question.value.substring(slashSymbolIndex.value + 1, getCursorPosition()).toLowerCase()
+  let filtered = availableDocuments.value
+  
+  if (searchText) {
+    filtered = availableDocuments.value.filter(doc => {
+      const fileName = doc.originalFileName || doc.fileName || doc.name || ''
+      return fileName.toLowerCase().includes(searchText)
+    })
+  }
+  
+  return filtered.slice(0, 5) // 最多显示5个
+})
+
 // 选择知识库
 const selectKnowledgeBase = (kb) => {
   if (!kb) return
@@ -552,13 +838,22 @@ const selectKnowledgeBase = (kb) => {
   const beforeAt = text.substring(0, atSymbolIndex.value)
   const afterCursor = text.substring(getCursorPosition())
   
-  // 插入知识库名称
-  question.value = beforeAt + '@' + kb.name + ' ' + afterCursor
-  
   // 设置选中的知识库
   selectedKnowledgeBaseId.value = kb.id
   selectedKnowledgeBase.value = kb
   selectedKnowledgeBaseName.value = kb.name
+  
+  // 清空输入框中的@知识库名称，只保留其他内容
+  question.value = beforeAt + afterCursor.trim()
+  
+  // 如果在对话模式下选择知识库，自动切换到知识库问答模式
+  if (conversationMode.value === 'chat') {
+    conversationMode.value = 'rag'
+    loadAvailableModels()
+    ElMessage.success(`已切换到知识库问答模式，并选择知识库：${kb.name}`)
+  } else {
+    ElMessage.success(`已选择知识库：${kb.name}`)
+  }
   
   // 隐藏列表
   showKbList.value = false
@@ -569,7 +864,7 @@ const selectKnowledgeBase = (kb) => {
     if (inputRef.value) {
       const textarea = inputRef.value.$el?.querySelector('textarea')
       if (textarea) {
-        const newPos = beforeAt.length + 1 + kb.name.length + 1
+        const newPos = beforeAt.length
         textarea.setSelectionRange(newPos, newPos)
         textarea.focus()
       }
@@ -587,14 +882,29 @@ const handleModeChange = (mode) => {
     if (!selectedKnowledgeBaseId.value && availableKnowledgeBases.value.length > 0) {
       ElMessage.info('请在输入框中输入@选择知识库')
     }
-  } else {
-    // 切换到普通对话模式时，清除知识库选择
+    // 清除文档选择
+    selectedDocumentId.value = null
+    selectedDocument.value = null
+  } else if (mode === 'document') {
+    // 切换到文档对话模式时，如果没有选择文档，提示用户
+    if (!selectedDocumentId.value && availableDocuments.value.length > 0) {
+      ElMessage.info('请在输入框中输入/选择文档')
+    }
+    // 清除知识库选择
     selectedKnowledgeBaseId.value = null
     selectedKnowledgeBase.value = null
     selectedKnowledgeBaseName.value = ''
     showKbList.value = false
+  } else {
+    // 切换到普通对话模式时，清除知识库和文档选择
+    selectedKnowledgeBaseId.value = null
+    selectedKnowledgeBase.value = null
+    selectedKnowledgeBaseName.value = ''
+    selectedDocumentId.value = null
+    selectedDocument.value = null
+    showKbList.value = false
   }
-  // 重新加载模型列表（因为知识库问答和普通对话使用的模型可能不同）
+  // 重新加载模型列表（因为不同模式使用的模型可能不同）
   loadAvailableModels()
 }
 
@@ -757,8 +1067,24 @@ const handleSend = async () => {
   try {
     const currentConversationId = conversationId.value
     
-    // 如果选择了知识库问答模式且选择了知识库，使用知识库问答API；否则使用普通聊天API
-    if (conversationMode.value === 'rag' && selectedKnowledgeBaseId.value) {
+    // 如果选择了文档，使用文档问答API
+    if (conversationMode.value === 'document' && selectedDocumentId.value) {
+      await handleDocumentStreamResponse(
+        selectedDocumentId.value,
+        userQuestion,
+        currentConversationId,
+        userId,
+        history,
+        aiMessageIndex,
+        selectedModelId.value
+      )
+    } else if (conversationMode.value === 'document' && !selectedDocumentId.value) {
+      ElMessage.warning('请先在输入框中输入/选择文档')
+      // 移除AI回复占位
+      chatHistory.value.pop()
+      sending.value = false
+      return
+    } else if (conversationMode.value === 'rag' && selectedKnowledgeBaseId.value) {
       // 使用知识库问答流式响应
       await handleKnowledgeBaseStreamResponse(
         selectedKnowledgeBaseId.value,
@@ -968,6 +1294,139 @@ const handleKnowledgeBaseStreamResponse = async (kbId, question, requestConversa
     
   } catch (error) {
     console.error('知识库问答流式响应处理失败', error)
+    
+    if (chatHistory.value[aiMessageIndex] && chatHistory.value[aiMessageIndex].content) {
+      chatHistory.value[aiMessageIndex].isLoading = false
+      chatHistory.value[aiMessageIndex].content += '\n\n⚠️ 连接中断，部分内容可能不完整。'
+    } else {
+      if (chatHistory.value[aiMessageIndex]) {
+        chatHistory.value[aiMessageIndex].content = '抱歉，连接已断开，请重试。'
+        chatHistory.value[aiMessageIndex].isLoading = false
+      }
+    }
+    
+    throw error
+  }
+}
+
+// 处理文档问答流式响应
+const handleDocumentStreamResponse = async (docId, question, requestConversationId, userId, history, aiMessageIndex, modelId) => {
+  let response = null
+  
+  let rafId = null
+  let pendingContent = null
+  
+  const scheduleUpdate = (content) => {
+    pendingContent = content
+    
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId)
+    }
+    
+    rafId = requestAnimationFrame(() => {
+      if (chatHistory.value[aiMessageIndex] && pendingContent !== null) {
+        chatHistory.value[aiMessageIndex].content = pendingContent
+        if (chatHistory.value[aiMessageIndex].isLoading) {
+          chatHistory.value[aiMessageIndex].isLoading = false
+        }
+        
+        if (messageListRef.value?.scrollToBottom) {
+          messageListRef.value.scrollToBottom(false)
+        }
+      }
+      rafId = null
+    })
+  }
+  
+  try {
+    response = await documentQAStream(docId, question, requestConversationId, userId, history, modelId)
+    
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '未知错误')
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
+    }
+
+    if (!response.body) {
+      throw new Error('响应体不可用，连接可能已断开')
+    }
+
+    let reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let hasReceivedData = false
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        
+        if (done) {
+          break
+        }
+        
+        hasReceivedData = true
+        buffer += decoder.decode(value, { stream: true })
+        
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        
+        for (const line of lines) {
+          const trimmedLine = line.trim()
+          if (!trimmedLine) continue
+          
+          if (trimmedLine.startsWith('data:')) {
+            const data = trimmedLine.slice(5).trim()
+            if (data === '[DONE]' || data === '') continue
+            
+            try {
+              const json = JSON.parse(data)
+              if (json.answer !== undefined && json.answer !== null && chatHistory.value[aiMessageIndex]) {
+                scheduleUpdate(json.answer)
+              }
+            } catch (e) {
+              console.warn('解析流式数据失败', e, '原始数据:', data)
+            }
+          }
+        }
+      }
+    } finally {
+      if (reader) {
+        try {
+          reader.releaseLock()
+        } catch (e) {
+          console.warn('释放reader失败', e)
+        }
+      }
+    }
+
+    if (buffer.trim()) {
+      const lines = buffer.split('\n')
+      for (const line of lines) {
+        const trimmedLine = line.trim()
+        if (!trimmedLine) continue
+        
+        if (trimmedLine.startsWith('data:')) {
+          const data = trimmedLine.slice(5).trim()
+          if (data === '[DONE]' || data === '') continue
+          
+          try {
+            const json = JSON.parse(data)
+            if (json.answer !== undefined && json.answer !== null && chatHistory.value[aiMessageIndex]) {
+              chatHistory.value[aiMessageIndex].content = json.answer
+              chatHistory.value[aiMessageIndex].isLoading = false
+            }
+          } catch (e) {
+            console.warn('解析流式数据失败', e, '原始数据:', data)
+          }
+        }
+      }
+    }
+
+    if (chatHistory.value[aiMessageIndex] && chatHistory.value[aiMessageIndex].isLoading) {
+      chatHistory.value[aiMessageIndex].isLoading = false
+    }
+    
+  } catch (error) {
+    console.error('文档问答流式响应处理失败', error)
     
     if (chatHistory.value[aiMessageIndex] && chatHistory.value[aiMessageIndex].content) {
       chatHistory.value[aiMessageIndex].isLoading = false
@@ -1426,8 +1885,16 @@ const handleContinueConversation = async () => {
 // 加载可用模型列表
 const loadAvailableModels = async () => {
   try {
-    // 如果是知识库问答模式，加载RAG模型；否则加载普通问答模型
-    const api = conversationMode.value === 'rag' ? getAvailableQAModelsForRAG : getAvailableQAModels
+    // 根据模式选择不同的模型API
+    let api
+    if (conversationMode.value === 'rag') {
+      api = getAvailableQAModelsForRAG
+    } else if (conversationMode.value === 'document') {
+      // 文档对话模式可以使用普通问答模型
+      api = getAvailableQAModels
+    } else {
+      api = getAvailableQAModels
+    }
     const models = await api()
     availableModels.value = models || []
     
@@ -1504,11 +1971,34 @@ const loadKnowledgeBases = async () => {
   }
 }
 
+// 计算标签宽度并更新输入框样式
+const updateMentionWidth = () => {
+  nextTick(() => {
+    if (mentionContainerRef.value && (selectedKnowledgeBase.value || selectedDocument.value)) {
+      // 等待 DOM 更新后再计算宽度
+      setTimeout(() => {
+        if (mentionContainerRef.value) {
+          const width = mentionContainerRef.value.offsetWidth
+          mentionWidth.value = width + 12 // 加上间距和额外空间
+        }
+      }, 0)
+    } else {
+      mentionWidth.value = 0
+    }
+  })
+}
+
+// 监听标签变化，更新宽度
+watch([selectedKnowledgeBase, selectedDocument], () => {
+  updateMentionWidth()
+}, { deep: true })
+
 // 监听知识库选择变化，重新加载模型
 watch(selectedKnowledgeBaseId, () => {
   if (conversationMode.value === 'rag') {
     loadAvailableModels()
   }
+  updateMentionWidth()
 })
 
 // 监听对话模式变化，重新加载模型
@@ -1582,6 +2072,7 @@ onMounted(() => {
   loadKnowledgeBases()
   loadAvailableModels()
   loadRecentConversations()
+  loadDocuments()
   checkContentOverflow()
   // 监听窗口大小变化
   window.addEventListener('resize', handleResize)
@@ -1597,6 +2088,21 @@ onMounted(() => {
       if (chatHistoryContent) {
         resizeObserver.observe(chatHistoryContent)
       }
+    }
+    
+    // 初始化时计算标签宽度
+    updateMentionWidth()
+    
+    // 使用 ResizeObserver 监听标签宽度变化
+    if (mentionContainerRef.value) {
+      const mentionResizeObserver = new ResizeObserver(() => {
+        updateMentionWidth()
+      })
+      mentionResizeObserver.observe(mentionContainerRef.value)
+      
+      onUnmounted(() => {
+        mentionResizeObserver.disconnect()
+      })
     }
   })
 })
@@ -1819,6 +2325,46 @@ onUnmounted(() => {
   max-width: 600px;
   padding: 0 20px;
   font-weight: 400;
+}
+
+.welcome-tips {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.tip-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--el-text-color-secondary, #909399);
+  padding: 6px 12px;
+  background: var(--el-fill-color-lighter, #f5f7fa);
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.tip-item:hover {
+  background: var(--el-color-primary-light-9, #ecf5ff);
+  color: var(--el-color-primary, #409eff);
+}
+
+.tip-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: var(--el-color-primary, #409eff);
+  color: #ffffff;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
 }
 
 /* 确保智能对话视图内容也保持固定高度 */
@@ -2294,6 +2840,11 @@ onUnmounted(() => {
   background: rgba(0, 0, 0, 0.2);
 }
 
+/* 文档列表样式（复用知识库列表样式） */
+.doc-mention-list {
+  /* 使用相同的样式，可以添加特定样式覆盖 */
+}
+
 .portal-input {
   flex: 1;
   border: none;
@@ -2301,6 +2852,7 @@ onUnmounted(() => {
   font-size: 16px;
   line-height: 1.5;
   resize: none;
+  min-width: 0;
 }
 
 .portal-input :deep(.el-textarea__inner) {
@@ -2310,11 +2862,88 @@ onUnmounted(() => {
   font-size: 16px;
   line-height: 1.5;
   resize: none;
+  position: relative;
+  z-index: 1;
 }
 
 .portal-input :deep(.el-textarea__inner):focus {
   border: none;
   box-shadow: none;
+}
+
+/* 输入框容器（标签作为输入内容的一部分，不单独占行或列） */
+.input-container {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 选中的知识库和文档标签（作为输入内容的一部分，浮动在输入框内第一行） */
+.selected-mentions-inline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 0;
+  margin: 0;
+  z-index: 1;
+  pointer-events: none;
+  max-width: calc(100% - 16px);
+  height: 1.5em;
+  line-height: 1.5em;
+}
+
+.selected-mentions-inline .mention-tag-inline {
+  pointer-events: auto;
+}
+
+/* 当有标签时，调整输入框的样式，让文本从标签后开始，但换行后从最左侧开始 */
+.portal-input.has-mentions :deep(.el-textarea__inner) {
+  padding-left: var(--mention-width, 0px) !important;
+  text-indent: 0;
+  padding-top: 0;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.mention-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.mention-tag:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.mention-icon {
+  font-size: 14px;
+}
+
+/* 内联标签样式（作为输入内容的一部分） */
+.mention-tag-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  margin: 0;
+}
+
+.mention-tag-inline:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .input-right-controls {
