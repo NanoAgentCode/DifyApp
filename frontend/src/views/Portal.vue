@@ -151,7 +151,7 @@
             type="textarea"
             :rows="3"
             :autosize="{ minRows: 3, maxRows: 8 }"
-            placeholder="有问题尽管问ima"
+            placeholder="有问题尽管问Nano"
             class="portal-input"
             :class="{ 'has-mentions': selectedKnowledgeBase || selectedDocument }"
             :style="{ '--mention-width': mentionWidth + 'px' }"
