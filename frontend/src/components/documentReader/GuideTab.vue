@@ -280,6 +280,222 @@ watch(() => props.docId, () => {
   flex: 1;
   min-height: 0;
   box-sizing: border-box;
+  font-size: 15px;
+  letter-spacing: 0.3px;
+}
+
+/* Markdown 标题样式 */
+.guide-content :deep(h1) {
+  font-size: 1.75em;
+  font-weight: 600;
+  color: #303133;
+  margin: 24px 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e4e7ed;
+  line-height: 1.5;
+}
+
+.guide-content :deep(h1:first-child) {
+  margin-top: 0;
+}
+
+.guide-content :deep(h2) {
+  font-size: 1.5em;
+  font-weight: 600;
+  color: #409eff;
+  margin: 20px 0 12px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #ecf5ff;
+  line-height: 1.5;
+}
+
+.guide-content :deep(h3) {
+  font-size: 1.25em;
+  font-weight: 600;
+  color: #606266;
+  margin: 16px 0 10px 0;
+  line-height: 1.5;
+}
+
+.guide-content :deep(h4) {
+  font-size: 1.1em;
+  font-weight: 600;
+  color: #606266;
+  margin: 14px 0 8px 0;
+  line-height: 1.5;
+}
+
+/* 段落样式 */
+.guide-content :deep(p) {
+  margin: 12px 0;
+  line-height: 1.8;
+  color: #303133;
+}
+
+/* 列表样式 */
+.guide-content :deep(ul),
+.guide-content :deep(ol) {
+  margin: 12px 0;
+  padding-left: 24px;
+  line-height: 1.8;
+}
+
+.guide-content :deep(li) {
+  margin: 6px 0;
+  line-height: 1.8;
+}
+
+.guide-content :deep(ul li) {
+  list-style-type: disc;
+}
+
+.guide-content :deep(ol li) {
+  list-style-type: decimal;
+}
+
+.guide-content :deep(ul ul),
+.guide-content :deep(ol ol),
+.guide-content :deep(ul ol),
+.guide-content :deep(ol ul) {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+/* 强调样式 */
+.guide-content :deep(strong),
+.guide-content :deep(b) {
+  font-weight: 600;
+  color: #303133;
+}
+
+.guide-content :deep(em),
+.guide-content :deep(i) {
+  font-style: italic;
+  color: #606266;
+}
+
+/* 引用样式 */
+.guide-content :deep(blockquote) {
+  margin: 12px 0;
+  padding: 12px 16px;
+  border-left: 4px solid #409eff;
+  background-color: #f5f7fa;
+  color: #606266;
+  border-radius: 4px;
+  font-style: italic;
+}
+
+.guide-content :deep(blockquote p) {
+  margin: 0;
+}
+
+/* 代码样式 */
+.guide-content :deep(code) {
+  background-color: #f5f7fa;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9em;
+  color: #e6a23c;
+}
+
+.guide-content :deep(pre) {
+  background-color: #f5f7fa;
+  padding: 16px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 12px 0;
+  border: 1px solid #e4e7ed;
+}
+
+.guide-content :deep(pre code) {
+  background-color: transparent;
+  padding: 0;
+  color: #303133;
+  font-size: 0.9em;
+}
+
+/* 分隔线样式 */
+.guide-content :deep(hr) {
+  margin: 20px 0;
+  border: none;
+  border-top: 1px solid #e4e7ed;
+}
+
+/* 链接样式 */
+.guide-content :deep(a) {
+  color: #409eff;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.guide-content :deep(a:hover) {
+  color: #66b1ff;
+  text-decoration: underline;
+}
+
+/* 表格样式 */
+.guide-content :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 0.95em;
+}
+
+.guide-content :deep(th),
+.guide-content :deep(td) {
+  padding: 8px 12px;
+  border: 1px solid #e4e7ed;
+  text-align: left;
+}
+
+.guide-content :deep(th) {
+  background-color: #f5f7fa;
+  font-weight: 600;
+  color: #303133;
+}
+
+.guide-content :deep(tr:nth-child(even)) {
+  background-color: #fafafa;
+}
+
+/* 滚动条样式 */
+.guide-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.guide-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.guide-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.guide-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 截断提示样式优化 */
+.guide-content :deep(hr + blockquote) {
+  margin-top: 16px;
+  border-left-color: #e6a23c;
+  background-color: #fdf6ec;
+  padding: 12px 16px;
+}
+
+.guide-content :deep(hr + blockquote strong) {
+  color: #e6a23c;
+  font-weight: 600;
+}
+
+.guide-content :deep(hr) {
+  margin: 20px 0;
+  border: none;
+  border-top: 1px solid #e4e7ed;
+  opacity: 0.6;
 }
 
 .loading-state {

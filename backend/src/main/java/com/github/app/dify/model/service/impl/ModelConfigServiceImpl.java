@@ -197,16 +197,28 @@ public class ModelConfigServiceImpl implements ModelConfigService {
                 apiUrl = apiUrl.substring(0, apiUrl.length() - 1);
             }
             
-            // 根据提供商类型发送测试请求
-            if ("openai".equalsIgnoreCase(request.getProvider()) || "vllm".equalsIgnoreCase(request.getProvider())) {
-                // OpenAI 兼容 API 测试
-                testOpenAICompatibleConnection(apiUrl, request.getApiKey(), request.getModel());
-            } else if ("ollama".equalsIgnoreCase(request.getProvider())) {
-                // Ollama API 测试
-                testOllamaConnection(apiUrl, request.getModel());
+            // 根据模型类型和提供商类型发送测试请求
+            if ("embedding".equalsIgnoreCase(request.getType())) {
+                // Embedding 模型测试
+                if ("openai".equalsIgnoreCase(request.getProvider()) || "vllm".equalsIgnoreCase(request.getProvider())) {
+                    // OpenAI 兼容 API 测试（使用 embeddings 端点）
+                    testOpenAIEmbeddingConnection(apiUrl, request.getApiKey(), request.getModel());
+                } else {
+                    // 默认尝试 OpenAI 兼容 API
+                    testOpenAIEmbeddingConnection(apiUrl, request.getApiKey(), request.getModel());
+                }
             } else {
-                // 默认尝试 OpenAI 兼容 API
-                testOpenAICompatibleConnection(apiUrl, request.getApiKey(), request.getModel());
+                // QA 模型测试
+                if ("openai".equalsIgnoreCase(request.getProvider()) || "vllm".equalsIgnoreCase(request.getProvider())) {
+                    // OpenAI 兼容 API 测试（使用 chat/completions 端点）
+                    testOpenAICompatibleConnection(apiUrl, request.getApiKey(), request.getModel());
+                } else if ("ollama".equalsIgnoreCase(request.getProvider())) {
+                    // Ollama API 测试
+                    testOllamaConnection(apiUrl, request.getModel());
+                } else {
+                    // 默认尝试 OpenAI 兼容 API
+                    testOpenAICompatibleConnection(apiUrl, request.getApiKey(), request.getModel());
+                }
             }
             
             logger.info("模型连接测试成功 - type={}, provider={}, apiUrl={}, model={}", 
@@ -619,7 +631,72 @@ public class ModelConfigServiceImpl implements ModelConfigService {
     }
     
     /**
-     * 测试 OpenAI 兼容 API 连接
+     * 测试 OpenAI 兼容 Embedding API 连接
+     */
+    private void testOpenAIEmbeddingConnection(String apiUrl, String apiKey, String model) {
+        // 处理完整 URL（包含路径）的情况
+        String baseUrl;
+        String path;
+        
+        if (apiUrl.contains("/v1/embeddings")) {
+            // 如果 URL 已经包含完整路径，分离基础 URL 和路径
+            int pathIndex = apiUrl.indexOf("/v1/");
+            baseUrl = apiUrl.substring(0, pathIndex);
+            path = apiUrl.substring(pathIndex);
+        } else if (apiUrl.contains("/api/") || apiUrl.contains("/v1/")) {
+            // 如果包含其他路径，尝试提取基础 URL
+            int pathIndex = Math.max(apiUrl.indexOf("/api/"), apiUrl.indexOf("/v1/"));
+            baseUrl = apiUrl.substring(0, pathIndex);
+            path = "/v1/embeddings"; // 使用 embeddings 端点
+        } else {
+            // 基础 URL，需要添加路径
+            baseUrl = apiUrl;
+            path = "/v1/embeddings";
+        }
+        
+        WebClient webClient = WebClient.builder()
+                .baseUrl(baseUrl)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build();
+        
+        // 构建 embedding 请求体
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("model", model);
+        requestBody.put("input", "test"); // 测试用的输入文本
+        
+        WebClient.RequestBodySpec requestSpec = webClient.post()
+                .uri(path);
+        
+        if (apiKey != null && !apiKey.trim().isEmpty()) {
+            requestSpec.header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey.trim());
+        }
+        
+        try {
+            String response = requestSpec
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofSeconds(10))
+                    .block();
+            
+            // 验证响应是否有效
+            if (response == null || response.trim().isEmpty()) {
+                throw new RuntimeException("API返回空响应");
+            }
+            
+            logger.debug("测试 embedding 连接成功，响应: {}", response.length() > 200 ? response.substring(0, 200) + "..." : response);
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+            // 获取更详细的错误信息
+            String errorBody = e.getResponseBodyAsString();
+            String errorMessage = extractErrorMessage(errorBody, e.getStatusCode());
+            
+            logger.error("Embedding API返回错误响应，状态码: {}, 错误消息: {}", e.getStatusCode(), errorMessage);
+            throw new RuntimeException(errorMessage, e);
+        }
+    }
+    
+    /**
+     * 测试 OpenAI 兼容 API 连接（用于 QA 模型）
      */
     private void testOpenAICompatibleConnection(String apiUrl, String apiKey, String model) {
         // 处理完整 URL（包含路径）的情况

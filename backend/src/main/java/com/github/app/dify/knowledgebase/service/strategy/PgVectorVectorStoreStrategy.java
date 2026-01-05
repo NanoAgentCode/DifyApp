@@ -36,6 +36,9 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
     @Autowired(required = false)
     private com.github.app.dify.knowledgebase.repository.KnowledgeBaseRepository knowledgeBaseRepository;
     
+    @Autowired(required = false)
+    private com.github.app.dify.documentreader.repository.DocumentReaderRepository documentReaderRepository;
+    
     // 为每个知识库缓存数据库连接
     private final Map<Long, Connection> connectionCache = new ConcurrentHashMap<>();
     private final Map<Long, String> lastUrlCache = new ConcurrentHashMap<>();
@@ -371,20 +374,48 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
                 }
             } else {
                 // 检查向量维度是否匹配
+                // 使用更准确的方法：直接从表定义中提取维度信息
                 try (Statement stmt = conn.createStatement();
                      ResultSet rs = stmt.executeQuery(
                          String.format(
-                             "SELECT atttypmod FROM pg_attribute " +
-                             "WHERE attrelid = '%s'::regclass AND attname = 'embedding'",
+                             "SELECT pg_catalog.format_type(a.atttypid, a.atttypmod) as type_name " +
+                             "FROM pg_catalog.pg_attribute a " +
+                             "JOIN pg_catalog.pg_class c ON a.attrelid = c.oid " +
+                             "WHERE c.relname = '%s' AND a.attname = 'embedding' AND a.attnum > 0",
                              tableName))) {
                     
                     if (rs.next()) {
-                        int atttypmod = rs.getInt(1);
-                        // pgvector的维度计算：atttypmod - 4 或使用更准确的方法
-                        // 如果atttypmod为-1（未指定），尝试从实际数据中获取维度
-                        int existingSize;
-                        if (atttypmod == -1) {
-                            // 如果atttypmod为-1，尝试从表中实际数据获取维度
+                        String typeName = rs.getString("type_name");
+                        // 从类型名称中提取维度，例如 "vector(4096)" -> 4096
+                        int existingSize = -1;
+                        if (typeName != null && typeName.startsWith("vector(")) {
+                            try {
+                                String dimStr = typeName.substring(7, typeName.length() - 1);
+                                existingSize = Integer.parseInt(dimStr);
+                            } catch (NumberFormatException e) {
+                                logger.warn("无法从类型名称中提取维度: {}", typeName);
+                            }
+                        }
+                        
+                        // 如果无法从类型名称提取，尝试使用atttypmod方法（备用）
+                        if (existingSize == -1) {
+                            try (Statement attStmt = conn.createStatement();
+                                 ResultSet attRs = attStmt.executeQuery(
+                                     String.format(
+                                         "SELECT atttypmod FROM pg_attribute " +
+                                         "WHERE attrelid = '%s'::regclass AND attname = 'embedding'",
+                                         tableName))) {
+                                if (attRs.next()) {
+                                    int atttypmod = attRs.getInt(1);
+                                    if (atttypmod != -1) {
+                                        existingSize = atttypmod - 4;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 如果仍然无法获取维度，尝试从实际数据中获取
+                        if (existingSize == -1) {
                             try (Statement dimStmt = conn.createStatement();
                                  ResultSet dimRs = dimStmt.executeQuery(
                                      String.format(
@@ -392,14 +423,15 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
                                          tableName))) {
                                 if (dimRs.next()) {
                                     existingSize = dimRs.getInt(1);
-                                } else {
-                                    // 表中没有数据，使用传入的维度
-                                    existingSize = vectorSize;
                                 }
                             }
-                        } else {
-                            // pgvector存储维度：atttypmod - 4
-                            existingSize = atttypmod - 4;
+                        }
+                        
+                        // 如果仍然无法获取维度，假设维度匹配（避免不必要的删除）
+                        if (existingSize == -1) {
+                            logger.debug("无法确定表的向量维度，假设维度匹配 - 知识库ID: {}, 表名: {}, 期望维度: {}", 
+                                    knowledgeBaseId, tableName, vectorSize);
+                            return;
                         }
                         
                         if (existingSize != vectorSize) {
@@ -423,6 +455,8 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
                                     dropStmt.execute(String.format("DROP TABLE IF EXISTS %s CASCADE", tableName));
                                     conn.commit();
                                     logger.info("已删除旧表，将重新创建 - 知识库ID: {}, 表名: {}", knowledgeBaseId, tableName);
+                                    // 清除连接缓存，确保下次查询时获取最新的表信息
+                                    connectionCache.remove(knowledgeBaseId);
                                     // 重新创建表（递归调用ensureCollection）
                                     ensureCollection(knowledgeBaseId, vectorSize);
                                     return;
@@ -505,30 +539,21 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
             }
             
             // 对于文档解读（knowledgeBaseId=0），获取userId
-            // 注意：document_reader表在主数据库中，可能不在pgvector数据库中
-            // 如果无法查询，userId将为null，但不影响功能（user_id字段为可选）
+            // document_reader表在主数据库中，通过Repository从主数据库查询
             Long userId = null;
-            if (knowledgeBaseId != null && knowledgeBaseId == 0L) {
+            if (knowledgeBaseId != null && knowledgeBaseId == 0L && documentReaderRepository != null) {
                 try {
-                    // 尝试从pgvector数据库查询document_reader表（如果存在）
-                    // 如果表不存在，说明document_reader在主数据库，此时userId为null
-                    // 注意：PostgreSQL表名大小写敏感，使用双引号或小写
-                    try (Statement stmt = conn.createStatement();
-                         ResultSet rs = stmt.executeQuery(
-                             "SELECT user_id FROM \"DOCUMENT_READER\" WHERE id = " + documentId + " AND deleted = 0 LIMIT 1")) {
-                        if (rs.next()) {
-                            userId = rs.getLong("user_id");
-                            if (rs.wasNull()) {
-                                userId = null;
-                            }
-                            logger.debug("从pgvector数据库获取文档用户ID成功 - 文档ID: {}, 用户ID: {}", documentId, userId);
-                        }
+                    // 从主数据库查询document_reader表获取user_id
+                    java.util.Optional<com.github.app.dify.documentreader.domain.DocumentReader> doc = 
+                            documentReaderRepository.findByIdAndDeleted(documentId, 0);
+                    if (doc.isPresent()) {
+                        userId = doc.get().getUserId();
+                        logger.debug("从主数据库获取文档用户ID成功 - 文档ID: {}, 用户ID: {}", documentId, userId);
+                    } else {
+                        logger.debug("文档不存在或已删除，user_id将不设置 - 文档ID: {}", documentId);
                     }
-                } catch (SQLException e) {
-                    // 如果表不存在或查询失败，说明document_reader在主数据库中
-                    // 这是正常情况，userId保持为null
-                    logger.debug("无法从pgvector数据库查询document_reader表（可能表在主数据库中），user_id将不设置 - 文档ID: {}", documentId);
                 } catch (Exception e) {
+                    // 如果查询失败，userId保持为null，不影响功能（user_id字段为可选）
                     logger.warn("获取文档用户ID失败，将不设置user_id字段 - 文档ID: {}", documentId, e);
                 }
             }
@@ -590,16 +615,51 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
                     insertStmt.addBatch();
                 }
                 
-                insertStmt.executeBatch();
+                int[] results = insertStmt.executeBatch();
                 conn.commit();
+                
+                // 检查是否有失败的批次
+                for (int i = 0; i < results.length; i++) {
+                    if (results[i] == Statement.EXECUTE_FAILED) {
+                        String errorText = i < texts.size() ? texts.get(i) : "";
+                        String errorTextPreview = errorText.length() > 200 ? errorText.substring(0, 200) + "..." : errorText;
+                        logger.error("批量插入PgVector向量失败 - 知识库ID: {}, 文档ID: {}, 批次索引: {}, 文本预览: {}", 
+                                knowledgeBaseId, documentId, i, errorTextPreview);
+                        throw new RuntimeException(String.format(
+                            "批量插入PgVector向量失败 - 批次索引: %d, 文本长度: %d, 文本预览: %s", 
+                            i, errorText.length(), errorTextPreview));
+                    }
+                }
                 
                 logger.debug("批量插入PgVector向量成功 - 知识库ID: {}, 文档ID: {}, 向量数量: {}", 
                         knowledgeBaseId, documentId, vectors.size());
             }
         } catch (SQLException e) {
-            logger.error("批量插入PgVector向量失败 - 知识库ID: {}, 文档ID: {}", 
-                    knowledgeBaseId, documentId, e);
-            throw new RuntimeException("批量插入PgVector向量失败: " + e.getMessage(), e);
+            // 获取更详细的错误信息
+            String errorMessage = e.getMessage();
+            String sqlState = e.getSQLState();
+            
+            // 尝试获取失败的批次信息
+            if (e instanceof java.sql.BatchUpdateException) {
+                java.sql.BatchUpdateException batchEx = (java.sql.BatchUpdateException) e;
+                int[] updateCounts = batchEx.getUpdateCounts();
+                for (int i = 0; i < updateCounts.length; i++) {
+                    if (updateCounts[i] == Statement.EXECUTE_FAILED) {
+                        String errorText = i < texts.size() ? texts.get(i) : "";
+                        String errorTextPreview = errorText.length() > 200 ? errorText.substring(0, 200) + "..." : errorText;
+                        logger.error("批量插入PgVector向量失败 - 知识库ID: {}, 文档ID: {}, 批次索引: {}, SQL状态: {}, 文本预览: {}", 
+                                knowledgeBaseId, documentId, i, sqlState, errorTextPreview);
+                        errorMessage = String.format(
+                            "批量插入PgVector向量失败 - 批次索引: %d, SQL状态: %s, 错误: %s, 文本长度: %d, 文本预览: %s", 
+                            i, sqlState, e.getMessage(), errorText.length(), errorTextPreview);
+                        break;
+                    }
+                }
+            }
+            
+            logger.error("批量插入PgVector向量失败 - 知识库ID: {}, 文档ID: {}, SQL状态: {}, 错误: {}", 
+                    knowledgeBaseId, documentId, sqlState, errorMessage, e);
+            throw new RuntimeException("批量插入PgVector向量失败: " + errorMessage, e);
         }
     }
     

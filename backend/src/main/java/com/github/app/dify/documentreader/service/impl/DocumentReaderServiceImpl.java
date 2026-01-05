@@ -68,7 +68,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     
     // 常量定义
     private static final long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
-    private static final int MAX_GUIDE_WORDS = 500;
+    private static final int MAX_GUIDE_WORDS = 1500; // 导读字数上限：800-1500字
     private static final int MAX_TEXT_LENGTH_FOR_GUIDE = 8000;
     private static final int MAX_TEXT_LENGTH_FOR_MINDMAP = 12000;
     private static final int MAX_TEXT_LENGTH_FOR_MINDMAP_FINAL = 15000;
@@ -388,8 +388,12 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             // 读取文档内容（尝试提取文本）
             String documentText = extractDocumentText(document);
             
+            // 判断文档长度，用于调整提示词
+            int documentLength = documentText != null ? documentText.length() : 0;
+            boolean isLongDocument = documentLength > 5000; // 超过5000字符视为长文档
+            
             // 构建提示词
-            String prompt = buildGuidePrompt(document.getOriginalFileName(), documentText);
+            String prompt = buildGuidePrompt(document.getOriginalFileName(), documentText, isLongDocument);
             
             // 使用通用的 LLM API 生成导读（支持 OpenAI、Ollama、vLLM 等）
             ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
@@ -408,7 +412,8 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             
             guideContent = guideContent.trim();
             
-            guideContent = truncateToMaxWords(guideContent, MAX_GUIDE_WORDS);
+            // 不再强制截断，由大模型根据提示词要求自行控制字数（800-1500字）
+            // guideContent = truncateToMaxWordsSafely(guideContent, MAX_GUIDE_WORDS);
             
             // 保存生成的导读
             saveDocumentGuide(documentId, userId, guideContent);
@@ -480,30 +485,50 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     /**
      * 构建导读生成提示词
      */
-    private String buildGuidePrompt(String fileName, String documentText) {
+    private String buildGuidePrompt(String fileName, String documentText, boolean isLongDocument) {
         String truncatedText = truncateText(documentText, MAX_TEXT_LENGTH_FOR_GUIDE);
         
+        // 根据文档长度调整展开程度
+        String expandInstruction = isLongDocument 
+            ? "文档内容较多，请高度概括，不要展开详细内容，只列出主要标题和核心要点"
+            : "文档内容较少，可以适当展开，但保持简洁，避免冗余";
+        
         return String.format(
-            "请为以下文档生成一份简洁、概括性的导读。要求：\n" +
-            "1. 字数严格控制在500字以内（中文字符计数）\n" +
-            "2. 内容要高度概括，突出核心要点，避免冗余描述\n" +
-            "3. 导读应包括：\n" +
+            "请为以下文档生成一份高度概括的导读。要求：\n" +
+            "1. **字数限制**：控制在800-1500字之间（中文字符计数），但必须保证导读部分完整\n" +
+            "2. **内容要求**：高度概括，避免冗余，只包含核心信息\n" +
+            "3. **导读应包括以下完整部分**（每个部分都要有，但内容要简洁）：\n" +
             "   - 文档的核心主题和主要内容概述（1-2句话）\n" +
             "   - 文档的关键要点和重要信息（3-5个要点，用列表形式）\n" +
-            "   - 文档的主要结构或章节（简要说明，1-2句话）\n" +
+            "   - 文档的主要结构或章节（简要说明主要标题和内容）\n" +
             "   - 适合的读者群体（1句话）\n" +
-            "4. 使用简洁明了的语言，直接说明要点，不要展开详细描述\n" +
-            "5. 使用Markdown格式，但保持简洁\n" +
-            "6. 重点突出文档的核心价值和关键信息\n" +
-            "7. **重要格式要求**：\n" +
-            "   - 不要使用标题格式（#、##、###等）\n" +
-            "   - 标题必须使用编号格式：**1. 标题内容**、**2. 标题内容**、**3. 标题内容**等\n" +
-            "   - 每个主要部分都要有编号（1、2、3、4、5等），并使用**加粗**格式突出显示\n" +
-            "   - 标题下的内容可以使用列表（-、*）来组织\n" +
-            "   - 保持整体格式简洁统一，编号要连续\n\n" +
+            "4. **展开程度**：%s\n" +
+            "5. **内容范围**：\n" +
+            "   - 主要关注文档的标题结构和主要内容\n" +
+            "   - **不包含**：数学公式、代码示例、详细的技术细节\n" +
+            "   - **只包含**：文档的主要标题、章节结构、核心观点和关键信息\n" +
+            "6. **语言要求**：使用简洁明了的语言，直接说明要点，不要展开详细描述\n" +
+            "7. **格式要求**：\n" +
+            "   - 使用标准的Markdown标题格式（#、##、###），确保层次清晰\n" +
+            "   - 一级标题（#）用于主要部分，二级标题（##）用于子部分\n" +
+            "   - 使用列表（-、*）来组织要点，支持嵌套列表\n" +
+            "   - 重要内容使用**加粗**或*斜体*来强调\n" +
+            "   - 可以使用引用（>）来突出关键信息\n" +
+            "   - 保持整体格式统一，层次分明\n" +
+            "   - 段落之间使用空行分隔，提高可读性\n" +
+            "8. **Markdown渲染优化要求**：\n" +
+            "   - 确保所有Markdown语法正确，避免渲染错误\n" +
+            "   - 列表项前使用统一的符号（- 或 *），保持一致性\n" +
+            "   - 标题前后留空行，确保正确渲染\n" +
+            "   - 避免使用特殊字符，确保兼容性\n" +
+            "9. **完整性要求**：\n" +
+            "   - 确保导读的所有部分都完整（核心主题、关键要点、主要结构、读者群体）\n" +
+            "   - 如果字数接近限制，优先保证结构完整，每个部分都要有\n" +
+            "   - 在保证完整性的前提下，控制总字数在800-1500字之间\n\n" +
             "文档名称：%s\n\n" +
             "文档内容：\n%s\n\n" +
-            "请生成一份简洁、概括性的导读，字数严格控制在500字以内。",
+            "请生成一份高度概括、结构完整的导读，字数控制在800-1500字之间，使用标准Markdown格式确保良好的渲染效果。",
+            expandInstruction,
             fileName,
             truncatedText
         );
@@ -547,12 +572,12 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     }
     
     /**
-     * 截断文本到指定字数（中文字符计数）
+     * 安全截断文本到指定字数（中文字符计数），确保在完整部分之后截断
      * @param text 原始文本
      * @param maxWords 最大字数
      * @return 截断后的文本
      */
-    private String truncateToMaxWords(String text, int maxWords) {
+    private String truncateToMaxWordsSafely(String text, int maxWords) {
         if (text == null || text.isEmpty()) {
             return text;
         }
@@ -583,26 +608,89 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             }
         }
         
-        if (lastValidIndex < text.length()) {
-            // 尝试在句号、问号、感叹号等标点处截断
-            int lastPunctuation = -1;
-            for (int i = lastValidIndex - 1; i >= Math.max(0, lastValidIndex - 50); i--) {
-                char c = text.charAt(i);
-                if (c == '。' || c == '！' || c == '？' || c == '\n' || 
-                    c == '.' || c == '!' || c == '?') {
-                    lastPunctuation = i + 1;
+        // 如果内容未超过限制，直接返回
+        if (lastValidIndex >= text.length()) {
+            return text;
+        }
+        
+        // 尝试在完整部分之后截断（优先在标题、段落、列表项之后）
+        int bestCutPoint = lastValidIndex;
+        
+        // 1. 优先在标题之后截断（查找最后一个 # 开头的行）
+        int lastHeadingEnd = -1;
+        for (int i = lastValidIndex - 1; i >= Math.max(0, lastValidIndex - 200); i--) {
+            if (text.charAt(i) == '\n') {
+                // 检查是否是标题行
+                int lineStart = i + 1;
+                if (lineStart < text.length() && text.charAt(lineStart) == '#') {
+                    // 找到标题行，查找标题结束位置（下一个换行或文本结束）
+                    for (int j = lineStart + 1; j < text.length() && j < lastValidIndex + 100; j++) {
+                        if (text.charAt(j) == '\n') {
+                            lastHeadingEnd = j;
+                            break;
+                        }
+                    }
+                    if (lastHeadingEnd == -1 && lineStart + 50 < text.length()) {
+                        lastHeadingEnd = Math.min(lineStart + 50, text.length());
+                    }
                     break;
                 }
             }
-            
-            if (lastPunctuation > 0) {
-                return text.substring(0, lastPunctuation) + "\n\n[导读内容已截断至500字]";
-            } else {
-                return text.substring(0, lastValidIndex) + "...\n\n[导读内容已截断至500字]";
+        }
+        
+        // 2. 其次在列表项之后截断
+        if (lastHeadingEnd == -1) {
+            for (int i = lastValidIndex - 1; i >= Math.max(0, lastValidIndex - 100); i--) {
+                if (text.charAt(i) == '\n' && i + 1 < text.length()) {
+                    char nextChar = text.charAt(i + 1);
+                    if (nextChar == '-' || nextChar == '*' || nextChar == '+' || 
+                        (nextChar >= '0' && nextChar <= '9')) {
+                        // 找到列表项结束，查找下一个换行
+                        for (int j = i + 1; j < text.length() && j < lastValidIndex + 50; j++) {
+                            if (text.charAt(j) == '\n') {
+                                lastHeadingEnd = j;
+                                break;
+                            }
+                        }
+                        if (lastHeadingEnd == -1) {
+                            lastHeadingEnd = Math.min(i + 100, text.length());
+                        }
+                        break;
+                    }
+                }
             }
         }
         
-        return text;
+        // 3. 再次在段落结束（句号、问号、感叹号）之后截断
+        if (lastHeadingEnd == -1) {
+            for (int i = lastValidIndex - 1; i >= Math.max(0, lastValidIndex - 50); i--) {
+                char c = text.charAt(i);
+                if (c == '。' || c == '！' || c == '？' || 
+                    c == '.' || c == '!' || c == '?') {
+                    lastHeadingEnd = i + 1;
+                    break;
+                }
+            }
+        }
+        
+        // 4. 如果都没找到，在换行处截断
+        if (lastHeadingEnd == -1) {
+            for (int i = lastValidIndex - 1; i >= Math.max(0, lastValidIndex - 20); i--) {
+                if (text.charAt(i) == '\n') {
+                    lastHeadingEnd = i + 1;
+                    break;
+                }
+            }
+        }
+        
+        // 使用最佳截断点
+        if (lastHeadingEnd > 0 && lastHeadingEnd <= lastValidIndex + 50) {
+            bestCutPoint = lastHeadingEnd;
+        } else {
+            bestCutPoint = lastValidIndex;
+        }
+        
+        return text.substring(0, bestCutPoint).trim() + "\n\n---\n\n> **提示**：导读内容已截断至1500字以内，如需查看完整内容，请阅读原文档。";
     }
     
     /**
