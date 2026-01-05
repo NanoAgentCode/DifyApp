@@ -138,6 +138,14 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         
         knowledgeBase = knowledgeBaseRepository.save(knowledgeBase);
         
+        // 检查知识库ID是否为0，0保留给文档解读使用
+        if (knowledgeBase.getId() != null && knowledgeBase.getId() == 0L) {
+            logger.error("知识库ID为0，与文档解读冲突 - 知识库名称: {}", knowledgeBase.getName());
+            // 删除刚创建的知识库
+            knowledgeBaseRepository.delete(knowledgeBase);
+            throw new RuntimeException("知识库创建失败：ID为0，0保留给文档解读使用。请检查数据库序列配置。");
+        }
+        
         logger.info("知识库创建成功 - ID: {}", knowledgeBase.getId());
         
         return convertToResp(knowledgeBase);
@@ -146,6 +154,11 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     @Override
     @Transactional
     public KnowledgeBaseResp updateKnowledgeBase(Long id, UpdateKnowledgeBaseReq req) {
+        // 检查知识库ID是否为0，0保留给文档解读使用
+        if (id != null && id == 0L) {
+            throw new IllegalArgumentException("知识库ID不能为0，0保留给文档解读使用");
+        }
+        
         Optional<KnowledgeBase> optional = knowledgeBaseRepository.findById(id);
         if (!optional.isPresent()) {
             throw new RuntimeException("知识库不存在: " + id);

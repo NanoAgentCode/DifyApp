@@ -238,15 +238,32 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
             
             if (!tableExists) {
                 // 创建表
-                String createTableSql = String.format(
-                    "CREATE TABLE IF NOT EXISTS %s (" +
-                    "id BIGSERIAL PRIMARY KEY, " +
-                    "document_id BIGINT NOT NULL, " +
-                    "chunk_index INTEGER NOT NULL, " +
-                    "text TEXT NOT NULL, " +
-                    "embedding vector(%d) NOT NULL, " +
-                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
-                    ")", tableName, vectorSize);
+                // 对于文档解读（knowledgeBaseId=0），添加user_id字段以支持用户隔离
+                String createTableSql;
+                if (knowledgeBaseId != null && knowledgeBaseId == 0L) {
+                    // 文档解读表：包含user_id字段
+                    createTableSql = String.format(
+                        "CREATE TABLE IF NOT EXISTS %s (" +
+                        "id BIGSERIAL PRIMARY KEY, " +
+                        "document_id BIGINT NOT NULL, " +
+                        "user_id BIGINT, " +
+                        "chunk_index INTEGER NOT NULL, " +
+                        "text TEXT NOT NULL, " +
+                        "embedding vector(%d) NOT NULL, " +
+                        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                        ")", tableName, vectorSize);
+                } else {
+                    // 知识库表：不包含user_id字段
+                    createTableSql = String.format(
+                        "CREATE TABLE IF NOT EXISTS %s (" +
+                        "id BIGSERIAL PRIMARY KEY, " +
+                        "document_id BIGINT NOT NULL, " +
+                        "chunk_index INTEGER NOT NULL, " +
+                        "text TEXT NOT NULL, " +
+                        "embedding vector(%d) NOT NULL, " +
+                        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                        ")", tableName, vectorSize);
+                }
                 
                 try (Statement stmt = conn.createStatement()) {
                     stmt.execute(createTableSql);
@@ -311,6 +328,33 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
                 String createDocIndexSql = String.format(
                     "CREATE INDEX IF NOT EXISTS %s_document_id_idx ON %s (document_id)",
                     tableName, tableName);
+                
+                // 对于文档解读（knowledgeBaseId=0），创建user_id索引
+                if (knowledgeBaseId != null && knowledgeBaseId == 0L) {
+                    try (Statement stmt = conn.createStatement()) {
+                        // 检查表是否有user_id字段
+                        boolean hasUserIdColumn = false;
+                        try (Statement checkStmt = conn.createStatement();
+                             ResultSet rs = checkStmt.executeQuery(
+                                 "SELECT column_name FROM information_schema.columns " +
+                                 "WHERE table_name = '" + tableName + "' AND column_name = 'user_id'")) {
+                            hasUserIdColumn = rs.next();
+                        }
+                        
+                        if (hasUserIdColumn) {
+                            String createUserIdIndexSql = String.format(
+                                "CREATE INDEX IF NOT EXISTS %s_user_id_idx ON %s (user_id)",
+                                tableName, tableName);
+                            stmt.execute(createUserIdIndexSql);
+                            conn.commit();
+                            logger.debug("创建PgVector user_id索引成功 - 知识库ID: {}, 表名: {}", 
+                                    knowledgeBaseId, tableName);
+                        }
+                    } catch (SQLException e) {
+                        logger.warn("创建user_id索引失败 - 知识库ID: {}, 表名: {}, 错误: {}", 
+                                knowledgeBaseId, tableName, e.getMessage());
+                    }
+                }
                 
                 try (Statement stmt = conn.createStatement()) {
                     stmt.execute(createDocIndexSql);
@@ -460,10 +504,64 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
                 }
             }
             
+            // 对于文档解读（knowledgeBaseId=0），获取userId
+            // 注意：document_reader表在主数据库中，可能不在pgvector数据库中
+            // 如果无法查询，userId将为null，但不影响功能（user_id字段为可选）
+            Long userId = null;
+            if (knowledgeBaseId != null && knowledgeBaseId == 0L) {
+                try {
+                    // 尝试从pgvector数据库查询document_reader表（如果存在）
+                    // 如果表不存在，说明document_reader在主数据库，此时userId为null
+                    // 注意：PostgreSQL表名大小写敏感，使用双引号或小写
+                    try (Statement stmt = conn.createStatement();
+                         ResultSet rs = stmt.executeQuery(
+                             "SELECT user_id FROM \"DOCUMENT_READER\" WHERE id = " + documentId + " AND deleted = 0 LIMIT 1")) {
+                        if (rs.next()) {
+                            userId = rs.getLong("user_id");
+                            if (rs.wasNull()) {
+                                userId = null;
+                            }
+                            logger.debug("从pgvector数据库获取文档用户ID成功 - 文档ID: {}, 用户ID: {}", documentId, userId);
+                        }
+                    }
+                } catch (SQLException e) {
+                    // 如果表不存在或查询失败，说明document_reader在主数据库中
+                    // 这是正常情况，userId保持为null
+                    logger.debug("无法从pgvector数据库查询document_reader表（可能表在主数据库中），user_id将不设置 - 文档ID: {}", documentId);
+                } catch (Exception e) {
+                    logger.warn("获取文档用户ID失败，将不设置user_id字段 - 文档ID: {}", documentId, e);
+                }
+            }
+            
             // 批量插入新向量
-            String insertSql = String.format(
-                "INSERT INTO %s (document_id, chunk_index, text, embedding) VALUES (?, ?, ?, ?::vector)",
-                tableName);
+            // 对于文档解读（knowledgeBaseId=0），如果表有user_id字段，则包含user_id
+            String insertSql;
+            boolean hasUserIdColumn = false;
+            if (knowledgeBaseId != null && knowledgeBaseId == 0L) {
+                // 检查表是否有user_id字段
+                try (Statement checkStmt = conn.createStatement();
+                     ResultSet rs = checkStmt.executeQuery(
+                         "SELECT column_name FROM information_schema.columns " +
+                         "WHERE table_name = '" + tableName + "' AND column_name = 'user_id'")) {
+                    hasUserIdColumn = rs.next();
+                } catch (SQLException e) {
+                    logger.debug("检查user_id字段失败，假设不存在 - 表名: {}", tableName, e);
+                }
+                
+                if (hasUserIdColumn && userId != null) {
+                    insertSql = String.format(
+                        "INSERT INTO %s (document_id, user_id, chunk_index, text, embedding) VALUES (?, ?, ?, ?, ?::vector)",
+                        tableName);
+                } else {
+                    insertSql = String.format(
+                        "INSERT INTO %s (document_id, chunk_index, text, embedding) VALUES (?, ?, ?, ?::vector)",
+                        tableName);
+                }
+            } else {
+                insertSql = String.format(
+                    "INSERT INTO %s (document_id, chunk_index, text, embedding) VALUES (?, ?, ?, ?::vector)",
+                    tableName);
+            }
             
             try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
                 for (int i = 0; i < vectors.size(); i++) {
@@ -481,10 +579,14 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
                     }
                     vectorStr.append("]");
                     
-                    insertStmt.setLong(1, documentId);
-                    insertStmt.setInt(2, chunkIndex);
-                    insertStmt.setString(3, text);
-                    insertStmt.setString(4, vectorStr.toString());
+                    int paramIndex = 1;
+                    insertStmt.setLong(paramIndex++, documentId);
+                    if (hasUserIdColumn && userId != null) {
+                        insertStmt.setLong(paramIndex++, userId);
+                    }
+                    insertStmt.setInt(paramIndex++, chunkIndex);
+                    insertStmt.setString(paramIndex++, text);
+                    insertStmt.setString(paramIndex, vectorStr.toString());
                     insertStmt.addBatch();
                 }
                 
