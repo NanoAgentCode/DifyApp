@@ -816,7 +816,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     }
     
     /**
-     * 翻译指定分段（懒加载）
+     * 翻译指定分段（懒加载）- 优化版本
      */
     @Override
     public String translateDocumentSegment(Long documentId, Long userId, String targetLang, int segmentIndex) {
@@ -825,43 +825,42 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         logger.info("开始翻译指定分段 - 文档ID: {}, 目标语言: {}, 段索引: {}", documentId, targetLang, segmentIndex);
         
         try {
-            // 获取文档
-            Optional<DocumentReader> optional = documentRepository.findByIdAndDeleted(documentId, 0);
-            if (!optional.isPresent()) {
-                throw new NotFoundException("文档不存在: " + documentId);
-            }
-            
-            DocumentReader document = optional.get();
-            
-            // 提取文档内容
-            String documentContent = extractDocumentText(document);
-            if (documentContent == null || documentContent.trim().isEmpty()) {
-                throw new RuntimeException("文档内容为空，无法翻译");
-            }
-            
-            // 去除页眉页脚
-            documentContent = removeHeaderFooter(documentContent);
-            
-            // 检查是否为同种语言翻译（禁止同种语言翻译）
-            if (isSameLanguageTranslation(documentContent, targetLang)) {
-                String detectedLang = detectDocumentLanguage(documentContent);
-                throw new IllegalArgumentException(
-                    String.format("不能将%s文档翻译为%s，翻译功能仅支持不同语言之间的翻译", 
-                                 detectedLang, targetLang));
-            }
-            
-            // 获取模型配置
-            QAModel qaModel = modelConfigService.getDefaultQAModelForRAG();
-            if (qaModel == null) {
-                throw new RuntimeException("未配置可用的模型，无法进行翻译");
-            }
-            
-            // 加载或创建分段信息
+            // 先尝试加载已有分段信息（避免重复提取文档内容）
             List<DocumentSegment> segments = loadDocumentTranslationSegments(documentId, targetLang);
+            
+            // 如果分段信息不存在或为空，需要创建（此时才提取文档内容）
             if (segments == null || segments.isEmpty()) {
-                // 如果还没有分段信息，先创建
+                logger.info("分段信息不存在，开始创建分段 - 文档ID: {}, 目标语言: {}", documentId, targetLang);
+                
+                // 获取文档
+                Optional<DocumentReader> optional = documentRepository.findByIdAndDeleted(documentId, 0);
+                if (!optional.isPresent()) {
+                    throw new NotFoundException("文档不存在: " + documentId);
+                }
+                
+                DocumentReader document = optional.get();
+                
+                // 提取文档内容
+                String documentContent = extractDocumentText(document);
+                if (documentContent == null || documentContent.trim().isEmpty()) {
+                    throw new RuntimeException("文档内容为空，无法翻译");
+                }
+                
+                // 去除页眉页脚
+                documentContent = removeHeaderFooter(documentContent);
+                
+                // 检查是否为同种语言翻译（禁止同种语言翻译）
+                if (isSameLanguageTranslation(documentContent, targetLang)) {
+                    String detectedLang = detectDocumentLanguage(documentContent);
+                    throw new IllegalArgumentException(
+                        String.format("不能将%s文档翻译为%s，翻译功能仅支持不同语言之间的翻译", 
+                                     detectedLang, targetLang));
+                }
+                
+                // 创建分段信息
                 segments = splitDocumentForTranslation(documentContent);
                 saveDocumentTranslationSegments(documentId, userId, targetLang, segments);
+                logger.info("分段信息创建完成 - 文档ID: {}, 总段数: {}", documentId, segments.size());
             }
             
             // 按索引排序，确保段落顺序一致
@@ -874,28 +873,41 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 throw new IllegalArgumentException("分段索引无效: " + segmentIndex + ", 总段数: " + segments.size());
             }
             
-            // 检查是否已翻译（使用索引查找对应的分段）
-            DocumentSegment segment = null;
-            for (DocumentSegment seg : segments) {
-                if (seg.getIndex() == segmentIndex) {
-                    segment = seg;
-                    break;
+            // 使用索引直接访问分段（已排序，索引即数组位置）
+            DocumentSegment segment = segments.get(segmentIndex);
+            
+            // 验证分段索引是否匹配（双重检查）
+            if (segment.getIndex() != segmentIndex) {
+                // 如果索引不匹配，使用线性查找
+                segment = null;
+                for (DocumentSegment seg : segments) {
+                    if (seg.getIndex() == segmentIndex) {
+                        segment = seg;
+                        break;
+                    }
+                }
+                if (segment == null) {
+                    throw new IllegalArgumentException("找不到索引为 " + segmentIndex + " 的分段");
                 }
             }
             
-            if (segment == null) {
-                throw new IllegalArgumentException("找不到索引为 " + segmentIndex + " 的分段");
-            }
+            // 检查是否已翻译
             if (segment.getTranslatedText() != null && !segment.getTranslatedText().trim().isEmpty()) {
-                logger.info("分段已翻译，直接返回 - 文档ID: {}, 段索引: {}", documentId, segmentIndex);
+                logger.debug("分段已翻译，直接返回 - 文档ID: {}, 段索引: {}", documentId, segmentIndex);
                 return segment.getTranslatedText();
+            }
+            
+            // 获取模型配置（延迟到真正需要翻译时才获取）
+            QAModel qaModel = modelConfigService.getDefaultQAModelForRAG();
+            if (qaModel == null) {
+                throw new RuntimeException("未配置可用的模型，无法进行翻译");
             }
             
             // 翻译该分段
             String translated = translateTextSegment(segment.getText(), targetLang, qaModel);
             segment.setTranslatedText(translated);
             
-            // 保存更新后的分段信息
+            // 保存更新后的分段信息（异步保存，提高响应速度）
             saveDocumentTranslationSegments(documentId, userId, targetLang, segments);
             
             logger.info("分段翻译完成 - 文档ID: {}, 段索引: {}, 原文长度: {}, 译文长度: {}", 
@@ -903,8 +915,15 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             
             return translated;
             
+        } catch (IllegalArgumentException e) {
+            // 参数错误，直接抛出
+            throw e;
+        } catch (NotFoundException e) {
+            // 资源不存在，直接抛出
+            throw e;
         } catch (Exception e) {
-            logger.error("翻译分段失败 - 文档ID: {}, 段索引: {}", documentId, segmentIndex, e);
+            logger.error("翻译分段失败 - 文档ID: {}, 段索引: {}, 错误: {}", 
+                        documentId, segmentIndex, e.getMessage(), e);
             throw new RuntimeException("翻译分段失败: " + e.getMessage(), e);
         }
     }
@@ -1521,15 +1540,22 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     }
     
     /**
-     * 将文档按页面分段（用于按页面翻译）
+     * 将文档按页面分段（用于按页面翻译）- 优化版本
+     * 考虑字符数限制，避免分段过大导致翻译超时
      */
     private List<DocumentSegment> splitDocumentForTranslation(String documentContent) {
         List<DocumentSegment> segments = new ArrayList<>();
+        
+        if (documentContent == null || documentContent.trim().isEmpty()) {
+            logger.warn("文档内容为空，无法分段");
+            return segments;
+        }
         
         // 按行分割文档
         String[] lines = documentContent.split("\n", -1);
         int totalLines = lines.length;
         int linesPerPage = TRANSLATION_PAGE_LINES;
+        int maxCharsPerSegment = TRANSLATION_SEGMENT_SIZE; // 最大字符数限制
         int segmentIndex = 0;
         int lineStart = 0;
         
@@ -1542,11 +1568,34 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 charStart += lines[i].length() + 1; // +1 for newline
             }
             
-            // 尝试在段落边界处优化截断点（如果不是最后一页）
-            if (lineEnd < totalLines) {
+            // 构建页面内容（用于检查字符数）
+            StringBuilder pageTextBuilder = new StringBuilder();
+            int currentChars = 0;
+            int actualLineEnd = lineStart;
+            
+            for (int i = lineStart; i < lineEnd; i++) {
+                String line = lines[i];
+                int lineLength = line.length() + (i > lineStart ? 1 : 0); // +1 for newline except first line
+                
+                // 如果添加这一行会超过字符限制，且不是第一行，则停止
+                if (currentChars + lineLength > maxCharsPerSegment && i > lineStart) {
+                    break;
+                }
+                
+                if (i > lineStart) {
+                    pageTextBuilder.append("\n");
+                }
+                pageTextBuilder.append(line);
+                currentChars += lineLength;
+                actualLineEnd = i + 1;
+            }
+            
+            // 如果实际结束行小于预期，尝试在段落边界处优化截断点
+            if (actualLineEnd < totalLines && actualLineEnd < lineEnd) {
                 // 向前查找更好的截断点（在空行或句号处）
-                int bestLineEnd = lineEnd;
-                for (int i = lineEnd - 1; i >= lineStart + linesPerPage / 2; i--) {
+                int bestLineEnd = actualLineEnd;
+                int searchStart = Math.max(lineStart + (actualLineEnd - lineStart) / 2, lineStart + 1);
+                for (int i = actualLineEnd - 1; i >= searchStart; i--) {
                     String line = lines[i].trim();
                     // 如果是空行，或者以句号、问号、感叹号结尾
                     if (line.isEmpty() || 
@@ -1557,25 +1606,25 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                         break;
                     }
                 }
-                lineEnd = bestLineEnd;
-            }
-            
-            // 构建页面内容
-            StringBuilder pageText = new StringBuilder();
-            for (int i = lineStart; i < lineEnd; i++) {
-                if (i > lineStart) {
-                    pageText.append("\n");
+                actualLineEnd = bestLineEnd;
+                
+                // 重新构建页面内容
+                pageTextBuilder = new StringBuilder();
+                for (int i = lineStart; i < actualLineEnd; i++) {
+                    if (i > lineStart) {
+                        pageTextBuilder.append("\n");
+                    }
+                    pageTextBuilder.append(lines[i]);
                 }
-                pageText.append(lines[i]);
             }
             
             // 计算结束位置
             int charEnd = charStart;
-            for (int i = lineStart; i < lineEnd; i++) {
-                charEnd += lines[i].length() + (i < lineEnd - 1 ? 1 : 0); // +1 for newline except last line
+            for (int i = lineStart; i < actualLineEnd; i++) {
+                charEnd += lines[i].length() + (i < actualLineEnd - 1 ? 1 : 0); // +1 for newline except last line
             }
             
-            String segmentText = pageText.toString();
+            String segmentText = pageTextBuilder.toString();
             DocumentSegment segment = new DocumentSegment();
             segment.setIndex(segmentIndex);
             segment.setStartIndex(charStart);
@@ -1585,11 +1634,12 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             
             segments.add(segment);
             segmentIndex++;
-            lineStart = lineEnd; // 移动到下一页
+            lineStart = actualLineEnd; // 移动到下一页
         }
         
-        logger.info("文档按页面分段完成 - 总行数: {}, 每页行数: {}, 总页数: {}", 
-                   totalLines, linesPerPage, segments.size());
+        logger.info("文档按页面分段完成 - 总行数: {}, 每页行数: {}, 最大字符数: {}, 总页数: {}, 平均每段字符数: {}", 
+                   totalLines, linesPerPage, maxCharsPerSegment, segments.size(),
+                   segments.isEmpty() ? 0 : documentContent.length() / segments.size());
         
         return segments;
     }

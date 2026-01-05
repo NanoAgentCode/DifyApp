@@ -251,10 +251,20 @@ public class DocumentReaderController extends BaseController {
             HttpServletRequest request) {
         Long userId = getUserId(request);
         String targetLang = (String) requestBody.get("targetLang");
-        Boolean forceRetranslate = (Boolean) requestBody.get("forceRetranslate");
-        if (forceRetranslate == null) {
-            forceRetranslate = false;
+        
+        // 安全地转换 forceRetranslate 参数（可能是 Boolean 或 String）
+        Boolean forceRetranslate = false;
+        Object forceRetranslateObj = requestBody.get("forceRetranslate");
+        if (forceRetranslateObj != null) {
+            if (forceRetranslateObj instanceof Boolean) {
+                forceRetranslate = (Boolean) forceRetranslateObj;
+            } else if (forceRetranslateObj instanceof String) {
+                forceRetranslate = Boolean.parseBoolean((String) forceRetranslateObj);
+            } else if (forceRetranslateObj instanceof Number) {
+                forceRetranslate = ((Number) forceRetranslateObj).intValue() != 0;
+            }
         }
+        
         documentReaderService.translateDocument(docId, userId, targetLang, forceRetranslate);
         return ResponseEntity.ok().build();
     }

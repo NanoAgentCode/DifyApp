@@ -130,6 +130,11 @@
               ({{ Array.from(loadingSegments).sort((a, b) => a - b).join(', ') }})
             </span>
           </div>
+          <!-- 显示翻译完成提示 -->
+          <div v-else-if="isTranslationComplete" class="translation-complete">
+            <el-icon class="complete-icon"><Check /></el-icon>
+            <span>翻译已完成</span>
+          </div>
         </div>
         <div v-else class="empty-state">
           <el-icon class="empty-icon"><Document /></el-icon>
@@ -145,8 +150,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Switch, Refresh, Loading, Document, Edit, FullScreen, Close, Check } from '@element-plus/icons-vue'
-import { translateDocument, getDocumentTranslation, saveDocumentTranslation, getDocumentText, getDocumentSegments, translateDocumentSegment, getDocumentTranslationRange } from '@/api/documentReader'
-import { renderMarkdown } from '@/composables/useMarkdown'
+import { translateDocument, getDocumentTranslation, saveDocumentTranslation, getDocumentText, getDocumentSegments, translateDocumentSegment } from '@/api/documentReader'
 import { debounce } from '@/utils/debounce'
 
 const props = defineProps({
@@ -334,6 +338,27 @@ const renderedTranslation = computed(() => {
 const renderedOriginal = computed(() => {
   if (!originalText.value) return ''
   return processTextForDisplay(originalText.value)
+})
+
+// 检测翻译是否完成
+const isTranslationComplete = computed(() => {
+  // 如果没有分段信息，无法判断是否完成
+  if (!segmentsInfo.value || !segmentsInfo.value.totalSegments || segmentsInfo.value.totalSegments === 0) {
+    return false
+  }
+  
+  const totalSegments = segmentsInfo.value.totalSegments
+  
+  // 检查所有分段是否都已加载且有翻译内容
+  for (let i = 0; i < totalSegments; i++) {
+    // 如果分段没有翻译内容，说明未完成
+    if (!segmentTranslations.value[i] || segmentTranslations.value[i].trim() === '') {
+      return false
+    }
+  }
+  
+  // 所有分段都有翻译内容，且没有正在加载的分段
+  return loadingSegments.value.size === 0
 })
 
 // 获取容器可见区域中心点在内容中的位置比例（0-1）
@@ -806,8 +831,13 @@ const handleTranslate = async () => {
     // 如果是重新翻译，传递 forceRetranslate=true 以清除旧的翻译记录
     await translateDocument(props.docId, targetLanguage.value, isRetranslate)
     
-    // 获取分段信息
+    // 获取分段信息（重新翻译后必须重新加载，因为分段可能发生变化）
     await loadSegmentsInfo()
+    
+    // 确保分段信息加载成功后再加载第一段
+    if (!segmentsInfo.value || !segmentsInfo.value.totalSegments || segmentsInfo.value.totalSegments <= 0) {
+      throw new Error('无法获取分段信息，请重试')
+    }
     
     // 加载第一段的翻译
     await loadTranslationSegment(0)
@@ -835,17 +865,41 @@ const loadSegmentsInfo = async () => {
 }
 
 // 加载指定分段的翻译
+// 加载分段翻译（懒加载）- 优化版本
 const loadTranslationSegment = async (segmentIndex) => {
-  // 严格检查索引有效性
-  if (!segmentsInfo.value || 
-      segmentIndex < 0 || 
-      segmentIndex >= segmentsInfo.value.totalSegments) {
-    console.warn(`分段索引无效: ${segmentIndex}, 总段数: ${segmentsInfo.value?.totalSegments || 0}`)
-    return // 索引无效
+  // 验证分段索引有效性
+  if (!Number.isInteger(segmentIndex) || segmentIndex < 0) {
+    console.warn(`无效的分段索引: ${segmentIndex}`)
+    return
   }
   
-  if (loadingSegments.value.has(segmentIndex) || loadedSegments.value.has(segmentIndex)) {
-    return // 正在加载或已加载
+  // 检查分段信息是否已加载
+  if (!segmentsInfo.value || !Number.isInteger(segmentsInfo.value.totalSegments) || segmentsInfo.value.totalSegments <= 0) {
+    console.warn('分段信息未加载，无法加载分段翻译')
+    return
+  }
+  
+  const totalSegments = segmentsInfo.value.totalSegments
+  
+  // 检查索引是否超出范围
+  if (segmentIndex >= totalSegments) {
+    console.warn(`分段索引 ${segmentIndex} 超出范围，总段数: ${totalSegments}`)
+    return
+  }
+  
+  // 防止重复加载
+  if (loadingSegments.value.has(segmentIndex)) {
+    return // 正在加载中，跳过
+  }
+  
+  if (loadedSegments.value.has(segmentIndex)) {
+    // 已加载，检查是否需要更新显示
+    if (segmentTranslations.value[segmentIndex] && !isUpdatingContent.value) {
+      requestAnimationFrame(() => {
+        updateTranslationDisplay()
+      })
+    }
+    return
   }
   
   if (!targetLanguage.value) {
@@ -872,7 +926,18 @@ const loadTranslationSegment = async (segmentIndex) => {
       content = response.content || response.data?.content || ''
     }
     
-    if (content) {
+    if (content && content.trim()) {
+      // 确保数组大小足够
+      if (segmentTranslations.value.length <= segmentIndex) {
+        const oldLength = segmentTranslations.value.length
+        segmentTranslations.value.length = totalSegments
+        for (let i = oldLength; i < totalSegments; i++) {
+          if (segmentTranslations.value[i] === undefined) {
+            segmentTranslations.value[i] = null
+          }
+        }
+      }
+      
       segmentTranslations.value[segmentIndex] = content
       loadedSegments.value.add(segmentIndex)
       
@@ -880,18 +945,37 @@ const loadTranslationSegment = async (segmentIndex) => {
       if (!isUpdatingContent.value) {
         // 使用 requestAnimationFrame 优化更新时机
         requestAnimationFrame(() => {
-      updateTranslationDisplay()
+          updateTranslationDisplay()
         })
       }
+    } else {
+      console.warn(`分段 ${segmentIndex} 翻译内容为空`)
+      // 标记为已处理，避免重复请求
+      loadedSegments.value.add(segmentIndex)
     }
   } catch (error) {
     console.error(`加载分段 ${segmentIndex} 翻译失败:`, error)
-    // 如果是因为索引超出范围，不再尝试加载
-    if (error.message && (error.message.includes('分段索引无效') || error.message.includes('索引无效'))) {
-      console.warn(`分段索引 ${segmentIndex} 超出范围，停止加载`)
-      // 从加载集合中移除，避免重复尝试
-      loadedSegments.value.add(segmentIndex) // 标记为已处理，避免重复请求
+    
+    // 处理不同类型的错误
+    if (error.message) {
+      if (error.message.includes('分段索引无效') || error.message.includes('索引无效')) {
+        console.warn(`分段索引 ${segmentIndex} 无效，停止加载`)
+        // 标记为已处理，避免重复请求
+        loadedSegments.value.add(segmentIndex)
+        return
+      }
+      
+      if (error.message.includes('文档不存在')) {
+        ElMessage.error('文档不存在，请刷新页面重试')
+        return
+      }
+      
+      if (error.message.includes('未配置可用的模型')) {
+        ElMessage.error('未配置翻译模型，请联系管理员')
+        return
+      }
     }
+    
     // 只在用户主动操作时显示错误消息，避免自动加载时的错误提示
     // 错误消息会在用户点击翻译按钮时显示
   } finally {
@@ -974,25 +1058,62 @@ const updateTranslationDisplay = () => {
   const savedScrollTop = container ? container.scrollTop : 0
   
   // 按索引顺序收集所有已翻译的分段，确保按顺序追加
-  // 使用数组保持索引对应关系，确保分段按正确顺序显示
+  // 使用总段数作为遍历范围，确保所有分段都被检查
+  const totalSegments = segmentsInfo.value?.totalSegments || segmentTranslations.value.length
   const translatedParts = []
-  for (let i = 0; i < segmentTranslations.value.length; i++) {
-    if (segmentTranslations.value[i]) {
+  
+  // 确保 segmentTranslations 数组大小正确
+  if (segmentTranslations.value.length < totalSegments) {
+    // 数组大小不足，扩展数组
+    const oldLength = segmentTranslations.value.length
+    segmentTranslations.value.length = totalSegments
+    for (let i = oldLength; i < totalSegments; i++) {
+      if (segmentTranslations.value[i] === undefined) {
+        segmentTranslations.value[i] = null
+      }
+    }
+  }
+  
+  // 遍历所有可能的分段索引（0 到 totalSegments-1）
+  for (let i = 0; i < totalSegments; i++) {
+    // 检查分段是否有翻译内容
+    const segmentContent = segmentTranslations.value[i]
+    if (segmentContent && typeof segmentContent === 'string' && segmentContent.trim() !== '') {
       // 有翻译内容，按索引顺序添加到数组
       translatedParts.push({
         index: i,
-        content: segmentTranslations.value[i]
+        content: segmentContent
       })
     }
   }
   
-  // 按索引排序，确保顺序正确
+  // 按索引排序，确保顺序正确（虽然理论上应该已经有序，但为了安全还是排序）
   translatedParts.sort((a, b) => a.index - b.index)
   
-  // 提取内容数组，按索引顺序
+  // 验证索引顺序（用于调试）
+  if (translatedParts.length > 1) {
+    const indices = translatedParts.map(p => p.index)
+    for (let i = 1; i < indices.length; i++) {
+      if (indices[i] <= indices[i - 1]) {
+        console.error('分段索引顺序异常:', indices, '总段数:', totalSegments)
+        console.error('已加载的分段:', Array.from(loadedSegments.value).sort((a, b) => a - b))
+      }
+    }
+  }
+  
+  // 如果没有任何翻译内容，返回空字符串
+  if (translatedParts.length === 0) {
+    translationContent.value = ''
+    isUpdatingContent.value = false
+    return
+  }
+  
+  // 直接按索引顺序合并分段内容
+  // 由于 translatedParts 已经按索引排序，直接提取内容即可
   const contentArray = translatedParts.map(item => item.content)
   
   // 使用智能合并，保持段落结构
+  // smartJoinSegments 会处理分段之间的分隔符
   translationContent.value = smartJoinSegments(contentArray)
   
   // 在下一个tick恢复滚动位置
@@ -1088,6 +1209,7 @@ const smartJoinSegmentsWithIndices = (segments) => {
 }
 
 // 处理翻译内容滚动（懒加载）- 使用防抖和节流优化
+// 滚动懒加载处理 - 优化版本
 const handleTranslationScrollForLazyLoad = debounce(() => {
   // 如果正在更新内容，跳过滚动处理
   if (isUpdatingContent.value) {
@@ -1120,7 +1242,7 @@ const handleTranslationScrollForLazyLoad = debounce(() => {
   
   // 获取最新的总段数，确保使用正确的值
   const totalSegments = segmentsInfo.value.totalSegments
-  if (!totalSegments || totalSegments <= 0) {
+  if (!Number.isInteger(totalSegments) || totalSegments <= 0) {
     return
   }
   
@@ -1152,33 +1274,47 @@ const handleTranslationScrollForLazyLoad = debounce(() => {
     let startIndex = currentSegmentIndex
     
     if (loadedSegments.value.size > 0) {
-      // 找到已加载的最大索引
-      const loadedIndices = Array.from(loadedSegments.value)
+      // 找到已加载的最大索引，并过滤掉无效的索引
+      const loadedIndices = Array.from(loadedSegments.value).filter(idx => 
+        Number.isInteger(idx) && idx >= 0 && idx < totalSegments
+      )
       if (loadedIndices.length > 0) {
         const maxLoadedIndex = Math.max(...loadedIndices)
-        // 确保 startIndex 不超过总段数
-        startIndex = Math.min(
-          Math.max(currentSegmentIndex, maxLoadedIndex + 1),
-          totalSegments - 1
-        )
+        // 计算下一个索引，但确保不超过总段数
+        const nextIndex = maxLoadedIndex + 1
+        if (nextIndex < totalSegments) {
+          startIndex = Math.max(currentSegmentIndex, nextIndex)
+        } else {
+          // 如果下一个索引已经超出范围，说明所有分段都已加载
+          return
+        }
       }
     }
     
     // 确保 startIndex 在有效范围内
     startIndex = Math.max(0, Math.min(startIndex, totalSegments - 1))
     
-    // 从起始索引开始，向后查找第一个未翻译的分段
-    for (let i = startIndex; i < totalSegments; i++) {
+    // 从起始索引开始，向后查找第一个未翻译的分段（最多查找5个，避免一次性加载太多）
+    const maxSearchCount = 5
+    let searchCount = 0
+    for (let i = startIndex; i < totalSegments && searchCount < maxSearchCount; i++) {
       // 再次检查索引有效性（双重保险）
-      if (i < 0 || i >= totalSegments) {
+      if (!Number.isInteger(i) || i < 0 || i >= totalSegments) {
+        break
+      }
+      
+      // 确保分段信息仍然有效（防止在循环过程中分段信息发生变化）
+      if (!segmentsInfo.value || segmentsInfo.value.totalSegments !== totalSegments) {
+        console.warn('分段信息已变化，停止加载')
         break
       }
       
       if (!loadedSegments.value.has(i) && !loadingSegments.value.has(i)) {
-        // 找到未翻译的分段，自动加载
+        // 找到未翻译的分段，自动加载（loadTranslationSegment 内部会再次验证索引）
         loadTranslationSegment(i)
         break
       }
+      searchCount++
     }
   } else {
     // 未到底部时，预加载当前分段及后续2个分段（减少预加载数量，避免一次性加载太多）
@@ -1187,7 +1323,7 @@ const handleTranslationScrollForLazyLoad = debounce(() => {
     for (let i = 0; i < preloadCount && loadedCount < 2; i++) {
       const segmentIndex = currentSegmentIndex + i
       // 严格检查索引范围，使用 totalSegments 变量
-      if (segmentIndex >= 0 && segmentIndex < totalSegments) {
+      if (Number.isInteger(segmentIndex) && segmentIndex >= 0 && segmentIndex < totalSegments) {
         if (!loadedSegments.value.has(segmentIndex) && !loadingSegments.value.has(segmentIndex)) {
           loadTranslationSegment(segmentIndex)
           loadedCount++
@@ -1195,7 +1331,7 @@ const handleTranslationScrollForLazyLoad = debounce(() => {
       }
     }
   }
-}, 500) // 增加防抖时间到500ms，减少触发频率
+}, 500) // 防抖时间500ms，减少触发频率
 
 // 语言切换
 const handleLanguageChange = () => {
@@ -1721,6 +1857,58 @@ onUnmounted(() => {
   font-size: 12px;
   color: var(--el-text-color-secondary, #909399);
   margin-left: 4px;
+}
+
+.translation-complete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 20px;
+  color: var(--el-color-success, #67c23a);
+  gap: 8px;
+  background: rgba(103, 194, 58, 0.1);
+  border-top: 1px solid rgba(103, 194, 58, 0.3);
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+  margin-top: 20px;
+  border-radius: 4px;
+}
+
+.translation-complete .complete-icon {
+  font-size: 18px;
+  color: var(--el-color-success, #67c23a);
+}
+
+.translation-complete span {
+  font-weight: 500;
+}
+
+.translation-complete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 20px;
+  color: var(--el-color-success, #67c23a);
+  gap: 8px;
+  background: rgba(103, 194, 58, 0.1);
+  border-top: 1px solid rgba(103, 194, 58, 0.3);
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+  margin-top: 20px;
+  border-radius: 4px;
+}
+
+.translation-complete .complete-icon {
+  font-size: 18px;
+  color: var(--el-color-success, #67c23a);
+}
+
+.translation-complete span {
+  font-weight: 500;
 }
 
 /* 全屏模式样式 */
