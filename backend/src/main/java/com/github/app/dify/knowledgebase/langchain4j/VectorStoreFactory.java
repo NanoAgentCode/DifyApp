@@ -1,5 +1,6 @@
 package com.github.app.dify.knowledgebase.langchain4j;
 
+import com.github.app.dify.knowledgebase.langchain4j.store.*;
 import com.github.app.dify.knowledgebase.repository.KnowledgeBaseRepository;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import com.github.app.dify.system.config.DocumentReaderConfig;

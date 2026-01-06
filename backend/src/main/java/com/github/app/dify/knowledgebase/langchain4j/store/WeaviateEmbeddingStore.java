@@ -1,4 +1,4 @@
-package com.github.app.dify.knowledgebase.langchain4j;
+package com.github.app.dify.knowledgebase.langchain4j.store;
 
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import dev.langchain4j.data.embedding.Embedding;
@@ -13,15 +13,14 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-
 /**
- * PgVector EmbeddingStore实现，适配PgVector存储
- * 支持按知识库ID隔离存储（每个知识库一个表）
+ * Weaviate EmbeddingStore实现，适配Weaviate存储
+ * 支持按知识库ID隔离存储（每个知识库一个类）
  * 注意：此类通过工厂方法创建，不使用Spring管理
  */
-public class PgVectorEmbeddingStore implements EmbeddingStore<TextSegment> {
+public class WeaviateEmbeddingStore implements EmbeddingStore<TextSegment> {
     
-    private static final Logger logger = LoggerFactory.getLogger(PgVectorEmbeddingStore.class);
+    private static final Logger logger = LoggerFactory.getLogger(WeaviateEmbeddingStore.class);
     
     private VectorStoreStrategy strategy;
 
@@ -35,8 +34,9 @@ public class PgVectorEmbeddingStore implements EmbeddingStore<TextSegment> {
     /**
      * 创建指定知识库的EmbeddingStore实例
      */
-    public static PgVectorEmbeddingStore forKnowledgeBase(Long knowledgeBaseId, VectorStoreStrategy strategy) {
-        PgVectorEmbeddingStore store = new PgVectorEmbeddingStore();
+    public static WeaviateEmbeddingStore forKnowledgeBase(Long knowledgeBaseId, 
+                                                        VectorStoreStrategy strategy) {
+        WeaviateEmbeddingStore store = new WeaviateEmbeddingStore();
         store.strategy = strategy;
         store.knowledgeBaseId = knowledgeBaseId;
         return store;
@@ -44,12 +44,12 @@ public class PgVectorEmbeddingStore implements EmbeddingStore<TextSegment> {
     
     @Override
     public String add(Embedding embedding) {
-        throw new UnsupportedOperationException("请使用add(String, Embedding, TextSegment)方法");
+        throw new UnsupportedOperationException("请使用add(Embedding, TextSegment)方法");
     }
     
     @Override
     public void add(String id, Embedding embedding) {
-        throw new UnsupportedOperationException("请使用add(String, Embedding, TextSegment)方法");
+        throw new UnsupportedOperationException("请使用add(Embedding, TextSegment)方法");
     }
     
     @Override
@@ -65,7 +65,7 @@ public class PgVectorEmbeddingStore implements EmbeddingStore<TextSegment> {
         // 转换为List<Float>
         List<Float> vector = convertEmbeddingToFloatList(embedding);
         
-        // 确保集合存在
+        // 确保类存在
         strategy.ensureCollection(knowledgeBaseId, vector.size());
         
         // 存储向量
@@ -78,7 +78,8 @@ public class PgVectorEmbeddingStore implements EmbeddingStore<TextSegment> {
         
         strategy.upsertVectors(knowledgeBaseId, documentId, vectors, texts, chunkIndices);
         
-        return String.valueOf(documentId);
+        // 返回ID（使用documentId和chunkIndex组合）
+        return generateId(documentId, chunkIndex != null ? chunkIndex : 0);
     }
     
     @Override
@@ -88,22 +89,12 @@ public class PgVectorEmbeddingStore implements EmbeddingStore<TextSegment> {
     
     @Override
     public List<String> addAll(List<Embedding> embeddings, List<TextSegment> textSegments) {
-        if (embeddings == null || embeddings.isEmpty()) {
-            return new ArrayList<>();
+        if (embeddings.size() != textSegments.size()) {
+            throw new IllegalArgumentException("embeddings和textSegments数量必须相同");
         }
-        
-        if (textSegments == null || textSegments.size() != embeddings.size()) {
-            throw new IllegalArgumentException("embeddings和textSegments的数量必须相等");
-        }
-        
-        // 从第一个embedding获取向量维度
-        int vectorSize = embeddings.get(0).dimension();
-        
-        // 确保集合存在
-        strategy.ensureCollection(knowledgeBaseId, vectorSize);
         
         // 按documentId分组
-        java.util.Map<Long, List<VectorData>> vectorsByDocument = new java.util.HashMap<>();
+        java.util.Map<Long, List<BatchItem>> grouped = new java.util.HashMap<>();
         for (int i = 0; i < embeddings.size(); i++) {
             Embedding embedding = embeddings.get(i);
             TextSegment textSegment = textSegments.get(i);
@@ -115,102 +106,94 @@ public class PgVectorEmbeddingStore implements EmbeddingStore<TextSegment> {
                 throw new IllegalArgumentException("TextSegment metadata中必须包含documentId");
             }
             
-            vectorsByDocument.computeIfAbsent(documentId, k -> new ArrayList<>()).add(
-                new VectorData(convertEmbeddingToFloatList(embedding), textSegment.text(), 
-                              chunkIndex != null ? chunkIndex : i));
+            grouped.computeIfAbsent(documentId, k -> new ArrayList<>()).add(
+                    new BatchItem(embedding, textSegment, chunkIndex != null ? chunkIndex : i)
+            );
         }
         
-        // 按文档批量存储
-        for (java.util.Map.Entry<Long, List<VectorData>> entry : vectorsByDocument.entrySet()) {
+        // 批量存储
+        List<String> ids = new ArrayList<>();
+        for (java.util.Map.Entry<Long, List<BatchItem>> entry : grouped.entrySet()) {
             Long documentId = entry.getKey();
-            List<VectorData> vectorDataList = entry.getValue();
+            List<BatchItem> items = entry.getValue();
             
-            List<List<Float>> vectors = vectorDataList.stream()
-                    .map(vd -> vd.vector)
+            List<List<Float>> vectors = new ArrayList<>();
+            for (BatchItem item : items) {
+                vectors.add(convertEmbeddingToFloatList(item.embedding));
+            }
+            List<String> texts = items.stream()
+                    .map(item -> item.textSegment.text())
                     .collect(Collectors.toList());
-            List<String> texts = vectorDataList.stream()
-                    .map(vd -> vd.text)
+            List<Integer> chunkIndices = items.stream()
+                    .map(item -> item.chunkIndex)
                     .collect(Collectors.toList());
-            List<Integer> chunkIndices = vectorDataList.stream()
-                    .map(vd -> vd.chunkIndex)
-                    .collect(Collectors.toList());
+            
+            // 确保类存在
+            if (!vectors.isEmpty()) {
+                strategy.ensureCollection(knowledgeBaseId, vectors.get(0).size());
+            }
             
             strategy.upsertVectors(knowledgeBaseId, documentId, vectors, texts, chunkIndices);
+            
+            // 生成IDs
+            for (BatchItem item : items) {
+                ids.add(generateId(documentId, item.chunkIndex));
+            }
         }
         
-        return vectorsByDocument.keySet().stream()
-                .map(String::valueOf)
-                .collect(Collectors.toList());
+        return ids;
     }
     
     @Override
-    public EmbeddingSearchResult<TextSegment> search(EmbeddingSearchRequest request) {
-        if (request == null || request.queryEmbedding() == null) {
-            return new EmbeddingSearchResult<>(new ArrayList<>());
-        }
+    public EmbeddingSearchResult<TextSegment> search(EmbeddingSearchRequest embeddingSearchRequest) {
+        Embedding referenceEmbedding = embeddingSearchRequest.queryEmbedding();
+        int maxResults = embeddingSearchRequest.maxResults();
+        double effectiveMinScore = embeddingSearchRequest.minScore();
         
-        // 转换为List<Float>
-        List<Float> queryVector = convertEmbeddingToFloatList(request.queryEmbedding());
+        List<Float> queryVector = convertEmbeddingToFloatList(referenceEmbedding);
         
-        // 搜索
-        int maxResults = request.maxResults();
+        // 检索
         List<VectorStoreStrategy.SearchResult> searchResults = 
                 strategy.searchVectors(knowledgeBaseId, queryVector, maxResults);
         
         // 转换为EmbeddingMatch
         List<EmbeddingMatch<TextSegment>> matches = new ArrayList<>();
         for (VectorStoreStrategy.SearchResult result : searchResults) {
-            TextSegment segment = TextSegment.from(result.getText());
-            if (result.getDocumentId() != null) {
-                segment.metadata().put("documentId", String.valueOf(result.getDocumentId()));
+            if (result.getScore() >= effectiveMinScore) {
+                TextSegment segment = TextSegment.from(result.getText());
+                if (result.getDocumentId() != null) {
+                    segment.metadata().put("documentId", result.getDocumentId().toString());
+                }
+                if (result.getChunkIndex() != null) {
+                    segment.metadata().put("chunkIndex", result.getChunkIndex().toString());
+                }
+                
+                EmbeddingMatch<TextSegment> match = new EmbeddingMatch<>(
+                        result.getScore(),
+                        generateId(result.getDocumentId(), result.getChunkIndex()),
+                        Embedding.from(convertToFloatArray(queryVector)), // 这里应该存储实际的embedding，简化处理
+                        segment
+                );
+                matches.add(match);
             }
-            if (result.getChunkIndex() != null) {
-                segment.metadata().put("chunkIndex", String.valueOf(result.getChunkIndex()));
-            }
-            
-            EmbeddingMatch<TextSegment> match = new EmbeddingMatch<>(
-                    result.getScore(),
-                    String.valueOf(result.getDocumentId()),
-                    null, // embedding可以为null
-                    segment
-            );
-            matches.add(match);
         }
         
         return new EmbeddingSearchResult<>(matches);
     }
     
-    @Override
-    public void remove(String id) {
-        // PgVector使用documentId作为标识，这里需要解析id
-        try {
-            Long documentId = Long.parseLong(id);
-            strategy.deleteDocumentVectors(knowledgeBaseId, documentId);
-        } catch (NumberFormatException e) {
-            logger.warn("无法解析文档ID: {}", id, e);
-        }
-    }
-    
-    @Override
-    public void removeAll(java.util.Collection<String> ids) {
-        for (String id : ids) {
-            remove(id);
-        }
-    }
-    
-    @Override
-    public void removeAll() {
-        throw new UnsupportedOperationException("PgVector不支持删除所有向量，请通过文档ID删除");
+    /**
+     * 删除文档的所有向量
+     */
+    public void deleteByDocumentId(Long documentId) {
+        strategy.deleteDocumentVectors(knowledgeBaseId, documentId);
     }
     
     /**
-     * 从TextSegment的metadata中提取documentId
+     * 从TextSegment metadata中提取documentId
      */
-    private Long extractDocumentId(TextSegment segment) {
-        if (segment.metadata() == null) {
-            return null;
-        }
-        Object docIdObj = segment.metadata().toMap().get("documentId");
+    private Long extractDocumentId(TextSegment textSegment) {
+        // 使用toMap方法获取metadata值
+        Object docIdObj = textSegment.metadata().toMap().get("documentId");
         if (docIdObj != null) {
             try {
                 if (docIdObj instanceof Long) {
@@ -221,20 +204,18 @@ public class PgVectorEmbeddingStore implements EmbeddingStore<TextSegment> {
                     return ((Number) docIdObj).longValue();
                 }
             } catch (Exception e) {
-                logger.warn("无法解析documentId: {}", docIdObj, e);
+                logger.warn("无法解析documentId: {}", docIdObj);
             }
         }
         return null;
     }
     
     /**
-     * 从TextSegment的metadata中提取chunkIndex
+     * 从TextSegment metadata中提取chunkIndex
      */
-    private Integer extractChunkIndex(TextSegment segment) {
-        if (segment.metadata() == null) {
-            return null;
-        }
-        Object chunkIndexObj = segment.metadata().toMap().get("chunkIndex");
+    private Integer extractChunkIndex(TextSegment textSegment) {
+        // 使用toMap方法获取metadata值
+        Object chunkIndexObj = textSegment.metadata().toMap().get("chunkIndex");
         if (chunkIndexObj != null) {
             try {
                 if (chunkIndexObj instanceof Integer) {
@@ -245,10 +226,17 @@ public class PgVectorEmbeddingStore implements EmbeddingStore<TextSegment> {
                     return ((Number) chunkIndexObj).intValue();
                 }
             } catch (Exception e) {
-                logger.warn("无法解析chunkIndex: {}", chunkIndexObj, e);
+                logger.warn("无法解析chunkIndex: {}", chunkIndexObj);
             }
         }
         return null;
+    }
+    
+    /**
+     * 生成ID
+     */
+    private String generateId(Long documentId, Integer chunkIndex) {
+        return documentId + "_" + chunkIndex;
     }
     
     /**
@@ -268,18 +256,28 @@ public class PgVectorEmbeddingStore implements EmbeddingStore<TextSegment> {
     }
     
     /**
-     * 向量数据内部类
+     * 将List<Float>转换为float[]
      */
-    private static class VectorData {
-        List<Float> vector;
-        String text;
+    private float[] convertToFloatArray(List<Float> floatList) {
+        float[] array = new float[floatList.size()];
+        for (int i = 0; i < floatList.size(); i++) {
+            array[i] = floatList.get(i);
+        }
+        return array;
+    }
+    
+    /**
+     * 批量项
+     */
+    private static class BatchItem {
+        Embedding embedding;
+        TextSegment textSegment;
         Integer chunkIndex;
         
-        VectorData(List<Float> vector, String text, Integer chunkIndex) {
-            this.vector = vector;
-            this.text = text;
+        BatchItem(Embedding embedding, TextSegment textSegment, Integer chunkIndex) {
+            this.embedding = embedding;
+            this.textSegment = textSegment;
             this.chunkIndex = chunkIndex;
         }
     }
 }
-

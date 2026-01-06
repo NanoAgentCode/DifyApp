@@ -1,4 +1,4 @@
-package com.github.app.dify.knowledgebase.langchain4j;
+package com.github.app.dify.knowledgebase.langchain4j.store;
 
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import dev.langchain4j.data.embedding.Embedding;
@@ -14,13 +14,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 /**
- * Weaviate EmbeddingStore实现，适配Weaviate存储
- * 支持按知识库ID隔离存储（每个知识库一个类）
+ * Milvus EmbeddingStore实现，适配Milvus存储
+ * 支持按知识库ID隔离存储（每个知识库一个集合）
  * 注意：此类通过工厂方法创建，不使用Spring管理
  */
-public class WeaviateEmbeddingStore implements EmbeddingStore<TextSegment> {
+public class MilvusEmbeddingStore implements EmbeddingStore<TextSegment> {
     
-    private static final Logger logger = LoggerFactory.getLogger(WeaviateEmbeddingStore.class);
+    private static final Logger logger = LoggerFactory.getLogger(MilvusEmbeddingStore.class);
     
     private VectorStoreStrategy strategy;
 
@@ -34,9 +34,9 @@ public class WeaviateEmbeddingStore implements EmbeddingStore<TextSegment> {
     /**
      * 创建指定知识库的EmbeddingStore实例
      */
-    public static WeaviateEmbeddingStore forKnowledgeBase(Long knowledgeBaseId, 
+    public static MilvusEmbeddingStore forKnowledgeBase(Long knowledgeBaseId, 
                                                         VectorStoreStrategy strategy) {
-        WeaviateEmbeddingStore store = new WeaviateEmbeddingStore();
+        MilvusEmbeddingStore store = new MilvusEmbeddingStore();
         store.strategy = strategy;
         store.knowledgeBaseId = knowledgeBaseId;
         return store;
@@ -65,7 +65,7 @@ public class WeaviateEmbeddingStore implements EmbeddingStore<TextSegment> {
         // 转换为List<Float>
         List<Float> vector = convertEmbeddingToFloatList(embedding);
         
-        // 确保类存在
+        // 确保集合存在
         strategy.ensureCollection(knowledgeBaseId, vector.size());
         
         // 存储向量
@@ -128,7 +128,7 @@ public class WeaviateEmbeddingStore implements EmbeddingStore<TextSegment> {
                     .map(item -> item.chunkIndex)
                     .collect(Collectors.toList());
             
-            // 确保类存在
+            // 确保集合存在
             if (!vectors.isEmpty()) {
                 strategy.ensureCollection(knowledgeBaseId, vectors.get(0).size());
             }
@@ -148,7 +148,8 @@ public class WeaviateEmbeddingStore implements EmbeddingStore<TextSegment> {
     public EmbeddingSearchResult<TextSegment> search(EmbeddingSearchRequest embeddingSearchRequest) {
         Embedding referenceEmbedding = embeddingSearchRequest.queryEmbedding();
         int maxResults = embeddingSearchRequest.maxResults();
-        double effectiveMinScore = embeddingSearchRequest.minScore();
+        Double minScore = embeddingSearchRequest.minScore();
+        double effectiveMinScore = minScore != null ? minScore : 0.0;
         
         List<Float> queryVector = convertEmbeddingToFloatList(referenceEmbedding);
         

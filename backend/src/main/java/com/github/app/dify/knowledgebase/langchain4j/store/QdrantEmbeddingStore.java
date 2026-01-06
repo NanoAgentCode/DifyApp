@@ -1,4 +1,4 @@
-package com.github.app.dify.knowledgebase.langchain4j;
+package com.github.app.dify.knowledgebase.langchain4j.store;
 
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import dev.langchain4j.data.embedding.Embedding;
@@ -14,13 +14,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 /**
- * Chroma EmbeddingStore实现，适配Chroma存储
+ * Qdrant EmbeddingStore实现，适配Qdrant存储
  * 支持按知识库ID隔离存储（每个知识库一个集合）
  * 注意：此类通过工厂方法创建，不使用Spring管理
  */
-public class ChromaEmbeddingStore implements EmbeddingStore<TextSegment> {
+public class QdrantEmbeddingStore implements EmbeddingStore<TextSegment> {
     
-    private static final Logger logger = LoggerFactory.getLogger(ChromaEmbeddingStore.class);
+    private static final Logger logger = LoggerFactory.getLogger(QdrantEmbeddingStore.class);
     
     private VectorStoreStrategy strategy;
 
@@ -34,9 +34,8 @@ public class ChromaEmbeddingStore implements EmbeddingStore<TextSegment> {
     /**
      * 创建指定知识库的EmbeddingStore实例
      */
-    public static ChromaEmbeddingStore forKnowledgeBase(Long knowledgeBaseId, 
-                                                        VectorStoreStrategy strategy) {
-        ChromaEmbeddingStore store = new ChromaEmbeddingStore();
+    public static QdrantEmbeddingStore forKnowledgeBase(Long knowledgeBaseId, VectorStoreStrategy strategy) {
+        QdrantEmbeddingStore store = new QdrantEmbeddingStore();
         store.strategy = strategy;
         store.knowledgeBaseId = knowledgeBaseId;
         return store;
@@ -44,12 +43,12 @@ public class ChromaEmbeddingStore implements EmbeddingStore<TextSegment> {
     
     @Override
     public String add(Embedding embedding) {
-        throw new UnsupportedOperationException("请使用add(Embedding, TextSegment)方法");
+        throw new UnsupportedOperationException("请使用add(String, Embedding, TextSegment)方法");
     }
     
     @Override
     public void add(String id, Embedding embedding) {
-        throw new UnsupportedOperationException("请使用add(Embedding, TextSegment)方法");
+        throw new UnsupportedOperationException("请使用add(String, Embedding, TextSegment)方法");
     }
     
     @Override
@@ -81,6 +80,7 @@ public class ChromaEmbeddingStore implements EmbeddingStore<TextSegment> {
         // 返回ID（使用documentId和chunkIndex组合）
         return generateId(documentId, chunkIndex != null ? chunkIndex : 0);
     }
+    
     
     @Override
     public List<String> addAll(List<Embedding> embeddings) {

@@ -1,4 +1,4 @@
-package com.github.app.dify.knowledgebase.langchain4j;
+package com.github.app.dify.knowledgebase.langchain4j.store;
 
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import dev.langchain4j.data.embedding.Embedding;
