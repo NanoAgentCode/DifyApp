@@ -1,4 +1,4 @@
-package com.github.app.dify.model.util;
+package com.github.app.dify.common.util;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -7,12 +7,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatusCode;
 
 /**
- * 模型错误处理工具类
- * 提供统一的错误消息提取方法
+ * 通用错误处理工具类
+ * 提供与业务无关的错误消息提取方法
  */
-public class ModelErrorUtil {
+public class ErrorUtil {
     
-    private static final Logger logger = LoggerFactory.getLogger(ModelErrorUtil.class);
+    private static final Logger logger = LoggerFactory.getLogger(ErrorUtil.class);
     private static final ObjectMapper objectMapper = new ObjectMapper();
     
     /**

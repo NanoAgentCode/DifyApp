@@ -112,7 +112,7 @@ public class UserDataSourceVisibilityServiceImpl implements UserDataSourceVisibi
             throw new IllegalArgumentException("参数不能为空");
         }
         
-        java.util.Date now = PermissionDateTimeUtil.now();
+        java.util.Date now = DateTimeUtil.now();
         // 性能优化：批量查询现有记录
         List<UserDataSourceVisibility> existingVisibilities = repository.findByUserIdAndDataSourceIdIn(userId, dataSourceIds);
         Map<Long, UserDataSourceVisibility> existingMap = existingVisibilities.stream()

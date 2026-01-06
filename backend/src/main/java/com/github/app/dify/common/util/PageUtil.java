@@ -1,4 +1,4 @@
-package com.github.app.dify.knowledgebase.util;
+package com.github.app.dify.common.util;
 
 import com.github.app.dify.common.resp.PageResponse;
 import org.springframework.data.domain.Page;
@@ -11,10 +11,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * 知识库分页工具类
- * 提供统一的分页查询和响应构建方法
+ * 通用分页工具类
+ * 提供与业务无关的分页查询和响应构建方法
  */
-public class KnowledgeBasePageUtil {
+public class PageUtil {
     
     /**
      * 创建分页请求对象（默认按创建时间倒序）

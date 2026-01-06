@@ -1,5 +1,6 @@
 package com.github.app.dify.datasource.util;
 
+import com.github.app.dify.common.util.DateTimeUtil;
 import com.github.app.dify.datasource.domain.DataSource;
 import com.github.app.dify.datasource.domain.TableSchemaCache;
 
@@ -7,18 +8,9 @@ import java.util.Date;
 
 /**
  * 数据源日期时间工具类
- * 提供统一的日期时间处理方法
+ * 提供数据源相关实体的日期时间处理方法
  */
 public class DataSourceDateTimeUtil {
-    
-    /**
-     * 获取当前时间
-     * 
-     * @return 当前时间
-     */
-    public static Date now() {
-        return new Date();
-    }
     
     /**
      * 设置数据源的创建时间和更新时间
@@ -27,7 +19,7 @@ public class DataSourceDateTimeUtil {
      * @param dataSource 数据源实体
      */
     public static void setCreateAndUpdateTime(DataSource dataSource) {
-        Date now = now();
+        Date now = DateTimeUtil.now();
         dataSource.setCreateTime(now);
         dataSource.setUpdateTime(now);
     }
@@ -39,7 +31,7 @@ public class DataSourceDateTimeUtil {
      * @param dataSource 数据源实体
      */
     public static void setUpdateTime(DataSource dataSource) {
-        dataSource.setUpdateTime(now());
+        dataSource.setUpdateTime(DateTimeUtil.now());
     }
     
     /**
@@ -49,7 +41,7 @@ public class DataSourceDateTimeUtil {
      * @param cache 表结构缓存实体
      */
     public static void setCreateAndUpdateTime(TableSchemaCache cache) {
-        Date now = now();
+        Date now = DateTimeUtil.now();
         cache.setCreateTime(now);
         cache.setUpdateTime(now);
     }
@@ -61,7 +53,7 @@ public class DataSourceDateTimeUtil {
      * @param cache 表结构缓存实体
      */
     public static void setUpdateTime(TableSchemaCache cache) {
-        cache.setUpdateTime(now());
+        cache.setUpdateTime(DateTimeUtil.now());
     }
 }
 

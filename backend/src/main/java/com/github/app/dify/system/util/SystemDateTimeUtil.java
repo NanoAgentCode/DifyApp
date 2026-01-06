@@ -1,5 +1,6 @@
 package com.github.app.dify.system.util;
 
+import com.github.app.dify.common.util.DateTimeUtil;
 import com.github.app.dify.system.domain.DrawIODiagram;
 import com.github.app.dify.system.domain.DrawIOHistory;
 import com.github.app.dify.system.domain.Prompt;
@@ -9,18 +10,9 @@ import java.util.Date;
 
 /**
  * 系统日期时间工具类
- * 提供统一的日期时间处理方法
+ * 提供系统相关实体的日期时间处理方法
  */
 public class SystemDateTimeUtil {
-    
-    /**
-     * 获取当前时间
-     * 
-     * @return 当前时间
-     */
-    public static Date now() {
-        return new Date();
-    }
     
     /**
      * 设置系统配置的创建时间
@@ -29,7 +21,7 @@ public class SystemDateTimeUtil {
      * @param config 系统配置实体
      */
     public static void setCreateTime(SystemConfig config) {
-        config.setCreateTime(now());
+        config.setCreateTime(DateTimeUtil.now());
     }
     
     /**
@@ -39,7 +31,7 @@ public class SystemDateTimeUtil {
      * @param config 系统配置实体
      */
     public static void setUpdateTime(SystemConfig config) {
-        config.setUpdateTime(now());
+        config.setUpdateTime(DateTimeUtil.now());
     }
     
     /**
@@ -49,7 +41,7 @@ public class SystemDateTimeUtil {
      * @param prompt 提示词实体
      */
     public static void setCreateAndUpdateTime(Prompt prompt) {
-        Date now = now();
+        Date now = DateTimeUtil.now();
         prompt.setCreateTime(now);
         prompt.setUpdateTime(now);
     }
@@ -61,7 +53,7 @@ public class SystemDateTimeUtil {
      * @param prompt 提示词实体
      */
     public static void setUpdateTime(Prompt prompt) {
-        prompt.setUpdateTime(now());
+        prompt.setUpdateTime(DateTimeUtil.now());
     }
     
     /**
@@ -71,7 +63,7 @@ public class SystemDateTimeUtil {
      * @param diagram 图表实体
      */
     public static void setCreateAndUpdateTime(DrawIODiagram diagram) {
-        Date now = now();
+        Date now = DateTimeUtil.now();
         diagram.setCreateTime(now);
         diagram.setUpdateTime(now);
     }
@@ -83,7 +75,7 @@ public class SystemDateTimeUtil {
      * @param diagram 图表实体
      */
     public static void setUpdateTime(DrawIODiagram diagram) {
-        diagram.setUpdateTime(now());
+        diagram.setUpdateTime(DateTimeUtil.now());
     }
     
     /**
@@ -93,7 +85,7 @@ public class SystemDateTimeUtil {
      * @param history 历史记录实体
      */
     public static void setCreateTime(DrawIOHistory history) {
-        history.setCreateTime(now());
+        history.setCreateTime(DateTimeUtil.now());
     }
 }
 

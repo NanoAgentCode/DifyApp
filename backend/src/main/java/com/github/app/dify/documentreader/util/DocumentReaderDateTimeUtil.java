@@ -1,5 +1,6 @@
 package com.github.app.dify.documentreader.util;
 
+import com.github.app.dify.common.util.DateTimeUtil;
 import com.github.app.dify.documentreader.domain.DocumentGuide;
 import com.github.app.dify.documentreader.domain.DocumentMindMap;
 import com.github.app.dify.documentreader.domain.DocumentNotes;
@@ -10,18 +11,9 @@ import java.util.Date;
 
 /**
  * 文档解读日期时间工具类
- * 提供统一的日期时间处理方法
+ * 提供文档解读相关实体的日期时间处理方法
  */
 public class DocumentReaderDateTimeUtil {
-    
-    /**
-     * 获取当前时间
-     * 
-     * @return 当前时间
-     */
-    public static Date now() {
-        return new Date();
-    }
     
     /**
      * 设置文档的创建时间和更新时间
@@ -30,7 +22,7 @@ public class DocumentReaderDateTimeUtil {
      * @param document 文档实体
      */
     public static void setCreateAndUpdateTime(DocumentReader document) {
-        Date now = now();
+        Date now = DateTimeUtil.now();
         document.setCreateTime(now);
         document.setUpdateTime(now);
     }
@@ -42,7 +34,7 @@ public class DocumentReaderDateTimeUtil {
      * @param document 文档实体
      */
     public static void setUpdateTime(DocumentReader document) {
-        document.setUpdateTime(now());
+        document.setUpdateTime(DateTimeUtil.now());
     }
     
     /**
@@ -51,7 +43,7 @@ public class DocumentReaderDateTimeUtil {
      * @param guide 文档导读实体
      */
     public static void setCreateAndUpdateTime(DocumentGuide guide) {
-        Date now = now();
+        Date now = DateTimeUtil.now();
         guide.setCreateTime(now);
         guide.setUpdateTime(now);
     }
@@ -62,7 +54,7 @@ public class DocumentReaderDateTimeUtil {
      * @param guide 文档导读实体
      */
     public static void setUpdateTime(DocumentGuide guide) {
-        guide.setUpdateTime(now());
+        guide.setUpdateTime(DateTimeUtil.now());
     }
     
     /**
@@ -71,7 +63,7 @@ public class DocumentReaderDateTimeUtil {
      * @param translation 文档翻译实体
      */
     public static void setCreateAndUpdateTime(DocumentTranslation translation) {
-        Date now = now();
+        Date now = DateTimeUtil.now();
         translation.setCreateTime(now);
         translation.setUpdateTime(now);
     }
@@ -82,7 +74,7 @@ public class DocumentReaderDateTimeUtil {
      * @param translation 文档翻译实体
      */
     public static void setUpdateTime(DocumentTranslation translation) {
-        translation.setUpdateTime(now());
+        translation.setUpdateTime(DateTimeUtil.now());
     }
     
     /**
@@ -91,7 +83,7 @@ public class DocumentReaderDateTimeUtil {
      * @param mindMap 思维导图实体
      */
     public static void setCreateAndUpdateTime(DocumentMindMap mindMap) {
-        Date now = now();
+        Date now = DateTimeUtil.now();
         mindMap.setCreateTime(now);
         mindMap.setUpdateTime(now);
     }
@@ -102,7 +94,7 @@ public class DocumentReaderDateTimeUtil {
      * @param mindMap 思维导图实体
      */
     public static void setUpdateTime(DocumentMindMap mindMap) {
-        mindMap.setUpdateTime(now());
+        mindMap.setUpdateTime(DateTimeUtil.now());
     }
     
     /**
@@ -111,7 +103,7 @@ public class DocumentReaderDateTimeUtil {
      * @param notes 文档笔记实体
      */
     public static void setCreateAndUpdateTime(DocumentNotes notes) {
-        Date now = now();
+        Date now = DateTimeUtil.now();
         notes.setCreateTime(now);
         notes.setUpdateTime(now);
     }
@@ -122,7 +114,7 @@ public class DocumentReaderDateTimeUtil {
      * @param notes 文档笔记实体
      */
     public static void setUpdateTime(DocumentNotes notes) {
-        notes.setUpdateTime(now());
+        notes.setUpdateTime(DateTimeUtil.now());
     }
 }
 

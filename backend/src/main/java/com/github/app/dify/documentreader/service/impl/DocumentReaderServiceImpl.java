@@ -28,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import com.github.app.dify.documentreader.util.DocumentReaderConverterUtil;
 import com.github.app.dify.documentreader.util.DocumentReaderDateTimeUtil;
-import com.github.app.dify.documentreader.util.DocumentReaderPageUtil;
+import com.github.app.dify.common.util.PageUtil;
 import com.github.app.dify.documentreader.util.DocumentReaderSoftDeleteUtil;
 import java.io.InputStream;
 import java.io.BufferedReader;
@@ -272,7 +272,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             String fileType,
             int page,
             int pageSize) {
-        Pageable pageable = DocumentReaderPageUtil.createPageable(page, pageSize);
+        Pageable pageable = PageUtil.createPageable(page, pageSize);
         
         Page<DocumentReader> documentPage = documentRepository.findByUserIdAndDeletedAndKeywordAndFileType(
                 userId,
@@ -281,7 +281,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 fileType != null && !fileType.isEmpty() ? fileType : null,
                 pageable);
         
-        return DocumentReaderPageUtil.toPageResponse(documentPage, DocumentReaderConverterUtil::convertToResp);
+        return PageUtil.toPageResponse(documentPage, DocumentReaderConverterUtil::convertToResp);
     }
     
     /**

@@ -24,7 +24,7 @@ import org.springframework.http.MediaType;
 import com.github.app.dify.model.util.ModelConverterUtil;
 import com.github.app.dify.model.util.ModelDateTimeUtil;
 import com.github.app.dify.model.util.ModelWebClientUtil;
-import com.github.app.dify.model.util.ModelErrorUtil;
+import com.github.app.dify.common.util.ErrorUtil;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
@@ -239,7 +239,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
                     org.springframework.web.reactive.function.client.WebClientResponseException webClientEx = 
                         (org.springframework.web.reactive.function.client.WebClientResponseException) e.getCause();
                     String errorBody = webClientEx.getResponseBodyAsString();
-                    errorMessage = ModelErrorUtil.extractErrorMessage(errorBody, webClientEx.getStatusCode());
+                    errorMessage = ErrorUtil.extractErrorMessage(errorBody, webClientEx.getStatusCode());
                 }
             }
             
@@ -733,7 +733,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
         } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
             // 获取更详细的错误信息
             String errorBody = e.getResponseBodyAsString();
-            String errorMessage = ModelErrorUtil.extractErrorMessage(errorBody, e.getStatusCode());
+            String errorMessage = ErrorUtil.extractErrorMessage(errorBody, e.getStatusCode());
             
             logger.error("API返回错误响应，状态码: {}, 错误消息: {}", e.getStatusCode(), errorMessage);
             throw new RuntimeException(errorMessage, e);

@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import com.github.app.dify.knowledgebase.util.KnowledgeBaseConverterUtil;
 import com.github.app.dify.knowledgebase.util.KnowledgeBaseDateTimeUtil;
-import com.github.app.dify.knowledgebase.util.KnowledgeBasePageUtil;
+import com.github.app.dify.common.util.PageUtil;
 import com.github.app.dify.knowledgebase.util.KnowledgeBaseSoftDeleteUtil;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -277,7 +277,7 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
             int page, 
             int pageSize) {
         // 创建分页请求，按创建时间倒序
-        Pageable pageable = KnowledgeBasePageUtil.createPageable(page, pageSize);
+        Pageable pageable = PageUtil.createPageable(page, pageSize);
         
         Page<KnowledgeBaseDocument> documentPage;
         
@@ -296,7 +296,7 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
         }
         
         // 转换为响应对象
-        return KnowledgeBasePageUtil.toPageResponse(documentPage, KnowledgeBaseConverterUtil::convertToResp);
+        return PageUtil.toPageResponse(documentPage, KnowledgeBaseConverterUtil::convertToResp);
     }
     
     /**

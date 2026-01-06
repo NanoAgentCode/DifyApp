@@ -29,7 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.github.app.dify.knowledgebase.util.KnowledgeBaseConverterUtil;
 import com.github.app.dify.knowledgebase.util.KnowledgeBaseDateTimeUtil;
-import com.github.app.dify.knowledgebase.util.KnowledgeBasePageUtil;
+import com.github.app.dify.common.util.PageUtil;
 import com.github.app.dify.knowledgebase.util.KnowledgeBaseSoftDeleteUtil;
 import java.util.List;
 import java.util.Optional;
@@ -111,7 +111,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         if (req.getVectorDatabaseId() != null) {
             // 如果指定了向量库实例ID，验证并设置
             if (vectorDatabaseRepository != null) {
-                Optional<com.github.app.dify.knowledgebase.domain.VectorDatabase> vectorDb = vectorDatabaseRepository.findById(req.getVectorDatabaseId());
+                Optional<VectorDatabase> vectorDb = vectorDatabaseRepository.findById(req.getVectorDatabaseId());
                 if (vectorDb.isPresent() && vectorDb.get().getEnabled()) {
                     knowledgeBase.setVectorDatabaseId(req.getVectorDatabaseId());
                     // 同时设置类型（用于兼容）
@@ -194,7 +194,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         if (req.getVectorDatabaseId() != null) {
             // 如果指定了向量库实例ID，验证并设置
             if (vectorDatabaseRepository != null) {
-                Optional<com.github.app.dify.knowledgebase.domain.VectorDatabase> vectorDb = vectorDatabaseRepository.findById(req.getVectorDatabaseId());
+                Optional<VectorDatabase> vectorDb = vectorDatabaseRepository.findById(req.getVectorDatabaseId());
                 if (vectorDb.isPresent() && vectorDb.get().getEnabled()) {
                     knowledgeBase.setVectorDatabaseId(req.getVectorDatabaseId());
                     // 同时设置类型（用于兼容）
@@ -326,7 +326,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     public PageResponse<KnowledgeBaseResp> listKnowledgeBasesWithPagination(
             Integer tenantId, Integer status, String keyword, String vectorStoreType, Long userId, Integer userRole, 
             int page, int pageSize) {
-        Pageable pageable = KnowledgeBasePageUtil.createPageable(page, pageSize);
+        Pageable pageable = PageUtil.createPageable(page, pageSize);
         
         // 使用分页查询
         Page<KnowledgeBase> kbPage = knowledgeBaseRepository.findByFiltersWithPagination(

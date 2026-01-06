@@ -1,5 +1,6 @@
 package com.github.app.dify.knowledgebase.util;
 
+import com.github.app.dify.common.util.DateTimeUtil;
 import com.github.app.dify.knowledgebase.domain.KnowledgeBase;
 import com.github.app.dify.knowledgebase.domain.KnowledgeBaseDocument;
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
@@ -8,18 +9,9 @@ import java.util.Date;
 
 /**
  * 知识库日期时间工具类
- * 提供统一的日期时间处理方法
+ * 提供知识库相关实体的日期时间处理方法
  */
 public class KnowledgeBaseDateTimeUtil {
-    
-    /**
-     * 获取当前时间
-     * 
-     * @return 当前时间
-     */
-    public static Date now() {
-        return new Date();
-    }
     
     /**
      * 设置知识库的创建时间和更新时间
@@ -28,7 +20,7 @@ public class KnowledgeBaseDateTimeUtil {
      * @param knowledgeBase 知识库实体
      */
     public static void setCreateAndUpdateTime(KnowledgeBase knowledgeBase) {
-        Date now = now();
+        Date now = DateTimeUtil.now();
         knowledgeBase.setCreateTime(now);
         knowledgeBase.setUpdateTime(now);
     }
@@ -40,7 +32,7 @@ public class KnowledgeBaseDateTimeUtil {
      * @param knowledgeBase 知识库实体
      */
     public static void setUpdateTime(KnowledgeBase knowledgeBase) {
-        knowledgeBase.setUpdateTime(now());
+        knowledgeBase.setUpdateTime(DateTimeUtil.now());
     }
     
     /**
@@ -50,7 +42,7 @@ public class KnowledgeBaseDateTimeUtil {
      * @param document 知识库文档实体
      */
     public static void setCreateAndUpdateTime(KnowledgeBaseDocument document) {
-        Date now = now();
+        Date now = DateTimeUtil.now();
         document.setCreateTime(now);
         document.setUpdateTime(now);
     }
@@ -62,7 +54,7 @@ public class KnowledgeBaseDateTimeUtil {
      * @param document 知识库文档实体
      */
     public static void setUpdateTime(KnowledgeBaseDocument document) {
-        document.setUpdateTime(now());
+        document.setUpdateTime(DateTimeUtil.now());
     }
     
     /**
@@ -72,7 +64,7 @@ public class KnowledgeBaseDateTimeUtil {
      * @param vectorDatabase 向量数据库实体
      */
     public static void setCreateAndUpdateTime(VectorDatabase vectorDatabase) {
-        Date now = now();
+        Date now = DateTimeUtil.now();
         vectorDatabase.setCreateTime(now);
         vectorDatabase.setUpdateTime(now);
     }
@@ -84,7 +76,7 @@ public class KnowledgeBaseDateTimeUtil {
      * @param vectorDatabase 向量数据库实体
      */
     public static void setUpdateTime(VectorDatabase vectorDatabase) {
-        vectorDatabase.setUpdateTime(now());
+        vectorDatabase.setUpdateTime(DateTimeUtil.now());
     }
 }
 
