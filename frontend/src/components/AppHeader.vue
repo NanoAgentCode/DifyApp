@@ -234,13 +234,20 @@ onMounted(() => {
 .collapse-header-button {
   padding: 8px;
   color: #ffffff;
+  background-color: transparent; /* 默认透明 */
   transition: color 0.2s, background-color 0.2s;
   flex-shrink: 0;
 }
 
-.collapse-header-button:hover {
+.collapse-header-button:hover,
+.collapse-header-button:focus {
   color: #ffffff;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(128, 128, 128, 0.3); /* 灰色半透明 */
+}
+
+.collapse-header-button:focus-visible {
+  outline: none;
+  background-color: rgba(128, 128, 128, 0.3); /* 灰色半透明 */
 }
 
 .header-right {
@@ -279,13 +286,21 @@ onMounted(() => {
 }
 
 .expand-header-button :deep(.el-button) {
-  background-color: #909399 !important; /* 灰色背景 */
-  border-color: #909399 !important;
+  background-color: transparent !important; /* 默认透明 */
+  border-color: transparent !important;
+  color: #909399 !important;
 }
 
-.expand-header-button :deep(.el-button:hover) {
-  background-color: #a6a9ad !important; /* 悬停时稍深的灰色 */
-  border-color: #a6a9ad !important;
+.expand-header-button :deep(.el-button:hover),
+.expand-header-button :deep(.el-button:focus) {
+  background-color: rgba(128, 128, 128, 0.3) !important; /* 灰色半透明 */
+  border-color: rgba(128, 128, 128, 0.3) !important;
+  color: #909399 !important;
+}
+
+.expand-header-button :deep(.el-button:focus-visible) {
+  outline: none;
+  background-color: rgba(128, 128, 128, 0.3) !important; /* 灰色半透明 */
 }
 
 @keyframes slideDown {

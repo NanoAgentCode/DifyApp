@@ -6,7 +6,7 @@
     <!-- 主要内容区域 -->
     <div class="portal-content" :class="{ 'content-header-collapsed': isHeaderCollapsed, 'no-scroll': isContentOverflow }">
       <!-- 初始欢迎界面（无对话时显示） -->
-      <div v-if="chatHistory.length === 0 && !isInputFocused" class="welcome-section">
+      <div v-if="chatHistory.length === 0" class="welcome-section">
         <!-- 页面切换标签 -->
         <div class="view-tabs">
           <div 
@@ -37,62 +37,124 @@
 
         <!-- 欢迎视图 -->
         <transition name="fade-slide" mode="out-in">
-          <div v-if="currentView === 'welcome'" key="welcome" class="view-content">
-            <div class="assistant-identity">
-              <el-icon class="assistant-icon"><Service /></el-icon>
-              <span class="assistant-name">NanoAgent</span>
-            </div>
-            <div class="welcome-message">
-              你好！我是NanoAgent，很高兴为你提供帮助。有什么问题或需要协助的地方吗？
-              <div class="welcome-tips">
-                <span class="tip-item">输入 <span class="tip-symbol">@</span> 选择知识库</span>
-                <span class="tip-item">输入 <span class="tip-symbol">/</span> 选择文档</span>
+          <div v-if="currentView === 'welcome'" key="welcome" class="view-content welcome-view">
+            <!-- 助手身份卡片 -->
+            <div class="assistant-card">
+              <div class="assistant-avatar">
+                <el-icon class="assistant-icon"><Service /></el-icon>
               </div>
-              <div class="keyboard-shortcuts-hint">
-                <el-icon class="hint-icon"><InfoFilled /></el-icon>
-                <span class="hint-text">
-                  快捷键: <kbd>Ctrl+1</kbd> 智能对话 | <kbd>Ctrl+2</kbd> 快捷入口 | <kbd>Ctrl+N</kbd> 新对话
-                </span>
+              <div class="assistant-info">
+                <h2 class="assistant-name">NanoAgent</h2>
+                <p class="assistant-status">智能助手 · 随时为您服务</p>
               </div>
             </div>
-            <div class="suggested-prompts">
-              <!-- Loading skeleton for conversations -->
-              <div v-if="loadingConversations" class="prompt-skeleton">
-                <div v-for="i in 3" :key="i" class="skeleton-item">
-                  <div class="skeleton-bullet"></div>
-                  <div class="skeleton-text"></div>
-                </div>
+
+            <!-- 欢迎消息卡片 -->
+            <div class="welcome-card">
+              <div class="welcome-message">
+                <p class="greeting-text">你好！我是NanoAgent，很高兴为你提供帮助。</p>
+                <p class="greeting-subtext">有什么问题或需要协助的地方吗？</p>
               </div>
               
-              <div 
-                v-else-if="recentConversations.length > 0"
-                v-for="(conversation, index) in recentConversations" 
-                :key="conversation.id"
-                class="prompt-item"
-              >
-                <div class="prompt-item-content" @click="handleConversationClick(conversation)">
-                  <span class="prompt-bullet">•</span>
-                  <span class="prompt-text">{{ conversation.title || '未命名会话' }}</span>
+              <!-- 快速操作提示 -->
+              <div class="quick-actions">
+                <div class="action-item">
+                  <div class="action-icon">
+                    <el-icon><Search /></el-icon>
+                  </div>
+                  <div class="action-content">
+                    <span class="action-title">知识库问答</span>
+                    <span class="action-desc">输入 <kbd>@</kbd> 选择知识库</span>
+                  </div>
                 </div>
-                <el-tooltip content="继续对话" placement="top">
-                  <el-button
-                    class="prompt-continue-btn"
-                    type="primary"
-                    text
-                    size="small"
-                    @click.stop="handleConversationClick(conversation)"
-                  >
-                    <el-icon><ArrowRight /></el-icon>
-                  </el-button>
-                </el-tooltip>
+                <div class="action-item">
+                  <div class="action-icon">
+                    <el-icon><Document /></el-icon>
+                  </div>
+                  <div class="action-content">
+                    <span class="action-title">文档对话</span>
+                    <span class="action-desc">输入 <kbd>/</kbd> 选择文档</span>
+                  </div>
+                </div>
+                <div class="action-item">
+                  <div class="action-icon">
+                    <el-icon><InfoFilled /></el-icon>
+                  </div>
+                  <div class="action-content">
+                    <span class="action-title">快捷键</span>
+                    <div class="action-desc shortcuts-desc">
+                      <kbd>Ctrl+1</kbd> 智能对话
+                      <span class="hint-separator">|</span>
+                      <kbd>Ctrl+2</kbd> 快捷入口
+                      <span class="hint-separator">|</span>
+                      <kbd>Ctrl+N</kbd> 新对话
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div 
-                v-if="recentConversations.length === 0"
-                class="prompt-item"
-                @click="handlePromptClick('最近有什么有趣的事情吗')"
-              >
-                <span class="prompt-bullet">•</span>
-                <span class="prompt-text">最近有什么有趣的事情吗</span>
+            </div>
+
+            <!-- 最近会话或建议问题 - 两列布局 -->
+            <div class="suggestions-section">
+              <!-- 左侧：最近会话 -->
+              <div class="suggestions-column">
+                <div v-if="recentConversations.length > 0" class="recent-conversations">
+                  <div class="section-header">
+                    <el-icon class="section-icon"><Clock /></el-icon>
+                    <span class="section-title">最近会话</span>
+                  </div>
+                  <div class="conversations-list" :class="{ 'collapsed-mode': isHeaderCollapsed }">
+                    <div 
+                      v-for="(conversation, index) in recentConversations" 
+                      :key="conversation.id"
+                      class="conversation-card"
+                      @click="handleConversationClick(conversation)"
+                    >
+                      <div class="conversation-content">
+                        <el-icon class="conversation-icon"><ChatLineRound /></el-icon>
+                        <div class="conversation-info">
+                          <span class="conversation-title">{{ conversation.title || '未命名会话' }}</span>
+                          <span class="conversation-time" v-if="conversation.updateTime">
+                            {{ formatConversationTime(conversation.updateTime) }}
+                          </span>
+                        </div>
+                      </div>
+                      <el-icon class="conversation-arrow"><ArrowRight /></el-icon>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="empty-column">
+                  <div class="empty-placeholder">
+                    <el-icon class="empty-icon"><ChatLineRound /></el-icon>
+                    <span class="empty-text">暂无最近会话</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 右侧：建议问题 -->
+              <div class="suggestions-column">
+                <div class="suggested-questions">
+                  <div class="section-header">
+                    <el-icon class="section-icon"><Star /></el-icon>
+                    <span class="section-title">快速开始</span>
+                  </div>
+                  <div class="questions-grid" :class="{ 'collapsed-mode': isHeaderCollapsed }">
+                    <div 
+                      v-for="(question, index) in displayedQuestions"
+                      :key="index"
+                      class="question-card"
+                      @click="handlePromptClick(question.text)"
+                    >
+                      <el-icon class="question-icon">
+                        <QuestionFilled v-if="question.icon === 'QuestionFilled'" />
+                        <Document v-else-if="question.icon === 'Document'" />
+                        <ChatDotRound v-else-if="question.icon === 'ChatDotRound'" />
+                        <Star v-else />
+                      </el-icon>
+                      <span class="question-text">{{ question.text }}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -100,88 +162,148 @@
           <!-- 系统功能视图 -->
           <div v-else-if="currentView === 'features'" key="features" class="view-content">
             <div class="feature-entries">
-              <div class="feature-title">
-                <el-icon class="feature-title-icon"><Service /></el-icon>
-                <span class="feature-title-text">NanoAgent</span>
+              <div class="feature-header">
+                <div class="feature-title">
+                  <el-icon class="feature-title-icon"><Service /></el-icon>
+                  <span class="feature-title-text">快捷入口</span>
+                </div>
+                <p class="feature-subtitle">选择功能模块，快速开始您的工作</p>
               </div>
-              <div class="feature-grid">
-                <div 
-                  class="feature-item" 
-                  :class="{ 'navigating': isNavigatingToFeature }"
-                  @click="handleFeatureClick('apps')"
-                  role="button"
-                  tabindex="0"
-                  @keydown.enter="handleFeatureClick('apps')"
-                >
-                  <div class="feature-circle">
-                    <el-icon class="feature-icon"><Grid /></el-icon>
+              
+              <div class="feature-categories">
+                <!-- AI 应用类 -->
+                <div class="feature-category">
+                  <h3 class="category-title">
+                    <el-icon class="category-icon"><Grid /></el-icon>
+                    <span>AI 应用</span>
+                  </h3>
+                  <div class="feature-cards">
+                    <div 
+                      class="feature-card" 
+                      :class="{ 'navigating': isNavigatingToFeature }"
+                      @click="handleFeatureClick('apps')"
+                      role="button"
+                      tabindex="0"
+                      @keydown.enter="handleFeatureClick('apps')"
+                    >
+                      <div class="feature-card-icon">
+                        <el-icon class="feature-icon"><Grid /></el-icon>
+                      </div>
+                      <div class="feature-card-content">
+                        <h4 class="feature-card-title">智能应用</h4>
+                        <p class="feature-card-desc">创建和管理AI应用，构建智能工作流</p>
+                      </div>
+                      <el-icon class="feature-card-arrow"><ArrowRight /></el-icon>
+                    </div>
+                    
+                    <div 
+                      class="feature-card" 
+                      :class="{ 'navigating': isNavigatingToFeature }"
+                      @click="handleFeatureClick('ai-drawio')"
+                      role="button"
+                      tabindex="0"
+                      @keydown.enter="handleFeatureClick('ai-drawio')"
+                    >
+                      <div class="feature-card-icon">
+                        <el-icon class="feature-icon"><Picture /></el-icon>
+                      </div>
+                      <div class="feature-card-content">
+                        <h4 class="feature-card-title">智能框图</h4>
+                        <p class="feature-card-desc">AI驱动的思维导图和流程图生成</p>
+                      </div>
+                      <el-icon class="feature-card-arrow"><ArrowRight /></el-icon>
+                    </div>
                   </div>
-                  <span class="feature-name">智能应用</span>
                 </div>
-                <div 
-                  class="feature-item" 
-                  :class="{ 'navigating': isNavigatingToFeature }"
-                  @click="handleFeatureClick('kb-qa')"
-                  role="button"
-                  tabindex="0"
-                  @keydown.enter="handleFeatureClick('kb-qa')"
-                >
-                  <div class="feature-circle">
-                    <el-icon class="feature-icon"><Search /></el-icon>
+
+                <!-- 知识管理类 -->
+                <div class="feature-category">
+                  <h3 class="category-title">
+                    <el-icon class="category-icon"><Folder /></el-icon>
+                    <span>知识管理</span>
+                  </h3>
+                  <div class="feature-cards">
+                    <div 
+                      class="feature-card" 
+                      :class="{ 'navigating': isNavigatingToFeature }"
+                      @click="handleFeatureClick('kb-qa')"
+                      role="button"
+                      tabindex="0"
+                      @keydown.enter="handleFeatureClick('kb-qa')"
+                    >
+                      <div class="feature-card-icon">
+                        <el-icon class="feature-icon"><Search /></el-icon>
+                      </div>
+                      <div class="feature-card-content">
+                        <h4 class="feature-card-title">知识检索</h4>
+                        <p class="feature-card-desc">基于知识库的智能问答和检索</p>
+                      </div>
+                      <el-icon class="feature-card-arrow"><ArrowRight /></el-icon>
+                    </div>
+                    
+                    <div 
+                      class="feature-card" 
+                      :class="{ 'navigating': isNavigatingToFeature }"
+                      @click="handleFeatureClick('knowledge-base')"
+                      role="button"
+                      tabindex="0"
+                      @keydown.enter="handleFeatureClick('knowledge-base')"
+                    >
+                      <div class="feature-card-icon">
+                        <el-icon class="feature-icon"><Folder /></el-icon>
+                      </div>
+                      <div class="feature-card-content">
+                        <h4 class="feature-card-title">知识管理</h4>
+                        <p class="feature-card-desc">管理知识库和文档，构建知识体系</p>
+                      </div>
+                      <el-icon class="feature-card-arrow"><ArrowRight /></el-icon>
+                    </div>
+                    
+                    <div 
+                      class="feature-card" 
+                      :class="{ 'navigating': isNavigatingToFeature }"
+                      @click="handleFeatureClick('document')"
+                      role="button"
+                      tabindex="0"
+                      @keydown.enter="handleFeatureClick('document')"
+                    >
+                      <div class="feature-card-icon">
+                        <el-icon class="feature-icon"><Document /></el-icon>
+                      </div>
+                      <div class="feature-card-content">
+                        <h4 class="feature-card-title">文档解读</h4>
+                        <p class="feature-card-desc">上传文档，AI智能解读和分析</p>
+                      </div>
+                      <el-icon class="feature-card-arrow"><ArrowRight /></el-icon>
+                    </div>
                   </div>
-                  <span class="feature-name">知识检索</span>
                 </div>
-                <div 
-                  class="feature-item" 
-                  :class="{ 'navigating': isNavigatingToFeature }"
-                  @click="handleFeatureClick('knowledge-base')"
-                  role="button"
-                  tabindex="0"
-                  @keydown.enter="handleFeatureClick('knowledge-base')"
-                >
-                  <div class="feature-circle">
-                    <el-icon class="feature-icon"><Folder /></el-icon>
+
+                <!-- 会话管理类 -->
+                <div class="feature-category">
+                  <h3 class="category-title">
+                    <el-icon class="category-icon"><Clock /></el-icon>
+                    <span>会话管理</span>
+                  </h3>
+                  <div class="feature-cards">
+                    <div 
+                      class="feature-card" 
+                      :class="{ 'navigating': isNavigatingToFeature }"
+                      @click="handleFeatureClick('chat-history')"
+                      role="button"
+                      tabindex="0"
+                      @keydown.enter="handleFeatureClick('chat-history')"
+                    >
+                      <div class="feature-card-icon">
+                        <el-icon class="feature-icon"><Clock /></el-icon>
+                      </div>
+                      <div class="feature-card-content">
+                        <h4 class="feature-card-title">会话历史</h4>
+                        <p class="feature-card-desc">查看和管理历史对话记录</p>
+                      </div>
+                      <el-icon class="feature-card-arrow"><ArrowRight /></el-icon>
+                    </div>
                   </div>
-                  <span class="feature-name">知识管理</span>
-                </div>
-                <div 
-                  class="feature-item" 
-                  :class="{ 'navigating': isNavigatingToFeature }"
-                  @click="handleFeatureClick('ai-drawio')"
-                  role="button"
-                  tabindex="0"
-                  @keydown.enter="handleFeatureClick('ai-drawio')"
-                >
-                  <div class="feature-circle">
-                    <el-icon class="feature-icon"><Picture /></el-icon>
-                  </div>
-                  <span class="feature-name">智能框图</span>
-                </div>
-                <div 
-                  class="feature-item" 
-                  :class="{ 'navigating': isNavigatingToFeature }"
-                  @click="handleFeatureClick('document')"
-                  role="button"
-                  tabindex="0"
-                  @keydown.enter="handleFeatureClick('document')"
-                >
-                  <div class="feature-circle">
-                    <el-icon class="feature-icon"><Document /></el-icon>
-                  </div>
-                  <span class="feature-name">文档解读</span>
-                </div>
-                <div 
-                  class="feature-item" 
-                  :class="{ 'navigating': isNavigatingToFeature }"
-                  @click="handleFeatureClick('chat-history')"
-                  role="button"
-                  tabindex="0"
-                  @keydown.enter="handleFeatureClick('chat-history')"
-                >
-                  <div class="feature-circle">
-                    <el-icon class="feature-icon"><Clock /></el-icon>
-                  </div>
-                  <span class="feature-name">会话历史</span>
                 </div>
               </div>
             </div>
@@ -191,7 +313,7 @@
 
       <!-- 对话历史区域（有对话时显示） -->
       <div 
-        v-if="chatHistory.length > 0 || isInputFocused" 
+        v-if="chatHistory.length > 0" 
         class="chat-history-section"
         :class="{ 'content-overflow': isContentOverflow }"
         ref="chatHistorySectionRef"
@@ -206,7 +328,12 @@
     </div>
 
     <!-- 中央输入区域 -->
-    <div class="input-section" :class="{ 'transparent': isContentOverflow }" ref="inputSectionRef">
+    <div 
+      v-if="currentView !== 'features'"
+      class="input-section" 
+      :class="{ 'transparent': isContentOverflow }" 
+      ref="inputSectionRef"
+    >
       <div class="input-wrapper" ref="inputWrapperRef">
         <!-- 输入框容器（标签作为输入内容的一部分，不单独占行或列） -->
         <div class="input-container">
@@ -309,38 +436,6 @@
       <div class="input-controls-float">
         <!-- 左侧控制按钮 -->
         <div class="input-left-controls">
-          <el-dropdown 
-            @command="handleModeChange" 
-            trigger="click"
-            placement="top-start"
-          >
-            <div class="control-item" :class="{ 'mode-selected': conversationMode === 'rag' || conversationMode === 'document' }">
-              <el-icon><ChatLineRound /></el-icon>
-              <span>{{ 
-                conversationMode === 'rag' ? '知识库问答' : 
-                conversationMode === 'document' ? '文档对话' : 
-                '对话模式' 
-              }}</span>
-              <el-icon class="arrow"><ArrowDown /></el-icon>
-            </div>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="chat" :class="{ 'is-selected': conversationMode === 'chat' }">
-                  <span>普通对话</span>
-                  <el-icon v-if="conversationMode === 'chat'" style="margin-left: 8px;"><Check /></el-icon>
-                </el-dropdown-item>
-                <el-dropdown-item command="rag" :class="{ 'is-selected': conversationMode === 'rag' }">
-                  <span>知识库问答</span>
-                  <el-icon v-if="conversationMode === 'rag'" style="margin-left: 8px;"><Check /></el-icon>
-                </el-dropdown-item>
-                <el-dropdown-item command="document" :class="{ 'is-selected': conversationMode === 'document' }">
-                  <span>文档对话</span>
-                  <el-icon v-if="conversationMode === 'document'" style="margin-left: 8px;"><Check /></el-icon>
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-          
           <el-dropdown @command="handleModelChange" trigger="click">
             <div class="control-item">
               <el-icon><Connection /></el-icon>
@@ -363,8 +458,8 @@
             </template>
           </el-dropdown>
 
-          <!-- 联网搜索开关（仅在普通对话模式下显示） -->
-          <div v-if="conversationMode === 'chat'" class="control-item" style="display: flex; align-items: center; gap: 8px; padding: 0 12px;">
+          <!-- 联网搜索开关（仅在普通对话模式下显示，即没有选择知识库和文档时） -->
+          <div v-if="!selectedKnowledgeBase && !selectedDocument" class="control-item" style="display: flex; align-items: center; gap: 8px; padding: 0 12px;">
             <span style="font-size: 14px; color: #606266; white-space: nowrap;">联网搜索</span>
             <el-switch
               v-model="enableBrowserSearch"
@@ -479,7 +574,10 @@ import {
   Grid,
   Search,
   Folder,
-  InfoFilled
+  InfoFilled,
+  Star,
+  QuestionFilled,
+  ChatDotRound
 } from '@element-plus/icons-vue'
 import { chat, chatStream, getMyConversations, getConversationMessages } from '@/api/chat'
 import { getAvailableQAModels, getAvailableQAModelsForRAG } from '@/api/model'
@@ -517,7 +615,7 @@ const currentTime = ref('')
 const availableKnowledgeBases = ref([])
 const selectedKnowledgeBaseId = ref(null)
 const selectedKnowledgeBase = ref(null)
-const conversationMode = ref('chat') // 'chat' 普通对话, 'rag' 知识库问答, 'document' 文档对话
+// conversationMode 现在是计算属性，根据选择自动判断（见下方定义）
 const selectedKnowledgeBaseName = ref('')
 const showChangePasswordDialog = ref(false)
 const isHeaderCollapsed = ref(false)
@@ -542,13 +640,29 @@ const selectedDocument = ref(null) // 选中的文档对象
 const loadingDocuments = ref(false) // 是否正在加载文档列表
 const mentionWidth = ref(0) // 标签的宽度
 const mentionContainerRef = ref(null) // 标签容器的引用
-const recentConversations = ref([]) // 最近三条会话历史
+const recentConversations = ref([]) // 最近会话历史（展开状态3条，收起状态4条）
 const selectedConversationId = ref(null) // 选中的会话ID
 const loadingConversations = ref(false) // 是否正在加载会话列表
 const retryCount = ref(0) // 重试次数
 const maxRetries = 3 // 最大重试次数
 const isViewSwitching = ref(false) // 视图切换动画状态
 const isNavigatingToFeature = ref(false) // 正在导航到功能页面
+
+// 建议问题列表
+const suggestedQuestions = ref([
+  { text: '最近有什么有趣的事情吗', icon: 'QuestionFilled' },
+  { text: '帮我写一份工作总结', icon: 'Document' },
+  { text: '解释一下人工智能的基本概念', icon: 'ChatDotRound' },
+  { text: '推荐一些提高效率的方法', icon: 'Star' }
+])
+
+// 根据顶部状态显示不同数量的建议问题
+const displayedQuestions = computed(() => {
+  // 展开状态显示3条，收起状态显示4条
+  return isHeaderCollapsed.value 
+    ? suggestedQuestions.value.slice(0, 4) 
+    : suggestedQuestions.value.slice(0, 3)
+})
 
 // Memoized computed properties for better performance
 const hasActiveSelection = computed(() => selectedKnowledgeBase.value || selectedDocument.value)
@@ -761,16 +875,18 @@ const selectDocument = (doc) => {
   selectedDocumentId.value = doc.id
   selectedDocument.value = doc
   
-  // 如果在非文档对话模式下选择文档，自动切换到文档对话模式
-  if (conversationMode.value !== 'document') {
-    conversationMode.value = 'document'
-    loadAvailableModels()
-    const docName = doc.originalFileName || doc.fileName || doc.name || '未命名文档'
-    ElMessage.success(`已切换到文档对话模式，并选择文档：${docName}`)
-  } else {
-    const docName = doc.originalFileName || doc.fileName || doc.name || '未命名文档'
-    ElMessage.success(`已选择文档：${docName}`)
+  // 清除知识库选择（文档和知识库不能同时选择）
+  if (selectedKnowledgeBaseId.value) {
+    selectedKnowledgeBaseId.value = null
+    selectedKnowledgeBase.value = null
+    selectedKnowledgeBaseName.value = ''
   }
+  
+  // 重新加载模型列表
+  loadAvailableModels()
+  
+  const docName = doc.originalFileName || doc.fileName || doc.name || '未命名文档'
+  ElMessage.success(`已选择文档：${docName}`)
   
   // 隐藏列表
   showDocList.value = false
@@ -819,11 +935,8 @@ const clearDocument = () => {
   const slashPattern = /\/[^\s/]+\s*/g
   question.value = text.replace(slashPattern, '')
   
-  // 如果当前是文档对话模式，清除后切换回普通对话模式
-  if (conversationMode.value === 'document') {
-    conversationMode.value = 'chat'
-    loadAvailableModels()
-  }
+  // 重新加载模型列表
+  loadAvailableModels()
   
   // 更新标签宽度
   updateMentionWidth()
@@ -949,17 +1062,19 @@ const selectKnowledgeBase = (kb) => {
   selectedKnowledgeBase.value = kb
   selectedKnowledgeBaseName.value = kb.name
   
+  // 清除文档选择（知识库和文档不能同时选择）
+  if (selectedDocumentId.value) {
+    selectedDocumentId.value = null
+    selectedDocument.value = null
+  }
+  
   // 清空输入框中的@知识库名称，只保留其他内容
   question.value = beforeAt + afterCursor.trim()
   
-  // 如果在对话模式下选择知识库，自动切换到知识库问答模式
-  if (conversationMode.value === 'chat') {
-    conversationMode.value = 'rag'
-    loadAvailableModels()
-    ElMessage.success(`已切换到知识库问答模式，并选择知识库：${kb.name}`)
-  } else {
-    ElMessage.success(`已选择知识库：${kb.name}`)
-  }
+  // 重新加载模型列表
+  loadAvailableModels()
+  
+  ElMessage.success(`已选择知识库：${kb.name}`)
   
   // 隐藏列表
   showKbList.value = false
@@ -980,39 +1095,16 @@ const selectKnowledgeBase = (kb) => {
   ElMessage.success(`已选择知识库：${kb.name}`)
 }
 
-// 处理模式切换
-const handleModeChange = (mode) => {
-  conversationMode.value = mode
-  if (mode === 'rag') {
-    // 切换到知识库问答模式时，如果没有选择知识库，提示用户
-    if (!selectedKnowledgeBaseId.value && availableKnowledgeBases.value.length > 0) {
-      ElMessage.info('请在输入框中输入@选择知识库')
-    }
-    // 清除文档选择
-    selectedDocumentId.value = null
-    selectedDocument.value = null
-  } else if (mode === 'document') {
-    // 切换到文档对话模式时，如果没有选择文档，提示用户
-    if (!selectedDocumentId.value && availableDocuments.value.length > 0) {
-      ElMessage.info('请在输入框中输入/选择文档')
-    }
-    // 清除知识库选择
-    selectedKnowledgeBaseId.value = null
-    selectedKnowledgeBase.value = null
-    selectedKnowledgeBaseName.value = ''
-    showKbList.value = false
+// 自动判断对话模式（根据选择的知识库和文档）
+const conversationMode = computed(() => {
+  if (selectedDocumentId.value && selectedDocument.value) {
+    return 'document'
+  } else if (selectedKnowledgeBaseId.value && selectedKnowledgeBase.value) {
+    return 'rag'
   } else {
-    // 切换到普通对话模式时，清除知识库和文档选择
-    selectedKnowledgeBaseId.value = null
-    selectedKnowledgeBase.value = null
-    selectedKnowledgeBaseName.value = ''
-    selectedDocumentId.value = null
-    selectedDocument.value = null
-    showKbList.value = false
+    return 'chat'
   }
-  // 重新加载模型列表（因为不同模式使用的模型可能不同）
-  loadAvailableModels()
-}
+})
 
 // 处理模型切换
 const handleModelChange = (modelId) => {
@@ -1919,15 +2011,63 @@ const updateDateTime = () => {
 
 
 // 处理刷新（重置会话）
-const handleRefresh = () => {
+const handleRefresh = (showMessage = true) => {
   chatHistory.value = []
   conversationId.value = null
   question.value = ''
   selectedFiles.value = []
   isInputFocused.value = false
-  ElMessage.success('会话已重置')
+  
+  // 清除知识库和文档选择
+  selectedKnowledgeBaseId.value = null
+  selectedKnowledgeBase.value = null
+  selectedKnowledgeBaseName.value = ''
+  selectedDocumentId.value = null
+  selectedDocument.value = null
+  
+  // 关闭知识库和文档列表
+  showKbList.value = false
+  showDocList.value = false
+  
+  // 重新加载模型列表（conversationMode会自动根据选择判断）
+  loadAvailableModels()
+  
+  // 根据参数决定是否显示消息
+  if (showMessage) {
+    ElMessage.success('会话已重置')
+  }
 }
 
+
+// 格式化会话时间
+const formatConversationTime = (timeStr) => {
+  if (!timeStr) return ''
+  
+  try {
+    const time = new Date(timeStr)
+    const now = new Date()
+    const diff = now - time
+    const diffDays = Math.floor(diff / (1000 * 60 * 60 * 24))
+    const diffHours = Math.floor(diff / (1000 * 60 * 60))
+    const diffMinutes = Math.floor(diff / (1000 * 60))
+    
+    if (diffDays === 0) {
+      if (diffHours === 0) {
+        if (diffMinutes < 1) return '刚刚'
+        return `${diffMinutes}分钟前`
+      }
+      return `${diffHours}小时前`
+    } else if (diffDays === 1) {
+      return '昨天'
+    } else if (diffDays < 7) {
+      return `${diffDays}天前`
+    } else {
+      return time.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+    }
+  } catch (e) {
+    return ''
+  }
+}
 
 // 处理建议提示点击
 const handlePromptClick = (prompt) => {
@@ -1941,7 +2081,7 @@ const handlePromptClick = (prompt) => {
   })
 }
 
-// 加载最近三条会话历史
+// 加载最近会话历史（根据状态加载3条或4条）
 const loadRecentConversations = async () => {
   try {
     loadingConversations.value = true
@@ -1951,11 +2091,13 @@ const loadRecentConversations = async () => {
       return
     }
 
-    const response = await getMyConversations(1, 3) // 获取第一页，每页3条
+    // 根据收起状态决定加载数量：展开状态3条，收起状态4条
+    const limit = isHeaderCollapsed.value ? 4 : 3
+    const response = await getMyConversations(1, limit) // 获取第一页，根据状态加载3或4条
     const conversations = parseResponseData(response)
     
-    // 取最近3条，不限类型
-    recentConversations.value = conversations.slice(0, 3)
+    // 取最近N条，不限类型
+    recentConversations.value = conversations.slice(0, limit)
   } catch (error) {
     console.error('加载最近会话失败', error)
     recentConversations.value = []
@@ -2145,15 +2287,14 @@ watch([selectedKnowledgeBase, selectedDocument], () => {
 
 // 监听知识库选择变化，重新加载模型
 watch(selectedKnowledgeBaseId, () => {
-  if (conversationMode.value === 'rag') {
-    loadAvailableModels()
-  }
+  loadAvailableModels()
   updateMentionWidth()
 })
 
-// 监听对话模式变化，重新加载模型
-watch(conversationMode, () => {
+// 监听文档选择变化，重新加载模型
+watch(selectedDocumentId, () => {
   loadAvailableModels()
+  updateMentionWidth()
 })
 
 
@@ -2166,7 +2307,7 @@ const checkContentOverflow = () => {
     }
 
     // 如果没有消息，不显示溢出状态
-    if (chatHistory.value.length === 0 && !isInputFocused.value) {
+    if (chatHistory.value.length === 0) {
       isContentOverflow.value = false
       return
     }
@@ -2207,6 +2348,11 @@ watch(() => isInputFocused.value, () => {
   checkContentOverflow()
 })
 
+// 监听顶部收起状态变化，重新加载会话以匹配显示数量
+watch(() => isHeaderCollapsed.value, () => {
+  loadRecentConversations()
+})
+
 // 监听窗口大小变化
 const handleResize = debounce(() => {
   checkContentOverflow()
@@ -2217,44 +2363,132 @@ const handleResize = debounce(() => {
 
 // Global keyboard shortcuts for navigation
 const handleGlobalKeydown = (e) => {
-  // Ctrl/Cmd + 1: Switch to intelligent Q&A view
+  // 如果正在发送消息，不处理快捷键
+  if (sending.value) return
+  
+  // 检查是否在输入框中（textarea 或 contenteditable）
+  const activeElement = document.activeElement
+  const isInInput = activeElement && (
+    activeElement.tagName === 'TEXTAREA' ||
+    activeElement.tagName === 'INPUT' ||
+    activeElement.isContentEditable ||
+    activeElement.closest('.el-input__inner') ||
+    activeElement.closest('.el-textarea__inner')
+  )
+  
+  // Ctrl/Cmd + 1: Switch to intelligent Q&A view (智能对话)
   if ((e.ctrlKey || e.metaKey) && e.key === '1') {
-    e.preventDefault()
-    switchView('welcome')
-    return
+    // 如果不在输入框中，或者输入框为空，才允许切换
+    if (!isInInput || !question.value.trim()) {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      // 如果当前不在欢迎视图，切换到欢迎视图
+      if (currentView.value !== 'welcome') {
+        switchView('welcome')
+        ElMessage({
+          message: '已切换到智能对话',
+          type: 'info',
+          duration: 1500
+        })
+      }
+      
+      // 如果输入框有内容，清空并聚焦
+      if (question.value.trim()) {
+        question.value = ''
+      }
+      
+      // 聚焦输入框
+      nextTick(() => {
+        const inputElement = inputRef.value?.$el?.querySelector('textarea')
+        if (inputElement) {
+          inputElement.focus()
+        }
+      })
+      return
+    }
   }
   
-  // Ctrl/Cmd + 2: Switch to quick entry view
+  // Ctrl/Cmd + 2: Switch to quick entry view (快捷入口)
   if ((e.ctrlKey || e.metaKey) && e.key === '2') {
-    e.preventDefault()
-    switchView('features')
-    return
+    // 如果不在输入框中，或者输入框为空，才允许切换
+    if (!isInInput || !question.value.trim()) {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      // 如果当前不在功能视图，切换到功能视图
+      if (currentView.value !== 'features') {
+        switchView('features')
+        ElMessage({
+          message: '已切换到快捷入口',
+          type: 'info',
+          duration: 1500
+        })
+      }
+      return
+    }
   }
   
-  // Ctrl/Cmd + N: Focus on input and start new conversation
-  if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+  // Ctrl/Cmd + N: Start new conversation (新对话)
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N')) {
     e.preventDefault()
-    handleRefresh()
+    e.stopPropagation()
+    
+    // 重置会话（不显示默认消息，使用自定义消息）
+    handleRefresh(false)
+    
+    // 切换到智能对话视图
+    if (currentView.value !== 'welcome') {
+      switchView('welcome')
+    }
+    
+    // 聚焦输入框
     nextTick(() => {
-      const inputElement = document.querySelector('.portal-input textarea')
+      const inputElement = inputRef.value?.$el?.querySelector('textarea')
       if (inputElement) {
         inputElement.focus()
       }
+    })
+    
+    ElMessage({
+      message: '已开启新对话',
+      type: 'success',
+      duration: 1500
     })
     return
   }
   
   // ESC: Clear input or return to welcome view
   if (e.key === 'Escape') {
-    if (question.value) {
+    // 如果输入框有内容，清空输入
+    if (question.value && isInInput) {
       e.preventDefault()
       question.value = ''
       ElMessage.info('已清空输入')
-    } else if (chatHistory.value.length === 0) {
+      return
+    }
+    
+    // 如果知识库或文档列表显示，关闭它们
+    if (showKbList.value || showDocList.value) {
+      e.preventDefault()
+      showKbList.value = false
+      showDocList.value = false
+      return
+    }
+    
+    // 如果有对话历史，返回欢迎视图
+    if (chatHistory.value.length > 0 && currentView.value !== 'welcome') {
       e.preventDefault()
       switchView('welcome')
+      return
     }
-    return
+    
+    // 如果没有对话且不在欢迎视图，切换到欢迎视图
+    if (chatHistory.value.length === 0 && currentView.value !== 'welcome') {
+      e.preventDefault()
+      switchView('welcome')
+      return
+    }
   }
 }
 
@@ -2363,8 +2597,8 @@ onUnmounted(() => {
   flex-direction: column;
   overflow-y: auto; /* 唯一的滚动条 */
   overflow-x: hidden;
-  padding: 40px 0; /* 只保留上下内边距，左右为0让滚动条靠右 */
-  padding-top: calc(40px + 60px) !important; /* 为固定导航栏留出空间，确保不被覆盖 */
+  padding: 20px 0 10px 0; /* 减少底部内边距 */
+  padding-top: calc(20px + 60px) !important; /* 为固定导航栏留出空间，确保不被覆盖 */
   width: 100%; /* 占据全宽，让滚动条在视口最右侧 */
   margin: 0;
   margin-top: 0 !important; /* 确保没有额外的上边距 */
@@ -2398,6 +2632,7 @@ onUnmounted(() => {
   margin: 0 auto;
   padding-left: 20px;
   padding-right: 20px;
+  padding-bottom: 200px; /* 底部增加padding，避免被输入区域遮挡 */
   box-sizing: border-box;
 }
 
@@ -2426,7 +2661,13 @@ onUnmounted(() => {
 }
 
 .portal-content.content-header-collapsed {
-  padding-top: 40px !important; /* 顶部收起时不需要留出导航栏空间 */
+  padding-top: 20px !important; /* 顶部收起时不需要留出导航栏空间 */
+}
+
+/* 顶部收起时，调整欢迎区域高度 */
+.portal-content.content-header-collapsed .welcome-section {
+  height: calc(100vh - 20px - 20px) !important; /* 视口高度 - 上下padding（无header） */
+  max-height: calc(100vh - 20px - 20px) !important;
 }
 
 /* 顶部系统图标（在 padding-top 位置） */
@@ -2435,14 +2676,16 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  flex: 1;
-  padding: 40px 20px !important; /* 覆盖父容器的padding设置 */
+  justify-content: flex-start;
+  height: calc(100vh - 60px - 20px - 20px); /* 视口高度 - header - 上下padding */
+  max-height: calc(100vh - 60px - 20px - 20px);
+  padding: 12px 20px !important; /* 进一步减少内边距 */
   width: 100%;
   max-width: 1200px;
   min-width: 600px; /* 最小宽度，确保在小屏幕上也有良好显示 */
   margin: 0 auto;
   box-sizing: border-box;
+  overflow: hidden; /* 防止溢出 */
 }
 
 /* 中等屏幕自适应 */
@@ -2510,107 +2753,524 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: 500px; /* 固定最小高度，避免切换时跳动 */
   justify-content: flex-start;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
 }
 
-.assistant-identity {
+.welcome-view {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 20px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+/* 助手身份卡片 */
+.assistant-card {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 24px;
-  margin-top: 0;
-  color: #000000;
-  font-size: 20px;
-  position: relative;
-  height: 32px; /* 固定高度，与 feature-title 保持一致 */
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--el-bg-color, #ffffff);
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  margin-bottom: 12px;
+  width: 100%;
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.assistant-card:hover {
+  box-shadow: 0 4px 20px rgba(64, 158, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+.assistant-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--el-color-primary-light-8, #d9ecff) 0%, var(--el-color-primary-light-9, #ecf5ff) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .assistant-icon {
   font-size: 24px;
-  position: relative;
-  flex-shrink: 0;
-  color: var(--el-color-primary, #409eff); /* 与快捷入口图标颜色一致 */
-}
-
-.assistant-name {
-  font-weight: 500;
-  font-size: 20px;
-}
-
-.welcome-message {
-  font-size: 16px;
-  line-height: 1.8;
-  color: var(--el-text-color-primary, #303133);
-  text-align: center;
-  margin-bottom: 32px;
-  max-width: 600px;
-  padding: 0 20px;
-  font-weight: 400;
-}
-
-.welcome-tips {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  margin-top: 20px;
-  flex-wrap: wrap;
-}
-
-.tip-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  color: var(--el-text-color-secondary, #909399);
-  padding: 6px 12px;
-  background: var(--el-fill-color-lighter, #f5f7fa);
-  border-radius: 6px;
-  transition: all 0.3s ease;
-}
-
-.tip-item:hover {
-  background: var(--el-color-primary-light-9, #ecf5ff);
   color: var(--el-color-primary, #409eff);
 }
 
-.tip-symbol {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  background: var(--el-color-primary, #409eff);
-  color: #ffffff;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  font-family: 'Courier New', monospace;
+.assistant-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-/* Keyboard shortcuts hint */
-.keyboard-shortcuts-hint {
+.assistant-name {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--el-text-color-primary, #303133);
+  margin: 0;
+}
+
+.assistant-status {
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+  margin: 0;
+}
+
+/* 欢迎消息卡片 */
+.welcome-card {
+  background: var(--el-bg-color, #ffffff);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  width: 100%;
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  flex-shrink: 0;
+}
+
+.welcome-message {
+  margin-bottom: 10px;
+}
+
+.greeting-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--el-text-color-primary, #303133);
+  margin: 0 0 4px 0;
+  line-height: 1.5;
+}
+
+.greeting-subtext {
+  font-size: 13px;
+  color: var(--el-text-color-regular, #606266);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* 快速操作提示 */
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--el-border-color-lighter, #e4e7ed);
+}
+
+.action-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-top: 16px;
-  padding: 8px 16px;
+  padding: 10px 8px;
   background: var(--el-fill-color-lighter, #f5f7fa);
   border-radius: 8px;
+  transition: all 0.3s ease;
+  cursor: default;
+  text-align: center;
+}
+
+.action-item:hover {
+  background: var(--el-color-primary-light-9, #ecf5ff);
+}
+
+.action-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--el-color-primary-light-9, #ecf5ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.action-icon .el-icon {
+  font-size: 16px;
+  color: var(--el-color-primary, #409eff);
+}
+
+.action-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  text-align: center;
+}
+
+.action-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-primary, #303133);
+  line-height: 1.4;
+}
+
+.action-desc {
+  font-size: 11px;
+  color: var(--el-text-color-secondary, #909399);
+  line-height: 1.4;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.action-desc kbd {
+  display: inline-block;
+  padding: 1px 4px;
+  margin: 0 1px;
+  font-size: 10px;
+  font-family: 'Courier New', monospace;
+  color: var(--el-color-primary, #409eff);
+  background: var(--el-color-primary-light-9, #ecf5ff);
+  border: 1px solid var(--el-color-primary-light-7, #b3d8ff);
+  border-radius: 3px;
+}
+
+/* 快捷键描述样式 */
+.shortcuts-desc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.shortcuts-desc kbd {
+  display: inline-block;
+  padding: 2px 5px;
+  margin: 0 1px;
+  font-size: 10px;
+  font-family: 'Courier New', monospace;
+  color: var(--el-text-color-primary, #303133);
+  background: var(--el-bg-color, #ffffff);
+  border: 1px solid var(--el-border-color, #dcdfe6);
+  border-radius: 3px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.shortcuts-desc .hint-separator {
+  margin: 0 3px;
+  color: var(--el-text-color-placeholder, #c0c4cc);
+  font-size: 11px;
+}
+
+/* 建议区域 - 两列布局 */
+.suggestions-section {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 0;
+  flex: 1;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  align-items: start; /* 确保两列从顶部对齐 */
+}
+
+/* 建议区域列 */
+.suggestions-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  align-items: stretch; /* 确保两列高度一致 */
+}
+
+/* 确保两列内容区域对齐 */
+.suggestions-column > * {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* 空列占位 */
+.empty-column {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.empty-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px;
+  color: var(--el-text-color-placeholder, #c0c4cc);
+  height: 100%;
+}
+
+.empty-icon {
+  font-size: 32px;
+  color: var(--el-text-color-placeholder, #c0c4cc);
+  opacity: 0.5;
+}
+
+.empty-text {
   font-size: 12px;
   color: var(--el-text-color-secondary, #909399);
 }
 
-.hint-icon {
-  font-size: 14px;
-  color: var(--el-color-info, #909399);
+/* 区域标题 */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  margin-top: 0;
+  padding: 0;
+  flex-shrink: 0;
+  height: 32px; /* 固定高度，确保两列标题对齐 */
+  min-height: 32px;
+  max-height: 32px;
+  box-sizing: border-box;
 }
 
-.hint-text kbd {
+.section-icon {
+  font-size: 16px;
+  color: var(--el-color-primary, #409eff);
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary, #303133);
+}
+
+/* 最近会话 */
+.recent-conversations {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  align-items: stretch; /* 确保与右侧列对齐 */
+  padding: 0; /* 确保没有额外的padding影响对齐 */
+  margin: 0; /* 确保没有额外的margin影响对齐 */
+}
+
+.conversations-list {
+  display: grid;
+  grid-template-rows: repeat(3, 44px); /* 默认3行，每行44px高度，确保与右侧对齐 */
+  gap: 4px;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  align-content: start; /* 从顶部开始对齐 */
+}
+
+/* 收起状态下显示4行 */
+.conversations-list.collapsed-mode {
+  grid-template-rows: repeat(4, 44px); /* 收起状态4行，每行44px高度 */
+}
+
+.conversation-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--el-bg-color, #ffffff);
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  height: 44px; /* 固定高度，确保与右侧卡片对齐 */
+  box-sizing: border-box;
+  overflow: hidden; /* 防止内容溢出 */
+}
+
+.conversation-card:hover {
+  background: var(--el-color-primary-light-9, #ecf5ff);
+  border-color: var(--el-color-primary, #409eff);
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+}
+
+.conversation-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.conversation-icon {
+  font-size: 16px;
+  color: var(--el-color-primary, #409eff);
+  flex-shrink: 0;
+}
+
+.conversation-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.conversation-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-primary, #303133);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-time {
+  font-size: 11px;
+  color: var(--el-text-color-secondary, #909399);
+}
+
+.conversation-arrow {
+  font-size: 16px;
+  color: var(--el-text-color-placeholder, #c0c4cc);
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.conversation-card:hover .conversation-arrow {
+  color: var(--el-color-primary, #409eff);
+  transform: translateX(4px);
+}
+
+/* 建议问题 */
+.suggested-questions {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  align-items: stretch; /* 确保与左侧列对齐 */
+  padding: 0; /* 确保没有额外的padding影响对齐 */
+  margin: 0; /* 确保没有额外的margin影响对齐 */
+}
+
+.questions-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(3, 44px); /* 默认3行，每行44px高度，确保与左侧对齐 */
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  align-content: start; /* 从顶部开始对齐 */
+}
+
+/* 收起状态下显示4行 */
+.questions-grid.collapsed-mode {
+  grid-template-rows: repeat(4, 44px); /* 收起状态4行，每行44px高度 */
+}
+
+.question-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--el-bg-color, #ffffff);
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  height: 44px; /* 固定高度，确保与左侧卡片对齐 */
+  box-sizing: border-box;
+  overflow: hidden; /* 防止内容溢出 */
+}
+
+.question-card:hover {
+  background: var(--el-color-primary-light-9, #ecf5ff);
+  border-color: var(--el-color-primary, #409eff);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+}
+
+.question-icon {
+  font-size: 16px;
+  color: var(--el-color-primary, #409eff);
+  flex-shrink: 0;
+}
+
+.question-text {
+  font-size: 13px;
+  color: var(--el-text-color-primary, #303133);
+  font-weight: 400;
+  flex: 1;
+  line-height: 1.4;
+}
+
+.question-card:hover .question-text {
+  color: var(--el-color-primary, #409eff);
+}
+
+/* 快捷键提示 */
+.shortcuts-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--el-fill-color-lighter, #f5f7fa);
+  border-radius: 10px;
+  width: 100%;
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+.hint-icon {
+  font-size: 16px;
+  color: var(--el-color-info, #909399);
+  flex-shrink: 0;
+}
+
+.hint-content {
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.hint-label {
+  font-weight: 500;
+}
+
+.hint-separator {
+  margin: 0 4px;
+  color: var(--el-text-color-placeholder, #c0c4cc);
+}
+
+.hint-content kbd {
   display: inline-block;
-  padding: 2px 6px;
+  padding: 3px 7px;
   margin: 0 2px;
   font-size: 11px;
   font-family: 'Courier New', monospace;
@@ -2621,143 +3281,148 @@ onUnmounted(() => {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-/* 确保智能对话视图内容也保持固定高度 */
-.view-content .assistant-identity {
-  margin-top: 0;
-}
-
-.suggested-prompts {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%;
-  max-width: 500px;
-}
-
-.prompt-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 18px;
-  background: var(--el-bg-color, #ffffff);
-  border-radius: 10px;
-  transition: all 0.3s ease;
-  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.prompt-item-content {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-  cursor: pointer;
-  min-width: 0;
-}
-
-.prompt-item:hover {
-  background: var(--el-color-primary-light-9, #ecf5ff);
-  border-color: var(--el-color-primary, #409eff);
-  transform: translateX(4px);
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
-}
-
-.prompt-bullet {
-  color: var(--el-color-primary, #409eff);
-  font-weight: bold;
-}
-
-.prompt-text {
-  color: var(--el-text-color-regular, #606266);
-  font-size: 14px;
-  font-weight: 400;
-  transition: color 0.3s ease;
-}
-
-.prompt-item:hover .prompt-text {
-  color: var(--el-color-primary, #409eff);
-}
-
-.prompt-continue-btn {
-  flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.3s ease, transform 0.3s ease;
-  transform: translateX(-4px);
-}
-
-.prompt-item:hover .prompt-continue-btn {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.prompt-continue-btn:hover {
-  transform: translateX(2px);
-}
-
-/* Loading skeleton styles */
-.prompt-skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%;
-}
-
-.skeleton-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 18px;
-  background: var(--el-fill-color-lighter, #f5f7fa);
-  border-radius: 10px;
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
-}
-
-.skeleton-bullet {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--el-fill-color, #e4e7ed);
-  flex-shrink: 0;
-}
-
-.skeleton-text {
-  flex: 1;
-  height: 16px;
-  border-radius: 4px;
-  background: var(--el-fill-color, #e4e7ed);
-}
-
-@keyframes skeleton-pulse {
-  0%, 100% {
-    opacity: 1;
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .welcome-view {
+    padding: 0 16px;
   }
-  50% {
-    opacity: 0.6;
+  
+  .assistant-card {
+    padding: 12px 14px;
+    gap: 12px;
+  }
+  
+  .assistant-avatar {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .assistant-icon {
+    font-size: 20px;
+  }
+  
+  .assistant-name {
+    font-size: 18px;
+  }
+  
+  .assistant-status {
+    font-size: 11px;
+  }
+  
+  .welcome-card {
+    padding: 12px 14px;
+  }
+  
+  .greeting-text {
+    font-size: 15px;
+  }
+  
+  .greeting-subtext {
+    font-size: 12px;
+  }
+  
+  .quick-actions {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding-top: 8px;
+  }
+  
+  .action-item {
+    padding: 8px 6px;
+    gap: 6px;
+  }
+  
+  .action-icon {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .action-icon .el-icon {
+    font-size: 14px;
+  }
+  
+  .action-title {
+    font-size: 11px;
+  }
+  
+  .action-desc {
+    font-size: 10px;
+  }
+  
+  .shortcuts-desc {
+    gap: 2px;
+    font-size: 10px;
+  }
+  
+  .suggestions-section {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .suggestions-section {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .questions-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .shortcuts-hint {
+    padding: 10px 12px;
+  }
+  
+  .hint-content {
+    font-size: 11px;
+  }
+  
+  .empty-placeholder {
+    padding: 30px 16px;
+  }
+  
+  .empty-icon {
+    font-size: 40px;
+  }
+}
+
+/* 中等屏幕响应式 */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .suggestions-section {
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
 }
 
 /* 系统功能入口区域 */
 .feature-entries {
   width: 100%;
-  max-width: 800px;
-  margin-top: -40px; /* 向上移动 */
+  max-width: 1000px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: flex-start;
-  min-height: 500px; /* 与 view-content 保持一致的高度 */
-  padding-top: 20px;
+  height: 100%;
+  max-height: 100%;
+  padding: 16px 20px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.feature-header {
+  text-align: center;
+  margin-bottom: 24px;
+  flex-shrink: 0;
 }
 
 .feature-title {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  margin-bottom: 24px;
-  margin-top: 0;
-  height: 32px; /* 固定高度，与 assistant-identity 保持一致 */
+  gap: 10px;
+  margin-bottom: 8px;
+  height: 32px;
 }
 
 .feature-title-icon {
@@ -2767,140 +3432,259 @@ onUnmounted(() => {
 }
 
 .feature-title-text {
-  font-size: 20px;
-  font-weight: 500;
+  font-size: 24px;
+  font-weight: 600;
   color: var(--el-text-color-primary, #303133);
 }
 
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 32px 16px;
-  width: 100%;
-  justify-items: center;
+.feature-subtitle {
+  font-size: 14px;
+  color: var(--el-text-color-secondary, #909399);
+  margin: 0;
+  line-height: 1.5;
 }
 
-.feature-item {
+/* 功能分类容器 */
+.feature-categories {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  gap: 24px;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.feature-category {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+  flex-shrink: 0;
 }
 
-.feature-item:hover {
-  transform: translateY(-4px);
+.category-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--el-text-color-primary, #303133);
+  margin: 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--el-border-color-lighter, #e4e7ed);
 }
 
-.feature-item.navigating {
-  opacity: 0.5;
-  pointer-events: none;
-  transform: scale(0.95);
+.category-icon {
+  font-size: 20px;
+  color: var(--el-color-primary, #409eff);
 }
 
-.feature-circle {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
+/* 功能卡片容器 */
+.feature-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+/* 功能卡片 */
+.feature-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
   background: var(--el-bg-color, #ffffff);
+  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--el-color-primary, #409eff);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.3s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--el-color-primary, #409eff);
+  box-shadow: 0 8px 24px rgba(64, 158, 255, 0.15);
+}
+
+.feature-card:hover::before {
+  transform: scaleY(1);
+}
+
+.feature-card.navigating {
+  opacity: 0.6;
+  pointer-events: none;
+  transform: scale(0.98);
+}
+
+/* 功能卡片图标 */
+.feature-card-icon {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--el-color-primary-light-9, #ecf5ff) 0%, var(--el-color-primary-light-8, #d9ecff) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--el-border-color-lighter, #e4e7ed);
   transition: all 0.3s ease;
-  box-shadow: 0 2px 8px var(--el-box-shadow-light, rgba(0, 0, 0, 0.08));
-  position: relative;
 }
 
-/* 优化图标显示 - 添加渐变背景效果 */
-.feature-circle::before {
-  content: '';
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: radial-gradient(circle at center, rgba(64, 158, 255, 0.05) 0%, transparent 70%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-}
-
-.feature-item:hover .feature-circle::before {
-  opacity: 1;
-}
-
-.feature-item:hover .feature-circle {
-  background: var(--el-color-primary-light-9, #ecf5ff);
-  border-color: var(--el-color-primary, #409eff);
-  box-shadow: 0 4px 16px var(--el-box-shadow-base, rgba(64, 158, 255, 0.2));
+.feature-card:hover .feature-card-icon {
+  background: linear-gradient(135deg, var(--el-color-primary-light-8, #d9ecff) 0%, var(--el-color-primary-light-7, #b3d8ff) 100%);
   transform: scale(1.05);
 }
 
 .feature-icon {
-  font-size: 36px;
+  font-size: 28px;
   color: var(--el-color-primary, #409eff);
   transition: transform 0.3s ease;
-  position: relative;
-  z-index: 1;
-  filter: drop-shadow(0 1px 2px rgba(64, 158, 255, 0.2)); /* 图标阴影效果 */
 }
 
-.feature-item:hover .feature-icon {
-  transform: scale(1.1);
+.feature-card:hover .feature-icon {
+  transform: scale(1.1) rotate(5deg);
 }
 
-.feature-name {
-  font-size: 14px;
-  color: var(--el-text-color-regular, #606266);
-  font-weight: 500;
+/* 功能卡片内容 */
+.feature-card-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feature-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary, #303133);
+  margin: 0;
   transition: color 0.3s ease;
-  text-align: center;
 }
 
-.feature-item:hover .feature-name {
+.feature-card:hover .feature-card-title {
   color: var(--el-color-primary, #409eff);
+}
+
+.feature-card-desc {
+  font-size: 13px;
+  color: var(--el-text-color-secondary, #909399);
+  margin: 0;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 功能卡片箭头 */
+.feature-card-arrow {
+  flex-shrink: 0;
+  font-size: 18px;
+  color: var(--el-text-color-placeholder, #c0c4cc);
+  transition: all 0.3s ease;
+  transform: translateX(0);
+}
+
+.feature-card:hover .feature-card-arrow {
+  color: var(--el-color-primary, #409eff);
+  transform: translateX(4px);
 }
 
 /* 中等屏幕自适应 */
 @media (max-width: 1024px) and (min-width: 769px) {
-  .feature-grid {
-    gap: 28px 12px;
+  .feature-entries {
+    max-width: 900px;
+    padding: 16px;
   }
   
-  .feature-circle {
-    width: 70px;
-    height: 70px;
+  .feature-cards {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+  }
+  
+  .feature-card {
+    padding: 18px;
+  }
+  
+  .feature-card-icon {
+    width: 50px;
+    height: 50px;
   }
   
   .feature-icon {
-    font-size: 32px;
+    font-size: 24px;
   }
 }
 
 /* 小屏幕自适应 */
 @media (max-width: 768px) {
   .feature-entries {
-    margin-top: 32px;
+    padding: 16px;
+    margin-top: 0;
   }
   
-  .feature-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 24px 12px;
+  .feature-header {
+    margin-bottom: 32px;
   }
   
-  .feature-circle {
-    width: 64px;
-    height: 64px;
+  .feature-title-text {
+    font-size: 20px;
+  }
+  
+  .feature-subtitle {
+    font-size: 13px;
+  }
+  
+  .feature-categories {
+    gap: 32px;
+  }
+  
+  .category-title {
+    font-size: 16px;
+  }
+  
+  .feature-cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .feature-card {
+    padding: 16px;
+  }
+  
+  .feature-card-icon {
+    width: 48px;
+    height: 48px;
   }
   
   .feature-icon {
-    font-size: 28px;
+    font-size: 22px;
   }
   
-  .feature-name {
-    font-size: 13px;
+  .feature-card-title {
+    font-size: 15px;
+  }
+  
+  .feature-card-desc {
+    font-size: 12px;
   }
 }
 
@@ -2912,7 +3696,7 @@ onUnmounted(() => {
   position: sticky;
   bottom: 0;
   background: var(--el-bg-color-page, #f5f7fa);
-  padding: 16px 20px; /* 添加左右内边距，与问答区域保持一致 */
+  padding: 8px 20px 16px 20px; /* 减少顶部内边距，左右内边距与问答区域保持一致 */
   z-index: 10;
   box-sizing: border-box;
   transition: background-color 0.3s ease, backdrop-filter 0.3s ease;
@@ -2938,7 +3722,7 @@ onUnmounted(() => {
   .input-section {
     min-width: auto; /* 小屏幕下取消最小宽度限制 */
     width: 100%;
-    padding: 16px;
+    padding: 8px 16px 16px 16px; /* 减少顶部内边距 */
   }
 }
 
@@ -3143,9 +3927,7 @@ onUnmounted(() => {
 }
 
 /* 文档列表样式（复用知识库列表样式） */
-.doc-mention-list {
-  /* 使用相同的样式，可以添加特定样式覆盖 */
-}
+/* .doc-mention-list 使用与 .kb-mention-list 相同的样式 */
 
 .portal-input {
   flex: 1;
@@ -3386,7 +4168,7 @@ onUnmounted(() => {
   margin: 0 auto;
   flex: 1;
   overflow: visible; /* 移除滚动条，由父容器portal-content统一处理 */
-  padding: 20px 20px !important; /* 覆盖父容器的padding设置 */
+  padding: 20px 20px 200px 20px !important; /* 底部增加padding，避免被输入区域遮挡 */
   box-sizing: border-box;
   transition: height 0.3s ease;
 }
@@ -3397,6 +4179,7 @@ onUnmounted(() => {
   overflow-y: auto;
   overflow-x: hidden;
   max-height: calc(100vh - 280px); /* 减去输入框、header和padding的高度 */
+  padding-bottom: 200px !important; /* 确保滚动时内容不被输入区域遮挡 */
 }
 
 /* 中等屏幕自适应 */
@@ -3411,7 +4194,7 @@ onUnmounted(() => {
 @media (max-width: 768px) {
   .chat-history-section {
     min-width: auto; /* 小屏幕下取消最小宽度限制 */
-    padding: 20px 16px !important;
+    padding: 20px 16px 200px 16px !important; /* 底部增加padding，避免被输入区域遮挡 */
   }
 }
 
@@ -3441,7 +4224,7 @@ onUnmounted(() => {
     max-width: 100%;
     min-width: auto; /* 小屏幕下取消最小宽度限制 */
     margin-bottom: 60px;
-    padding: 16px;
+    padding: 8px 16px 16px 16px; /* 减少顶部内边距 */
   }
 
   .input-wrapper {
