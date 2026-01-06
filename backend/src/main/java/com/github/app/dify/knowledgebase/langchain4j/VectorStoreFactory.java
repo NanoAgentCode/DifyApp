@@ -179,7 +179,7 @@ public class VectorStoreFactory {
             }
         } catch (Exception e) {
             // 如果是文档解读，使用pgvector作为默认值；否则使用qdrant
-            if (knowledgeBaseId != null && knowledgeBaseId == 0L) {
+            if (knowledgeBaseId == 0L) {
                 logger.warn("获取文档解读向量存储类型失败，使用默认值pgvector - 知识库ID: {}", knowledgeBaseId, e);
                 return "pgvector";
             } else {

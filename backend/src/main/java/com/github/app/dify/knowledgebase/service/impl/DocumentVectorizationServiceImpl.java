@@ -2,6 +2,7 @@ package com.github.app.dify.knowledgebase.service.impl;
 
 import com.github.app.dify.knowledgebase.domain.KnowledgeBaseDocument;
 import com.github.app.dify.knowledgebase.langchain4j.*;
+import com.github.app.dify.knowledgebase.langchain4j.store.*;
 import com.github.app.dify.knowledgebase.repository.KnowledgeBaseDocumentRepository;
 import com.github.app.dify.knowledgebase.service.DocumentVectorizationService;
 import com.github.app.dify.knowledgebase.service.FileStorageService;
@@ -9,6 +10,7 @@ import com.github.app.dify.knowledgebase.service.VectorStoreService;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingStore;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,7 +58,7 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
     @Override
     public void vectorizeDocumentAsync(Long knowledgeBaseId, Long documentId, MultipartFile file) {
         Optional<KnowledgeBaseDocument> docOptional = documentRepository.findById(documentId);
-        if (!docOptional.isPresent()) {
+        if (docOptional.isEmpty()) {
             logger.error("文档不存在，无法向量化 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
             return;
         }
@@ -174,7 +176,7 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
             
             // 更新状态为成功（2）
             docOptional = documentRepository.findById(documentId);
-            if (!docOptional.isPresent()) {
+            if (docOptional.isEmpty()) {
                 logger.error("文档不存在，无法更新状态 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
                 return;
             }
@@ -230,7 +232,7 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
         logger.info("知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
         
         Optional<KnowledgeBaseDocument> optional = documentRepository.findById(documentId);
-        if (!optional.isPresent()) {
+        if (optional.isEmpty()) {
             logger.error("文档不存在，无法重新向量化 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
             throw new RuntimeException("文档不存在: " + documentId);
         }
@@ -359,6 +361,7 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
             this.contentType = contentType;
         }
         
+        @NotNull
         @Override
         public String getName() {
             return "file";
@@ -384,18 +387,20 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
             return content != null ? content.length : 0;
         }
         
+        @NotNull
         @Override
-        public byte[] getBytes() throws IOException {
+        public byte[] getBytes(){
             return content != null ? content : new byte[0];
         }
         
+        @NotNull
         @Override
-        public InputStream getInputStream() throws IOException {
+        public InputStream getInputStream() {
             return new ByteArrayInputStream(content != null ? content : new byte[0]);
         }
         
         @Override
-        public void transferTo(java.io.File dest) throws IOException, IllegalStateException {
+        public void transferTo(@NotNull java.io.File dest) throws IllegalStateException {
             throw new UnsupportedOperationException("transferTo not supported");
         }
     }
@@ -407,8 +412,7 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
     public void deleteDocumentVectors(Long knowledgeBaseId, Long documentId) {
         try {
             EmbeddingStore<TextSegment> embeddingStore = vectorStoreFactory.createEmbeddingStore(knowledgeBaseId);
-            
-            // 各种EmbeddingStore都提供了deleteByDocumentId方法
+
             if (embeddingStore instanceof QdrantEmbeddingStore) {
                 ((QdrantEmbeddingStore) embeddingStore).deleteByDocumentId(documentId);
             } else if (embeddingStore instanceof FaissEmbeddingStore) {

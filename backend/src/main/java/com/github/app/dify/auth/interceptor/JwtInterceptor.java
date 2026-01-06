@@ -3,6 +3,7 @@ package com.github.app.dify.auth.interceptor;
 import com.github.app.dify.auth.domain.User;
 import com.github.app.dify.auth.repository.UserRepository;
 import com.github.app.dify.auth.util.JwtUtil;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +28,7 @@ public class JwtInterceptor implements HandlerInterceptor {
     private UserRepository userRepository;
     
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+    public boolean preHandle(HttpServletRequest request, @NotNull HttpServletResponse response, @NotNull Object handler) {
         // 允许OPTIONS请求通过（CORS预检请求）
         if ("OPTIONS".equals(request.getMethod())) {
             return true;
@@ -51,7 +52,7 @@ public class JwtInterceptor implements HandlerInterceptor {
                 
                 // 检查用户状态
                 Optional<User> userOptional = userRepository.findById(userId);
-                if (!userOptional.isPresent()) {
+                if (userOptional.isEmpty()) {
                     logger.warn("用户不存在 - 用户ID: {}", userId);
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType("application/json;charset=UTF-8");

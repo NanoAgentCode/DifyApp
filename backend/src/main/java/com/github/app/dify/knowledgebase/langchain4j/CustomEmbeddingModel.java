@@ -1,5 +1,6 @@
 package com.github.app.dify.knowledgebase.langchain4j;
 
+import com.github.app.dify.knowledgebase.langchain4j.store.EmbeddingStoreUtils;
 import com.github.app.dify.knowledgebase.service.EmbeddingService;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
@@ -65,10 +66,6 @@ public class CustomEmbeddingModel implements EmbeddingModel {
      * 将List<Float>转换为float[]
      */
     private float[] convertToFloatArray(List<Float> floatList) {
-        float[] array = new float[floatList.size()];
-        for (int i = 0; i < floatList.size(); i++) {
-            array[i] = floatList.get(i);
-        }
-        return array;
+        return EmbeddingStoreUtils.convertToFloatArray(floatList);
     }
 }
