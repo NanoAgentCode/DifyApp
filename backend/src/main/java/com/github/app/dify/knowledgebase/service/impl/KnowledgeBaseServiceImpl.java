@@ -24,12 +24,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.Date;
+import com.github.app.dify.knowledgebase.util.KnowledgeBaseConverterUtil;
+import com.github.app.dify.knowledgebase.util.KnowledgeBaseDateTimeUtil;
+import com.github.app.dify.knowledgebase.util.KnowledgeBasePageUtil;
+import com.github.app.dify.knowledgebase.util.KnowledgeBaseSoftDeleteUtil;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -99,8 +100,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             knowledgeBase.setStatus(1); // 默认启用
         }
         knowledgeBase.setDeleted(0); // 默认未删除
-        knowledgeBase.setCreateTime(new Date());
-        knowledgeBase.setUpdateTime(new Date());
+        KnowledgeBaseDateTimeUtil.setCreateAndUpdateTime(knowledgeBase);
         
         // 如果没有设置租户ID，使用默认值1
         if (knowledgeBase.getTenantId() == null) {
@@ -148,7 +148,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         
         logger.info("知识库创建成功 - ID: {}", knowledgeBase.getId());
         
-        return convertToResp(knowledgeBase);
+        return KnowledgeBaseConverterUtil.convertToResp(knowledgeBase, documentRepository);
     }
     
     @Override
@@ -213,12 +213,12 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             logger.info("更新知识库时使用指定的向量存储类型 - 类型: {}", req.getVectorStoreType());
         }
         
-        knowledgeBase.setUpdateTime(new Date());
+        KnowledgeBaseDateTimeUtil.setUpdateTime(knowledgeBase);
         knowledgeBase = knowledgeBaseRepository.save(knowledgeBase);
         
         logger.info("知识库更新成功 - ID: {}", knowledgeBase.getId());
         
-        return convertToResp(knowledgeBase);
+        return KnowledgeBaseConverterUtil.convertToResp(knowledgeBase, documentRepository);
     }
     
     @Override
@@ -235,7 +235,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             throw new RuntimeException("知识库已删除: " + id);
         }
         
-        return convertToResp(knowledgeBase);
+        return KnowledgeBaseConverterUtil.convertToResp(knowledgeBase, documentRepository);
     }
     
     @Override
@@ -247,9 +247,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         }
         
         KnowledgeBase knowledgeBase = optional.get();
-        knowledgeBase.setDeleted(1);
-        knowledgeBase.setUpdateTime(new Date());
-        knowledgeBaseRepository.save(knowledgeBase);
+        KnowledgeBaseSoftDeleteUtil.softDelete(knowledgeBase, knowledgeBaseRepository);
         
         logger.info("知识库删除成功 - ID: {}", id);
     }
@@ -315,7 +313,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         }
         
         return knowledgeBases.stream()
-                .map(this::convertToResp)
+                .map(kb -> KnowledgeBaseConverterUtil.convertToResp(kb, documentRepository))
                 .collect(Collectors.toList());
     }
     
@@ -328,8 +326,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     public PageResponse<KnowledgeBaseResp> listKnowledgeBasesWithPagination(
             Integer tenantId, Integer status, String keyword, String vectorStoreType, Long userId, Integer userRole, 
             int page, int pageSize) {
-        Pageable pageable = PageRequest.of(
-                page - 1, pageSize, Sort.by("createTime").descending());
+        Pageable pageable = KnowledgeBasePageUtil.createPageable(page, pageSize);
         
         // 使用分页查询
         Page<KnowledgeBase> kbPage = knowledgeBaseRepository.findByFiltersWithPagination(
@@ -371,7 +368,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         
         // 转换为响应对象
         List<KnowledgeBaseResp> content = knowledgeBases.stream()
-                .map(this::convertToResp)
+                .map(kb -> KnowledgeBaseConverterUtil.convertToResp(kb, documentRepository))
                 .collect(Collectors.toList());
         
         // 计算总数（需要考虑权限过滤后的实际数量）
@@ -380,30 +377,15 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         // 这里先使用分页查询的总数，实际应用中可能需要优化
         long total = kbPage.getTotalElements();
         
-        return new PageResponse<>(content, total, page, pageSize);
+        PageResponse<KnowledgeBaseResp> response = new PageResponse<>();
+        response.setContent(content);
+        response.setTotal(total);
+        response.setPage(page);
+        response.setPageSize(pageSize);
+        response.setTotalPages((int) Math.ceil((double) total / pageSize));
+        return response;
     }
     
-    /**
-     * 转换为响应对象
-     */
-    private KnowledgeBaseResp convertToResp(KnowledgeBase knowledgeBase) {
-        KnowledgeBaseResp resp = new KnowledgeBaseResp();
-        BeanUtils.copyProperties(knowledgeBase, resp);
-        
-        // 查询实际的文档数量
-        Long documentCount = documentRepository.countByKnowledgeBaseId(knowledgeBase.getId());
-        resp.setDocumentCount(documentCount != null ? documentCount.intValue() : 0);
-        
-        // 查询成功向量化的文档数量（向量化状态为2）
-        Long successCount = documentRepository.countSuccessDocumentsByKnowledgeBaseId(knowledgeBase.getId());
-        resp.setSuccessDocumentCount(successCount != null ? successCount.intValue() : 0);
-        
-        // 查询向量化失败的文档数量（向量化状态为3）
-        Long failedCount = documentRepository.countFailedDocumentsByKnowledgeBaseId(knowledgeBase.getId());
-        resp.setFailedDocumentCount(failedCount != null ? failedCount.intValue() : 0);
-        
-        return resp;
-    }
     
     /**
      * 设置默认向量库配置
@@ -605,7 +587,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             
             // 12. 保存摘要到数据库
             knowledgeBase.setSummary(summary);
-            knowledgeBase.setUpdateTime(new Date());
+            KnowledgeBaseDateTimeUtil.setUpdateTime(knowledgeBase);
             knowledgeBaseRepository.save(knowledgeBase);
             
             logger.info("知识库摘要生成成功 - 知识库ID: {}, 摘要长度: {}", knowledgeBaseId, summary.length());

@@ -22,11 +22,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import com.github.app.dify.knowledgebase.util.KnowledgeBaseConverterUtil;
+import com.github.app.dify.knowledgebase.util.KnowledgeBaseDateTimeUtil;
+import com.github.app.dify.knowledgebase.util.KnowledgeBaseSoftDeleteUtil;
+import com.github.app.dify.knowledgebase.util.KnowledgeBaseWebClientUtil;
 import reactor.core.publisher.Mono;
 import java.io.File;
 import java.net.URL;
 import java.time.Duration;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -62,7 +65,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
     public List<VectorDatabaseResp> getAllConfigs() {
         List<VectorDatabase> configs = vectorDatabaseRepository.findAllActive();
         return configs.stream()
-                .map(this::convertToResp)
+                .map(KnowledgeBaseConverterUtil::convertToResp)
                 .collect(Collectors.toList());
     }
     
@@ -70,7 +73,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
     public List<VectorDatabaseResp> getConfigsByType(String type) {
         List<VectorDatabase> configs = vectorDatabaseRepository.findByType(type);
         return configs.stream()
-                .map(this::convertToResp)
+                .map(KnowledgeBaseConverterUtil::convertToResp)
                 .collect(Collectors.toList());
     }
     
@@ -167,8 +170,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
         config.setIsDefault(false); // 新添加的配置默认不是默认配置
         config.setAllowCreateKnowledgeBase(info.getAllowCreateKnowledgeBase() != null ? info.getAllowCreateKnowledgeBase() : true); // 默认允许新建知识库
         config.setDescription(info.getDescription());
-        config.setCreateTime(new Date());
-        config.setUpdateTime(new Date());
+        KnowledgeBaseDateTimeUtil.setCreateAndUpdateTime(config);
         config.setDeleted(0);
         
         // 如果设置为默认，需要先取消同类型其他配置的默认状态
@@ -190,7 +192,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
             reloadConfig(saved.getType());
         }
         
-        return convertToResp(saved);
+        return KnowledgeBaseConverterUtil.convertToResp(saved);
     }
     
     /**
@@ -234,7 +236,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
         if (info.getAllowCreateKnowledgeBase() != null) {
             config.setAllowCreateKnowledgeBase(info.getAllowCreateKnowledgeBase());
         }
-        config.setUpdateTime(new Date());
+        KnowledgeBaseDateTimeUtil.setUpdateTime(config);
         
         VectorDatabase saved = vectorDatabaseRepository.save(config);
         logger.info("更新向量数据库配置成功 - ID: {}, 名称: {}, 类型: {}", 
@@ -245,7 +247,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
             reloadConfig(saved.getType());
         }
         
-        return convertToResp(saved);
+        return KnowledgeBaseConverterUtil.convertToResp(saved);
     }
     
     /**
@@ -258,9 +260,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
         }
         
         VectorDatabase config = optional.get();
-        config.setDeleted(1);
-        config.setUpdateTime(new Date());
-        vectorDatabaseRepository.save(config);
+        KnowledgeBaseSoftDeleteUtil.softDelete(config, vectorDatabaseRepository);
         
         logger.info("删除向量数据库配置成功 - ID: {}, 名称: {}", configId, config.getName());
     }
@@ -288,14 +288,14 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
         for (VectorDatabase c : allConfigs) {
             if (c.getIsDefault() != null && c.getIsDefault() && !c.getId().equals(configId)) {
                 c.setIsDefault(false);
-                c.setUpdateTime(new Date());
+                KnowledgeBaseDateTimeUtil.setUpdateTime(c);
                 vectorDatabaseRepository.save(c);
             }
         }
         
         // 设置当前配置为默认
         config.setIsDefault(true);
-        config.setUpdateTime(new Date());
+        KnowledgeBaseDateTimeUtil.setUpdateTime(config);
         vectorDatabaseRepository.save(config);
         
         logger.info("设置默认向量数据库配置成功 - ID: {}, 名称: {}, 类型: {}", 
@@ -320,7 +320,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
         }
         
         config.setEnabled(enabled);
-        config.setUpdateTime(new Date());
+        KnowledgeBaseDateTimeUtil.setUpdateTime(config);
         
         // 如果禁用的是默认配置，需要取消默认状态
         if (!enabled && config.getIsDefault() != null && config.getIsDefault()) {
@@ -363,15 +363,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
      * 测试Qdrant连接
      */
     private void testQdrantConnection(String url, String apiKey, int timeout) {
-        WebClient.Builder builder = WebClient.builder()
-                .baseUrl(url)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-        
-        if (apiKey != null && !apiKey.trim().isEmpty()) {
-            builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey);
-        }
-        
-        WebClient webClient = builder.build();
+        WebClient webClient = KnowledgeBaseWebClientUtil.createBuilderWithApiKey(url, apiKey).build();
         
         String healthResponse = webClient
                 .get()
@@ -402,15 +394,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
                     trimmedUrl));
         }
         
-        WebClient.Builder builder = WebClient.builder()
-                .baseUrl(trimmedUrl)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-        
-        if (apiKey != null && !apiKey.trim().isEmpty()) {
-            builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey);
-        }
-        
-        WebClient webClient = builder.build();
+        WebClient webClient = KnowledgeBaseWebClientUtil.createBuilderWithApiKey(trimmedUrl, apiKey).build();
         
         // 尝试多个健康检查端点（不同版本的Milvus可能使用不同的端点）
         // 首先尝试19530端口的端点
@@ -460,15 +444,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
                 String metricsUrl = urlObj.getProtocol() + "://" + urlObj.getHost() + ":9091";
                 logger.debug("19530端口端点都失败，尝试9091端口（metrics端口）的健康检查: {}", metricsUrl);
                 
-                WebClient.Builder metricsBuilder = WebClient.builder()
-                        .baseUrl(metricsUrl)
-                        .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-                
-                if (apiKey != null && !apiKey.trim().isEmpty()) {
-                    metricsBuilder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey);
-                }
-                
-                WebClient metricsWebClient = metricsBuilder.build();
+                WebClient metricsWebClient = KnowledgeBaseWebClientUtil.createBuilderWithApiKey(metricsUrl, apiKey).build();
                 
                 try {
                     healthResponse = metricsWebClient
@@ -523,15 +499,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
      * 测试Chroma连接
      */
     private void testChromaConnection(String url, String apiKey, int timeout) {
-        WebClient.Builder builder = WebClient.builder()
-                .baseUrl(url)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-        
-        if (apiKey != null && !apiKey.trim().isEmpty()) {
-            builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey);
-        }
-        
-        WebClient webClient = builder.build();
+        WebClient webClient = KnowledgeBaseWebClientUtil.createBuilderWithApiKey(url, apiKey).build();
         
         // 尝试多个端点，因为不同版本的Chroma可能使用不同的端点
         String[] healthEndpoints = {"/api/v1/version", "/", "/api/v1/heartbeat"};
@@ -637,16 +605,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
      * 测试Weaviate连接
      */
     private void testWeaviateConnection(String url, String apiKey, int timeout) {
-        WebClient.Builder builder = WebClient.builder()
-                .baseUrl(url)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-        
-        if (apiKey != null && !apiKey.trim().isEmpty()) {
-            // Weaviate使用X-API-Key头
-            builder.defaultHeader("X-API-Key", apiKey);
-        }
-        
-        WebClient webClient = builder.build();
+        WebClient webClient = KnowledgeBaseWebClientUtil.createBuilderWithCustomAuth(url, apiKey, "X-API-Key").build();
         
         // 尝试多个健康检查端点
         String[] healthEndpoints = {"/v1/meta", "/.well-known/ready", "/v1/.well-known/ready"};
@@ -736,16 +695,13 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
      * 测试Elasticsearch连接
      */
     private void testElasticsearchConnection(String url, String apiKey, String extraConfig, int timeout) {
-        WebClient.Builder builder = WebClient.builder()
-                .baseUrl(url)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-        
         // 使用工具类解析extraConfig获取username和password
         String[] credentialsArray = vectorDatabaseConfigHelper.parseUsernamePasswordFromExtraConfig(extraConfig);
         String username = credentialsArray != null ? credentialsArray[0] : null;
         String password = credentialsArray != null ? credentialsArray[1] : null;
         
         // 配置认证：优先使用username/password（Basic Auth），其次使用API Key
+        WebClient.Builder builder = KnowledgeBaseWebClientUtil.createBuilder(url);
         if (username != null && password != null && 
             !username.trim().isEmpty() && !password.trim().isEmpty()) {
             // 使用Basic Auth
@@ -975,19 +931,4 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
         }
     }
     
-    /**
-     * 转换为响应对象
-     */
-    private VectorDatabaseResp convertToResp(VectorDatabase config) {
-        VectorDatabaseResp resp = new VectorDatabaseResp();
-        BeanUtils.copyProperties(config, resp);
-        // 隐藏敏感信息（API Key只显示前4位和后4位）
-        if (config.getApiKey() != null && config.getApiKey().length() > 8) {
-            String apiKey = config.getApiKey();
-            resp.setApiKey(apiKey.substring(0, 4) + "****" + apiKey.substring(apiKey.length() - 4));
-        } else if (config.getApiKey() != null) {
-            resp.setApiKey("****");
-        }
-        return resp;
-    }
 }

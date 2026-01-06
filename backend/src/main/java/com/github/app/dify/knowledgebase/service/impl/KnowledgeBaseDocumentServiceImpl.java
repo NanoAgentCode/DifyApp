@@ -14,17 +14,18 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import com.github.app.dify.knowledgebase.util.KnowledgeBaseConverterUtil;
+import com.github.app.dify.knowledgebase.util.KnowledgeBaseDateTimeUtil;
+import com.github.app.dify.knowledgebase.util.KnowledgeBasePageUtil;
+import com.github.app.dify.knowledgebase.util.KnowledgeBaseSoftDeleteUtil;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -118,8 +119,7 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
         document.setStorageType("minio");
         document.setStatus(1);
         document.setUploadUser(uploadUser);
-        document.setCreateTime(new Date());
-        document.setUpdateTime(new Date());
+        KnowledgeBaseDateTimeUtil.setCreateAndUpdateTime(document);
         document.setDeleted(0);
         document.setTenantId(finalTenantId);
         // 初始化向量化状态为0（未向量化）
@@ -159,7 +159,7 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
                 // 更新向量化状态为失败
                 document.setVectorizedStatus(3);
                 document.setVectorizedError("读取文件内容失败: " + e.getMessage());
-                document.setUpdateTime(new Date());
+                KnowledgeBaseDateTimeUtil.setUpdateTime(document);
                 documentRepository.save(document);
                 logger.warn("已更新向量化状态为失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, document.getId());
             } catch (Exception e) {
@@ -168,7 +168,7 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
                 // 更新向量化状态为失败
                 document.setVectorizedStatus(3);
                 document.setVectorizedError("触发向量化失败: " + e.getMessage());
-                document.setUpdateTime(new Date());
+                KnowledgeBaseDateTimeUtil.setUpdateTime(document);
                 documentRepository.save(document);
                 logger.warn("已更新向量化状态为失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, document.getId());
             }
@@ -179,7 +179,7 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
         
         logger.info("文档上传流程完成 - 知识库ID: {}, 文档ID: {}, 文件名: {}", 
                 knowledgeBaseId, document.getId(), document.getOriginalFileName());
-        return convertToResp(document);
+        return KnowledgeBaseConverterUtil.convertToResp(document);
     }
     
     /**
@@ -224,9 +224,7 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
         }
         
         // 软删除
-        document.setDeleted(1);
-        document.setUpdateTime(new Date());
-        documentRepository.save(document);
+        KnowledgeBaseSoftDeleteUtil.softDelete(document, documentRepository);
         
         logger.info("文档删除成功 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
     }
@@ -253,7 +251,7 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
             throw new RuntimeException("文档已删除: " + documentId);
         }
         
-        return convertToResp(document);
+        return KnowledgeBaseConverterUtil.convertToResp(document);
     }
     
     /**
@@ -263,7 +261,7 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
     public List<KnowledgeBaseDocumentResp> listDocuments(Long knowledgeBaseId) {
         List<KnowledgeBaseDocument> documents = documentRepository.findByKnowledgeBaseIdAndDeleted(knowledgeBaseId, 0);
         return documents.stream()
-                .map(this::convertToResp)
+                .map(KnowledgeBaseConverterUtil::convertToResp)
                 .collect(Collectors.toList());
     }
     
@@ -279,10 +277,7 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
             int page, 
             int pageSize) {
         // 创建分页请求，按创建时间倒序
-        Pageable pageable = PageRequest.of(
-                page - 1, 
-                pageSize, 
-                Sort.by("createTime").descending());
+        Pageable pageable = KnowledgeBasePageUtil.createPageable(page, pageSize);
         
         Page<KnowledgeBaseDocument> documentPage;
         
@@ -301,11 +296,7 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
         }
         
         // 转换为响应对象
-        List<KnowledgeBaseDocumentResp> content = documentPage.getContent().stream()
-                .map(this::convertToResp)
-                .collect(Collectors.toList());
-        
-        return new PageResponse<>(content, documentPage.getTotalElements(), page, pageSize);
+        return KnowledgeBasePageUtil.toPageResponse(documentPage, KnowledgeBaseConverterUtil::convertToResp);
     }
     
     /**
@@ -396,7 +387,7 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
      */
     private String generateFilePath(Long knowledgeBaseId, Integer tenantId, String originalFileName) {
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
-        String datePath = dateFormat.format(new Date());
+        String datePath = dateFormat.format(KnowledgeBaseDateTimeUtil.now());
         String uuid = UUID.randomUUID().toString().replace("-", "");
         
         // 清理文件名，防止路径遍历攻击
@@ -416,14 +407,6 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
         return fileName.replaceAll("[/\\\\:*?\"<>|]", "_");
     }
     
-    /**
-     * 转换为响应对象
-     */
-    private KnowledgeBaseDocumentResp convertToResp(KnowledgeBaseDocument document) {
-        KnowledgeBaseDocumentResp resp = new KnowledgeBaseDocumentResp();
-        BeanUtils.copyProperties(document, resp);
-        return resp;
-    }
     
     /**
      * 基于内存的MultipartFile实现
