@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
 /**
  * 模型配置服务实现
  */
@@ -661,7 +662,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
         } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
             // 获取更详细的错误信息
             String errorBody = e.getResponseBodyAsString();
-            String errorMessage = extractErrorMessage(errorBody, e.getStatusCode());
+            String errorMessage = ErrorUtil.extractErrorMessage(errorBody, e.getStatusCode());
             
             logger.error("Embedding API返回错误响应，状态码: {}, 错误消息: {}", e.getStatusCode(), errorMessage);
             throw new RuntimeException(errorMessage, e);

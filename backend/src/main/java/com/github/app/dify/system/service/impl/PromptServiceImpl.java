@@ -126,7 +126,7 @@ public class PromptServiceImpl implements PromptService {
     
     @Override
     public PromptResp getPromptById(Long id) {
-        return convertToResp(getPromptEntityById(id));
+        return SystemConverterUtil.convertToResp(getPromptEntityById(id));
     }
     
     @Override
@@ -140,7 +140,7 @@ public class PromptServiceImpl implements PromptService {
         }
         
         return prompts.stream()
-                .map(this::convertToResp)
+                .map(SystemConverterUtil::convertToResp)
                 .collect(Collectors.toList());
     }
     

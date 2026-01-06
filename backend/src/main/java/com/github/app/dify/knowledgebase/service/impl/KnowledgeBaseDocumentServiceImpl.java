@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import com.github.app.dify.knowledgebase.util.KnowledgeBaseConverterUtil;
 import com.github.app.dify.knowledgebase.util.KnowledgeBaseDateTimeUtil;
+import com.github.app.dify.common.util.DateTimeUtil;
 import com.github.app.dify.common.util.PageUtil;
 import com.github.app.dify.knowledgebase.util.KnowledgeBaseSoftDeleteUtil;
 import java.io.ByteArrayInputStream;
@@ -387,7 +388,7 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
      */
     private String generateFilePath(Long knowledgeBaseId, Integer tenantId, String originalFileName) {
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
-        String datePath = dateFormat.format(KnowledgeBaseDateTimeUtil.now());
+        String datePath = dateFormat.format(DateTimeUtil.now());
         String uuid = UUID.randomUUID().toString().replace("-", "");
         
         // 清理文件名，防止路径遍历攻击

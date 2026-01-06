@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import com.github.app.dify.documentreader.util.DocumentReaderConverterUtil;
 import com.github.app.dify.documentreader.util.DocumentReaderDateTimeUtil;
+import com.github.app.dify.common.util.DateTimeUtil;
 import com.github.app.dify.common.util.PageUtil;
 import com.github.app.dify.documentreader.util.DocumentReaderSoftDeleteUtil;
 import java.io.InputStream;
@@ -1282,7 +1283,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     
     private String generateFilePath(Long userId, String originalFileName) {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
-        String datePath = sdf.format(DocumentReaderDateTimeUtil.now());
+        String datePath = sdf.format(DateTimeUtil.now());
         String uuid = UUID.randomUUID().toString().replace("-", "");
         String fileExtension = getFileExtension(originalFileName);
         return String.format("document-reader/%d/%s/%s.%s", userId, datePath, uuid, fileExtension);

@@ -176,7 +176,7 @@ public class DrawIOServiceImpl implements DrawIOService {
         try {
             List<DrawIODiagram> diagrams = drawIODiagramRepository.findByUserIdAndNotDeleted(userId);
             return diagrams.stream()
-                    .map(this::convertToResp)
+                    .map(SystemConverterUtil::convertToResp)
                     .collect(Collectors.toList());
         } catch (Exception e) {
             logger.error("获取图表列表失败 - 用户ID: {}", userId, e);

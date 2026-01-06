@@ -7,6 +7,8 @@ import reactor.netty.http.client.HttpClient;
 
 import java.time.Duration;
 
+import static io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS;
+
 /**
  * 模型 WebClient 工具类
  * 提供统一的 WebClient 创建和配置方法
@@ -70,7 +72,7 @@ public class ModelWebClientUtil {
     public static HttpClient createHttpClient(int timeoutSeconds, int connectTimeoutMs) {
         return HttpClient.create()
                 .responseTimeout(Duration.ofSeconds(timeoutSeconds))
-                .option(reactor.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMs);
+                .option(CONNECT_TIMEOUT_MILLIS, connectTimeoutMs);
     }
 }
 

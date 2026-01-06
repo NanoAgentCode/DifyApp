@@ -1,6 +1,7 @@
 package com.github.app.dify.knowledgebase.service.impl;
 
 import com.github.app.dify.knowledgebase.domain.KnowledgeBase;
+import com.github.app.dify.knowledgebase.domain.VectorDatabase;
 import com.github.app.dify.knowledgebase.repository.KnowledgeBaseDocumentRepository;
 import com.github.app.dify.knowledgebase.repository.KnowledgeBaseRepository;
 import com.github.app.dify.knowledgebase.req.CreateKnowledgeBaseReq;

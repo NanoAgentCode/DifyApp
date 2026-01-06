@@ -104,7 +104,7 @@ public class KnowledgeBaseWebClientUtil {
     public static HttpClient createHttpClient(int timeoutSeconds, int connectTimeoutMs) {
         return HttpClient.create()
                 .responseTimeout(Duration.ofSeconds(timeoutSeconds))
-                .option(reactor.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMs);
+                .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMs);
     }
     
     /**

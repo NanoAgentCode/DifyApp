@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.github.app.dify.chat.util.ChatDateTimeUtil;
 import com.github.app.dify.chat.util.ChatSoftDeleteUtil;
+import com.github.app.dify.common.util.DateTimeUtil;
 import jakarta.persistence.criteria.Predicate;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -388,7 +389,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         Map<String, Object> export = new HashMap<>();
         export.put("conversation", conversation);
         export.put("messages", messages);
-        export.put("exportTime", ChatDateTimeUtil.now());
+        export.put("exportTime", DateTimeUtil.now());
         return export;
     }
     
@@ -496,7 +497,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         
         for (int i = days - 1; i >= 0; i--) {
-            cal.setTime(ChatDateTimeUtil.now());
+            cal.setTime(DateTimeUtil.now());
             cal.add(Calendar.DAY_OF_MONTH, -i);
             Date date = cal.getTime();
             String dateStr = sdf.format(date);

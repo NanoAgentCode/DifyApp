@@ -2,6 +2,7 @@ package com.github.app.dify.documentreader.util;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
@@ -44,7 +45,7 @@ public class DocumentReaderWebClientUtil {
      */
     public static WebClient createWithTimeout(String baseUrl, int timeoutSeconds) {
         return createBuilder(baseUrl)
-                .clientConnector(createHttpClient(timeoutSeconds))
+                .clientConnector(new ReactorClientHttpConnector(createHttpClient(timeoutSeconds)))
                 .build();
     }
     
@@ -58,7 +59,7 @@ public class DocumentReaderWebClientUtil {
      */
     public static WebClient createWithTimeouts(String baseUrl, int timeoutSeconds, int connectTimeoutMs) {
         return createBuilder(baseUrl)
-                .clientConnector(createHttpClient(timeoutSeconds, connectTimeoutMs))
+                .clientConnector(new ReactorClientHttpConnector(createHttpClient(timeoutSeconds, connectTimeoutMs)))
                 .build();
     }
     
@@ -82,7 +83,7 @@ public class DocumentReaderWebClientUtil {
     public static HttpClient createHttpClient(int timeoutSeconds, int connectTimeoutMs) {
         return HttpClient.create()
                 .responseTimeout(Duration.ofSeconds(timeoutSeconds))
-                .option(reactor.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMs);
+                .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMs);
     }
 }
 

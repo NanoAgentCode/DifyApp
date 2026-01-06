@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.github.app.dify.datasource.util.DataSourceDateTimeUtil;
+import com.github.app.dify.common.util.DateTimeUtil;
 import java.sql.*;
 import java.util.*;
 /**
@@ -395,7 +396,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
             }
             
             cache.setSchemaInfo(objectMapper.writeValueAsString(schemaInfo));
-            cache.setLastRefreshTime(DataSourceDateTimeUtil.now());
+            cache.setLastRefreshTime(DateTimeUtil.now());
             
             schemaCacheRepository.save(cache);
         } catch (Exception e) {

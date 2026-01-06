@@ -30,6 +30,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import static com.github.app.dify.chat.util.ChatConverterUtil.convertToResp;
+
 /**
  * AI应用服务
  */
@@ -121,7 +124,7 @@ public class AiAppServiceImpl implements AiAppService {
     @Override
     public AiAppResp updateAiApp(Long id, UpdateAiAppReq req) {
         Optional<AiApp> optional = aiAppRepository.findById(id);
-        if (!optional.isPresent()) {
+        if (optional.isEmpty()) {
             throw new RuntimeException("应用不存在: " + id);
         }
         
@@ -187,7 +190,7 @@ public class AiAppServiceImpl implements AiAppService {
     @Override
     public AiAppResp getAiAppById(Long id) {
         Optional<AiApp> optional = aiAppRepository.findById(id);
-        if (!optional.isPresent()) {
+        if (optional.isEmpty()) {
             throw new RuntimeException("应用不存在: " + id);
         }
         return convertToResp(optional.get());
@@ -200,7 +203,7 @@ public class AiAppServiceImpl implements AiAppService {
     @Override
     public AiAppResp getAiAppByApiKey(String apiKey) {
         Optional<AiApp> optional = aiAppRepository.findByAppId(apiKey);
-        if (!optional.isPresent()) {
+        if (optional.isEmpty()) {
             throw new RuntimeException("应用不存在: " + apiKey);
         }
         return convertToResp(optional.get());
@@ -214,7 +217,7 @@ public class AiAppServiceImpl implements AiAppService {
     @Override
     public void deleteAiApp(Long id) {
         Optional<AiApp> optional = aiAppRepository.findById(id);
-        if (!optional.isPresent()) {
+        if (optional.isEmpty()) {
             throw new RuntimeException("应用不存在: " + id);
         }
         
@@ -466,7 +469,7 @@ public class AiAppServiceImpl implements AiAppService {
         
         // 确定响应模式
         String responseMode = request.getResponseMode();
-        boolean stream = false;
+        boolean stream;
         
         if (responseMode != null && !responseMode.trim().isEmpty()) {
             // 如果请求中指定了 response_mode，使用请求中的值
@@ -530,13 +533,7 @@ public class AiAppServiceImpl implements AiAppService {
         
         // 验证并修复API Base URL
         String apiBaseUrl = validateAndFixApiBaseUrl(app.getApiBaseUrl());
-        
-        // 确定响应模式
-        String responseMode = request.getResponseMode();
-        if (responseMode == null || responseMode.trim().isEmpty()) {
-            responseMode = "streaming"; // 默认使用流式
-        }
-        
+
         return difyApiClient.workflowStream(
                 app.getAppId(),
                 apiBaseUrl,
@@ -582,7 +579,7 @@ public class AiAppServiceImpl implements AiAppService {
                                                  String userId) {
         // 获取应用信息
         Optional<AiApp> optional = aiAppRepository.findById(appId);
-        if (!optional.isPresent()) {
+        if (optional.isEmpty()) {
             return Mono.error(new RuntimeException("应用不存在: " + appId));
         }
         
