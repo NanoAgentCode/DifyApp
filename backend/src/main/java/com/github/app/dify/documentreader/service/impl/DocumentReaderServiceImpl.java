@@ -22,19 +22,20 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import com.github.app.dify.documentreader.util.DocumentReaderConverterUtil;
+import com.github.app.dify.documentreader.util.DocumentReaderDateTimeUtil;
+import com.github.app.dify.documentreader.util.DocumentReaderPageUtil;
+import com.github.app.dify.documentreader.util.DocumentReaderSoftDeleteUtil;
 import java.io.InputStream;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -129,7 +130,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         
         triggerVectorizationAsync(document.getId(), file);
         
-        return convertToResp(document);
+        return DocumentReaderConverterUtil.convertToResp(document);
     }
     
     /**
@@ -159,9 +160,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         document.setStorageType("minio");
         document.setStatus(1);
         document.setUserId(userId);
-        Date now = new Date();
-        document.setCreateTime(now);
-        document.setUpdateTime(now);
+        DocumentReaderDateTimeUtil.setCreateAndUpdateTime(document);
         document.setDeleted(0);
         document.setTotalPages(1);
         document.setVectorizedStatus(0);
@@ -251,9 +250,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
      * 软删除文档
      */
     private void softDeleteDocument(DocumentReader document) {
-        document.setDeleted(1);
-        document.setUpdateTime(new Date());
-        documentRepository.save(document);
+        DocumentReaderSoftDeleteUtil.softDelete(document, documentRepository);
     }
     
     /**
@@ -262,7 +259,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     @Override
     public DocumentReaderResp getDocumentById(Long documentId, Long userId) {
         DocumentReader document = getDocumentByIdAndValidateAccess(documentId, userId);
-        return convertToResp(document);
+        return DocumentReaderConverterUtil.convertToResp(document);
     }
     
     /**
@@ -275,10 +272,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             String fileType,
             int page,
             int pageSize) {
-        Pageable pageable = PageRequest.of(
-                page - 1,
-                pageSize,
-                Sort.by("createTime").descending());
+        Pageable pageable = DocumentReaderPageUtil.createPageable(page, pageSize);
         
         Page<DocumentReader> documentPage = documentRepository.findByUserIdAndDeletedAndKeywordAndFileType(
                 userId,
@@ -287,16 +281,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 fileType != null && !fileType.isEmpty() ? fileType : null,
                 pageable);
         
-        PageResponse<DocumentReaderResp> response = new PageResponse<>();
-        response.setContent(documentPage.getContent().stream()
-                .map(this::convertToResp)
-                .collect(Collectors.toList()));
-        response.setTotal(documentPage.getTotalElements());
-        response.setPage(page);
-        response.setPageSize(pageSize);
-        response.setTotalPages(documentPage.getTotalPages());
-        
-        return response;
+        return DocumentReaderPageUtil.toPageResponse(documentPage, DocumentReaderConverterUtil::convertToResp);
     }
     
     /**
@@ -338,13 +323,12 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         if (optional.isPresent()) {
             guide = optional.get();
             guide.setContent(content);
-            guide.setUpdateTime(new Date());
+            DocumentReaderDateTimeUtil.setUpdateTime(guide);
         } else {
             guide = new DocumentGuide();
             guide.setDocumentId(documentId);
             guide.setContent(content);
-            guide.setCreateTime(new Date());
-            guide.setUpdateTime(new Date());
+            DocumentReaderDateTimeUtil.setCreateAndUpdateTime(guide);
         }
         guideRepository.save(guide);
     }
@@ -1029,14 +1013,13 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         if (optional.isPresent()) {
             translation = optional.get();
             translation.setContent(content);
-            translation.setUpdateTime(new Date());
+            DocumentReaderDateTimeUtil.setUpdateTime(translation);
         } else {
             translation = new DocumentTranslation();
             translation.setDocumentId(documentId);
             translation.setTargetLanguage(targetLang);
             translation.setContent(content);
-            translation.setCreateTime(new Date());
-            translation.setUpdateTime(new Date());
+            DocumentReaderDateTimeUtil.setCreateAndUpdateTime(translation);
         }
         translationRepository.save(translation);
     }
@@ -1065,13 +1048,12 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         if (optional.isPresent()) {
             mindMap = optional.get();
             mindMap.setMindMapData(mindMapData);
-            mindMap.setUpdateTime(new Date());
+            DocumentReaderDateTimeUtil.setUpdateTime(mindMap);
         } else {
             mindMap = new DocumentMindMap();
             mindMap.setDocumentId(documentId);
             mindMap.setMindMapData(mindMapData);
-            mindMap.setCreateTime(new Date());
-            mindMap.setUpdateTime(new Date());
+            DocumentReaderDateTimeUtil.setCreateAndUpdateTime(mindMap);
         }
         mindMapRepository.save(mindMap);
     }
@@ -1248,13 +1230,12 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         if (optional.isPresent()) {
             notes = optional.get();
             notes.setContent(content);
-            notes.setUpdateTime(new Date());
+            DocumentReaderDateTimeUtil.setUpdateTime(notes);
         } else {
             notes = new DocumentNotes();
             notes.setDocumentId(documentId);
             notes.setContent(content);
-            notes.setCreateTime(new Date());
-            notes.setUpdateTime(new Date());
+            DocumentReaderDateTimeUtil.setCreateAndUpdateTime(notes);
         }
         notesRepository.save(notes);
     }
@@ -1301,7 +1282,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     
     private String generateFilePath(Long userId, String originalFileName) {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
-        String datePath = sdf.format(new Date());
+        String datePath = sdf.format(DocumentReaderDateTimeUtil.now());
         String uuid = UUID.randomUUID().toString().replace("-", "");
         String fileExtension = getFileExtension(originalFileName);
         return String.format("document-reader/%d/%s/%s.%s", userId, datePath, uuid, fileExtension);
@@ -1311,12 +1292,6 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         getDocumentByIdAndValidateAccess(documentId, userId);
     }
     
-    private DocumentReaderResp convertToResp(DocumentReader document) {
-        DocumentReaderResp resp = new DocumentReaderResp();
-        BeanUtils.copyProperties(document, resp);
-        resp.setUploadTime(document.getCreateTime());
-        return resp;
-    }
     /**
      * 检测文档的主要语言
      * 返回语言代码：zh（中文）、en（英文）、ja（日文）、ko（韩文）等
