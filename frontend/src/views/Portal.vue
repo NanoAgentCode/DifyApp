@@ -11,16 +11,24 @@
         <div class="view-tabs">
           <div 
             class="tab-item" 
-            :class="{ active: currentView === 'welcome' }"
-            @click="currentView = 'welcome'"
+            :class="{ active: currentView === 'welcome', disabled: isViewSwitching }"
+            @click="switchView('welcome')"
+            role="button"
+            tabindex="0"
+            @keydown.enter="switchView('welcome')"
+            @keydown.space.prevent="switchView('welcome')"
           >
             <el-icon><ChatLineRound /></el-icon>
             <span>智能对话</span>
           </div>
           <div 
             class="tab-item" 
-            :class="{ active: currentView === 'features' }"
-            @click="currentView = 'features'"
+            :class="{ active: currentView === 'features', disabled: isViewSwitching }"
+            @click="switchView('features')"
+            role="button"
+            tabindex="0"
+            @keydown.enter="switchView('features')"
+            @keydown.space.prevent="switchView('features')"
           >
             <el-icon><Grid /></el-icon>
             <span>快捷入口</span>
@@ -40,9 +48,24 @@
                 <span class="tip-item">输入 <span class="tip-symbol">@</span> 选择知识库</span>
                 <span class="tip-item">输入 <span class="tip-symbol">/</span> 选择文档</span>
               </div>
+              <div class="keyboard-shortcuts-hint">
+                <el-icon class="hint-icon"><InfoFilled /></el-icon>
+                <span class="hint-text">
+                  快捷键: <kbd>Ctrl+1</kbd> 智能对话 | <kbd>Ctrl+2</kbd> 快捷入口 | <kbd>Ctrl+N</kbd> 新对话
+                </span>
+              </div>
             </div>
             <div class="suggested-prompts">
+              <!-- Loading skeleton for conversations -->
+              <div v-if="loadingConversations" class="prompt-skeleton">
+                <div v-for="i in 3" :key="i" class="skeleton-item">
+                  <div class="skeleton-bullet"></div>
+                  <div class="skeleton-text"></div>
+                </div>
+              </div>
+              
               <div 
+                v-else-if="recentConversations.length > 0"
                 v-for="(conversation, index) in recentConversations" 
                 :key="conversation.id"
                 class="prompt-item"
@@ -82,37 +105,79 @@
                 <span class="feature-title-text">NanoAgent</span>
               </div>
               <div class="feature-grid">
-                <div class="feature-item" @click="handleFeatureClick('apps')">
+                <div 
+                  class="feature-item" 
+                  :class="{ 'navigating': isNavigatingToFeature }"
+                  @click="handleFeatureClick('apps')"
+                  role="button"
+                  tabindex="0"
+                  @keydown.enter="handleFeatureClick('apps')"
+                >
                   <div class="feature-circle">
                     <el-icon class="feature-icon"><Grid /></el-icon>
                   </div>
                   <span class="feature-name">智能应用</span>
                 </div>
-                <div class="feature-item" @click="handleFeatureClick('kb-qa')">
+                <div 
+                  class="feature-item" 
+                  :class="{ 'navigating': isNavigatingToFeature }"
+                  @click="handleFeatureClick('kb-qa')"
+                  role="button"
+                  tabindex="0"
+                  @keydown.enter="handleFeatureClick('kb-qa')"
+                >
                   <div class="feature-circle">
                     <el-icon class="feature-icon"><Search /></el-icon>
                   </div>
                   <span class="feature-name">知识检索</span>
                 </div>
-                <div class="feature-item" @click="handleFeatureClick('knowledge-base')">
+                <div 
+                  class="feature-item" 
+                  :class="{ 'navigating': isNavigatingToFeature }"
+                  @click="handleFeatureClick('knowledge-base')"
+                  role="button"
+                  tabindex="0"
+                  @keydown.enter="handleFeatureClick('knowledge-base')"
+                >
                   <div class="feature-circle">
                     <el-icon class="feature-icon"><Folder /></el-icon>
                   </div>
                   <span class="feature-name">知识管理</span>
                 </div>
-                <div class="feature-item" @click="handleFeatureClick('ai-drawio')">
+                <div 
+                  class="feature-item" 
+                  :class="{ 'navigating': isNavigatingToFeature }"
+                  @click="handleFeatureClick('ai-drawio')"
+                  role="button"
+                  tabindex="0"
+                  @keydown.enter="handleFeatureClick('ai-drawio')"
+                >
                   <div class="feature-circle">
                     <el-icon class="feature-icon"><Picture /></el-icon>
                   </div>
                   <span class="feature-name">智能框图</span>
                 </div>
-                <div class="feature-item" @click="handleFeatureClick('document')">
+                <div 
+                  class="feature-item" 
+                  :class="{ 'navigating': isNavigatingToFeature }"
+                  @click="handleFeatureClick('document')"
+                  role="button"
+                  tabindex="0"
+                  @keydown.enter="handleFeatureClick('document')"
+                >
                   <div class="feature-circle">
                     <el-icon class="feature-icon"><Document /></el-icon>
                   </div>
                   <span class="feature-name">文档解读</span>
                 </div>
-                <div class="feature-item" @click="handleFeatureClick('chat-history')">
+                <div 
+                  class="feature-item" 
+                  :class="{ 'navigating': isNavigatingToFeature }"
+                  @click="handleFeatureClick('chat-history')"
+                  role="button"
+                  tabindex="0"
+                  @keydown.enter="handleFeatureClick('chat-history')"
+                >
                   <div class="feature-circle">
                     <el-icon class="feature-icon"><Clock /></el-icon>
                   </div>
@@ -413,7 +478,8 @@ import {
   User,
   Grid,
   Search,
-  Folder
+  Folder,
+  InfoFilled
 } from '@element-plus/icons-vue'
 import { chat, chatStream, getMyConversations, getConversationMessages } from '@/api/chat'
 import { getAvailableQAModels, getAvailableQAModelsForRAG } from '@/api/model'
@@ -424,6 +490,15 @@ import { documentQAStream } from '@/api/documentReader'
 import MessageList from '@/components/chat/MessageList.vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import AppHeader from '@/components/AppHeader.vue'
+
+// Utility: Simple debounce function
+const debounce = (fn, delay) => {
+  let timeoutId
+  return function(...args) {
+    clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => fn.apply(this, args), delay)
+  }
+}
 
 const router = useRouter()
 
@@ -470,12 +545,39 @@ const mentionContainerRef = ref(null) // 标签容器的引用
 const recentConversations = ref([]) // 最近三条会话历史
 const selectedConversationId = ref(null) // 选中的会话ID
 const loadingConversations = ref(false) // 是否正在加载会话列表
+const retryCount = ref(0) // 重试次数
+const maxRetries = 3 // 最大重试次数
+const isViewSwitching = ref(false) // 视图切换动画状态
+const isNavigatingToFeature = ref(false) // 正在导航到功能页面
+
+// Memoized computed properties for better performance
+const hasActiveSelection = computed(() => selectedKnowledgeBase.value || selectedDocument.value)
 
 const selectedModelName = computed(() => {
   if (!selectedModelId.value) return 'DS V3.2'
   const model = availableModels.value.find(m => m.id === selectedModelId.value)
   return model ? model.name : 'DS V3.2'
 })
+
+// Utility function to parse response data with various formats
+const parseResponseData = (response) => {
+  if (!response) return []
+  
+  // Try different possible data structures
+  if (Array.isArray(response)) return response
+  if (response.content && Array.isArray(response.content)) return response.content
+  if (response.list && Array.isArray(response.list)) return response.list
+  
+  // Check nested data property
+  if (response.data) {
+    const data = response.data
+    if (Array.isArray(data)) return data
+    if (data.content && Array.isArray(data.content)) return data.content
+    if (data.list && Array.isArray(data.list)) return data.list
+  }
+  
+  return []
+}
 
 // 获取用户信息
 const getUserInfo = () => {
@@ -504,6 +606,20 @@ const handlePasswordChangeSuccess = () => {
   showChangePasswordDialog.value = false
 }
 
+// Smooth view switching with animation
+const switchView = async (view) => {
+  if (currentView.value === view || isViewSwitching.value) return
+  
+  isViewSwitching.value = true
+  currentView.value = view
+  
+  // Reset switching state after animation completes
+  await nextTick()
+  setTimeout(() => {
+    isViewSwitching.value = false
+  }, 300) // Match CSS transition duration
+}
+
 // 处理输入框焦点
 const handleInputFocus = () => {
   isInputFocused.value = true
@@ -524,7 +640,7 @@ const handleInputBlur = () => {
 }
 
 // 处理输入框内容变化
-const handleInputChange = () => {
+const handleInputChange = debounce(() => {
   const text = question.value
   const cursorPos = getCursorPosition()
   
@@ -581,7 +697,7 @@ const handleInputChange = () => {
     showDocList.value = false
     slashSymbolIndex.value = -1
   }
-}
+}, 100)
 
 // 获取光标位置
 const getCursorPosition = () => {
@@ -730,25 +846,7 @@ const loadDocuments = async () => {
       pageSize: 100
     })
     
-    let documents = []
-    if (response && response.content && Array.isArray(response.content)) {
-      documents = response.content
-    } else if (response && response.list && Array.isArray(response.list)) {
-      documents = response.list
-    } else if (Array.isArray(response)) {
-      documents = response
-    } else if (response && response.data) {
-      const data = response.data
-      if (data.content && Array.isArray(data.content)) {
-        documents = data.content
-      } else if (data.list && Array.isArray(data.list)) {
-        documents = data.list
-      } else if (Array.isArray(data)) {
-        documents = data
-      }
-    }
-    
-    availableDocuments.value = documents
+    availableDocuments.value = parseResponseData(response)
   } catch (error) {
     console.error('加载文档列表失败', error)
     availableDocuments.value = []
@@ -757,42 +855,50 @@ const loadDocuments = async () => {
   }
 }
 
-// 处理键盘事件
+// 处理键盘事件 - Optimized with early returns
 const handleKeydown = (e) => {
-  // 处理知识库列表
+  // Handle knowledge base list
   if (showKbList.value) {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      selectedKbIndex.value = Math.min(selectedKbIndex.value + 1, filteredKnowledgeBases.value.length - 1)
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      selectedKbIndex.value = Math.max(selectedKbIndex.value - 1, 0)
-    } else if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) {
-      e.preventDefault()
-      if (filteredKnowledgeBases.value[selectedKbIndex.value]) {
-        selectKnowledgeBase(filteredKnowledgeBases.value[selectedKbIndex.value])
-      }
-    } else if (e.key === 'Escape') {
-      showKbList.value = false
+    e.preventDefault()
+    
+    switch(e.key) {
+      case 'ArrowDown':
+        selectedKbIndex.value = Math.min(selectedKbIndex.value + 1, filteredKnowledgeBases.value.length - 1)
+        break
+      case 'ArrowUp':
+        selectedKbIndex.value = Math.max(selectedKbIndex.value - 1, 0)
+        break
+      case 'Enter':
+        if (!e.ctrlKey && !e.shiftKey && filteredKnowledgeBases.value[selectedKbIndex.value]) {
+          selectKnowledgeBase(filteredKnowledgeBases.value[selectedKbIndex.value])
+        }
+        break
+      case 'Escape':
+        showKbList.value = false
+        break
     }
     return
   }
   
-  // 处理文档列表
+  // Handle document list
   if (showDocList.value) {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      selectedDocIndex.value = Math.min(selectedDocIndex.value + 1, filteredDocuments.value.length - 1)
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      selectedDocIndex.value = Math.max(selectedDocIndex.value - 1, 0)
-    } else if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) {
-      e.preventDefault()
-      if (filteredDocuments.value[selectedDocIndex.value]) {
-        selectDocument(filteredDocuments.value[selectedDocIndex.value])
-      }
-    } else if (e.key === 'Escape') {
-      showDocList.value = false
+    e.preventDefault()
+    
+    switch(e.key) {
+      case 'ArrowDown':
+        selectedDocIndex.value = Math.min(selectedDocIndex.value + 1, filteredDocuments.value.length - 1)
+        break
+      case 'ArrowUp':
+        selectedDocIndex.value = Math.max(selectedDocIndex.value - 1, 0)
+        break
+      case 'Enter':
+        if (!e.ctrlKey && !e.shiftKey && filteredDocuments.value[selectedDocIndex.value]) {
+          selectDocument(filteredDocuments.value[selectedDocIndex.value])
+        }
+        break
+      case 'Escape':
+        showDocList.value = false
+        break
     }
   }
 }
@@ -972,30 +1078,66 @@ const formatFileSize = (bytes) => {
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
 }
 
-// 处理功能点击
-const handleFeatureClick = (feature) => {
-  const userInfo = getUserInfo()
-  const basePath = userInfo?.role === 1 ? '/admin' : '/user'
+// 处理功能点击 - Enhanced with loading state and visual feedback
+const handleFeatureClick = async (feature) => {
+  if (isNavigatingToFeature.value) return
   
-  switch (feature) {
-    case 'kb-qa':
-      router.push(`${basePath}/kb-qa`)
-      break
-    case 'document':
-      router.push(`${basePath}/document-reader`)
-      break
-    case 'apps':
-      router.push(`${basePath}/apps`)
-      break
-    case 'ai-drawio':
-      router.push(`${basePath}/ai-drawio`)
-      break
-    case 'chat-history':
-      router.push(`${basePath}/chat-history`)
-      break
-    case 'knowledge-base':
-      router.push(`${basePath}/knowledge-base`)
-      break
+  const featureNames = {
+    'kb-qa': '知识检索',
+    'document': '文档解读',
+    'apps': '智能应用',
+    'ai-drawio': '智能框图',
+    'chat-history': '会话历史',
+    'knowledge-base': '知识管理'
+  }
+  
+  try {
+    isNavigatingToFeature.value = true
+    
+    const userInfo = getUserInfo()
+    const basePath = userInfo?.role === 1 ? '/admin' : '/user'
+    
+    let targetPath = ''
+    switch (feature) {
+      case 'kb-qa':
+        targetPath = `${basePath}/kb-qa`
+        break
+      case 'document':
+        targetPath = `${basePath}/document-reader`
+        break
+      case 'apps':
+        targetPath = `${basePath}/apps`
+        break
+      case 'ai-drawio':
+        targetPath = `${basePath}/ai-drawio`
+        break
+      case 'chat-history':
+        targetPath = `${basePath}/chat-history`
+        break
+      case 'knowledge-base':
+        targetPath = `${basePath}/knowledge-base`
+        break
+      default:
+        throw new Error('Unknown feature')
+    }
+    
+    // Show loading message
+    const featureName = featureNames[feature] || '功能'
+    ElMessage({
+      message: `正在跳转到${featureName}...`,
+      type: 'info',
+      duration: 1000
+    })
+    
+    // Navigate with slight delay for better UX
+    await new Promise(resolve => setTimeout(resolve, 200))
+    await router.push(targetPath)
+    
+  } catch (error) {
+    console.error('Navigation failed:', error)
+    ElMessage.error('页面跳转失败，请重试')
+  } finally {
+    isNavigatingToFeature.value = false
   }
 }
 
@@ -1472,6 +1614,40 @@ const handleStreamResponse = async (question, requestConversationId, userId, his
     })
   }
   
+  const handleError = async (error, attempt = 0) => {
+    console.error('流式响应处理失败', error)
+    
+    // Check if we should retry
+    if (attempt < maxRetries && (!error.message || !error.message.includes('disconnected'))) {
+      console.log(`Retrying... Attempt ${attempt + 1}/${maxRetries}`)
+      retryCount.value = attempt + 1
+      
+      // Wait before retrying (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, attempt), 5000)))
+      
+      try {
+        return await handleStreamResponse(question, requestConversationId, userId, history, aiMessageIndex, modelId, enableBrowserSearch, files)
+      } catch (retryError) {
+        return handleError(retryError, attempt + 1)
+      }
+    }
+    
+    // Max retries reached or non-retryable error
+    retryCount.value = 0
+    
+    if (chatHistory.value[aiMessageIndex] && chatHistory.value[aiMessageIndex].content) {
+      chatHistory.value[aiMessageIndex].isLoading = false
+      chatHistory.value[aiMessageIndex].content += '\n\n⚠️ 连接中断，部分内容可能不完整。'
+    } else {
+      if (chatHistory.value[aiMessageIndex]) {
+        chatHistory.value[aiMessageIndex].content = '抱歉，连接已断开，请重试。'
+        chatHistory.value[aiMessageIndex].isLoading = false
+      }
+    }
+    
+    throw error
+  }
+  
   try {
     response = await chatStream(question, requestConversationId, userId, history, modelId, enableBrowserSearch, files)
     
@@ -1615,20 +1791,11 @@ const handleStreamResponse = async (question, requestConversationId, userId, his
       chatHistory.value[aiMessageIndex].isLoading = false
     }
     
+    // Reset retry count on success
+    retryCount.value = 0
+    
   } catch (error) {
-    console.error('流式响应处理失败', error)
-    
-    if (chatHistory.value[aiMessageIndex] && chatHistory.value[aiMessageIndex].content) {
-      chatHistory.value[aiMessageIndex].isLoading = false
-      chatHistory.value[aiMessageIndex].content += '\n\n⚠️ 连接中断，部分内容可能不完整。'
-    } else {
-      if (chatHistory.value[aiMessageIndex]) {
-        chatHistory.value[aiMessageIndex].content = '抱歉，连接已断开，请重试。'
-        chatHistory.value[aiMessageIndex].isLoading = false
-      }
-    }
-    
-    throw error
+    return handleError(error, retryCount.value)
   }
 }
 
@@ -1716,15 +1883,22 @@ const handleRegenerate = async (messageIndex) => {
   }
 }
 
-// 滚动到底部
+// 滚动到底部 - Optimized with requestAnimationFrame
 const scrollToBottom = (force = false) => {
-  nextTick(() => {
-    if (messageListRef.value?.$el) {
-      if (!force && !isNearBottom()) {
-        return
-      }
-      messageListRef.value.$el.scrollTop = messageListRef.value.$el.scrollHeight
+  if (!messageListRef.value?.$el) return
+  
+  requestAnimationFrame(() => {
+    if (!messageListRef.value?.$el) return
+    
+    if (!force && !isNearBottom()) {
+      return
     }
+    
+    const element = messageListRef.value.$el
+    element.scrollTo({
+      top: element.scrollHeight,
+      behavior: force ? 'auto' : 'smooth'
+    })
   })
 }
 
@@ -1778,24 +1952,7 @@ const loadRecentConversations = async () => {
     }
 
     const response = await getMyConversations(1, 3) // 获取第一页，每页3条
-    
-    let conversations = []
-    if (response && response.content && Array.isArray(response.content)) {
-      conversations = response.content
-    } else if (response && response.list && Array.isArray(response.list)) {
-      conversations = response.list
-    } else if (Array.isArray(response)) {
-      conversations = response
-    } else if (response && response.data) {
-      const data = response.data
-      if (data.content && Array.isArray(data.content)) {
-        conversations = data.content
-      } else if (data.list && Array.isArray(data.list)) {
-        conversations = data.list
-      } else if (Array.isArray(data)) {
-        conversations = data
-      }
-    }
+    const conversations = parseResponseData(response)
     
     // 取最近3条，不限类型
     recentConversations.value = conversations.slice(0, 3)
@@ -1807,36 +1964,47 @@ const loadRecentConversations = async () => {
   }
 }
 
-// 处理会话点击
+// 处理会话点击 - Enhanced with better UX feedback
 const handleConversationClick = async (conversation) => {
-  if (!conversation || !conversation.id) return
+  if (!conversation || !conversation.id || loadingConversations.value) return
   
-  selectedConversationId.value = conversation.id
-  await loadConversationMessages(conversation.id)
+  // Prevent rapid clicks
+  if (selectedConversationId.value === conversation.id && chatHistory.value.length > 0) {
+    ElMessage.info('已在该会话中')
+    return
+  }
+  
+  try {
+    selectedConversationId.value = conversation.id
+    
+    // Show loading feedback
+    const loadingMsg = ElMessage({
+      message: '正在加载会话...',
+      type: 'info',
+      duration: 0,
+      customClass: 'conversation-loading-message'
+    })
+    
+    await loadConversationMessages(conversation.id)
+    
+    // Close loading message
+    loadingMsg.close()
+    
+    // Show success message with conversation title
+    const title = conversation.title || '未命名会话'
+    ElMessage.success(`已加载会话: ${title}`)
+    
+  } catch (error) {
+    console.error('加载会话失败', error)
+    selectedConversationId.value = null
+  }
 }
 
 // 加载会话消息
 const loadConversationMessages = async (convId) => {
   try {
     const response = await getConversationMessages(convId)
-    
-    let messages = []
-    if (response && response.content && Array.isArray(response.content)) {
-      messages = response.content
-    } else if (response && response.list && Array.isArray(response.list)) {
-      messages = response.list
-    } else if (Array.isArray(response)) {
-      messages = response
-    } else if (response && response.data) {
-      const data = response.data
-      if (data.content && Array.isArray(data.content)) {
-        messages = data.content
-      } else if (data.list && Array.isArray(data.list)) {
-        messages = data.list
-      } else if (Array.isArray(data)) {
-        messages = data
-      }
-    }
+    const messages = parseResponseData(response)
     
     // 转换消息格式
     chatHistory.value = messages.map(msg => ({
@@ -1937,25 +2105,7 @@ const loadKnowledgeBases = async () => {
     }
     
     const response = await getKnowledgeBaseList(params)
-    
-    // 处理不同的响应格式
-    let knowledgeBases = []
-    if (response && response.content && Array.isArray(response.content)) {
-      knowledgeBases = response.content
-    } else if (response && response.list && Array.isArray(response.list)) {
-      knowledgeBases = response.list
-    } else if (Array.isArray(response)) {
-      knowledgeBases = response
-    } else if (response && response.data) {
-      const data = response.data
-      if (data.content && Array.isArray(data.content)) {
-        knowledgeBases = data.content
-      } else if (data.list && Array.isArray(data.list)) {
-        knowledgeBases = data.list
-      } else if (Array.isArray(data)) {
-        knowledgeBases = data
-      }
-    }
+    const knowledgeBases = parseResponseData(response)
     
     // 过滤出启用的知识库（status === 'active' 或 status === 1）
     availableKnowledgeBases.value = knowledgeBases.filter(kb => {
@@ -2058,10 +2208,53 @@ watch(() => isInputFocused.value, () => {
 })
 
 // 监听窗口大小变化
-const handleResize = () => {
+const handleResize = debounce(() => {
   checkContentOverflow()
   if (showKbList.value) {
     updateKbListPosition()
+  }
+}, 150)
+
+// Global keyboard shortcuts for navigation
+const handleGlobalKeydown = (e) => {
+  // Ctrl/Cmd + 1: Switch to intelligent Q&A view
+  if ((e.ctrlKey || e.metaKey) && e.key === '1') {
+    e.preventDefault()
+    switchView('welcome')
+    return
+  }
+  
+  // Ctrl/Cmd + 2: Switch to quick entry view
+  if ((e.ctrlKey || e.metaKey) && e.key === '2') {
+    e.preventDefault()
+    switchView('features')
+    return
+  }
+  
+  // Ctrl/Cmd + N: Focus on input and start new conversation
+  if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+    e.preventDefault()
+    handleRefresh()
+    nextTick(() => {
+      const inputElement = document.querySelector('.portal-input textarea')
+      if (inputElement) {
+        inputElement.focus()
+      }
+    })
+    return
+  }
+  
+  // ESC: Clear input or return to welcome view
+  if (e.key === 'Escape') {
+    if (question.value) {
+      e.preventDefault()
+      question.value = ''
+      ElMessage.info('已清空输入')
+    } else if (chatHistory.value.length === 0) {
+      e.preventDefault()
+      switchView('welcome')
+    }
+    return
   }
 }
 
@@ -2076,6 +2269,8 @@ onMounted(() => {
   checkContentOverflow()
   // 监听窗口大小变化
   window.addEventListener('resize', handleResize)
+  // Add global keyboard shortcut listener
+  window.addEventListener('keydown', handleGlobalKeydown)
   // 使用 ResizeObserver 监听内容区域变化
   nextTick(() => {
     if (chatHistorySectionRef.value) {
@@ -2109,10 +2304,31 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  window.removeEventListener('keydown', handleGlobalKeydown)
 })
 </script>
 
 <style scoped>
+/* CSS Variables for consistent theming */
+:root {
+  --portal-primary-color: var(--el-color-primary, #409eff);
+  --portal-bg-color: var(--el-bg-color-page, #f5f7fa);
+  --portal-card-bg: var(--el-bg-color, #ffffff);
+  --portal-text-primary: var(--el-text-color-primary, #303133);
+  --portal-text-regular: var(--el-text-color-regular, #606266);
+  --portal-text-secondary: var(--el-text-color-secondary, #909399);
+  --portal-border-color: var(--el-border-color-lighter, #e4e7ed);
+  --portal-shadow-light: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --portal-shadow-base: 0 4px 16px rgba(64, 158, 255, 0.2);
+  --portal-transition: all 0.3s ease;
+  --portal-border-radius: 12px;
+  --portal-spacing-xs: 4px;
+  --portal-spacing-sm: 8px;
+  --portal-spacing-md: 12px;
+  --portal-spacing-lg: 16px;
+  --portal-spacing-xl: 20px;
+}
+
 .portal-container {
   height: 100vh; /* 固定高度，确保只有一个滚动条 */
   background: var(--el-bg-color-page, #f5f7fa);
@@ -2278,6 +2494,12 @@ onUnmounted(() => {
   border-color: var(--el-color-primary, #409eff);
 }
 
+.tab-item.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .tab-item .el-icon {
   font-size: 16px;
 }
@@ -2367,6 +2589,38 @@ onUnmounted(() => {
   font-family: 'Courier New', monospace;
 }
 
+/* Keyboard shortcuts hint */
+.keyboard-shortcuts-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 8px 16px;
+  background: var(--el-fill-color-lighter, #f5f7fa);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+}
+
+.hint-icon {
+  font-size: 14px;
+  color: var(--el-color-info, #909399);
+}
+
+.hint-text kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  margin: 0 2px;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+  color: var(--el-text-color-primary, #303133);
+  background: var(--el-bg-color, #ffffff);
+  border: 1px solid var(--el-border-color, #dcdfe6);
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
 /* 确保智能对话视图内容也保持固定高度 */
 .view-content .assistant-identity {
   margin-top: 0;
@@ -2441,6 +2695,48 @@ onUnmounted(() => {
   transform: translateX(2px);
 }
 
+/* Loading skeleton styles */
+.prompt-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.skeleton-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--el-fill-color-lighter, #f5f7fa);
+  border-radius: 10px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-bullet {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--el-fill-color, #e4e7ed);
+  flex-shrink: 0;
+}
+
+.skeleton-text {
+  flex: 1;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--el-fill-color, #e4e7ed);
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
 /* 系统功能入口区域 */
 .feature-entries {
   width: 100%;
@@ -2496,6 +2792,12 @@ onUnmounted(() => {
 
 .feature-item:hover {
   transform: translateY(-4px);
+}
+
+.feature-item.navigating {
+  opacity: 0.5;
+  pointer-events: none;
+  transform: scale(0.95);
 }
 
 .feature-circle {

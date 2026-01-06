@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.system.config.FaissConfig;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
+import lombok.Getter;
+import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -108,7 +110,7 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
                 int chunkIndex = i < chunkIndices.size() ? chunkIndices.get(i) : i;
                 
                 String vectorId = generateVectorId(knowledgeBaseId, documentId, chunkIndex);
-                VectorEntry entry = new VectorEntry(vectorId, vector, text, documentId, Integer.valueOf(chunkIndex));
+                VectorEntry entry = new VectorEntry(vectorId, vector, text, documentId, chunkIndex);
                 index.addVector(entry);
             }
             
@@ -300,16 +302,13 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
     private String generateVectorId(Long knowledgeBaseId, Long documentId, int chunkIndex) {
         return knowledgeBaseId + "_" + documentId + "_" + chunkIndex;
     }
-    
-    /**
-     * 检索结果
-     */
-    
-    
+
+
     /**
      * 向量索引（内存中的索引结构）
      */
     private static class VectorIndex {
+        @Getter
         private final int vectorSize;
         private final Map<String, VectorEntry> vectors = new HashMap<>();
         private final Map<Long, Set<String>> documentVectors = new HashMap<>();
@@ -344,16 +343,15 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
         public int getVectorCount() {
             return vectors.size();
         }
-        
-        public int getVectorSize() {
-            return vectorSize;
-        }
+
     }
     
     /**
      * 向量条目
      */
-    @SuppressWarnings("unused") // setter方法由Jackson在反序列化时通过反射调用
+    @Setter
+    @Getter
+    @SuppressWarnings("unused")
     private static class VectorEntry {
         private String vectorId;
         private List<Float> vector;
@@ -372,51 +370,13 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
             this.documentId = documentId;
             this.chunkIndex = chunkIndex;
         }
-        
-        public String getVectorId() {
-            return vectorId;
-        }
-        
-        public void setVectorId(String vectorId) {
-            this.vectorId = vectorId;
-        }
-        
-        public List<Float> getVector() {
-            return vector;
-        }
-        
-        public void setVector(List<Float> vector) {
-            this.vector = vector;
-        }
-        
-        public String getText() {
-            return text;
-        }
-        
-        public void setText(String text) {
-            this.text = text;
-        }
-        
-        public Long getDocumentId() {
-            return documentId;
-        }
-        
-        public void setDocumentId(Long documentId) {
-            this.documentId = documentId;
-        }
-        
-        public Integer getChunkIndex() {
-            return chunkIndex;
-        }
-        
-        public void setChunkIndex(Integer chunkIndex) {
-            this.chunkIndex = chunkIndex;
-        }
+
     }
     
     /**
      * 向量分数（用于排序）
      */
+    @Getter
     private static class VectorScore {
         private final VectorEntry entry;
         private final double score;
@@ -425,13 +385,6 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
             this.entry = entry;
             this.score = score;
         }
-        
-        public VectorEntry getEntry() {
-            return entry;
-        }
-        
-        public double getScore() {
-            return score;
-        }
+
     }
 }

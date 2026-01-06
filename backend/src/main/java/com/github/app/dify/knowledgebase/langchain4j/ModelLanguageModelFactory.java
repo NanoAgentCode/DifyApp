@@ -366,19 +366,17 @@ public class ModelLanguageModelFactory {
                     
                     // 添加图片内容
                     int imageCount = 0;
-                    if (imageDataList != null) {
-                        for (ChatRequest.ImageData imageData : imageDataList) {
-                            Map<String, Object> imageItem = new HashMap<>();
-                            imageItem.put("type", "image_url");
-                            Map<String, String> imageUrl = new HashMap<>();
-                            // 使用base64格式：data:image/png;base64,{base64_data}
-                            imageUrl.put("url", "data:" + imageData.getMimeType() + ";base64," + imageData.getBase64());
-                            imageItem.put("image_url", imageUrl);
-                            contentList.add(imageItem);
-                            imageCount++;
-                        }
+                    for (ChatRequest.ImageData imageData : imageDataList) {
+                        Map<String, Object> imageItem = new HashMap<>();
+                        imageItem.put("type", "image_url");
+                        Map<String, String> imageUrl = new HashMap<>();
+                        // 使用base64格式：data:image/png;base64,{base64_data}
+                        imageUrl.put("url", "data:" + imageData.getMimeType() + ";base64," + imageData.getBase64());
+                        imageItem.put("image_url", imageUrl);
+                        contentList.add(imageItem);
+                        imageCount++;
                     }
-                    
+
                     apiMessage.put("content", contentList);
                     logger.debug("构建多模态消息，包含 {} 张图片", imageCount);
                 } else {
@@ -423,7 +421,7 @@ public class ModelLanguageModelFactory {
             com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(responseJson);
             
             // OpenAI格式：{"choices":[{"message":{"content":"answer"}}]}
-            if (root.has("choices") && root.get("choices").isArray() && root.get("choices").size() > 0) {
+            if (root.has("choices") && root.get("choices").isArray() && !root.get("choices").isEmpty()) {
                 com.fasterxml.jackson.databind.JsonNode choice = root.get("choices").get(0);
                 if (choice.has("message")) {
                     com.fasterxml.jackson.databind.JsonNode message = choice.get("message");
@@ -591,7 +589,7 @@ public class ModelLanguageModelFactory {
      * 格式：{"choices":[{"delta":{"content":"token"}}]}
      */
     private String extractFromOpenAIChoices(com.fasterxml.jackson.databind.JsonNode root) {
-        if (!root.has("choices") || !root.get("choices").isArray() || root.get("choices").size() == 0) {
+        if (!root.has("choices") || !root.get("choices").isArray() || root.get("choices").isEmpty()) {
             return null;
         }
         

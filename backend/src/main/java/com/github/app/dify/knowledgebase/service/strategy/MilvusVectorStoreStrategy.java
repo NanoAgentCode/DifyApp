@@ -6,6 +6,7 @@ import com.github.app.dify.knowledgebase.domain.VectorDatabase;
 import com.github.app.dify.knowledgebase.repository.KnowledgeBaseRepository;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.DataType;
+import io.milvus.grpc.SearchResults;
 import io.milvus.param.ConnectParam;
 import io.milvus.param.R;
 import io.milvus.param.collection.*;
@@ -148,7 +149,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
             return knowledgeBaseRepository.findById(knowledgeBaseId)
                     .map(kb -> {
                         String type = kb.getVectorStoreType();
-                        if (type != null && "milvus".equalsIgnoreCase(type)) {
+                        if ("milvus".equalsIgnoreCase(type)) {
                             return type;
                         }
                         return "milvus"; // 默认
@@ -278,11 +279,6 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
     private void createIndex(Long knowledgeBaseId, String collectionName) {
         try {
             MilvusServiceClient client = getMilvusClient(knowledgeBaseId);
-            
-            // 创建索引参数
-            Map<String, Object> indexParams = new HashMap<>();
-            indexParams.put("nlist", 1024);
-            
             CreateIndexParam indexParam = CreateIndexParam.newBuilder()
                     .withCollectionName(collectionName)
                     .withFieldName("vector")
@@ -623,16 +619,15 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
                             }
                             
                             // 如果 SearchResultData 构造函数不存在，尝试从 SearchResultData 构建 SearchResults
-                            if (!created && searchResultsData instanceof io.milvus.grpc.SearchResultData) {
+                            if (!created && searchResultsData instanceof io.milvus.grpc.SearchResultData resultData) {
                                 try {
                                     // 尝试使用 SearchResults 构造函数
                                     java.lang.reflect.Constructor<SearchResultsWrapper> constructor = 
-                                        SearchResultsWrapper.class.getConstructor(io.milvus.grpc.SearchResults.class);
+                                        SearchResultsWrapper.class.getConstructor(SearchResults.class);
                                     
                                     // 尝试从 SearchResultData 获取或构建 SearchResults
                                     // SearchResultData 可能包含 results 字段，需要提取
-                                    io.milvus.grpc.SearchResultData resultData = (io.milvus.grpc.SearchResultData) searchResultsData;
-                                    
+
                                     // 尝试获取 results 字段
                                     try {
                                         java.lang.reflect.Method getResultsFromDataMethod = resultData.getClass().getMethod("getResults");
@@ -654,7 +649,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
                         }
                     }
                     
-                    if (!created || wrapper == null) {
+                    if (!created) {
                         throw new RuntimeException("无法创建 SearchResultsWrapper。数据类型: " +
                                 (searchResultsData != null ? searchResultsData.getClass().getName() : "null") +
                                 "，可用构造函数: " + Arrays.toString(constructors));
@@ -774,9 +769,5 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
         // 使用简单的哈希组合，确保唯一性
         return (knowledgeBaseId * 1000000000L + documentId * 10000L + chunkIndex);
     }
-    
-    /**
-     * 检索结果
-     */
-    
+
 }

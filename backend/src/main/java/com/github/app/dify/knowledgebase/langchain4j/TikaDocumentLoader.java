@@ -54,10 +54,7 @@ public class TikaDocumentLoader {
         } catch (Exception e) {
             logger.error("文档加载失败 - 文件名: {}", file.getOriginalFilename(), e);
             // 如果已经是RuntimeException，直接抛出；否则包装
-            if (e instanceof RuntimeException) {
-                throw e;
-            }
-            throw new RuntimeException("文档加载失败: " + e.getMessage(), e);
+            throw e;
         }
     }
     
@@ -85,10 +82,7 @@ public class TikaDocumentLoader {
         } catch (Exception e) {
             logger.error("文档加载失败 - 文件名: {}", fileName, e);
             // 如果已经是RuntimeException，直接抛出；否则包装
-            if (e instanceof RuntimeException) {
-                throw e;
-            }
-            throw new RuntimeException("文档加载失败: " + e.getMessage(), e);
+            throw e;
         }
     }
 }

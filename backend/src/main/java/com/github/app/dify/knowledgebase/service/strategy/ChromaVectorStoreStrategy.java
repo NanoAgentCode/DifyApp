@@ -362,16 +362,18 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
                         logger.error("Chroma v2 API 返回 405 Method Not Allowed - 知识库ID: {}, 文档ID: {}, 集合名: {}, 端点: /api/v2/collections/{}/add, 响应: {}", 
                                 knowledgeBaseId, documentId, collectionName, collectionName, e.getResponseBodyAsString());
                         throw new RuntimeException(String.format(
-                            "Chroma v2 API 返回 405 Method Not Allowed。\n" +
-                            "端点: POST /api/v2/collections/%s/add\n" +
-                            "可能的原因：\n" +
-                            "- 端点路径不正确\n" +
-                            "- 请求格式不正确\n" +
-                            "- 服务器配置问题\n\n" +
-                            "建议：\n" +
-                            "- 检查 Chroma 服务器版本和文档：https://docs.trychroma.com/\n" +
-                            "- 查看服务器日志获取更多信息\n" +
-                            "- 确认 v2 API 的正确端点格式",
+                                """
+                                        Chroma v2 API 返回 405 Method Not Allowed。
+                                        端点: POST /api/v2/collections/%s/add
+                                        可能的原因：
+                                        - 端点路径不正确
+                                        - 请求格式不正确
+                                        - 服务器配置问题
+                                        
+                                        建议：
+                                        - 检查 Chroma 服务器版本和文档：https://docs.trychroma.com/
+                                        - 查看服务器日志获取更多信息
+                                        - 确认 v2 API 的正确端点格式""",
                             collectionName
                         ), e);
                     }
@@ -430,7 +432,7 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
             String collectionId = getOrCreateCollectionId(collectionName);
             
             Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("query_embeddings", Arrays.asList(queryVector));
+            requestBody.put("query_embeddings", List.of(queryVector));
             requestBody.put("n_results", topK);
             requestBody.put("include", Arrays.asList("metadatas", "documents", "distances"));
             
@@ -537,9 +539,10 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
                         knowledgeBaseId, collectionName);
                 return new ArrayList<>();
             }
-            
-            throw new RuntimeException("向量检索失败: " + e.getMessage() + 
-                    (e.getResponseBodyAsString() != null ? " - " + e.getResponseBodyAsString() : ""), e);
+
+            e.getResponseBodyAsString();
+            throw new RuntimeException("向量检索失败: " + e.getMessage() +
+                    " - " + e.getResponseBodyAsString(), e);
         } catch (Exception e) {
             logger.error("向量检索失败 - 知识库ID: {}, 集合名: {}", knowledgeBaseId, collectionName, e);
             throw new RuntimeException("向量检索失败: " + e.getMessage(), e);
@@ -562,7 +565,7 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
             Map<String, Object> where = new HashMap<>();
             where.put("document_id", documentId);
             queryRequest.put("where", where);
-            queryRequest.put("include", Arrays.asList("ids"));
+            queryRequest.put("include", List.of("ids"));
             
             Map<String, Object> queryResponse = getWebClient()
                     .post()
@@ -635,8 +638,9 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
             }
             logger.error("删除文档向量失败 - 知识库ID: {}, 文档ID: {}, HTTP状态: {}, 响应: {}", 
                     knowledgeBaseId, documentId, e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RuntimeException("删除文档向量失败: " + e.getMessage() + 
-                    (e.getResponseBodyAsString() != null ? " - " + e.getResponseBodyAsString() : ""), e);
+            e.getResponseBodyAsString();
+            throw new RuntimeException("删除文档向量失败: " + e.getMessage() +
+                    " - " + e.getResponseBodyAsString(), e);
         } catch (Exception e) {
             logger.error("删除文档向量失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId, e);
             throw new RuntimeException("删除文档向量失败: " + e.getMessage(), e);
@@ -656,9 +660,5 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
     private String generateId(Long knowledgeBaseId, Long documentId, int chunkIndex) {
         return knowledgeBaseId + "_" + documentId + "_" + chunkIndex;
     }
-    
-    /**
-     * 检索结果
-     */
-    
+
 }

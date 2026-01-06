@@ -7,6 +7,7 @@ import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
+import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
@@ -22,16 +23,14 @@ public class MilvusEmbeddingStore implements EmbeddingStore<TextSegment> {
     private static final Logger logger = LoggerFactory.getLogger(MilvusEmbeddingStore.class);
     
     private VectorStoreStrategy strategy;
-    
-    private Long knowledgeBaseId;
-    
+
     /**
-     * 设置知识库ID（用于隔离存储）
+     * -- SETTER --
+     *  设置知识库ID（用于隔离存储）
      */
-    public void setKnowledgeBaseId(Long knowledgeBaseId) {
-        this.knowledgeBaseId = knowledgeBaseId;
-    }
-    
+    @Setter
+    private Long knowledgeBaseId;
+
     /**
      * 创建指定知识库的EmbeddingStore实例
      */
@@ -137,8 +136,8 @@ public class MilvusEmbeddingStore implements EmbeddingStore<TextSegment> {
             strategy.upsertVectors(knowledgeBaseId, documentId, vectors, texts, chunkIndices);
             
             // 生成IDs
-            for (int i = 0; i < items.size(); i++) {
-                ids.add(generateId(documentId, items.get(i).chunkIndex));
+            for (BatchItem item : items) {
+                ids.add(generateId(documentId, item.chunkIndex));
             }
         }
         

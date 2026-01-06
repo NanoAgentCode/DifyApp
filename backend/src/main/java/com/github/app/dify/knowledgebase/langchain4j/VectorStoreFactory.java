@@ -90,23 +90,19 @@ public class VectorStoreFactory {
         
         // 根据策略类型创建对应的EmbeddingStore
         String strategyType = strategy.getType().toLowerCase();
-        if ("faiss".equals(strategyType)) {
-            return FaissEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
-        } else if ("milvus".equals(strategyType)) {
-            return MilvusEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
-        } else if ("chroma".equals(strategyType)) {
-            return ChromaEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
-        } else if ("weaviate".equals(strategyType)) {
-            return WeaviateEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
-        } else if ("elasticsearch".equals(strategyType)) {
-            // Elasticsearch使用QdrantEmbeddingStore的相同接口（因为它们都实现了VectorStoreStrategy）
-            return QdrantEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
-        } else if ("pgvector".equals(strategyType)) {
-            return PgVectorEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
-        } else {
-            // 默认使用Qdrant
-            return QdrantEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
-        }
+        return switch (strategyType) {
+            case "faiss" -> FaissEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
+            case "milvus" -> MilvusEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
+            case "chroma" -> ChromaEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
+            case "weaviate" -> WeaviateEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
+            case "elasticsearch" ->
+                // Elasticsearch使用QdrantEmbeddingStore的相同接口（因为它们都实现了VectorStoreStrategy）
+                    QdrantEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
+            case "pgvector" -> PgVectorEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
+            default ->
+                // 默认使用Qdrant
+                    QdrantEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
+        };
     }
     
     /**
@@ -151,7 +147,8 @@ public class VectorStoreFactory {
             
             // 对于知识库，优先从vectorDatabaseId获取实例配置
             if (knowledgeBaseRepository != null) {
-                java.util.Optional<com.github.app.dify.knowledgebase.domain.KnowledgeBase> kb = 
+                assert knowledgeBaseId != null;
+                java.util.Optional<com.github.app.dify.knowledgebase.domain.KnowledgeBase> kb =
                         knowledgeBaseRepository.findById(knowledgeBaseId);
                 if (kb.isPresent()) {
                     com.github.app.dify.knowledgebase.domain.KnowledgeBase knowledgeBase = kb.get();

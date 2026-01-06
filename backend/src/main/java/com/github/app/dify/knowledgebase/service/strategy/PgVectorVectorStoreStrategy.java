@@ -67,7 +67,8 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
             
             // 从知识库读取vectorDatabaseId
             if (knowledgeBaseRepository != null) {
-                java.util.Optional<com.github.app.dify.knowledgebase.domain.KnowledgeBase> kb = 
+                assert knowledgeBaseId != null;
+                java.util.Optional<com.github.app.dify.knowledgebase.domain.KnowledgeBase> kb =
                         knowledgeBaseRepository.findById(knowledgeBaseId);
                 if (kb.isPresent() && kb.get().getVectorDatabaseId() != null) {
                     Long vectorDatabaseId = kb.get().getVectorDatabaseId();
@@ -147,8 +148,8 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
             try {
                 if (conn.isClosed() ||
                     !jdbcUrl.equals(lastUrl) ||
-                    (currentUsername != null ? !currentUsername.equals(lastUsername) : lastUsername != null) ||
-                    (currentPassword != null ? !currentPassword.equals(lastPassword) : lastPassword != null)) {
+                    (!Objects.equals(currentUsername, lastUsername)) ||
+                    (!Objects.equals(currentPassword, lastPassword))) {
                     needNewConnection = true;
                 }
             } catch (SQLException e) {
@@ -467,17 +468,18 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
                             } else {
                                 // 如果表有数据，提供详细的错误信息和解决方案
                                 String errorMsg = String.format(
-                                    "向量维度不匹配 - 知识库ID: %d, 期望: %d, 实际: %d\n" +
-                                    "表 %s 中已有数据，无法自动修复。请选择以下方案之一：\n" +
-                                    "方案1（推荐）：使用与现有维度匹配的嵌入模型\n" +
-                                    "  - 当前表维度: %d\n" +
-                                    "  - 请在系统配置中设置 documentReader.defaultEmbeddingModelId 为维度 %d 的模型\n" +
-                                    "方案2：删除表并重新创建（会丢失所有数据）\n" +
-                                    "  - 执行SQL: DROP TABLE IF EXISTS %s CASCADE;\n" +
-                                    "  - 然后重新上传文档\n" +
-                                    "方案3：手动修改表结构（需要迁移数据，操作复杂）\n" +
-                                    "  - 执行SQL: ALTER TABLE %s ALTER COLUMN embedding TYPE vector(%d);\n" +
-                                    "  - 注意：此操作可能需要较长时间，且需要确保所有现有向量维度匹配",
+                                        """
+                                                向量维度不匹配 - 知识库ID: %d, 期望: %d, 实际: %d
+                                                表 %s 中已有数据，无法自动修复。请选择以下方案之一：
+                                                方案1（推荐）：使用与现有维度匹配的嵌入模型
+                                                  - 当前表维度: %d
+                                                  - 请在系统配置中设置 documentReader.defaultEmbeddingModelId 为维度 %d 的模型
+                                                方案2：删除表并重新创建（会丢失所有数据）
+                                                  - 执行SQL: DROP TABLE IF EXISTS %s CASCADE;
+                                                  - 然后重新上传文档
+                                                方案3：手动修改表结构（需要迁移数据，操作复杂）
+                                                  - 执行SQL: ALTER TABLE %s ALTER COLUMN embedding TYPE vector(%d);
+                                                  - 注意：此操作可能需要较长时间，且需要确保所有现有向量维度匹配""",
                                     knowledgeBaseId, vectorSize, existingSize, 
                                     tableName, existingSize, existingSize,
                                     tableName, tableName, vectorSize);
@@ -592,7 +594,7 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
                 for (int i = 0; i < vectors.size(); i++) {
                     List<Float> vector = vectors.get(i);
                     String text = i < texts.size() ? texts.get(i) : "";
-                    Integer chunkIndex = i < chunkIndices.size() ? chunkIndices.get(i) : i;
+                    int chunkIndex = i < chunkIndices.size() ? chunkIndices.get(i) : i;
                     
                     // 构建向量字符串：'[1.0,2.0,3.0]'
                     StringBuilder vectorStr = new StringBuilder("[");
@@ -640,8 +642,7 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
             String sqlState = e.getSQLState();
             
             // 尝试获取失败的批次信息
-            if (e instanceof java.sql.BatchUpdateException) {
-                java.sql.BatchUpdateException batchEx = (java.sql.BatchUpdateException) e;
+            if (e instanceof BatchUpdateException batchEx) {
                 int[] updateCounts = batchEx.getUpdateCounts();
                 for (int i = 0; i < updateCounts.length; i++) {
                     if (updateCounts[i] == Statement.EXECUTE_FAILED) {

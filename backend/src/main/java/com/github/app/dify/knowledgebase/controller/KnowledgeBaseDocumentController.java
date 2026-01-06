@@ -1,8 +1,10 @@
 package com.github.app.dify.knowledgebase.controller;
 
 import com.github.app.dify.common.controller.BaseController;
+import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.knowledgebase.resp.KnowledgeBaseDocumentResp;
+import com.github.app.dify.knowledgebase.service.DocumentVectorizationService;
 import com.github.app.dify.knowledgebase.service.KnowledgeBaseDocumentService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,7 +30,7 @@ public class KnowledgeBaseDocumentController extends BaseController {
     private KnowledgeBaseDocumentService documentService;
     
     @Autowired(required = false)
-    private com.github.app.dify.knowledgebase.service.DocumentVectorizationService documentVectorizationService;
+    private DocumentVectorizationService documentVectorizationService;
     
     /**
      * 上传文档
@@ -143,7 +145,7 @@ public class KnowledgeBaseDocumentController extends BaseController {
         
         if (documentVectorizationService == null) {
             logger.warn("DocumentVectorizationService未配置，无法重新向量化 - 知识库ID: {}, 文档ID: {}", kbId, docId);
-            throw new com.github.app.dify.common.exception.BusinessException("向量化服务未配置");
+            throw new BusinessException("向量化服务未配置");
         }
         
         // 验证文档是否存在

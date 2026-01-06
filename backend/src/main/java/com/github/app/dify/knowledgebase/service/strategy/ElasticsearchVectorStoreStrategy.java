@@ -95,9 +95,9 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
         
         if (client == null || 
             !currentUrl.equals(lastUrl) || 
-            (currentApiKey != null ? !currentApiKey.equals(lastApiKey) : lastApiKey != null) ||
-            (currentUsername != null ? !currentUsername.equals(lastUsername) : lastUsername != null) ||
-            (currentPassword != null ? !currentPassword.equals(lastPassword) : lastPassword != null)) {
+            (!Objects.equals(currentApiKey, lastApiKey)) ||
+            (!Objects.equals(currentUsername, lastUsername)) ||
+            (!Objects.equals(currentPassword, lastPassword))) {
             
             // 关闭旧的客户端
             if (client != null) {
@@ -137,9 +137,8 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
                         logger.debug("配置Elasticsearch Basic Auth认证 - 用户名: {}", finalUsername);
                     } else if (finalApiKey != null && !finalApiKey.trim().isEmpty()) {
                         // 使用API Key认证
-                        final String apiKeyForAuth = finalApiKey;
                         httpClientBuilder.addInterceptorLast((org.apache.http.HttpRequestInterceptor) (request, context) -> {
-                            request.addHeader("Authorization", "ApiKey " + apiKeyForAuth);
+                            request.addHeader("Authorization", "ApiKey " + finalApiKey);
                         });
                         logger.debug("配置Elasticsearch API Key认证");
                     }
@@ -222,26 +221,27 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
             try {
                 // 尝试使用dense_vector类型
                 mappingJson = String.format(
-                    "{\n" +
-                    "  \"properties\": {\n" +
-                    "    \"vector\": {\n" +
-                    "      \"type\": \"dense_vector\",\n" +
-                    "      \"dims\": %d\n" +
-                    "    },\n" +
-                    "    \"text\": {\n" +
-                    "      \"type\": \"text\"\n" +
-                    "    },\n" +
-                    "    \"document_id\": {\n" +
-                    "      \"type\": \"long\"\n" +
-                    "    },\n" +
-                    "    \"chunk_index\": {\n" +
-                    "      \"type\": \"integer\"\n" +
-                    "    },\n" +
-                    "    \"knowledge_base_id\": {\n" +
-                    "      \"type\": \"long\"\n" +
-                    "    }\n" +
-                    "  }\n" +
-                    "}",
+                        """
+                                {
+                                  "properties": {
+                                    "vector": {
+                                      "type": "dense_vector",
+                                      "dims": %d
+                                    },
+                                    "text": {
+                                      "type": "text"
+                                    },
+                                    "document_id": {
+                                      "type": "long"
+                                    },
+                                    "chunk_index": {
+                                      "type": "integer"
+                                    },
+                                    "knowledge_base_id": {
+                                      "type": "long"
+                                    }
+                                  }
+                                }""",
                     vectorSize
                 );
                 
@@ -278,18 +278,16 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
             // 后备方案：如果dense_vector不支持，提供明确的错误提示
             // 注意：Elasticsearch 7.3以下版本不支持dense_vector类型
             // 如果必须使用低版本，建议升级到Elasticsearch 7.3+或8.x
-            if (!useDenseVector) {
-                String errorMsg = String.format(
-                    "Elasticsearch服务器不支持dense_vector向量类型。dense_vector类型需要Elasticsearch 7.3或更高版本（推荐8.x）。" +
-                    "当前服务器可能版本过低，无法支持向量搜索功能。" +
-                    "请升级Elasticsearch到7.3+版本，或使用其他向量数据库（如Qdrant、Milvus等）。" +
-                    "索引名: %s, 向量维度: %d",
-                    indexName, vectorSize
-                );
-                logger.error(errorMsg);
-                throw new RuntimeException(errorMsg);
-            }
-            
+            String errorMsg = String.format(
+                "Elasticsearch服务器不支持dense_vector向量类型。dense_vector类型需要Elasticsearch 7.3或更高版本（推荐8.x）。" +
+                        "当前服务器可能版本过低，无法支持向量搜索功能。" +
+                        "请升级Elasticsearch到7.3+版本，或使用其他向量数据库（如Qdrant、Milvus等）。" +
+                        "索引名: %s, 向量维度: %d",
+                indexName, vectorSize
+            );
+            logger.error(errorMsg);
+            throw new RuntimeException(errorMsg);
+
         } catch (Exception e) {
             logger.error("创建Elasticsearch索引失败 - 索引名: {}", indexName, e);
             throw new RuntimeException("创建Elasticsearch索引失败: " + e.getMessage(), e);

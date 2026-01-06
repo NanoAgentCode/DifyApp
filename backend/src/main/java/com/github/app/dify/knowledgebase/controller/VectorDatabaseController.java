@@ -30,7 +30,7 @@ public class VectorDatabaseController extends BaseController {
      */
     @Operation(summary = "获取所有向量数据库配置")
     @GetMapping
-    public ResponseEntity<List<VectorDatabaseResp>> getAllConfigs(HttpServletRequest request) {
+    public ResponseEntity<List<VectorDatabaseResp>> getAllConfigs() {
         List<VectorDatabaseResp> configs = vectorDatabaseService.getAllConfigs();
         return ResponseEntity.ok(configs);
     }
@@ -41,8 +41,7 @@ public class VectorDatabaseController extends BaseController {
     @Operation(summary = "根据类型获取配置列表")
     @GetMapping("/type/{type}")
     public ResponseEntity<List<VectorDatabaseResp>> getConfigsByType(
-            @PathVariable String type,
-            HttpServletRequest request) {
+            @PathVariable String type) {
         List<VectorDatabaseResp> configs = vectorDatabaseService.getConfigsByType(type);
         return ResponseEntity.ok(configs);
     }
@@ -53,8 +52,7 @@ public class VectorDatabaseController extends BaseController {
     @Operation(summary = "更新向量数据库配置")
     @PutMapping
     public ResponseEntity<Object> updateConfig(
-            @Valid @RequestBody VectorDatabaseRequest request,
-            HttpServletRequest httpRequest) {
+            @Valid @RequestBody VectorDatabaseRequest request) {
         Object result = vectorDatabaseService.updateConfig(request);
         if (result == null) {
             return ResponseEntity.ok().build();
@@ -68,8 +66,7 @@ public class VectorDatabaseController extends BaseController {
     @Operation(summary = "测试向量数据库连接")
     @PostMapping("/test")
     public ResponseEntity<Void> testConnection(
-            @Valid @RequestBody TestVectorDatabaseConnectionRequest request,
-            HttpServletRequest httpRequest) {
+            @Valid @RequestBody TestVectorDatabaseConnectionRequest request) {
         vectorDatabaseService.testConnection(request);
         return ResponseEntity.ok().build();
     }

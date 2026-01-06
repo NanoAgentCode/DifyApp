@@ -7,6 +7,7 @@ import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
+import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
@@ -23,16 +24,14 @@ public class PgVectorEmbeddingStore implements EmbeddingStore<TextSegment> {
     private static final Logger logger = LoggerFactory.getLogger(PgVectorEmbeddingStore.class);
     
     private VectorStoreStrategy strategy;
-    
-    private Long knowledgeBaseId;
-    
+
     /**
-     * 设置知识库ID（用于隔离存储）
+     * -- SETTER --
+     *  设置知识库ID（用于隔离存储）
      */
-    public void setKnowledgeBaseId(Long knowledgeBaseId) {
-        this.knowledgeBaseId = knowledgeBaseId;
-    }
-    
+    @Setter
+    private Long knowledgeBaseId;
+
     /**
      * 创建指定知识库的EmbeddingStore实例
      */
@@ -154,8 +153,7 @@ public class PgVectorEmbeddingStore implements EmbeddingStore<TextSegment> {
         List<Float> queryVector = convertEmbeddingToFloatList(request.queryEmbedding());
         
         // 搜索
-        Integer maxResultsObj = request.maxResults();
-        int maxResults = maxResultsObj != null ? maxResultsObj : 10;
+        int maxResults = request.maxResults();
         List<VectorStoreStrategy.SearchResult> searchResults = 
                 strategy.searchVectors(knowledgeBaseId, queryVector, maxResults);
         
