@@ -21,9 +21,11 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.github.app.dify.chat.util.ChatConverterUtil;
+import com.github.app.dify.chat.util.ChatDateTimeUtil;
+import com.github.app.dify.chat.util.ChatSoftDeleteUtil;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -67,8 +69,7 @@ public class AiAppServiceImpl implements AiAppService {
         
         aiApp.setStatus(1); // 默认启用
         aiApp.setDeleted(0); // 默认未删除
-        aiApp.setCreateTime(new Date());
-        aiApp.setUpdateTime(new Date());
+        ChatDateTimeUtil.setCreateAndUpdateTime(aiApp);
         
         // 如果没有设置API Base URL，使用默认值
         if (aiApp.getApiBaseUrl() == null || aiApp.getApiBaseUrl().isEmpty()) {
@@ -168,7 +169,7 @@ public class AiAppServiceImpl implements AiAppService {
             logger.info("inputs 字段为 null，保持原值不变");
         }
         
-        aiApp.setUpdateTime(new Date());
+        ChatDateTimeUtil.setUpdateTime(aiApp);
         aiApp = aiAppRepository.save(aiApp);
         
         // 记录保存后的数据
@@ -218,9 +219,7 @@ public class AiAppServiceImpl implements AiAppService {
         }
         
         AiApp aiApp = optional.get();
-        aiApp.setDeleted(1);
-        aiApp.setUpdateTime(new Date());
-        aiAppRepository.save(aiApp);
+        ChatSoftDeleteUtil.softDelete(aiApp, aiAppRepository);
     }
     
     /**
@@ -258,7 +257,7 @@ public class AiAppServiceImpl implements AiAppService {
         }
         
         return apps.stream()
-                .map(this::convertToResp)
+                .map(ChatConverterUtil::convertToResp)
                 .collect(Collectors.toList());
     }
     
@@ -285,7 +284,7 @@ public class AiAppServiceImpl implements AiAppService {
         // 过滤已删除的应用并转换
         List<AiAppResp> content = appPage.getContent().stream()
                 .filter(app -> app.getDeleted() == null || app.getDeleted() == 0)
-                .map(this::convertToResp)
+                .map(ChatConverterUtil::convertToResp)
                 .collect(Collectors.toList());
         
         // 如果过滤了已删除的应用，需要重新计算总数
@@ -599,12 +598,4 @@ public class AiAppServiceImpl implements AiAppService {
         return difyApiClient.uploadFile(apiKey, baseUrl, file, userId);
     }
     
-    /**
-     * 转换为响应对象
-     */
-    private AiAppResp convertToResp(AiApp aiApp) {
-        AiAppResp resp = new AiAppResp();
-        BeanUtils.copyProperties(aiApp, resp);
-        return resp;
-    }
 }

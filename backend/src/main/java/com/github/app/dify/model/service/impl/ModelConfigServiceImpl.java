@@ -21,9 +21,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import com.github.app.dify.model.util.ModelConverterUtil;
+import com.github.app.dify.model.util.ModelDateTimeUtil;
+import com.github.app.dify.model.util.ModelWebClientUtil;
+import com.github.app.dify.model.util.ModelErrorUtil;
 import java.time.Duration;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,14 +54,14 @@ public class ModelConfigServiceImpl implements ModelConfigService {
         // 获取问答模型列表
         List<QAModel> qaModels = qaModelRepository.findAllActive();
         List<QAModelResp> qaModelResps = qaModels.stream()
-                .map(this::convertToQAModelResp)
+                .map(ModelConverterUtil::convertToQAModelResp)
                 .collect(Collectors.toList());
         response.setQaModels(qaModelResps);
         
         // 获取向量化模型列表
         List<EmbeddingModel> embeddingModels = embeddingModelRepository.findAllActive();
         List<EmbeddingModelResp> embeddingModelResps = embeddingModels.stream()
-                .map(this::convertToEmbeddingModelResp)
+                .map(ModelConverterUtil::convertToEmbeddingModelResp)
                 .collect(Collectors.toList());
         response.setEmbeddingModels(embeddingModelResps);
         
@@ -69,7 +72,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
     public List<QAModelResp> getAvailableQAModels(String useFor) {
         List<QAModel> models = qaModelRepository.findByUseFor(useFor);
         return models.stream()
-                .map(this::convertToQAModelResp)
+                .map(ModelConverterUtil::convertToQAModelResp)
                 .collect(Collectors.toList());
     }
     
@@ -236,7 +239,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
                     org.springframework.web.reactive.function.client.WebClientResponseException webClientEx = 
                         (org.springframework.web.reactive.function.client.WebClientResponseException) e.getCause();
                     String errorBody = webClientEx.getResponseBodyAsString();
-                    errorMessage = extractErrorMessage(errorBody, webClientEx.getStatusCode());
+                    errorMessage = ModelErrorUtil.extractErrorMessage(errorBody, webClientEx.getStatusCode());
                 }
             }
             
@@ -251,7 +254,6 @@ public class ModelConfigServiceImpl implements ModelConfigService {
      */
     private Object addModel(ModelConfigRequest request, String type) {
         ModelConfigRequest.ModelInfo modelInfo = request.getModel();
-        Date now = new Date();
         
         if ("qa".equals(type) || type == null) {
             // 添加问答模型
@@ -278,12 +280,11 @@ public class ModelConfigServiceImpl implements ModelConfigService {
                 qaModel.setSupportsVision(detectSupportsVision(modelInfo.getModel(), modelInfo.getName()));
             }
             qaModel.setIsDefault(false);
-            qaModel.setCreateTime(now);
-            qaModel.setUpdateTime(now);
+            ModelDateTimeUtil.setCreateAndUpdateTime(qaModel);
             qaModel.setDeleted(0);
             
             qaModel = qaModelRepository.save(qaModel);
-            return convertToQAModelResp(qaModel);
+            return ModelConverterUtil.convertToQAModelResp(qaModel);
         } else if ("embedding".equals(type)) {
             // 添加向量化模型
             EmbeddingModel embeddingModel = new EmbeddingModel();
@@ -297,12 +298,11 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             embeddingModel.setBatchSize(modelInfo.getBatchSize() != null ? modelInfo.getBatchSize() : 100);
             embeddingModel.setEnabled(modelInfo.getEnabled() != null ? modelInfo.getEnabled() : true);
             embeddingModel.setIsDefault(false);
-            embeddingModel.setCreateTime(now);
-            embeddingModel.setUpdateTime(now);
+            ModelDateTimeUtil.setCreateAndUpdateTime(embeddingModel);
             embeddingModel.setDeleted(0);
             
             embeddingModel = embeddingModelRepository.save(embeddingModel);
-            return convertToEmbeddingModelResp(embeddingModel);
+            return ModelConverterUtil.convertToEmbeddingModelResp(embeddingModel);
         } else {
             throw new RuntimeException("不支持的模型类型: " + type);
         }
@@ -313,7 +313,6 @@ public class ModelConfigServiceImpl implements ModelConfigService {
      */
     private Object updateModel(ModelConfigRequest request, String type) {
         ModelConfigRequest.ModelInfo modelInfo = request.getModel();
-        Date now = new Date();
         
         if ("qa".equals(type) || type == null) {
             // 更新问答模型
@@ -350,10 +349,10 @@ public class ModelConfigServiceImpl implements ModelConfigService {
                 // 如果模型名称或标识发生变化，重新检测
                 qaModel.setSupportsVision(detectSupportsVision(qaModel.getModel(), qaModel.getName()));
             }
-            qaModel.setUpdateTime(now);
+            ModelDateTimeUtil.setUpdateTime(qaModel);
             
             qaModel = qaModelRepository.save(qaModel);
-            return convertToQAModelResp(qaModel);
+            return ModelConverterUtil.convertToQAModelResp(qaModel);
         } else if ("embedding".equals(type)) {
             // 更新向量化模型
             Optional<EmbeddingModel> optional = embeddingModelRepository.findById(modelInfo.getId());
@@ -377,10 +376,10 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             if (modelInfo.getEnabled() != null) {
                 embeddingModel.setEnabled(modelInfo.getEnabled());
             }
-            embeddingModel.setUpdateTime(now);
+            ModelDateTimeUtil.setUpdateTime(embeddingModel);
             
             embeddingModel = embeddingModelRepository.save(embeddingModel);
-            return convertToEmbeddingModelResp(embeddingModel);
+            return ModelConverterUtil.convertToEmbeddingModelResp(embeddingModel);
         } else {
             throw new RuntimeException("不支持的模型类型: " + type);
         }
@@ -390,8 +389,6 @@ public class ModelConfigServiceImpl implements ModelConfigService {
      * 删除模型
      */
     private void deleteModel(Long modelId, String type) {
-        Date now = new Date();
-        
         if ("qa".equals(type) || type == null) {
             Optional<QAModel> optional = qaModelRepository.findById(modelId);
             if (!optional.isPresent()) {
@@ -404,7 +401,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             }
             
             qaModel.setDeleted(1);
-            qaModel.setUpdateTime(now);
+            ModelDateTimeUtil.setUpdateTime(qaModel);
             qaModelRepository.save(qaModel);
         } else if ("embedding".equals(type)) {
             Optional<EmbeddingModel> optional = embeddingModelRepository.findById(modelId);
@@ -418,7 +415,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             }
             
             embeddingModel.setDeleted(1);
-            embeddingModel.setUpdateTime(now);
+            ModelDateTimeUtil.setUpdateTime(embeddingModel);
             embeddingModelRepository.save(embeddingModel);
         } else {
             throw new RuntimeException("不支持的模型类型: " + type);
@@ -429,8 +426,6 @@ public class ModelConfigServiceImpl implements ModelConfigService {
      * 设置默认模型
      */
     private void setDefaultModel(Long modelId, String type, String useFor) {
-        Date now = new Date();
-        
         if ("qa".equals(type) || type == null) {
             // 设置问答模型为默认
             Optional<QAModel> optional = qaModelRepository.findById(modelId);
@@ -459,12 +454,12 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             
             for (QAModel model : defaultModels) {
                 model.setIsDefault(false);
-                model.setUpdateTime(now);
+                ModelDateTimeUtil.setUpdateTime(model);
                 qaModelRepository.save(model);
             }
             
             qaModel.setIsDefault(true);
-            qaModel.setUpdateTime(now);
+            ModelDateTimeUtil.setUpdateTime(qaModel);
             qaModelRepository.save(qaModel);
         } else if ("embedding".equals(type)) {
             // 设置向量化模型为默认
@@ -483,12 +478,12 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             
             for (EmbeddingModel model : defaultModels) {
                 model.setIsDefault(false);
-                model.setUpdateTime(now);
+                ModelDateTimeUtil.setUpdateTime(model);
                 embeddingModelRepository.save(model);
             }
             
             embeddingModel.setIsDefault(true);
-            embeddingModel.setUpdateTime(now);
+            ModelDateTimeUtil.setUpdateTime(embeddingModel);
             embeddingModelRepository.save(embeddingModel);
         } else {
             throw new RuntimeException("不支持的模型类型: " + type);
@@ -499,8 +494,6 @@ public class ModelConfigServiceImpl implements ModelConfigService {
      * 切换启用状态
      */
     private void toggleEnabled(Long modelId, String type, Boolean enabled) {
-        Date now = new Date();
-        
         if ("qa".equals(type) || type == null) {
             Optional<QAModel> optional = qaModelRepository.findById(modelId);
             if (!optional.isPresent()) {
@@ -524,13 +517,13 @@ public class ModelConfigServiceImpl implements ModelConfigService {
                     // 选择第一个启用的模型作为默认
                     QAModel newDefault = candidates.get(0);
                     newDefault.setIsDefault(true);
-                    newDefault.setUpdateTime(now);
+                    ModelDateTimeUtil.setUpdateTime(newDefault);
                     qaModelRepository.save(newDefault);
                 }
             }
             
             qaModel.setEnabled(enabled);
-            qaModel.setUpdateTime(now);
+            ModelDateTimeUtil.setUpdateTime(qaModel);
             qaModelRepository.save(qaModel);
         } else if ("embedding".equals(type)) {
             Optional<EmbeddingModel> optional = embeddingModelRepository.findById(modelId);
@@ -553,13 +546,13 @@ public class ModelConfigServiceImpl implements ModelConfigService {
                     // 选择第一个启用的模型作为默认
                     EmbeddingModel newDefault = candidates.get(0);
                     newDefault.setIsDefault(true);
-                    newDefault.setUpdateTime(now);
+                    ModelDateTimeUtil.setUpdateTime(newDefault);
                     embeddingModelRepository.save(newDefault);
                 }
             }
             
             embeddingModel.setEnabled(enabled);
-            embeddingModel.setUpdateTime(now);
+            ModelDateTimeUtil.setUpdateTime(embeddingModel);
             embeddingModelRepository.save(embeddingModel);
         } else {
             throw new RuntimeException("不支持的模型类型: " + type);
@@ -612,23 +605,6 @@ public class ModelConfigServiceImpl implements ModelConfigService {
         return detectSupportsMultimodal(model, name);
     }
     
-    /**
-     * 转换为问答模型响应
-     */
-    private QAModelResp convertToQAModelResp(QAModel qaModel) {
-        QAModelResp resp = new QAModelResp();
-        BeanUtils.copyProperties(qaModel, resp);
-        return resp;
-    }
-    
-    /**
-     * 转换为向量化模型响应
-     */
-    private EmbeddingModelResp convertToEmbeddingModelResp(EmbeddingModel embeddingModel) {
-        EmbeddingModelResp resp = new EmbeddingModelResp();
-        BeanUtils.copyProperties(embeddingModel, resp);
-        return resp;
-    }
     
     /**
      * 测试 OpenAI 兼容 Embedding API 连接
@@ -654,10 +630,11 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             path = "/v1/embeddings";
         }
         
-        WebClient webClient = WebClient.builder()
-                .baseUrl(baseUrl)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .build();
+        WebClient.Builder builder = ModelWebClientUtil.createBuilder(baseUrl);
+        if (apiKey != null && !apiKey.trim().isEmpty()) {
+            builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey.trim());
+        }
+        WebClient webClient = builder.build();
         
         // 构建 embedding 请求体
         Map<String, Object> requestBody = new HashMap<>();
@@ -666,10 +643,6 @@ public class ModelConfigServiceImpl implements ModelConfigService {
         
         WebClient.RequestBodySpec requestSpec = webClient.post()
                 .uri(path);
-        
-        if (apiKey != null && !apiKey.trim().isEmpty()) {
-            requestSpec.header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey.trim());
-        }
         
         try {
             String response = requestSpec
@@ -719,10 +692,11 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             path = "/v1/chat/completions";
         }
         
-        WebClient webClient = WebClient.builder()
-                .baseUrl(baseUrl)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .build();
+        WebClient.Builder builder = ModelWebClientUtil.createBuilder(baseUrl);
+        if (apiKey != null && !apiKey.trim().isEmpty()) {
+            builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey.trim());
+        }
+        WebClient webClient = builder.build();
         
         // 构建完整的请求体，与实际调用保持一致
         Map<String, Object> requestBody = new HashMap<>();
@@ -742,10 +716,6 @@ public class ModelConfigServiceImpl implements ModelConfigService {
         WebClient.RequestBodySpec requestSpec = webClient.post()
                 .uri(path);
         
-        if (apiKey != null && !apiKey.trim().isEmpty()) {
-            requestSpec.header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey.trim());
-        }
-        
         try {
             String response = requestSpec
                     .bodyValue(requestBody)
@@ -763,73 +733,19 @@ public class ModelConfigServiceImpl implements ModelConfigService {
         } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
             // 获取更详细的错误信息
             String errorBody = e.getResponseBodyAsString();
-            String errorMessage = extractErrorMessage(errorBody, e.getStatusCode());
+            String errorMessage = ModelErrorUtil.extractErrorMessage(errorBody, e.getStatusCode());
             
             logger.error("API返回错误响应，状态码: {}, 错误消息: {}", e.getStatusCode(), errorMessage);
             throw new RuntimeException(errorMessage, e);
         }
     }
     
-    /**
-     * 从错误响应中提取友好的错误消息
-     */
-    private String extractErrorMessage(String errorBody, org.springframework.http.HttpStatusCode statusCode) {
-        if (errorBody == null || errorBody.trim().isEmpty()) {
-            return "API返回错误: " + statusCode;
-        }
-        
-        try {
-            // 尝试解析 JSON 错误响应
-            com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(errorBody);
-            
-            // 尝试提取 error.message 字段（OpenAI 格式）
-            if (root.has("error") && root.get("error").has("message")) {
-                String message = root.get("error").get("message").asText();
-                // 转换为更友好的中文提示
-                if (message.contains("no available channels") || message.contains("no available")) {
-                    return "模型不可用或模型名称不正确。请检查：\n" +
-                           "1. 模型名称是否正确（注意大小写和完整版本号）\n" +
-                           "2. 该模型是否在 API 提供商处可用\n" +
-                           "3. API Key 是否有权限访问该模型\n" +
-                           "错误详情: " + message;
-                } else if (message.contains("invalid") || message.contains("Invalid")) {
-                    return "请求参数无效: " + message;
-                } else if (message.contains("unauthorized") || message.contains("Unauthorized")) {
-                    return "API Key 无效或已过期: " + message;
-                } else if (message.contains("not found") || message.contains("not_found")) {
-                    return "模型不存在: " + message;
-                }
-                return message;
-            }
-            
-            // 尝试提取 message 字段（通用格式）
-            if (root.has("message")) {
-                return root.get("message").asText();
-            }
-            
-            // 尝试提取 error 字段（字符串格式）
-            if (root.has("error") && root.get("error").isTextual()) {
-                return root.get("error").asText();
-            }
-            
-        } catch (Exception e) {
-            logger.debug("解析错误响应失败，使用原始错误信息: {}", e.getMessage());
-        }
-        
-        // 如果无法解析，返回原始错误信息（截取前500字符）
-        return "API返回错误: " + statusCode + " - " + 
-               (errorBody.length() > 500 ? errorBody.substring(0, 500) + "..." : errorBody);
-    }
     
     /**
      * 测试 Ollama API 连接
      */
     private void testOllamaConnection(String apiUrl, String model) {
-        WebClient webClient = WebClient.builder()
-                .baseUrl(apiUrl)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .build();
+        WebClient webClient = ModelWebClientUtil.createBuilder(apiUrl).build();
         
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", model);

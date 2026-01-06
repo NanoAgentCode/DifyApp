@@ -27,8 +27,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.github.app.dify.system.util.SystemConverterUtil;
+import com.github.app.dify.system.util.SystemDateTimeUtil;
 
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -155,15 +156,14 @@ public class DrawIOServiceImpl implements DrawIOService {
             diagram.setDiagramType(request.getDiagramType());
             diagram.setDiagramJson(request.getDiagramJson());
             diagram.setUserId(userId);
-            diagram.setCreateTime(new Date());
-            diagram.setUpdateTime(new Date());
+            SystemDateTimeUtil.setCreateAndUpdateTime(diagram);
             diagram.setDeleted(0);
             
             diagram = drawIODiagramRepository.save(diagram);
             
             logger.info("图表保存成功 - ID: {}, 用户ID: {}", diagram.getId(), userId);
             
-            return convertToResp(diagram);
+            return SystemConverterUtil.convertToResp(diagram);
             
         } catch (Exception e) {
             logger.error("保存图表失败 - 用户ID: {}, 名称: {}", userId, request.getName(), e);
@@ -190,7 +190,7 @@ public class DrawIOServiceImpl implements DrawIOService {
             DrawIODiagram diagram = drawIODiagramRepository.findByIdAndUserId(id, userId)
                     .orElseThrow(() -> new RuntimeException("图表不存在或无权限访问"));
             
-            return convertToResp(diagram);
+            return SystemConverterUtil.convertToResp(diagram);
         } catch (Exception e) {
             logger.error("获取图表详情失败 - ID: {}, 用户ID: {}", id, userId, e);
             throw new RuntimeException("获取图表详情失败: " + e.getMessage(), e);
@@ -205,7 +205,7 @@ public class DrawIOServiceImpl implements DrawIOService {
                     .orElseThrow(() -> new RuntimeException("图表不存在或无权限访问"));
             
             diagram.setDeleted(1);
-            diagram.setUpdateTime(new Date());
+            SystemDateTimeUtil.setUpdateTime(diagram);
             drawIODiagramRepository.save(diagram);
             
             logger.info("图表删除成功 - ID: {}, 用户ID: {}", id, userId);
@@ -1162,20 +1162,6 @@ public class DrawIOServiceImpl implements DrawIOService {
         return parts.length > 0 ? parts[0] : null;
     }
     
-    /**
-     * 转换为响应对象
-     */
-    private DrawIODiagramResp convertToResp(DrawIODiagram diagram) {
-        DrawIODiagramResp resp = new DrawIODiagramResp();
-        resp.setId(diagram.getId());
-        resp.setName(diagram.getName());
-        resp.setDiagramType(diagram.getDiagramType());
-        resp.setDiagramJson(diagram.getDiagramJson());
-        resp.setUserId(diagram.getUserId());
-        resp.setCreateTime(diagram.getCreateTime());
-        resp.setUpdateTime(diagram.getUpdateTime());
-        return resp;
-    }
     
     @Override
     @Transactional
@@ -1205,7 +1191,7 @@ public class DrawIOServiceImpl implements DrawIOService {
             history.setUserId(userId);
             history.setPrompt(request.getPrompt());
             history.setDiagramType(request.getDiagramType());
-            history.setCreateTime(new Date());
+            SystemDateTimeUtil.setCreateTime(history);
             history.setDeleted(0);
             
             // 保存前检查，如果历史记录超过10条，删除最旧的

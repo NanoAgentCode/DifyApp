@@ -10,8 +10,9 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.github.app.dify.permission.util.PermissionConverterUtil;
+import com.github.app.dify.permission.util.PermissionDateTimeUtil;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -72,7 +73,7 @@ public class UserDataSourceVisibilityServiceImpl implements UserDataSourceVisibi
         
         List<UserDataSourceVisibility> visibilities = repository.findByUserId(userId);
         return visibilities.stream()
-                .map(this::convertToResp)
+                .map(PermissionConverterUtil::convertToResp)
                 .collect(Collectors.toList());
     }
     
@@ -90,15 +91,14 @@ public class UserDataSourceVisibilityServiceImpl implements UserDataSourceVisibi
             // 更新现有记录
             visibility = optional.get();
             visibility.setVisible(visible);
-            visibility.setUpdateTime(new Date());
+            PermissionDateTimeUtil.setUpdateTime(visibility);
         } else {
             // 创建新记录
             visibility = new UserDataSourceVisibility();
             visibility.setUserId(userId);
             visibility.setDataSourceId(dataSourceId);
             visibility.setVisible(visible);
-            visibility.setCreateTime(new Date());
-            visibility.setUpdateTime(new Date());
+            PermissionDateTimeUtil.setCreateAndUpdateTime(visibility);
         }
         
         repository.save(visibility);
@@ -112,7 +112,7 @@ public class UserDataSourceVisibilityServiceImpl implements UserDataSourceVisibi
             throw new IllegalArgumentException("参数不能为空");
         }
         
-        Date now = new Date();
+        java.util.Date now = PermissionDateTimeUtil.now();
         // 性能优化：批量查询现有记录
         List<UserDataSourceVisibility> existingVisibilities = repository.findByUserIdAndDataSourceIdIn(userId, dataSourceIds);
         Map<Long, UserDataSourceVisibility> existingMap = existingVisibilities.stream()
@@ -124,15 +124,14 @@ public class UserDataSourceVisibilityServiceImpl implements UserDataSourceVisibi
             if (visibility != null) {
                 // 更新现有记录
                 visibility.setVisible(visible);
-                visibility.setUpdateTime(now);
+                PermissionDateTimeUtil.setUpdateTime(visibility);
             } else {
                 // 创建新记录
                 visibility = new UserDataSourceVisibility();
                 visibility.setUserId(userId);
                 visibility.setDataSourceId(dataSourceId);
                 visibility.setVisible(visible);
-                visibility.setCreateTime(now);
-                visibility.setUpdateTime(now);
+                PermissionDateTimeUtil.setCreateAndUpdateTime(visibility);
             }
             toSave.add(visibility);
         }
@@ -143,13 +142,5 @@ public class UserDataSourceVisibilityServiceImpl implements UserDataSourceVisibi
         logger.info("批量更新用户数据源可见性 - 用户ID: {}, 数据源数量: {}, 可见性: {}", userId, dataSourceIds.size(), visible);
     }
     
-    /**
-     * 转换为响应对象
-     */
-    private UserDataSourceVisibilityResp convertToResp(UserDataSourceVisibility visibility) {
-        UserDataSourceVisibilityResp resp = new UserDataSourceVisibilityResp();
-        BeanUtils.copyProperties(visibility, resp);
-        return resp;
-    }
 }
 

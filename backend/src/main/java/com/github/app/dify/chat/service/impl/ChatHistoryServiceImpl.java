@@ -19,6 +19,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.github.app.dify.chat.util.ChatDateTimeUtil;
+import com.github.app.dify.chat.util.ChatSoftDeleteUtil;
 import jakarta.persistence.criteria.Predicate;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -59,9 +61,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         conversation.setType(request.getType() != null ? request.getType() : 1); // 默认为普通聊天
         conversation.setTitle(request.getTitle() != null && !request.getTitle().trim().isEmpty() 
                 ? request.getTitle() : "新会话");
-        Date now = new Date();
-        conversation.setCreateTime(now);
-        conversation.setUpdateTime(now);
+        ChatDateTimeUtil.setCreateAndUpdateTime(conversation);
         conversation.setDeleted(0);
         
         conversation = conversationRepository.save(conversation);
@@ -81,7 +81,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
                     && (existing.get().getDeleted() == null || existing.get().getDeleted() == 0)) {
                 // 更新会话时间
                 ChatConversation conv = existing.get();
-                conv.setUpdateTime(new Date());
+                ChatDateTimeUtil.setUpdateTime(conv);
                 conversationRepository.save(conv);
                 return conversationId;
             }
@@ -101,9 +101,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         }
         conversation.setTitle(title);
         
-        Date now = new Date();
-        conversation.setCreateTime(now);
-        conversation.setUpdateTime(now);
+        ChatDateTimeUtil.setCreateAndUpdateTime(conversation);
         conversation.setDeleted(0);
         
         conversation = conversationRepository.save(conversation);
@@ -138,14 +136,14 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         Integer maxSequence = messageRepository.getMaxSequenceByConversationId(conversationId);
         message.setSequence(maxSequence + 1);
         
-        message.setCreateTime(new Date());
+        ChatDateTimeUtil.setCreateTime(message);
         messageRepository.save(message);
         
         // 更新对话的更新时间和模型ID
         Optional<ChatConversation> conversation = conversationRepository.findById(conversationId);
         if (conversation.isPresent()) {
             ChatConversation conv = conversation.get();
-            conv.setUpdateTime(new Date());
+            ChatDateTimeUtil.setUpdateTime(conv);
             // 如果会话还没有模型ID，且当前消息有模型ID，则设置会话的模型ID
             if (conv.getModelId() == null && modelId != null) {
                 conv.setModelId(modelId);
@@ -331,7 +329,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         
         ChatConversation conv = conversation.get();
         conv.setTitle(title);
-        conv.setUpdateTime(new Date());
+        ChatDateTimeUtil.setUpdateTime(conv);
         conversationRepository.save(conv);
     }
     
@@ -354,9 +352,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         }
         
         ChatConversation conv = conversation.get();
-        conv.setDeleted(1);
-        conv.setUpdateTime(new Date());
-        conversationRepository.save(conv);
+        ChatSoftDeleteUtil.softDelete(conv, conversationRepository);
     }
     
     /**
@@ -371,12 +367,10 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         
         // 批量查询
         List<ChatConversation> conversations = conversationRepository.findAllById(conversationIds);
-        Date now = new Date();
         
         // 批量更新
         for (ChatConversation conv : conversations) {
-            conv.setDeleted(1);
-            conv.setUpdateTime(now);
+            ChatSoftDeleteUtil.softDelete(conv, conversationRepository);
         }
         
         // 批量保存（JPA会自动批量处理）
@@ -394,7 +388,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         Map<String, Object> export = new HashMap<>();
         export.put("conversation", conversation);
         export.put("messages", messages);
-        export.put("exportTime", new Date());
+        export.put("exportTime", ChatDateTimeUtil.now());
         return export;
     }
     
@@ -502,7 +496,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         
         for (int i = days - 1; i >= 0; i--) {
-            cal.setTime(new Date());
+            cal.setTime(ChatDateTimeUtil.now());
             cal.add(Calendar.DAY_OF_MONTH, -i);
             Date date = cal.getTime();
             String dateStr = sdf.format(date);

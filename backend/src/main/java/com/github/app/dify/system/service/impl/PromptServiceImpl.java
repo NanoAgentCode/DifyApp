@@ -12,7 +12,8 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.Date;
+import com.github.app.dify.system.util.SystemConverterUtil;
+import com.github.app.dify.system.util.SystemDateTimeUtil;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -41,14 +42,13 @@ public class PromptServiceImpl implements PromptService {
         prompt.setTitle(req.getTitle());
         prompt.setContent(req.getContent());
         prompt.setDeleted(0); // 默认未删除
-        prompt.setCreateTime(new Date());
-        prompt.setUpdateTime(new Date());
+        SystemDateTimeUtil.setCreateAndUpdateTime(prompt);
         
         prompt = promptRepository.save(prompt);
         
         logger.info("创建提示词成功 - ID: {}, 标题: {}", prompt.getId(), prompt.getTitle());
         
-        return convertToResp(prompt);
+        return SystemConverterUtil.convertToResp(prompt);
     }
     
     @Override
@@ -81,13 +81,13 @@ public class PromptServiceImpl implements PromptService {
         if (req.getContent() != null) {
             prompt.setContent(req.getContent());
         }
-        prompt.setUpdateTime(new Date());
+        SystemDateTimeUtil.setUpdateTime(prompt);
         
         prompt = promptRepository.save(prompt);
         
         logger.info("更新提示词成功 - ID: {}, 标题: {}", prompt.getId(), prompt.getTitle());
         
-        return convertToResp(prompt);
+        return SystemConverterUtil.convertToResp(prompt);
     }
     
     @Override
@@ -100,7 +100,7 @@ public class PromptServiceImpl implements PromptService {
         
         Prompt prompt = optional.get();
         prompt.setDeleted(1);
-        prompt.setUpdateTime(new Date());
+        SystemDateTimeUtil.setUpdateTime(prompt);
         
         promptRepository.save(prompt);
         
@@ -144,12 +144,4 @@ public class PromptServiceImpl implements PromptService {
                 .collect(Collectors.toList());
     }
     
-    /**
-     * 转换为响应对象
-     */
-    private PromptResp convertToResp(Prompt prompt) {
-        PromptResp resp = new PromptResp();
-        BeanUtils.copyProperties(prompt, resp);
-        return resp;
-    }
 }

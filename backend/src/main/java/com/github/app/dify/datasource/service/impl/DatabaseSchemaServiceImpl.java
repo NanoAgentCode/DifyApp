@@ -16,9 +16,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.github.app.dify.datasource.util.DataSourceDateTimeUtil;
 import java.sql.*;
 import java.util.*;
-import java.util.Date;
 /**
  * 数据库表结构服务
  * 负责获取和缓存数据库表结构信息
@@ -386,16 +386,16 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
             TableSchemaCache cache;
             if (existing.isPresent()) {
                 cache = existing.get();
+                DataSourceDateTimeUtil.setUpdateTime(cache);
             } else {
                 cache = new TableSchemaCache();
                 cache.setDataSourceId(dataSourceId);
                 cache.setTableName(tableName);
-                cache.setCreateTime(new Date());
+                DataSourceDateTimeUtil.setCreateAndUpdateTime(cache);
             }
             
             cache.setSchemaInfo(objectMapper.writeValueAsString(schemaInfo));
-            cache.setLastRefreshTime(new Date());
-            cache.setUpdateTime(new Date());
+            cache.setLastRefreshTime(DataSourceDateTimeUtil.now());
             
             schemaCacheRepository.save(cache);
         } catch (Exception e) {

@@ -9,6 +9,8 @@ import com.github.app.dify.auth.resp.RegisterResponse;
 import com.github.app.dify.auth.resp.UserResp;
 import com.github.app.dify.auth.service.AuthService;
 import com.github.app.dify.auth.util.JwtUtil;
+import com.github.app.dify.auth.util.AuthConverterUtil;
+import com.github.app.dify.auth.util.AuthDateTimeUtil;
 import com.github.app.dify.common.resp.PageResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +20,6 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -56,8 +57,7 @@ public class AuthServiceImpl implements AuthService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(2); // 默认角色为普通用户
         user.setStatus(0); // 状态为待审核
-        user.setCreateTime(new Date());
-        user.setUpdateTime(new Date());
+        AuthDateTimeUtil.setCreateAndUpdateTime(user);
         user.setDeleted(0); // 未删除
         
         user = userRepository.save(user);
@@ -136,7 +136,7 @@ public class AuthServiceImpl implements AuthService {
         
         User user = optional.get();
         user.setStatus(1); // 已激活
-        user.setUpdateTime(new Date());
+        AuthDateTimeUtil.setUpdateTime(user);
         userRepository.save(user);
         
         logger.info("管理员审核通过用户 - 用户ID: {}, 用户名: {}", user.getId(), user.getUsername());
@@ -163,7 +163,7 @@ public class AuthServiceImpl implements AuthService {
         }
         
         user.setStatus(2); // 已禁用
-        user.setUpdateTime(new Date());
+        AuthDateTimeUtil.setUpdateTime(user);
         userRepository.save(user);
         
         logger.info("管理员禁用用户 - 用户ID: {}, 用户名: {}", user.getId(), user.getUsername());
@@ -219,7 +219,7 @@ public class AuthServiceImpl implements AuthService {
         }
         
         return users.stream()
-                .map(this::convertToResp)
+                .map(AuthConverterUtil::convertToResp)
                 .collect(Collectors.toList());
     }
     
@@ -258,7 +258,7 @@ public class AuthServiceImpl implements AuthService {
             
             // 转换为Page对象（简化处理）
             List<UserResp> content = pageContent.stream()
-                    .map(this::convertToResp)
+                    .map(AuthConverterUtil::convertToResp)
                     .collect(Collectors.toList());
             
             return new PageResponse<>(content, allUsers.size(), page, pageSize);
@@ -266,7 +266,7 @@ public class AuthServiceImpl implements AuthService {
         
         // 搜索方法已经过滤了已删除的用户
         List<UserResp> content = userPage.getContent().stream()
-                .map(this::convertToResp)
+                .map(AuthConverterUtil::convertToResp)
                 .collect(Collectors.toList());
         
         return new PageResponse<>(content, userPage.getTotalElements(), page, pageSize);
@@ -301,7 +301,7 @@ public class AuthServiceImpl implements AuthService {
         
         // 更新密码
         user.setPassword(passwordEncoder.encode(newPassword));
-        user.setUpdateTime(new Date());
+        AuthDateTimeUtil.setUpdateTime(user);
         userRepository.save(user);
         
         logger.info("用户修改密码成功 - 用户ID: {}, 用户名: {}", user.getId(), user.getUsername());
@@ -325,7 +325,7 @@ public class AuthServiceImpl implements AuthService {
         
         // 更新密码（管理员重置不需要验证原密码）
         user.setPassword(passwordEncoder.encode(newPassword));
-        user.setUpdateTime(new Date());
+        AuthDateTimeUtil.setUpdateTime(user);
         userRepository.save(user);
         
         logger.info("管理员重置用户密码成功 - 用户ID: {}, 用户名: {}", user.getId(), user.getUsername());
@@ -360,7 +360,7 @@ public class AuthServiceImpl implements AuthService {
         
         // 更新角色
         user.setRole(role);
-        user.setUpdateTime(new Date());
+        AuthDateTimeUtil.setUpdateTime(user);
         userRepository.save(user);
         
         logger.info("更新用户角色成功 - 用户ID: {}, 用户名: {}, 新角色: {}", 
@@ -375,18 +375,5 @@ public class AuthServiceImpl implements AuthService {
         return "admin".equals(user.getUsername()) || (user.getId() != null && user.getId() == 1L);
     }
     
-    /**
-     * 转换为响应对象
-     */
-    private UserResp convertToResp(User user) {
-        UserResp resp = new UserResp();
-        resp.setId(user.getId());
-        resp.setUsername(user.getUsername());
-        resp.setRole(user.getRole());
-        resp.setStatus(user.getStatus());
-        resp.setCreateTime(user.getCreateTime());
-        resp.setUpdateTime(user.getUpdateTime());
-        return resp;
-    }
 }
 

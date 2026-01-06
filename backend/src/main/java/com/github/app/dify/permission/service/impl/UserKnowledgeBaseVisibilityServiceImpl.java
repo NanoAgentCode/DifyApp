@@ -10,7 +10,8 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.Date;
+import com.github.app.dify.permission.util.PermissionConverterUtil;
+import com.github.app.dify.permission.util.PermissionDateTimeUtil;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -52,7 +53,7 @@ public class UserKnowledgeBaseVisibilityServiceImpl implements UserKnowledgeBase
         
         List<UserKnowledgeBaseVisibility> visibilities = repository.findByUserId(userId);
         return visibilities.stream()
-                .map(this::convertToResp)
+                .map(PermissionConverterUtil::convertToResp)
                 .collect(Collectors.toList());
     }
     
@@ -70,28 +71,19 @@ public class UserKnowledgeBaseVisibilityServiceImpl implements UserKnowledgeBase
             // 更新现有记录
             visibility = optional.get();
             visibility.setVisible(visible);
-            visibility.setUpdateTime(new Date());
+            PermissionDateTimeUtil.setUpdateTime(visibility);
         } else {
             // 创建新记录
             visibility = new UserKnowledgeBaseVisibility();
             visibility.setUserId(userId);
             visibility.setKnowledgeBaseId(knowledgeBaseId);
             visibility.setVisible(visible);
-            visibility.setCreateTime(new Date());
-            visibility.setUpdateTime(new Date());
+            PermissionDateTimeUtil.setCreateAndUpdateTime(visibility);
         }
         
         repository.save(visibility);
         logger.info("更新用户知识库可见性 - 用户ID: {}, 知识库ID: {}, 可见性: {}", userId, knowledgeBaseId, visible);
     }
     
-    /**
-     * 转换为响应对象
-     */
-    private UserKnowledgeBaseVisibilityResp convertToResp(UserKnowledgeBaseVisibility visibility) {
-        UserKnowledgeBaseVisibilityResp resp = new UserKnowledgeBaseVisibilityResp();
-        BeanUtils.copyProperties(visibility, resp);
-        return resp;
-    }
 }
 

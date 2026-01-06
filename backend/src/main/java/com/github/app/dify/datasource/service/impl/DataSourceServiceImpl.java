@@ -15,7 +15,9 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.Date;
+import com.github.app.dify.datasource.util.DataSourceConverterUtil;
+import com.github.app.dify.datasource.util.DataSourceDateTimeUtil;
+import com.github.app.dify.datasource.util.DataSourceSoftDeleteUtil;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -85,8 +87,7 @@ public class DataSourceServiceImpl implements DataSourceService {
             dataSource.setStatus(1); // 默认启用
         }
         dataSource.setDeleted(0); // 默认未删除
-        dataSource.setCreateTime(new Date());
-        dataSource.setUpdateTime(new Date());
+        DataSourceDateTimeUtil.setCreateAndUpdateTime(dataSource);
         
         // 如果没有设置租户ID，使用默认值1
         if (dataSource.getTenantId() == null) {
@@ -97,7 +98,7 @@ public class DataSourceServiceImpl implements DataSourceService {
         
         logger.info("创建数据源成功 - ID: {}, 名称: {}, 类型: {}", dataSource.getId(), dataSource.getName(), dataSource.getType());
         
-        return convertToResp(dataSource);
+        return DataSourceConverterUtil.convertToResp(dataSource);
     }
     
     @Override
@@ -148,7 +149,7 @@ public class DataSourceServiceImpl implements DataSourceService {
             dataSource.setIsPublic(req.getIsPublic());
         }
         
-        dataSource.setUpdateTime(new Date());
+        DataSourceDateTimeUtil.setUpdateTime(dataSource);
         
         dataSource = dataSourceRepository.save(dataSource);
         
@@ -157,7 +158,7 @@ public class DataSourceServiceImpl implements DataSourceService {
         
         logger.info("更新数据源成功 - ID: {}, 名称: {}", dataSource.getId(), dataSource.getName());
         
-        return convertToResp(dataSource);
+        return DataSourceConverterUtil.convertToResp(dataSource);
     }
     
     @Override
@@ -169,9 +170,7 @@ public class DataSourceServiceImpl implements DataSourceService {
         }
         
         DataSource dataSource = optional.get();
-        dataSource.setDeleted(1);
-        dataSource.setUpdateTime(new Date());
-        dataSourceRepository.save(dataSource);
+        DataSourceSoftDeleteUtil.softDelete(dataSource, dataSourceRepository);
         
         // 清除连接池
         connectionService.clearConnectionPool(id);
@@ -197,7 +196,7 @@ public class DataSourceServiceImpl implements DataSourceService {
     @Override
     public DataSourceResp getDataSourceById(Long id) {
         DataSource dataSource = getDataSourceEntityById(id);
-        return convertToResp(dataSource);
+        return DataSourceConverterUtil.convertToResp(dataSource);
     }
     
     @Override
@@ -277,7 +276,7 @@ public class DataSourceServiceImpl implements DataSourceService {
         }
         
         return dataSources.stream()
-                .map(this::convertToResp)
+                .map(DataSourceConverterUtil::convertToResp)
                 .collect(Collectors.toList());
     }
     
@@ -310,14 +309,5 @@ public class DataSourceServiceImpl implements DataSourceService {
         return connectionService.testConnection(tempDataSource, false);
     }
     
-    /**
-     * 转换为响应对象
-     */
-    private DataSourceResp convertToResp(DataSource dataSource) {
-        DataSourceResp resp = new DataSourceResp();
-        BeanUtils.copyProperties(dataSource, resp);
-        // 注意：响应对象中不包含密码
-        return resp;
-    }
 }
 

@@ -10,7 +10,8 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.Date;
+import com.github.app.dify.permission.util.PermissionConverterUtil;
+import com.github.app.dify.permission.util.PermissionDateTimeUtil;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -34,7 +35,7 @@ public class UserAppVisibilityServiceImpl implements UserAppVisibilityService {
         
         List<UserAppVisibility> visibilities = repository.findByUserId(userId);
         return visibilities.stream()
-                .map(this::convertToResp)
+                .map(PermissionConverterUtil::convertToResp)
                 .collect(Collectors.toList());
     }
     
@@ -52,28 +53,19 @@ public class UserAppVisibilityServiceImpl implements UserAppVisibilityService {
             // 更新现有记录
             visibility = optional.get();
             visibility.setVisible(visible);
-            visibility.setUpdateTime(new Date());
+            PermissionDateTimeUtil.setUpdateTime(visibility);
         } else {
             // 创建新记录
             visibility = new UserAppVisibility();
             visibility.setUserId(userId);
             visibility.setAppId(appId);
             visibility.setVisible(visible);
-            visibility.setCreateTime(new Date());
-            visibility.setUpdateTime(new Date());
+            PermissionDateTimeUtil.setCreateAndUpdateTime(visibility);
         }
         
         repository.save(visibility);
         logger.info("更新用户应用可见性 - 用户ID: {}, 应用ID: {}, 可见性: {}", userId, appId, visible);
     }
     
-    /**
-     * 转换为响应对象
-     */
-    private UserAppVisibilityResp convertToResp(UserAppVisibility visibility) {
-        UserAppVisibilityResp resp = new UserAppVisibilityResp();
-        BeanUtils.copyProperties(visibility, resp);
-        return resp;
-    }
 }
 

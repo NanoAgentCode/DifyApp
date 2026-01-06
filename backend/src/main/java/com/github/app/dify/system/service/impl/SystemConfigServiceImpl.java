@@ -14,7 +14,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.Date;
+import com.github.app.dify.system.util.SystemConverterUtil;
+import com.github.app.dify.system.util.SystemDateTimeUtil;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -48,19 +49,19 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     @Override
     public SystemConfigResp getConfigByKey(String configKey) {
         Optional<SystemConfig> optional = systemConfigRepository.findByConfigKeyAndNotDeleted(configKey);
-        return optional.map(this::convertToResp).orElse(null);
+        return optional.map(SystemConverterUtil::convertToResp).orElse(null);
     }
     
     @Override
     public List<SystemConfigResp> getConfigsByGroup(String configGroup) {
         List<SystemConfig> configs = systemConfigRepository.findByConfigGroupAndNotDeleted(configGroup);
-        return configs.stream().map(this::convertToResp).collect(Collectors.toList());
+        return configs.stream().map(SystemConverterUtil::convertToResp).collect(Collectors.toList());
     }
     
     @Override
     public List<SystemConfigResp> getAllConfigs() {
         List<SystemConfig> configs = systemConfigRepository.findAllNotDeleted();
-        return configs.stream().map(this::convertToResp).collect(Collectors.toList());
+        return configs.stream().map(SystemConverterUtil::convertToResp).collect(Collectors.toList());
     }
     
     @Override
@@ -86,7 +87,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
                 // 创建新配置
                 config = new SystemConfig();
                 config.setConfigKey(req.getConfigKey());
-                config.setCreateTime(new Date());
+                SystemDateTimeUtil.setCreateTime(config);
                 config.setCreator(username);
                 config.setCreatorId(userId);
                 config.setDeleted(0);
@@ -108,7 +109,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
             config.setConfigType(req.getConfigType());
         }
         
-        config.setUpdateTime(new Date());
+        SystemDateTimeUtil.setUpdateTime(config);
         
         config = systemConfigRepository.save(config);
         
@@ -129,7 +130,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
             reloadDocumentReaderConfig();
         }
         
-        return convertToResp(config);
+        return SystemConverterUtil.convertToResp(config);
     }
     
     @Override
@@ -139,7 +140,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         if (optional.isPresent()) {
             SystemConfig config = optional.get();
             config.setDeleted(1);
-            config.setUpdateTime(new Date());
+            SystemDateTimeUtil.setUpdateTime(config);
             systemConfigRepository.save(config);
             logger.info("删除系统配置 - 键: {}", configKey);
         } else {
@@ -209,13 +210,5 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         }
     }
     
-    /**
-     * 转换为响应对象
-     */
-    private SystemConfigResp convertToResp(SystemConfig config) {
-        SystemConfigResp resp = new SystemConfigResp();
-        BeanUtils.copyProperties(config, resp);
-        return resp;
-    }
 }
 
