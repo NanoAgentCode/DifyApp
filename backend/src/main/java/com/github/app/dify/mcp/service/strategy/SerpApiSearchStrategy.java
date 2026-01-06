@@ -1,19 +1,13 @@
 package com.github.app.dify.mcp.service.strategy;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.mcp.config.McpConfig;
 import com.github.app.dify.mcp.service.McpBrowserSearchService.SearchResult;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
+
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,15 +18,10 @@ import java.util.List;
  * 优势：支持多个搜索引擎、稳定可靠、高质量结果
  */
 @Component
-public class SerpApiSearchStrategy implements SearchApiStrategy {
-    
-    private static final Logger logger = LoggerFactory.getLogger(SerpApiSearchStrategy.class);
+public class SerpApiSearchStrategy extends BaseSearchApiStrategy {
     
     @Autowired
     private McpConfig mcpConfig;
-    
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private volatile WebClient webClient;
     
     @Override
     public String getType() {
@@ -47,51 +36,30 @@ public class SerpApiSearchStrategy implements SearchApiStrategy {
     @Override
     public boolean isAvailable() {
         String apiKey = mcpConfig.getBrowserSearch().getSerpApiKey();
-        return apiKey != null && !apiKey.trim().isEmpty();
+        return isApiKeyValid(apiKey);
     }
     
     @Override
-    public List<SearchResult> search(String query, int maxResults) {
-        if (!isAvailable()) {
-            logger.warn("SerpAPI未配置，跳过搜索");
+    protected List<SearchResult> performSearch(String query, int maxResults) throws Exception {
+        String apiKey = mcpConfig.getBrowserSearch().getSerpApiKey();
+        String engine = mcpConfig.getBrowserSearch().getSerpEngine() != null 
+            ? mcpConfig.getBrowserSearch().getSerpEngine() : "google";
+        
+        String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
+        String apiUrl = String.format(
+            "https://serpapi.com/search.json?engine=%s&q=%s&api_key=%s&num=%d",
+            engine, encodedQuery, apiKey, maxResults
+        );
+        
+        logger.info("使用SerpAPI搜索 - 引擎: {}, 查询: {}", engine, query);
+        
+        String jsonResponse = executeGetRequest(apiUrl, null, 15);
+        
+        if (jsonResponse == null || jsonResponse.isEmpty()) {
             return new ArrayList<>();
         }
         
-        try {
-            String apiKey = mcpConfig.getBrowserSearch().getSerpApiKey();
-            String engine = mcpConfig.getBrowserSearch().getSerpEngine() != null 
-                ? mcpConfig.getBrowserSearch().getSerpEngine() : "google";
-            
-            String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
-            String apiUrl = String.format(
-                "https://serpapi.com/search.json?engine=%s&q=%s&api_key=%s&num=%d",
-                engine, encodedQuery, apiKey, maxResults
-            );
-            
-            logger.info("使用SerpAPI搜索 - 引擎: {}, 查询: {}, 最大结果数: {}", engine, query, maxResults);
-            
-            String jsonResponse = getWebClient()
-                .get()
-                .uri(apiUrl)
-                .retrieve()
-                .bodyToMono(String.class)
-                .timeout(Duration.ofSeconds(15))
-                .onErrorResume(e -> {
-                    logger.warn("SerpAPI请求失败: {}", e.getMessage());
-                    return Mono.empty();
-                })
-                .block();
-            
-            if (jsonResponse == null || jsonResponse.isEmpty()) {
-                return new ArrayList<>();
-            }
-            
-            return parseSerpApiResults(jsonResponse, maxResults);
-            
-        } catch (Exception e) {
-            logger.error("SerpAPI搜索失败 - 查询: {}", query, e);
-            return new ArrayList<>();
-        }
+        return parseSerpApiResults(jsonResponse, maxResults);
     }
     
     private List<SearchResult> parseSerpApiResults(String jsonResponse, int maxResults) {
@@ -131,22 +99,8 @@ public class SerpApiSearchStrategy implements SearchApiStrategy {
         return results;
     }
     
-    private WebClient getWebClient() {
-        if (webClient == null) {
-            synchronized (this) {
-                if (webClient == null) {
-                    webClient = WebClient.builder()
-                        .defaultHeader(HttpHeaders.USER_AGENT, "DifyApp/1.0")
-                        .build();
-                }
-            }
-        }
-        return webClient;
-    }
-    
     @Override
     public String getApiName() {
         return "SerpAPI (Google/Bing)";
     }
 }
-

@@ -1,19 +1,15 @@
 package com.github.app.dify.mcp.service.strategy;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.mcp.config.McpConfig;
 import com.github.app.dify.mcp.service.McpBrowserSearchService.SearchResult;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
-import java.time.Duration;
+
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Tavily搜索API策略实现
@@ -22,15 +18,10 @@ import java.util.List;
  * 优势：专为LLM优化、结构化结果、高质量内容、快速响应
  */
 @Component
-public class TavilySearchApiStrategy implements SearchApiStrategy {
-    
-    private static final Logger logger = LoggerFactory.getLogger(TavilySearchApiStrategy.class);
+public class TavilySearchApiStrategy extends BaseSearchApiStrategy {
     
     @Autowired
     private McpConfig mcpConfig;
-    
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private volatile WebClient webClient;
     
     @Override
     public String getType() {
@@ -45,56 +36,30 @@ public class TavilySearchApiStrategy implements SearchApiStrategy {
     @Override
     public boolean isAvailable() {
         String apiKey = mcpConfig.getBrowserSearch().getTavilyApiKey();
-        return apiKey != null && !apiKey.trim().isEmpty();
+        return isApiKeyValid(apiKey);
     }
     
     @Override
-    public List<SearchResult> search(String query, int maxResults) {
-        if (!isAvailable()) {
-            logger.warn("Tavily API未配置，跳过搜索");
+    protected List<SearchResult> performSearch(String query, int maxResults) throws Exception {
+        String apiKey = mcpConfig.getBrowserSearch().getTavilyApiKey();
+        String apiUrl = "https://api.tavily.com/search";
+        
+        // 构建请求体
+        Map<String, Object> requestMap = new HashMap<>();
+        requestMap.put("api_key", apiKey);
+        requestMap.put("query", query);
+        requestMap.put("max_results", maxResults);
+        requestMap.put("include_answer", true);
+        requestMap.put("include_raw_content", false);
+        
+        String requestBody = objectMapper.writeValueAsString(requestMap);
+        String jsonResponse = executePostRequest(apiUrl, null, requestBody, 10);
+        
+        if (jsonResponse == null || jsonResponse.isEmpty()) {
             return new ArrayList<>();
         }
         
-        try {
-            String apiKey = mcpConfig.getBrowserSearch().getTavilyApiKey();
-            String apiUrl = "https://api.tavily.com/search";
-            
-            // 构建请求体（使用ObjectMapper确保JSON格式正确）
-            java.util.Map<String, Object> requestMap = new java.util.HashMap<>();
-            requestMap.put("api_key", apiKey);
-            requestMap.put("query", query);
-            requestMap.put("max_results", maxResults);
-            requestMap.put("include_answer", true);
-            requestMap.put("include_raw_content", false);
-            
-            String requestBody = objectMapper.writeValueAsString(requestMap);
-            
-            logger.info("使用Tavily API搜索 - 查询: {}, 最大结果数: {}", query, maxResults);
-            
-            String jsonResponse = getWebClient()
-                .post()
-                .uri(apiUrl)
-                .header(HttpHeaders.CONTENT_TYPE, "application/json")
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(String.class)
-                .timeout(Duration.ofSeconds(10))
-                .onErrorResume(e -> {
-                    logger.warn("Tavily API请求失败: {}", e.getMessage());
-                    return Mono.empty();
-                })
-                .block();
-            
-            if (jsonResponse == null || jsonResponse.isEmpty()) {
-                return new ArrayList<>();
-            }
-            
-            return parseTavilyResults(jsonResponse, maxResults);
-            
-        } catch (Exception e) {
-            logger.error("Tavily搜索失败 - 查询: {}", query, e);
-            return new ArrayList<>();
-        }
+        return parseTavilyResults(jsonResponse, maxResults);
     }
     
     private List<SearchResult> parseTavilyResults(String jsonResponse, int maxResults) {
@@ -134,22 +99,8 @@ public class TavilySearchApiStrategy implements SearchApiStrategy {
         return results;
     }
     
-    private WebClient getWebClient() {
-        if (webClient == null) {
-            synchronized (this) {
-                if (webClient == null) {
-                    webClient = WebClient.builder()
-                        .defaultHeader(HttpHeaders.USER_AGENT, "DifyApp/1.0")
-                        .build();
-                }
-            }
-        }
-        return webClient;
-    }
-    
     @Override
     public String getApiName() {
         return "Tavily (AI优化搜索)";
     }
 }
-
