@@ -1,5 +1,6 @@
 package com.github.app.dify.datasource.service;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.github.app.dify.datasource.domain.DataSource;
 import com.mongodb.client.MongoDatabase;
 import org.neo4j.driver.Driver;
@@ -39,6 +40,13 @@ public interface DatabaseConnectionService {
      * @return Neo4j 会话
      */
     Session getNeo4jSession(DataSource dataSource);
+    
+    /**
+     * 获取 Elasticsearch 客户端
+     * @param dataSource 数据源配置
+     * @return Elasticsearch 客户端
+     */
+    ElasticsearchClient getElasticsearchClient(DataSource dataSource);
     
     /**
      * 测试数据库连接

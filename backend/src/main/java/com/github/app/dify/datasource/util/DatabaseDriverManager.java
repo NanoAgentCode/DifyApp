@@ -23,7 +23,8 @@ public class DatabaseDriverManager {
         MYSQL("mysql", "com.mysql.cj.jdbc.Driver", "jdbc:mysql://%s:%d/%s?useSSL=false&serverTimezone=UTC&characterEncoding=utf8"),
         ORACLE("oracle", "oracle.jdbc.driver.OracleDriver", "jdbc:oracle:thin:@%s:%d:%s"),
         MONGODB("mongodb", null, "mongodb://%s:%d/%s"), // MongoDB 不使用 JDBC
-        NEO4J("neo4j", null, "bolt://%s:%d"); // Neo4j 使用 Bolt 协议，不使用 JDBC
+        NEO4J("neo4j", null, "bolt://%s:%d"), // Neo4j 使用 Bolt 协议，不使用 JDBC
+        ELASTICSEARCH("elasticsearch", null, "http://%s:%d"); // Elasticsearch 使用 REST API，不使用 JDBC
         
         private final String type;
         private final String driverClass;
@@ -66,8 +67,8 @@ public class DatabaseDriverManager {
      * @param databaseType 数据库类型
      */
     public void loadDriver(DatabaseType databaseType) {
-        if (databaseType == null || databaseType == DatabaseType.MONGODB || databaseType == DatabaseType.NEO4J) {
-            return; // MongoDB 和 Neo4j 不使用 JDBC 驱动
+        if (databaseType == null || databaseType == DatabaseType.MONGODB || databaseType == DatabaseType.NEO4J || databaseType == DatabaseType.ELASTICSEARCH) {
+            return; // MongoDB、Neo4j 和 Elasticsearch 不使用 JDBC 驱动
         }
         
         try {
@@ -102,6 +103,11 @@ public class DatabaseDriverManager {
             return String.format("bolt://%s:%d", host, port != null ? port : 7687);
         }
         
+        if (databaseType == DatabaseType.ELASTICSEARCH) {
+            // Elasticsearch 使用 HTTP/HTTPS 协议
+            return String.format("http://%s:%d", host, port != null ? port : 9200);
+        }
+        
         // 对于 Oracle，数据库名称实际上是 SID 或 Service Name
         if (databaseType == DatabaseType.ORACLE) {
             return String.format(databaseType.getUrlTemplate(), host, port != null ? port : 1521, database != null ? database : "XE");
@@ -126,6 +132,8 @@ public class DatabaseDriverManager {
                 return 27017;
             case NEO4J:
                 return 7687;
+            case ELASTICSEARCH:
+                return 9200;
             default:
                 return 3306;
         }
@@ -145,6 +153,9 @@ public class DatabaseDriverManager {
         }
         if (databaseType == DatabaseType.NEO4J) {
             throw new UnsupportedOperationException("Neo4j 不支持 JDBC 连接，请使用 Neo4j 驱动");
+        }
+        if (databaseType == DatabaseType.ELASTICSEARCH) {
+            throw new UnsupportedOperationException("Elasticsearch 不支持 JDBC 连接，请使用 Elasticsearch 客户端");
         }
         
         // 加载驱动
@@ -170,6 +181,10 @@ public class DatabaseDriverManager {
         if (databaseType == DatabaseType.NEO4J) {
             // Neo4j 连接测试需要特殊处理
             return testNeo4jConnection(url, username, password);
+        }
+        if (databaseType == DatabaseType.ELASTICSEARCH) {
+            // Elasticsearch 连接测试需要特殊处理
+            return testElasticsearchConnection(url, username, password);
         }
         
         try (Connection connection = createConnection(databaseType, url, username, password)) {
@@ -204,6 +219,20 @@ public class DatabaseDriverManager {
             return true;
         } catch (Exception e) {
             logger.error("Neo4j 连接测试失败", e);
+            return false;
+        }
+    }
+    
+    /**
+     * 测试 Elasticsearch 连接
+     */
+    private boolean testElasticsearchConnection(String url, String username, String password) {
+        try {
+            // 这里需要使用 Elasticsearch Java Client 来测试连接
+            // 暂时返回 true，实际实现会在 DatabaseConnectionService 中处理
+            return true;
+        } catch (Exception e) {
+            logger.error("Elasticsearch 连接测试失败", e);
             return false;
         }
     }

@@ -37,6 +37,7 @@
           <el-option label="Oracle" value="oracle" />
           <el-option label="MongoDB" value="mongodb" />
           <el-option label="Neo4j" value="neo4j" />
+          <el-option label="Elasticsearch" value="elasticsearch" />
         </el-select>
         <el-select
           v-model="filterStatus"
@@ -107,6 +108,7 @@
             <el-option label="Oracle" value="oracle" />
             <el-option label="MongoDB" value="mongodb" />
             <el-option label="Neo4j" value="neo4j" />
+            <el-option label="Elasticsearch" value="elasticsearch" />
           </el-select>
         </el-form-item>
         <el-form-item label="主机地址" prop="host">
@@ -191,7 +193,8 @@ const defaultPorts = {
   mysql: 3306,
   oracle: 1521,
   mongodb: 27017,
-  neo4j: 7687
+  neo4j: 7687,
+  elasticsearch: 9200
 }
 
 // 处理数据库类型变化，自动更新默认端口
@@ -406,7 +409,8 @@ const getTypeName = (type) => {
     mysql: 'MySQL',
     oracle: 'Oracle',
     mongodb: 'MongoDB',
-    neo4j: 'Neo4j'
+    neo4j: 'Neo4j',
+    elasticsearch: 'Elasticsearch'
   }
   return typeMap[type] || type
 }
@@ -417,7 +421,8 @@ const getTypeTag = (type) => {
     mysql: 'success',
     oracle: 'warning',
     mongodb: 'info',
-    neo4j: 'danger'
+    neo4j: 'danger',
+    elasticsearch: ''
   }
   return tagMap[type] || ''
 }

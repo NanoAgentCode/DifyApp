@@ -1,5 +1,8 @@
 package com.github.app.dify.datasource.service.impl;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import co.elastic.clients.transport.rest_client.RestClientTransport;
 import com.github.app.dify.datasource.domain.DataSource;
 import com.github.app.dify.datasource.service.DatabaseConnectionService;
 import com.github.app.dify.datasource.util.DatabaseDriverManager;
@@ -7,6 +10,13 @@ import com.github.app.dify.auth.util.PasswordEncryptionUtil;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
+import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
 import org.neo4j.driver.Session;
@@ -45,6 +55,9 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
     // Neo4j 驱动缓存
     private final Map<Long, Driver> neo4jDriverCache = new ConcurrentHashMap<>();
     
+    // Elasticsearch 客户端缓存
+    private final Map<Long, ElasticsearchClient> elasticsearchClientCache = new ConcurrentHashMap<>();
+    
     // 数据源访问频率统计（用于决定是否使用连接池）
     private final Map<Long, Integer> accessFrequency = new ConcurrentHashMap<>();
     
@@ -70,6 +83,10 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
         
         if (dbType == DatabaseDriverManager.DatabaseType.NEO4J) {
             throw new UnsupportedOperationException("Neo4j 不支持 JDBC 连接，请使用 getNeo4jSession 方法");
+        }
+        
+        if (dbType == DatabaseDriverManager.DatabaseType.ELASTICSEARCH) {
+            throw new UnsupportedOperationException("Elasticsearch 不支持 JDBC 连接，请使用 getElasticsearchClient 方法");
         }
         
         // 更新访问频率
@@ -163,6 +180,75 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
             return driver.session(org.neo4j.driver.SessionConfig.forDatabase(database));
         }
         return driver.session();
+    }
+    
+    /**
+     * 获取 Elasticsearch 客户端
+     * @param dataSource 数据源配置
+     * @return Elasticsearch 客户端
+     */
+    @Override
+    public ElasticsearchClient getElasticsearchClient(DataSource dataSource) {
+        if (dataSource == null) {
+            throw new IllegalArgumentException("数据源不能为空");
+        }
+        
+        DatabaseDriverManager.DatabaseType dbType = DatabaseDriverManager.DatabaseType.fromString(dataSource.getType());
+        if (dbType != DatabaseDriverManager.DatabaseType.ELASTICSEARCH) {
+            throw new IllegalArgumentException("数据源类型不是 Elasticsearch");
+        }
+        
+        // 更新访问频率
+        updateAccessFrequency(dataSource.getId());
+        
+        // 获取或创建 Elasticsearch 客户端
+        return elasticsearchClientCache.computeIfAbsent(dataSource.getId(), id -> {
+            String password = passwordEncryptionUtil.decrypt(dataSource.getPassword());
+            String username = dataSource.getUsername() != null ? dataSource.getUsername() : "";
+            password = password != null ? password : "";
+            
+            String host = dataSource.getHost();
+            int port = dataSource.getPort() != null ? dataSource.getPort() : 9200;
+            
+            logger.info("创建 Elasticsearch 客户端 - 数据源ID: {}, 主机: {}, 端口: {}", id, host, port);
+            
+            try {
+                // 创建 RestClient
+                RestClientBuilder restClientBuilder = RestClient.builder(
+                    new HttpHost(host, port, "http")
+                );
+                
+                // 配置认证
+                if (username != null && !username.trim().isEmpty() && password != null && !password.trim().isEmpty()) {
+                    final String finalUsername = username;
+                    final String finalPassword = password;
+                    
+                    restClientBuilder.setHttpClientConfigCallback(httpClientBuilder -> {
+                        CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+                        credentialsProvider.setCredentials(
+                            AuthScope.ANY,
+                            new UsernamePasswordCredentials(finalUsername, finalPassword)
+                        );
+                        httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+                        logger.debug("配置 Elasticsearch Basic Auth 认证 - 用户名: {}", finalUsername);
+                        return httpClientBuilder;
+                    });
+                }
+                
+                RestClient restClient = restClientBuilder.build();
+                
+                // 创建传输层
+                RestClientTransport transport = new RestClientTransport(
+                    restClient,
+                    new JacksonJsonpMapper()
+                );
+                
+                return new ElasticsearchClient(transport);
+            } catch (Exception e) {
+                logger.error("创建 Elasticsearch 客户端失败", e);
+                throw new RuntimeException("创建 Elasticsearch 客户端失败: " + e.getMessage(), e);
+            }
+        });
     }
     
     /**
@@ -299,6 +385,8 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
                 return testMongoConnection(dataSource, passwordEncrypted);
             } else if (dbType == DatabaseDriverManager.DatabaseType.NEO4J) {
                 return testNeo4jConnection(dataSource, passwordEncrypted);
+            } else if (dbType == DatabaseDriverManager.DatabaseType.ELASTICSEARCH) {
+                return testElasticsearchConnection(dataSource, passwordEncrypted);
             } else {
                 return testJdbcConnection(dataSource, dbType, passwordEncrypted);
             }
@@ -376,6 +464,21 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
     }
     
     /**
+     * 测试 Elasticsearch 连接
+     */
+    private boolean testElasticsearchConnection(DataSource dataSource, boolean passwordEncrypted) {
+        try {
+            ElasticsearchClient client = getElasticsearchClientForTest(dataSource, passwordEncrypted);
+            // 执行一个简单的 ping 操作来测试连接
+            client.ping();
+            return true;
+        } catch (Exception e) {
+            logger.error("Elasticsearch 连接测试失败", e);
+            return false;
+        }
+    }
+    
+    /**
      * 获取 Neo4j 驱动（用于测试，支持未加密密码）
      */
     private Driver getNeo4jDriverForTest(DataSource dataSource, boolean passwordEncrypted) {
@@ -433,6 +536,69 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
     }
     
     /**
+     * 获取 Elasticsearch 客户端（用于测试，支持未加密密码）
+     */
+    private ElasticsearchClient getElasticsearchClientForTest(DataSource dataSource, boolean passwordEncrypted) {
+        if (dataSource == null) {
+            throw new IllegalArgumentException("数据源不能为空");
+        }
+        
+        DatabaseDriverManager.DatabaseType dbType = DatabaseDriverManager.DatabaseType.fromString(dataSource.getType());
+        if (dbType != DatabaseDriverManager.DatabaseType.ELASTICSEARCH) {
+            throw new IllegalArgumentException("数据源类型不是 Elasticsearch");
+        }
+        
+        String password;
+        if (passwordEncrypted) {
+            password = passwordEncryptionUtil.decrypt(dataSource.getPassword());
+        } else {
+            password = dataSource.getPassword();
+        }
+        
+        String username = dataSource.getUsername() != null ? dataSource.getUsername() : "";
+        password = password != null ? password : "";
+        
+        String host = dataSource.getHost();
+        int port = dataSource.getPort() != null ? dataSource.getPort() : 9200;
+        
+        try {
+            // 创建 RestClient
+            RestClientBuilder restClientBuilder = RestClient.builder(
+                new HttpHost(host, port, "http")
+            );
+            
+            // 配置认证
+            if (username != null && !username.trim().isEmpty() && password != null && !password.trim().isEmpty()) {
+                final String finalUsername = username;
+                final String finalPassword = password;
+                
+                restClientBuilder.setHttpClientConfigCallback(httpClientBuilder -> {
+                    CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+                    credentialsProvider.setCredentials(
+                        AuthScope.ANY,
+                        new UsernamePasswordCredentials(finalUsername, finalPassword)
+                    );
+                    httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+                    return httpClientBuilder;
+                });
+            }
+            
+            RestClient restClient = restClientBuilder.build();
+            
+            // 创建传输层
+            RestClientTransport transport = new RestClientTransport(
+                restClient,
+                new JacksonJsonpMapper()
+            );
+            
+            return new ElasticsearchClient(transport);
+        } catch (Exception e) {
+            logger.error("创建 Elasticsearch 测试客户端失败", e);
+            throw new RuntimeException("创建 Elasticsearch 测试客户端失败: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
      * 清除数据源的连接池（当数据源配置更新时调用）
      * @param dataSourceId 数据源ID
      */
@@ -456,6 +622,16 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
         if (neo4jDriver != null) {
             neo4jDriver.close();
             logger.info("关闭 Neo4j 驱动 - 数据源ID: {}", dataSourceId);
+        }
+        
+        ElasticsearchClient elasticsearchClient = elasticsearchClientCache.remove(dataSourceId);
+        if (elasticsearchClient != null) {
+            try {
+                elasticsearchClient._transport().close();
+                logger.info("关闭 Elasticsearch 客户端 - 数据源ID: {}", dataSourceId);
+            } catch (Exception e) {
+                logger.warn("关闭 Elasticsearch 客户端失败 - 数据源ID: {}", dataSourceId, e);
+            }
         }
         
         accessFrequency.remove(dataSourceId);
