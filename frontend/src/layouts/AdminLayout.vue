@@ -135,6 +135,10 @@ const loadHeaderCollapsedState = () => {
 
 const isHeaderCollapsed = ref(loadHeaderCollapsedState())
 
+// 存储需要清理的资源
+const headerCollapsedIntervalId = ref(null)
+const handleStorageChangeRef = ref(null)
+
 // 从数据库加载配置
 const loadConfigFromDB = async () => {
   try {
@@ -203,6 +207,7 @@ onMounted(async () => {
       isHeaderCollapsed.value = e.newValue === 'true'
     }
   }
+  handleStorageChangeRef.value = handleStorageChange
   window.addEventListener('storage', handleStorageChange)
   
   // 使用定时器轮询检查 localStorage 变化（因为同源页面的 storage 事件可能不触发）
@@ -212,13 +217,19 @@ onMounted(async () => {
       isHeaderCollapsed.value = currentState
     }
   }
-  const intervalId = setInterval(checkHeaderCollapsed, 100)
-  
-  // 清理函数
-  onUnmounted(() => {
-    window.removeEventListener('storage', handleStorageChange)
-    clearInterval(intervalId)
-  })
+  headerCollapsedIntervalId.value = setInterval(checkHeaderCollapsed, 100)
+})
+
+// 组件卸载时清理资源
+onUnmounted(() => {
+  if (handleStorageChangeRef.value) {
+    window.removeEventListener('storage', handleStorageChangeRef.value)
+    handleStorageChangeRef.value = null
+  }
+  if (headerCollapsedIntervalId.value) {
+    clearInterval(headerCollapsedIntervalId.value)
+    headerCollapsedIntervalId.value = null
+  }
 })
 
 // 加载知识库列表

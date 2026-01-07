@@ -2,7 +2,7 @@
  * Chat 功能 Composables
  * 提取 Chat 组件的公共逻辑，提升代码复用
  */
-import { ref, nextTick, onUnmounted } from 'vue'
+import { ref, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { chat } from '@/api/chat'
 import { getAvailableQAModels } from '@/api/model'
@@ -271,10 +271,12 @@ export function useChat(options = {}) {
     question.value = ''
   }
 
-  // 组件卸载时取消请求
-  onUnmounted(() => {
+  /**
+   * 清理函数，供组件在 onUnmounted 中调用
+   */
+  const cleanup = () => {
     cancelRequest()
-  })
+  }
 
   return {
     // 状态
@@ -297,7 +299,8 @@ export function useChat(options = {}) {
     newConversation,
     cancelRequest,
     renderMarkdown,
-    scrollToBottom
+    scrollToBottom,
+    cleanup
   }
 }
 

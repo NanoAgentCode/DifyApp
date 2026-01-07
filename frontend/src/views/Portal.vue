@@ -641,6 +641,11 @@ const loadingDocuments = ref(false) // 是否正在加载文档列表
 const mentionWidth = ref(0) // 标签的宽度
 const mentionContainerRef = ref(null) // 标签容器的引用
 const recentConversations = ref([]) // 最近会话历史（展开状态3条，收起状态4条）
+// ResizeObserver 实例，用于清理
+const chatHistoryResizeObserver = ref(null)
+const mentionResizeObserver = ref(null)
+// 定时器 ID，用于清理
+const dateTimeIntervalId = ref(null)
 const selectedConversationId = ref(null) // 选中的会话ID
 const loadingConversations = ref(false) // 是否正在加载会话列表
 const retryCount = ref(0) // 重试次数
@@ -2495,7 +2500,7 @@ const handleGlobalKeydown = (e) => {
 onMounted(() => {
   updateDateTime()
   // 每秒更新时间
-  setInterval(updateDateTime, 1000)
+  dateTimeIntervalId.value = setInterval(updateDateTime, 1000)
   loadKnowledgeBases()
   loadAvailableModels()
   loadRecentConversations()
@@ -2517,6 +2522,8 @@ onMounted(() => {
       if (chatHistoryContent) {
         resizeObserver.observe(chatHistoryContent)
       }
+      // 存储 ResizeObserver 实例以便清理
+      chatHistoryResizeObserver.value = resizeObserver
     }
     
     // 初始化时计算标签宽度
@@ -2524,14 +2531,12 @@ onMounted(() => {
     
     // 使用 ResizeObserver 监听标签宽度变化
     if (mentionContainerRef.value) {
-      const mentionResizeObserver = new ResizeObserver(() => {
+      const observer = new ResizeObserver(() => {
         updateMentionWidth()
       })
-      mentionResizeObserver.observe(mentionContainerRef.value)
-      
-      onUnmounted(() => {
-        mentionResizeObserver.disconnect()
-      })
+      observer.observe(mentionContainerRef.value)
+      // 存储 ResizeObserver 实例以便清理
+      mentionResizeObserver.value = observer
     }
   })
 })
@@ -2539,6 +2544,20 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleGlobalKeydown)
+  // 清理定时器
+  if (dateTimeIntervalId.value) {
+    clearInterval(dateTimeIntervalId.value)
+    dateTimeIntervalId.value = null
+  }
+  // 清理 ResizeObserver
+  if (chatHistoryResizeObserver.value) {
+    chatHistoryResizeObserver.value.disconnect()
+    chatHistoryResizeObserver.value = null
+  }
+  if (mentionResizeObserver.value) {
+    mentionResizeObserver.value.disconnect()
+    mentionResizeObserver.value = null
+  }
 })
 </script>
 
@@ -3729,26 +3748,32 @@ onUnmounted(() => {
 .input-wrapper {
   position: relative;
   background: var(--el-bg-color, #ffffff);
-  border-radius: 16px;
-  box-shadow: 0 2px 12px var(--el-box-shadow-light, rgba(0, 0, 0, 0.08));
-  padding: 16px;
-  transition: box-shadow 0.3s, background-color 0.3s ease;
-  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
-  margin-bottom: 8px;
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  padding: 20px 24px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1.5px solid var(--el-border-color-lighter, #e4e7ed);
+  margin-bottom: 12px;
+  width: 100%;
+  max-width: 100%;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 /* 当内容溢出时，输入框背景也变为半透明 */
 .input-section.transparent .input-wrapper {
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(8px) saturate(180%);
-  -webkit-backdrop-filter: blur(8px) saturate(180%);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  border-color: rgba(228, 231, 237, 0.5);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-color: rgba(64, 158, 255, 0.3);
 }
 
 .input-wrapper:focus-within {
-  box-shadow: 0 4px 20px var(--el-box-shadow-base, rgba(0, 0, 0, 0.12));
+  box-shadow: 0 8px 32px rgba(64, 158, 255, 0.15), 0 2px 8px rgba(64, 158, 255, 0.1);
   border-color: var(--el-color-primary, #409eff);
+  transform: translateY(-1px);
+  background: var(--el-bg-color, #ffffff);
 }
 
 .input-controls-float {
@@ -3934,9 +3959,10 @@ onUnmounted(() => {
   border: none;
   outline: none;
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.6;
   resize: none;
   min-width: 0;
+  transition: all 0.2s ease;
 }
 
 .portal-input :deep(.el-textarea__inner) {
@@ -3944,15 +3970,30 @@ onUnmounted(() => {
   box-shadow: none;
   padding: 0;
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.6;
   resize: none;
   position: relative;
   z-index: 1;
+  background: transparent;
+  color: var(--el-text-color-primary, #303133);
+  transition: color 0.2s ease;
+  font-weight: 400;
+}
+
+.portal-input :deep(.el-textarea__inner)::placeholder {
+  color: var(--el-text-color-placeholder, #c0c4cc);
+  font-weight: 400;
+  opacity: 0.8;
 }
 
 .portal-input :deep(.el-textarea__inner):focus {
   border: none;
   box-shadow: none;
+  color: var(--el-text-color-primary, #303133);
+}
+
+.portal-input :deep(.el-textarea__inner):hover {
+  color: var(--el-text-color-primary, #303133);
 }
 
 /* 输入框容器（标签作为输入内容的一部分，不单独占行或列） */
@@ -3961,6 +4002,7 @@ onUnmounted(() => {
   display: flex;
   flex: 1;
   min-width: 0;
+  align-items: center;
 }
 
 /* 选中的知识库和文档标签（作为输入内容的一部分，浮动在输入框内第一行） */
@@ -4228,7 +4270,8 @@ onUnmounted(() => {
   }
 
   .input-wrapper {
-    padding: 10px 12px;
+    padding: 14px 16px;
+    border-radius: 16px;
   }
 
   .control-item {

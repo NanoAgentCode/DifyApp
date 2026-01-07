@@ -309,7 +309,7 @@ defineExpose({
 .message-content {
   flex: 1;
   min-width: 0;
-  max-width: 70%;
+  max-width: 88%;
   display: flex;
   flex-direction: column;
 }
