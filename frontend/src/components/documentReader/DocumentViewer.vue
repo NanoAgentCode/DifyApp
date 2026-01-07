@@ -926,10 +926,9 @@ const handleTextAction = (eventPrefix) => {
   if (!selectedText.value) return
   
   const text = selectedText.value
-  // 发送多种格式的事件，确保兼容性
-  emit(eventPrefix, text)
-  emit(`${eventPrefix.replace(/([A-Z])/g, '-$1').toLowerCase()}`, text)
-  emit(`${eventPrefix.charAt(0).toLowerCase()}${eventPrefix.slice(1)}Text`, text)
+  // 只发送一个统一格式的事件（kebab-case），避免重复触发
+  const eventName = eventPrefix.replace(/([A-Z])/g, '-$1').toLowerCase()
+  emit(eventName, text)
   
   // 延迟清除选择，确保事件已被处理
   setTimeout(() => {

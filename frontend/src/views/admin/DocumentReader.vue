@@ -19,8 +19,6 @@
           @text-selected="handleTextSelected"
           @text-interpret="handleTextInterpret"
           @text-translate="handleTextTranslate"
-          @textTranslate="handleTextTranslate"
-          @translateText="handleTextTranslate"
         />
       </div>
 
