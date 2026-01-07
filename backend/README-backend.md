@@ -544,6 +544,58 @@ graph LR
 - **向量数据库**: 根据需求选择安装（Qdrant/Milvus/FAISS/Chroma/Weaviate/PgVector/Elasticsearch）
 - **OCR服务**: EasyOCR (可选，用于图片和PDF文字识别)
 
+## Docker 部署
+
+### Elasticsearch 8.11.0
+
+#### 方式一：使用 Docker 命令
+
+使用 Docker 快速启动 Elasticsearch（单节点模式，禁用安全认证）：
+
+```bash
+docker run -d -p 9200:9200 -p 9300:9300 \
+  -e "discovery.type=single-node" \
+  -e "xpack.security.enabled=false" \
+  -e "xpack.security.http.ssl.enabled=false" \
+  elasticsearch:8.11.0
+```
+
+#### 方式二：使用 Docker Compose
+
+项目提供了 `docker-compose.yml` 文件，可以使用以下命令启动：
+
+```bash
+# 启动服务
+docker-compose up -d
+
+# 查看服务状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f elasticsearch
+
+# 停止服务
+docker-compose down
+
+# 停止服务并删除数据卷
+docker-compose down -v
+```
+
+**参数说明：**
+- `-p 9200:9200`: HTTP REST API 端口
+- `-p 9300:9300`: 节点通信端口
+- `discovery.type=single-node`: 单节点模式
+- `xpack.security.enabled=false`: 禁用 X-Pack 安全功能
+- `xpack.security.http.ssl.enabled=false`: 禁用 HTTPS
+- `ES_JAVA_OPTS=-Xms512m -Xmx512m`: JVM 内存设置
+
+**注意**: 此配置仅用于开发环境，生产环境建议启用安全认证。
+
+验证 Elasticsearch 是否启动成功：
+```bash
+curl http://localhost:9200
+```
+
 ## 快速开始
 
 ### 1. 克隆项目
