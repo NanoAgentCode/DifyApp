@@ -8,6 +8,7 @@ import com.github.app.dify.datasource.req.UpdateDataSourceReq;
 import com.github.app.dify.datasource.resp.DataSourceResp;
 import com.github.app.dify.datasource.service.DataSourceService;
 import com.github.app.dify.datasource.service.DatabaseSchemaService;
+import com.github.app.dify.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,7 @@ public class DataSourceController extends BaseController {
     /**
      * 创建数据源
      */
+    @UserAction(module = "数据源管理", actionType = "创建", description = "创建数据源")
     @Operation(summary = "创建数据源")
     @PostMapping
     public ResponseEntity<DataSourceResp> createDataSource(
@@ -65,6 +67,7 @@ public class DataSourceController extends BaseController {
     /**
      * 更新数据源
      */
+    @UserAction(module = "数据源管理", actionType = "更新", description = "更新数据源配置")
     @Operation(summary = "更新数据源")
     @PutMapping("/{id}")
     public ResponseEntity<DataSourceResp> updateDataSource(
@@ -93,6 +96,7 @@ public class DataSourceController extends BaseController {
     /**
      * 删除数据源
      */
+    @UserAction(module = "数据源管理", actionType = "删除", description = "删除数据源")
     @Operation(summary = "删除数据源")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteDataSource(@PathVariable Long id) {
@@ -105,12 +109,14 @@ public class DataSourceController extends BaseController {
      */
     @Operation(summary = "获取数据源列表")
     @GetMapping
-    public ResponseEntity<List<DataSourceResp>> listDataSources(
+    public ResponseEntity<?> listDataSources(
             @RequestParam(required = false) Integer tenantId,
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer pageSize,
             HttpServletRequest request) {
         Long currentUserId = getUserId(request);
         Object roleObj = request.getAttribute("role");
@@ -120,14 +126,24 @@ public class DataSourceController extends BaseController {
             userId = currentUserId;
         }
         
-        List<DataSourceResp> resp = dataSourceService.listDataSources(
-                tenantId, status, keyword, type, userId, userRole);
-        return ResponseEntity.ok(resp);
+        // 如果指定了分页参数，使用分页接口
+        if (page != null && pageSize != null && page > 0 && pageSize > 0) {
+            com.github.app.dify.common.resp.PageResponse<DataSourceResp> pageResponse = 
+                    dataSourceService.listDataSourcesWithPagination(
+                            tenantId, status, keyword, type, userId, userRole, page, pageSize);
+            return ResponseEntity.ok(pageResponse);
+        } else {
+            // 否则返回所有数据（兼容旧接口）
+            List<DataSourceResp> resp = dataSourceService.listDataSources(
+                    tenantId, status, keyword, type, userId, userRole);
+            return ResponseEntity.ok(resp);
+        }
     }
     
     /**
      * 测试数据源连接
      */
+    @UserAction(module = "数据源管理", actionType = "测试连接", description = "测试数据源连接")
     @Operation(summary = "测试数据源连接")
     @PostMapping("/{id}/test")
     public ResponseEntity<Map<String, Object>> testConnection(@PathVariable Long id) {
@@ -213,6 +229,7 @@ public class DataSourceController extends BaseController {
     /**
      * 刷新表结构
      */
+    @UserAction(module = "数据源管理", actionType = "刷新表结构", description = "刷新数据源表结构")
     @Operation(summary = "刷新表结构")
     @PostMapping("/{id}/refresh-schema")
     public ResponseEntity<Map<String, Object>> refreshSchema(

@@ -4,6 +4,7 @@ import com.github.app.dify.datasource.domain.DataSource;
 import com.github.app.dify.datasource.req.CreateDataSourceReq;
 import com.github.app.dify.datasource.req.UpdateDataSourceReq;
 import com.github.app.dify.datasource.resp.DataSourceResp;
+import com.github.app.dify.common.resp.PageResponse;
 import java.util.List;
 /**
  * 数据源服务接口
@@ -50,6 +51,21 @@ public interface DataSourceService {
      * @param userRole 用户角色（1-管理员，0-普通用户），如果为null则按普通用户处理
      */
     List<DataSourceResp> listDataSources(Integer tenantId, Integer status, String keyword, String type, Long userId, Integer userRole);
+    
+    /**
+     * 获取数据源列表（分页）
+     * @param tenantId 租户ID
+     * @param status 状态
+     * @param keyword 关键词
+     * @param type 数据库类型
+     * @param userId 用户ID（用于权限过滤，如果为null则不进行权限过滤）
+     * @param userRole 用户角色（1-管理员，0-普通用户），如果为null则按普通用户处理
+     * @param page 页码
+     * @param pageSize 每页大小
+     */
+    PageResponse<DataSourceResp> listDataSourcesWithPagination(
+            Integer tenantId, Integer status, String keyword, String type, 
+            Long userId, Integer userRole, int page, int pageSize);
     
     /**
      * 测试数据源连接

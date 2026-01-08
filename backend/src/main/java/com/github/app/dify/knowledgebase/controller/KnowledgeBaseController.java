@@ -8,6 +8,7 @@ import com.github.app.dify.knowledgebase.req.CreateKnowledgeBaseReq;
 import com.github.app.dify.knowledgebase.req.UpdateKnowledgeBaseReq;
 import com.github.app.dify.knowledgebase.resp.KnowledgeBaseResp;
 import com.github.app.dify.knowledgebase.service.KnowledgeBaseService;
+import com.github.app.dify.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,7 @@ public class KnowledgeBaseController extends BaseController {
     /**
      * 创建知识库
      */
+    @UserAction(module = "知识库管理", actionType = "创建", description = "创建知识库")
     @Operation(summary = "创建知识库")
     @PostMapping
     public ResponseEntity<KnowledgeBaseResp> createKnowledgeBase(
@@ -68,9 +70,10 @@ public class KnowledgeBaseController extends BaseController {
     /**
      * 更新知识库
      */
+    @UserAction(module = "知识库管理", actionType = "更新", description = "更新知识库配置")
     @Operation(summary = "更新知识库")
     @PutMapping("/{id}")
-    public ResponseEntity<KnowledgeBaseResp> updateKnowledgeBase(@PathVariable Long id, 
+    public ResponseEntity<KnowledgeBaseResp> updateKnowledgeBase(@PathVariable Long id,
                                                                  @Validated @RequestBody UpdateKnowledgeBaseReq req) {
         KnowledgeBaseResp resp = knowledgeBaseService.updateKnowledgeBase(id, req);
         if (resp == null) {
@@ -95,6 +98,7 @@ public class KnowledgeBaseController extends BaseController {
     /**
      * 删除知识库
      */
+    @UserAction(module = "知识库管理", actionType = "删除", description = "删除知识库")
     @Operation(summary = "删除知识库")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteKnowledgeBase(@PathVariable Long id) {
@@ -141,6 +145,7 @@ public class KnowledgeBaseController extends BaseController {
     /**
      * 生成知识库智能摘要
      */
+    @UserAction(module = "知识库管理", actionType = "生成摘要", description = "生成知识库智能摘要")
     @Operation(summary = "生成知识库智能摘要")
     @PostMapping("/{id}/generate-summary")
     public ResponseEntity<java.util.Map<String, String>> generateSummary(

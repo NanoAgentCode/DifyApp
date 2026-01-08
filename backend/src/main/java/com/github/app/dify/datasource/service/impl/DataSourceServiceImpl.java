@@ -9,15 +9,19 @@ import com.github.app.dify.datasource.service.DataSourceService;
 import com.github.app.dify.datasource.service.DatabaseConnectionService;
 import com.github.app.dify.permission.service.UserDataSourceVisibilityService;
 import com.github.app.dify.auth.util.PasswordEncryptionUtil;
+import com.github.app.dify.common.resp.PageResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.github.app.dify.datasource.util.DataSourceConverterUtil;
 import com.github.app.dify.datasource.util.DataSourceDateTimeUtil;
 import com.github.app.dify.datasource.util.DataSourceSoftDeleteUtil;
+import com.github.app.dify.common.util.PageUtil;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -278,6 +282,76 @@ public class DataSourceServiceImpl implements DataSourceService {
         return dataSources.stream()
                 .map(DataSourceConverterUtil::convertToResp)
                 .collect(Collectors.toList());
+    }
+    
+    @Override
+    public PageResponse<DataSourceResp> listDataSourcesWithPagination(
+            Integer tenantId, Integer status, String keyword, String type, 
+            Long userId, Integer userRole, int page, int pageSize) {
+        Pageable pageable = PageUtil.createPageable(page, pageSize);
+        
+        Page<DataSource> dataSourcePage = dataSourceRepository.findByFiltersWithPagination(
+                status, keyword != null ? keyword.trim() : null, type, pageable);
+        
+        // 过滤已删除的数据源
+        List<DataSource> dataSources = dataSourcePage.getContent().stream()
+                .filter(ds -> ds.getDeleted() == null || ds.getDeleted() == 0)
+                .collect(Collectors.toList());
+        
+        // 权限过滤：根据用户角色和数据源的公开/私有属性
+        if (userId != null) {
+            final Long finalUserId = userId;
+            final Integer finalUserRole = userRole;
+            
+            dataSources = dataSources.stream()
+                    .filter(ds -> {
+                        // 如果UserDataSourceVisibilityService不可用，使用默认的访问控制逻辑
+                        if (userDataSourceVisibilityService != null) {
+                            // 检查用户是否被明确禁止访问（通过UserDataSourceVisibility表）
+                            // 如果用户被明确设置为不可见，则直接返回false
+                            boolean hasAccess = userDataSourceVisibilityService.hasAccess(finalUserId, ds.getId());
+                            if (!hasAccess) {
+                                return false;
+                            }
+                        }
+                        
+                        // 管理员可以看到所有被授权的数据源
+                        if (finalUserRole != null && finalUserRole == 1) {
+                            return true;
+                        }
+                        
+                        // 普通用户的访问规则：
+                        // 1. 公开的数据源（is_public = true）
+                        // 2. 自己创建的私有数据源（creator_id = userId）
+                        // 3. 被管理员明确授权访问的私有数据源（在UserDataSourceVisibility表中visible=true）
+                        boolean isPublic = Boolean.TRUE.equals(ds.getIsPublic());
+                        boolean isOwner = finalUserId.equals(ds.getCreatorId());
+                        
+                        // 检查是否被明确授权（在UserDataSourceVisibility表中有记录且visible=true）
+                        boolean isExplicitlyGranted = false;
+                        if (userDataSourceVisibilityService != null) {
+                            isExplicitlyGranted = userDataSourceVisibilityService.isExplicitlyGranted(finalUserId, ds.getId());
+                        }
+                        
+                        return isPublic || isOwner || isExplicitlyGranted;
+                    })
+                    .collect(Collectors.toList());
+        }
+        
+        // 转换为响应对象
+        List<DataSourceResp> content = dataSources.stream()
+                .map(DataSourceConverterUtil::convertToResp)
+                .collect(Collectors.toList());
+        
+        long total = dataSourcePage.getTotalElements();
+        
+        PageResponse<DataSourceResp> response = new PageResponse<>();
+        response.setContent(content);
+        response.setTotal(total);
+        response.setPage(page);
+        response.setPageSize(pageSize);
+        response.setTotalPages((int) Math.ceil((double) total / pageSize));
+        return response;
     }
     
     @Override

@@ -6,6 +6,7 @@ import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.knowledgebase.resp.KnowledgeBaseDocumentResp;
 import com.github.app.dify.knowledgebase.service.DocumentVectorizationService;
 import com.github.app.dify.knowledgebase.service.KnowledgeBaseDocumentService;
+import com.github.app.dify.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +36,7 @@ public class KnowledgeBaseDocumentController extends BaseController {
     /**
      * 上传文档
      */
+    @UserAction(module = "文档管理", actionType = "上传", description = "上传知识库文档")
     @Operation(summary = "上传文档")
     @PostMapping("/upload")
     public ResponseEntity<KnowledgeBaseDocumentResp> uploadDocument(
@@ -63,6 +65,7 @@ public class KnowledgeBaseDocumentController extends BaseController {
     /**
      * 删除文档
      */
+    @UserAction(module = "文档管理", actionType = "删除", description = "删除知识库文档")
     @Operation(summary = "删除文档")
     @DeleteMapping("/{docId}")
     public ResponseEntity<Void> deleteDocument(@PathVariable Long kbId, @PathVariable Long docId) {
@@ -109,6 +112,7 @@ public class KnowledgeBaseDocumentController extends BaseController {
     /**
      * 下载文档
      */
+    @UserAction(module = "文档管理", actionType = "下载", description = "下载知识库文档")
     @Operation(summary = "下载文档")
     @GetMapping("/{docId}/download")
     public ResponseEntity<InputStreamResource> downloadDocument(
@@ -134,6 +138,7 @@ public class KnowledgeBaseDocumentController extends BaseController {
     /**
      * 重新向量化文档
      */
+    @UserAction(module = "文档管理", actionType = "重新向量化", description = "重新向量化文档")
     @Operation(summary = "重新向量化文档")
     @PostMapping("/{docId}/reindex")
     public ResponseEntity<Void> reindexDocument(

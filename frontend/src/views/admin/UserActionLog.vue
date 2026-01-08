@@ -73,7 +73,7 @@
           range-separator="至"
           start-placeholder="开始时间"
           end-placeholder="结束时间"
-          style="width: 360px; margin-left: 10px"
+          style="width: 100px; margin-left: 10px"
           @change="handleSearch"
           format="YYYY-MM-DD HH:mm:ss"
           value-format="YYYY-MM-DDTHH:mm:ss"

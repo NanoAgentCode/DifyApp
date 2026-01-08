@@ -1,55 +1,53 @@
 <template>
   <div class="data-source-management">
     <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>数据源管理</span>
+      <!-- 操作栏 -->
+      <div class="action-bar">
+        <div class="search-filters">
+          <el-input
+            v-model="searchKeyword"
+            placeholder="搜索数据源名称或描述"
+            clearable
+            style="width: 300px"
+            @input="handleSearch"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+          <el-select
+            v-model="filterType"
+            placeholder="筛选数据库类型"
+            clearable
+            style="width: 150px; margin-left: 10px"
+            @change="handleFilter"
+          >
+            <el-option label="全部" value="" />
+            <el-option label="PostgreSQL" value="postgresql" />
+            <el-option label="MySQL" value="mysql" />
+            <el-option label="Oracle" value="oracle" />
+            <el-option label="MongoDB" value="mongodb" />
+            <el-option label="Neo4j" value="neo4j" />
+            <el-option label="Elasticsearch" value="elasticsearch" />
+          </el-select>
+          <el-select
+            v-model="filterStatus"
+            placeholder="筛选状态"
+            clearable
+            style="width: 150px; margin-left: 10px"
+            @change="handleFilter"
+          >
+            <el-option label="全部" value="" />
+            <el-option label="启用" :value="1" />
+            <el-option label="禁用" :value="0" />
+          </el-select>
+        </div>
+        <div class="action-buttons">
           <el-button type="primary" @click="handleCreate">
             <el-icon><Plus /></el-icon>
             创建数据源
           </el-button>
         </div>
-      </template>
-
-      <!-- 搜索栏 -->
-      <div class="search-bar">
-        <el-input
-          v-model="searchKeyword"
-          placeholder="搜索数据源名称或描述"
-          clearable
-          style="width: 300px"
-          @input="handleSearch"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
-        <el-select
-          v-model="filterType"
-          placeholder="筛选数据库类型"
-          clearable
-          style="width: 150px; margin-left: 10px"
-          @change="handleFilter"
-        >
-          <el-option label="全部" value="" />
-          <el-option label="PostgreSQL" value="postgresql" />
-          <el-option label="MySQL" value="mysql" />
-          <el-option label="Oracle" value="oracle" />
-          <el-option label="MongoDB" value="mongodb" />
-          <el-option label="Neo4j" value="neo4j" />
-          <el-option label="Elasticsearch" value="elasticsearch" />
-        </el-select>
-        <el-select
-          v-model="filterStatus"
-          placeholder="筛选状态"
-          clearable
-          style="width: 150px; margin-left: 10px"
-          @change="handleFilter"
-        >
-          <el-option label="全部" value="" />
-          <el-option label="启用" :value="1" />
-          <el-option label="禁用" :value="0" />
-        </el-select>
       </div>
 
       <!-- 数据源列表 -->
@@ -459,15 +457,27 @@ const getTypeTag = (type) => {
   min-height: 0;
 }
 
-.card-header {
+.action-bar {
+  margin-bottom: 20px;
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
-.search-bar {
-  margin-bottom: 20px;
-  flex-shrink: 0;
+.search-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
 }
 
 .table-container {

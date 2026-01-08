@@ -6,6 +6,7 @@ import com.github.app.dify.chat.req.ChatHistoryRequest;
 import com.github.app.dify.chat.resp.*;
 import com.github.app.dify.chat.service.ChatHistoryService;
 import com.github.app.dify.common.resp.PageResponse;
+import com.github.app.dify.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -87,6 +88,7 @@ public class AdminChatHistoryController extends BaseController {
     /**
      * 删除会话（管理员，会删除该会话中的所有消息）
      */
+    @UserAction(module = "对话管理", actionType = "删除", description = "删除对话会话")
     @Operation(summary = "删除会话（管理员）")
     @DeleteMapping("/conversations/{id}")
     public ResponseEntity<Void> deleteConversation(
@@ -101,6 +103,7 @@ public class AdminChatHistoryController extends BaseController {
     /**
      * 批量删除会话（管理员，会删除这些会话中的所有消息）
      */
+    @UserAction(module = "对话管理", actionType = "批量删除", description = "批量删除对话会话")
     @Operation(summary = "批量删除会话")
     @DeleteMapping("/conversations/batch")
     public ResponseEntity<Void> batchDeleteConversations(

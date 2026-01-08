@@ -5,6 +5,7 @@ import com.github.app.dify.common.exception.NotFoundException;
 import com.github.app.dify.system.req.UpdateSystemConfigReq;
 import com.github.app.dify.system.resp.SystemConfigResp;
 import com.github.app.dify.system.service.SystemConfigService;
+import com.github.app.dify.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -77,6 +78,7 @@ public class SystemConfigController extends BaseController {
     /**
      * 设置或更新配置
      */
+    @UserAction(module = "系统配置", actionType = "更新", description = "设置或更新系统配置")
     @Operation(summary = "设置或更新配置")
     @PostMapping
     public ResponseEntity<SystemConfigResp> setOrUpdateConfig(
@@ -91,6 +93,7 @@ public class SystemConfigController extends BaseController {
     /**
      * 删除配置
      */
+    @UserAction(module = "系统配置", actionType = "删除", description = "删除系统配置")
     @Operation(summary = "删除配置")
     @DeleteMapping("/{configKey}")
     public ResponseEntity<Void> deleteConfig(@PathVariable String configKey) {
