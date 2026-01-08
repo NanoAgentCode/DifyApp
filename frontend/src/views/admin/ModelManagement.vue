@@ -136,7 +136,7 @@
                       @click="handleDeleteModel(row)"
                       :icon="Delete"
                     >
-                      编辑
+                      删除
                     </el-button>
                   </div>
                 </template>
