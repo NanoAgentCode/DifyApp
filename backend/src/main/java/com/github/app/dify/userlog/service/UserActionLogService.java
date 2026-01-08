@@ -40,4 +40,9 @@ public interface UserActionLogService {
      * 获取所有操作类型选项（用于下拉菜单）
      */
     java.util.List<String> getActionTypes();
+
+    /**
+     * 获取所有操作模块选项（用于下拉菜单）
+     */
+    java.util.List<String> getModules();
 }

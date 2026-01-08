@@ -50,3 +50,13 @@ export function getUserActionLogActionTypes() {
     method: 'get'
   })
 }
+
+/**
+ * 获取操作模块选项（用于下拉菜单）
+ */
+export function getUserActionLogModules() {
+  return request({
+    url: '/api/admin/user-action-logs/modules',
+    method: 'get'
+  })
+}

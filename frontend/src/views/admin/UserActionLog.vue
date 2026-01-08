@@ -29,14 +29,12 @@
          @change="handleSearch"
         >
           <el-option label="全部模块" value="" />
-          <el-option label="认证" value="认证" />
-          <el-option label="用户管理" value="用户管理" />
-          <el-option label="应用管理" value="应用管理" />
-          <el-option label="知识库管理" value="知识库管理" />
-          <el-option label="对话管理" value="对话管理" />
-          <el-option label="数据源管理" value="数据源管理" />
-          <el-option label="系统配置" value="系统配置" />
-          <el-option label="模型管理" value="模型管理" />
+          <el-option
+            v-for="m in moduleOptions"
+            :key="m"
+            :label="m"
+            :value="m"
+          />
         </el-select>
         
         <el-select
@@ -226,7 +224,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft } from '@element-plus/icons-vue'
-import { getUserActionLogs, getUserActionLogActionTypes } from '@/api/userActionLog'
+import { getUserActionLogs, getUserActionLogActionTypes, getUserActionLogModules } from '@/api/userActionLog'
 
 const loading = ref(false)
 const logList = ref([])
@@ -241,6 +239,7 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 const actionTypeOptions = ref([])
+const moduleOptions = ref([])
 
 const loadLogs = async () => {
   loading.value = true
@@ -309,6 +308,15 @@ const loadActionTypes = async () => {
     }
   } catch (error) {
     actionTypeOptions.value = []
+  }
+}
+
+const loadModules = async () => {
+  try {
+    const modules = await getUserActionLogModules()
+    moduleOptions.value = Array.isArray(modules) ? modules : []
+  } catch (error) {
+    moduleOptions.value = []
   }
 }
 
@@ -388,6 +396,7 @@ const formatJson = (jsonStr) => {
 
 onMounted(() => {
   loadActionTypes()
+  loadModules()
   loadLogs()
 })
 </script>
@@ -508,5 +517,21 @@ onMounted(() => {
 .time-slow {
   color: #f56c6c;
   font-weight: 600;
+}
+
+:deep(.date-range-compact.el-date-editor--datetimerange) {
+  width: 160px !important;
+  min-width: 160px !important;
+}
+:deep(.date-range-compact.el-date-editor--datetimerange .el-range-input) {
+  width: 64px !important;
+}
+:deep(.date-range-compact.el-date-editor--datetimerange .el-range-separator) {
+  padding: 0 2px !important;
+  width: 10px !important;
+}
+:deep(.date-range-compact.el-date-editor--datetimerange .el-range__icon),
+:deep(.date-range-compact.el-date-editor--datetimerange .el-range__close-icon) {
+  display: none !important;
 }
 </style>

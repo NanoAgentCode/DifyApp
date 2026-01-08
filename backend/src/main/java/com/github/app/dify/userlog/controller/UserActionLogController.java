@@ -129,4 +129,20 @@ public class UserActionLogController {
             throw e;
         }
     }
+
+    /**
+     * 获取操作模块选项（用于下拉菜单）
+     */
+    @Operation(summary = "获取操作模块选项")
+    @GetMapping("/modules")
+    public ResponseEntity<List<String>> getModules() {
+        try {
+            List<String> modules = userActionLogService.getModules();
+            logger.info("返回操作模块列表: {}", modules);
+            return ResponseEntity.ok(modules);
+        } catch (Exception e) {
+            logger.error("获取操作模块选项失败", e);
+            throw e;
+        }
+    }
 }

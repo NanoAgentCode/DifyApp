@@ -302,6 +302,47 @@ public class ElasticsearchLogService {
         }
     }
 
+    public List<String> getModules() {
+        if (!elasticsearchEnabled) {
+            logger.warn("Elasticsearch未启用，无法获取操作模块");
+            return new ArrayList<>();
+        }
+        try {
+            SearchRequest searchRequest = SearchRequest.of(s -> s
+                .index(INDEX_NAME)
+                .size(0)
+                .aggregations("modules", a -> a
+                    .terms(t -> t
+                        .field("module")
+                        .size(1000)
+                    )
+                )
+            );
+            if (userLogElasticsearchClient == null) {
+                logger.warn("Elasticsearch客户端未初始化");
+                return new ArrayList<>();
+            }
+            SearchResponse<UserActionLogDocument> response = userLogElasticsearchClient.search(
+                searchRequest,
+                UserActionLogDocument.class
+            );
+            List<String> modules = new ArrayList<>();
+            var aggregations = response.aggregations();
+            if (aggregations != null && aggregations.containsKey("modules")) {
+                var termsAggregation = aggregations.get("modules").sterms();
+                if (termsAggregation != null) {
+                    for (var bucket : termsAggregation.buckets().array()) {
+                        modules.add(bucket.key().stringValue());
+                    }
+                }
+            }
+            return modules;
+        } catch (Exception e) {
+            logger.error("从Elasticsearch获取操作模块失败", e);
+            return new ArrayList<>();
+        }
+    }
+
     /**
      * 搜索结果封装类
      */

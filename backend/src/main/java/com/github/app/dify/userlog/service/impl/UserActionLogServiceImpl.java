@@ -135,6 +135,20 @@ public class UserActionLogServiceImpl implements UserActionLogService {
         }
     }
 
+    @Override
+    public java.util.List<String> getModules() {
+        if (!elasticsearchEnabled) {
+            logger.warn("Elasticsearch未启用，无法获取操作模块");
+            return new ArrayList<>();
+        }
+        try {
+            return elasticsearchLogService.getModules();
+        } catch (Exception e) {
+            logger.error("获取操作模块失败", e);
+            return new ArrayList<>();
+        }
+    }
+
     /**
      * 将文档转换为响应对象
      */
