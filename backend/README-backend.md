@@ -14,6 +14,8 @@ DifyApp 后端是一个基于 Java 的企业级后端应用，提供用户认证
 - **文档处理**：支持多种文档格式解析（PDF、Word、Excel、TXT、Markdown 等）
 - **安全认证**：JWT 令牌认证，Spring Security 加密
 - **统一规范**：统一异常处理、统一 API 响应格式
+- **日志与分析**：集成用户行为日志采集，支持 Elasticsearch 分析
+- **上下文优化**：新增上下文压缩服务，提升长对话处理效率
 
 ## 技术栈
 
@@ -54,7 +56,7 @@ DifyApp 后端是一个基于 Java 的企业级后端应用，提供用户认证
 - **API文档**: SpringDoc OpenAPI 2.3.0
 - **HTTP客户端**: Spring WebFlux (Reactive)
 - **日志框架**: Logback
-- **监控**: Spring Boot Actuator
+- **监控**: Spring Boot Actuator，统一超时策略（30秒）
 
 ## 系统架构
 
