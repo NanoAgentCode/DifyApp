@@ -366,15 +366,17 @@ public class ModelLanguageModelFactory {
                     
                     // 添加图片内容
                     int imageCount = 0;
-                    for (ChatRequest.ImageData imageData : imageDataList) {
+                    if (imageDataList != null) {
+                        for (ChatRequest.ImageData imageData : imageDataList) {
                         Map<String, Object> imageItem = new HashMap<>();
                         imageItem.put("type", "image_url");
                         Map<String, String> imageUrl = new HashMap<>();
                         // 使用base64格式：data:image/png;base64,{base64_data}
                         imageUrl.put("url", "data:" + imageData.getMimeType() + ";base64," + imageData.getBase64());
                         imageItem.put("image_url", imageUrl);
-                        contentList.add(imageItem);
-                        imageCount++;
+                            contentList.add(imageItem);
+                            imageCount++;
+                        }
                     }
 
                     apiMessage.put("content", contentList);

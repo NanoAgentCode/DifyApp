@@ -155,9 +155,10 @@ public class VectorStoreFactory {
                     com.github.app.dify.knowledgebase.domain.KnowledgeBase knowledgeBase = kb.get();
                     
                     // 优先从vectorDatabaseId获取实例配置
-                    if (knowledgeBase.getVectorDatabaseId() != null && vectorDatabaseRepository != null) {
+                    Long vectorDatabaseId = knowledgeBase.getVectorDatabaseId();
+                    if (vectorDatabaseId != null && vectorDatabaseRepository != null) {
                         java.util.Optional<com.github.app.dify.knowledgebase.domain.VectorDatabase> config = 
-                                vectorDatabaseRepository.findById(knowledgeBase.getVectorDatabaseId());
+                                vectorDatabaseRepository.findById(vectorDatabaseId);
                         if (config.isPresent()) {
                             String type = config.get().getType();
                             if (type != null && !type.trim().isEmpty()) {
@@ -179,7 +180,7 @@ public class VectorStoreFactory {
             }
         } catch (Exception e) {
             // 如果是文档解读，使用pgvector作为默认值；否则使用qdrant
-            if (knowledgeBaseId == 0L) {
+            if (knowledgeBaseId != null && knowledgeBaseId == 0L) {
                 logger.warn("获取文档解读向量存储类型失败，使用默认值pgvector - 知识库ID: {}", knowledgeBaseId, e);
                 return "pgvector";
             } else {

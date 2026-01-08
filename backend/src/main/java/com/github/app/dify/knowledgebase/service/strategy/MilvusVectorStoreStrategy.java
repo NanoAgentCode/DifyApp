@@ -656,6 +656,10 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
                     }
                     
                     // 使用 wrapper 处理搜索结果
+                    if (wrapper == null) {
+                        throw new RuntimeException("SearchResultsWrapper 创建成功但为null");
+                    }
+                    
                     int rowCount = wrapper.getIDScore(0).size();
                     for (int i = 0; i < rowCount; i++) {
                         VectorStoreStrategy.SearchResult result = new VectorStoreStrategy.SearchResult();

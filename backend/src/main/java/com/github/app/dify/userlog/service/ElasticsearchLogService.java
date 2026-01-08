@@ -227,7 +227,9 @@ public class ElasticsearchLogService {
                 }
             }
 
-            long total = response.hits().total() != null ? response.hits().total().value() : 0;
+            // 安全地获取总记录数，避免重复调用total()方法
+            var totalHits = response.hits().total();
+            long total = totalHits != null ? totalHits.value() : 0;
             return new SearchResult(documents, total);
 
         } catch (Exception e) {
