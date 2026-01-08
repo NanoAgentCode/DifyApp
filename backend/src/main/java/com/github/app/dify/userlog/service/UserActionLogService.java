@@ -4,6 +4,7 @@ import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.userlog.domain.UserActionLog;
 import com.github.app.dify.userlog.req.UserActionLogQueryReq;
 import com.github.app.dify.userlog.resp.UserActionLogResp;
+import java.util.List;
 
 /**
  * 用户行为日志Service
@@ -33,5 +34,10 @@ public interface UserActionLogService {
     /**
      * 批量删除日志
      */
-    void batchDeleteLogs(java.util.List<Long> ids);
+    void batchDeleteLogs(List<Long> ids);
+    
+    /**
+     * 获取所有操作类型选项（用于下拉菜单）
+     */
+    java.util.List<String> getActionTypes();
 }

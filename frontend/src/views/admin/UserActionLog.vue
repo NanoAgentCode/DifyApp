@@ -46,15 +46,14 @@
           style="width: 150px; margin-left: 10px"
           @change="handleSearch"
         >
-          <el-option label="全部类型" value="" />
-          <el-option label="创建" value="创建" />
-          <el-option label="更新" value="更新" />
-          <el-option label="删除" value="删除" />
-          <el-option label="查询" value="查询" />
-          <el-option label="登录" value="登录" />
-          <el-option label="登出" value="登出" />
-        </el-select>
-        
+        <el-option label="全部类型" value="" />
+        <el-option
+            v-for="actionType in actionTypeOptions"
+            :key="actionType"
+            :label="actionType"
+            :value="actionType"
+          />
+        </el-select>        
         <el-select
           v-model="filterResult"
           placeholder="执行结果"
@@ -111,7 +110,7 @@
           <el-table-column prop="module" label="操作模块" min-width="100" align="center" />
           <el-table-column prop="actionType" label="操作类型" min-width="100" align="center">
             <template #default="scope">
-              <el-tag :type="getActionTypeTag(scope.row.actionType)" size="small">
+              <el-tag :style="getActionTypeStyle(scope.row.actionType)" size="small">
                 {{ scope.row.actionType }}
               </el-tag>
             </template>
@@ -178,7 +177,7 @@
           <el-descriptions-item label="用户ID">{{ currentLog.userId || '未知' }}</el-descriptions-item>
           <el-descriptions-item label="操作模块">{{ currentLog.module }}</el-descriptions-item>
           <el-descriptions-item label="操作类型">
-            <el-tag :type="getActionTypeTag(currentLog.actionType)" size="small">
+            <el-tag :style="getActionTypeStyle(currentLog.actionType)" size="small">
               {{ currentLog.actionType }}
             </el-tag>
           </el-descriptions-item>
@@ -227,7 +226,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshLeft } from '@element-plus/icons-vue'
-import { getUserActionLogs } from '@/api/userActionLog'
+import { getUserActionLogs, getUserActionLogActionTypes } from '@/api/userActionLog'
 
 const loading = ref(false)
 const logList = ref([])
@@ -241,6 +240,7 @@ const dateRange = ref([])
 const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+const actionTypeOptions = ref([])
 
 const loadLogs = async () => {
   loading.value = true
@@ -299,6 +299,19 @@ const handleReset = () => {
   loadLogs()
 }
 
+const loadActionTypes = async () => {
+  try {
+    const types = await getUserActionLogActionTypes()
+    if (Array.isArray(types)) {
+      actionTypeOptions.value = types
+    } else {
+      actionTypeOptions.value = []
+    }
+  } catch (error) {
+    actionTypeOptions.value = []
+  }
+}
+
 const handleViewDetail = (log) => {
   currentLog.value = log
   showDetailDialog.value = true
@@ -315,16 +328,29 @@ const handlePageChange = (page) => {
   loadLogs()
 }
 
-const getActionTypeTag = (actionType) => {
-  const tagMap = {
-    '创建': 'success',
-    '更新': 'warning',
-    '删除': 'danger',
-    '查询': 'info',
-    '登录': 'success',
-    '登出': 'info'
+const actionTypeColors = ['#409EFF','#67C23A','#E6A23C','#F56C6C','#909399','#7D52DA','#00B8D9','#36B37E','#FF9F43','#FF4D4F','#5C6BC0','#26A69A']
+const hexToRgb = (hex) => {
+  const h = hex.replace('#','')
+  const bigint = parseInt(h,16)
+  const r = (bigint >> 16) & 255
+  const g = (bigint >> 8) & 255
+  const b = bigint & 255
+  return { r, g, b }
+}
+const hashString = (s) => {
+  let h = 0
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) >>> 0
   }
-  return tagMap[actionType] || ''
+  return h
+}
+const getActionTypeStyle = (actionType) => {
+  const idx = hashString(actionType || '') % actionTypeColors.length
+  const bg = actionTypeColors[idx]
+  const { r, g, b } = hexToRgb(bg)
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  const text = lum > 0.7 ? '#303133' : '#fff'
+  return { backgroundColor: bg, borderColor: bg, color: text }
 }
 
 const getMethodTag = (method) => {
@@ -361,6 +387,7 @@ const formatJson = (jsonStr) => {
 }
 
 onMounted(() => {
+  loadActionTypes()
   loadLogs()
 })
 </script>

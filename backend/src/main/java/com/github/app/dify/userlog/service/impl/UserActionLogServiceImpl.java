@@ -118,6 +118,24 @@ public class UserActionLogServiceImpl implements UserActionLogService {
     }
 
     /**
+     * 获取所有操作类型选项（用于下拉菜单）
+     */
+    @Override
+    public java.util.List<String> getActionTypes() {
+        if (!elasticsearchEnabled) {
+            logger.warn("Elasticsearch未启用，无法获取操作类型");
+            return new ArrayList<>();
+        }
+        
+        try {
+            return elasticsearchLogService.getActionTypes();
+        } catch (Exception e) {
+            logger.error("获取操作类型失败", e);
+            return new ArrayList<>();
+        }
+    }
+
+    /**
      * 将文档转换为响应对象
      */
     private UserActionLogResp convertDocumentToResp(UserActionLogDocument document) {

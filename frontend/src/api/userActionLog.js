@@ -41,3 +41,12 @@ export function batchDeleteUserActionLogs(ids) {
     data: ids
   })
 }
+/**
+ * 获取操作类型选项（用于下拉菜单）
+ */
+export function getUserActionLogActionTypes() {
+  return request({
+    url: '/api/admin/user-action-logs/action-types',
+    method: 'get'
+  })
+}

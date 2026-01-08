@@ -239,6 +239,70 @@ public class ElasticsearchLogService {
     }
 
     /**
+     * 获取所有操作类型（用于下拉菜单）
+     */
+    public List<String> getActionTypes() {
+        if (!elasticsearchEnabled) {
+            logger.warn("Elasticsearch未启用，无法获取操作类型");
+            return new ArrayList<>();
+        }
+
+        try {
+            // 构建terms聚合查询
+            SearchRequest searchRequest = SearchRequest.of(s -> s
+                .index(INDEX_NAME)
+                .size(0) // 不需要返回具体文档
+                .aggregations("action_types", a -> a
+                    .terms(t -> t
+                        .field("actionType")
+                        .size(1000) // 获取所有不同的actionType值
+                    )
+                )
+            );
+
+            if (userLogElasticsearchClient == null) {
+                logger.warn("Elasticsearch客户端未初始化");
+                return new ArrayList<>();
+            }
+
+            SearchResponse<UserActionLogDocument> response = userLogElasticsearchClient.search(
+                searchRequest, 
+                UserActionLogDocument.class
+            );
+
+            // 提取聚合结果
+            List<String> actionTypes = new ArrayList<>();
+            var aggregations = response.aggregations();
+            
+            logger.info("Elasticsearch聚合响应: aggregations={}", aggregations);
+            
+            if (aggregations != null && aggregations.containsKey("action_types")) {
+                var termsAggregation = aggregations.get("action_types").sterms();
+                logger.info("Terms聚合结果: buckets count={}", termsAggregation != null ? termsAggregation.buckets().array().size() : 0);
+                
+                if (termsAggregation != null) {
+                    for (var bucket : termsAggregation.buckets().array()) {
+                        String actionType = bucket.key().stringValue();
+                        long count = bucket.docCount();
+                        logger.info("发现操作类型: {} (count: {})", actionType, count);
+                        actionTypes.add(actionType);
+                    }
+                }
+            } else {
+                logger.warn("未找到action_types聚合结果");
+            }
+            
+            logger.info("最终返回的操作类型列表: {}", actionTypes);
+
+            return actionTypes;
+
+        } catch (Exception e) {
+            logger.error("从Elasticsearch获取操作类型失败", e);
+            return new ArrayList<>();
+        }
+    }
+
+    /**
      * 搜索结果封装类
      */
     public static class SearchResult {

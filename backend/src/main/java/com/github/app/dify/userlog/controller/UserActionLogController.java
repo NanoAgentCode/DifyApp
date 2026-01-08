@@ -113,4 +113,20 @@ public class UserActionLogController {
             throw e;
         }
     }
+
+    /**
+     * 获取操作类型选项（用于下拉菜单）
+     */
+    @Operation(summary = "获取操作类型选项")
+    @GetMapping("/action-types")
+    public ResponseEntity<List<String>> getActionTypes() {
+        try {
+            List<String> actionTypes = userActionLogService.getActionTypes();
+            logger.info("返回操作类型列表: {}", actionTypes);
+            return ResponseEntity.ok(actionTypes);
+        } catch (Exception e) {
+            logger.error("获取操作类型选项失败", e);
+            throw e;
+        }
+    }
 }
