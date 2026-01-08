@@ -105,7 +105,16 @@
           fit
         >
           <el-table-column prop="username" label="用户名" min-width="100" show-overflow-tooltip align="center"/>
-          <el-table-column prop="module" label="操作模块" min-width="100" align="center" />
+          <el-table-column prop="module" label="操作模块" min-width="100" align="center">
+            <template #default="scope">
+              <el-tag :style="getModuleStyle(scope.row.module)" size="small">
+                {{ scope.row.module }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="description" label="操作描述" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="requestPath" label="请求路径" min-width="180" show-overflow-tooltip />
           <el-table-column prop="actionType" label="操作类型" min-width="100" align="center">
             <template #default="scope">
               <el-tag :style="getActionTypeStyle(scope.row.actionType)" size="small">
@@ -113,8 +122,6 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="description" label="操作描述" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="requestPath" label="请求路径" min-width="180" show-overflow-tooltip />
           <el-table-column prop="result" label="执行结果" width="100" align="center">
             <template #default="scope">
               <el-tag :type="scope.row.result === 'SUCCESS' ? 'success' : 'danger'" size="small">
@@ -173,7 +180,11 @@
         <el-descriptions :column="2" border>
           <el-descriptions-item label="用户名">{{ currentLog.username }}</el-descriptions-item>
           <el-descriptions-item label="用户ID">{{ currentLog.userId || '未知' }}</el-descriptions-item>
-          <el-descriptions-item label="操作模块">{{ currentLog.module }}</el-descriptions-item>
+          <el-descriptions-item label="操作模块">
+            <el-tag :style="getModuleStyle(currentLog.module)" size="small">
+              {{ currentLog.module }}
+            </el-tag>
+          </el-descriptions-item>
           <el-descriptions-item label="操作类型">
             <el-tag :style="getActionTypeStyle(currentLog.actionType)" size="small">
               {{ currentLog.actionType }}
@@ -336,7 +347,21 @@ const handlePageChange = (page) => {
   loadLogs()
 }
 
-const actionTypeColors = ['#409EFF','#67C23A','#E6A23C','#F56C6C','#909399','#7D52DA','#00B8D9','#36B37E','#FF9F43','#FF4D4F','#5C6BC0','#26A69A']
+const actionTypeColorMap = {
+  '创建': '#22C55E',
+  '更新': '#FACC15',
+  '删除': '#3B82F6',
+  '查询': '#60A5FA',
+  '用户登录': '#10B981',
+  '登出': '#38BDF8',
+  '禁用用户': '#F59E0B',
+  '启用用户': '#34D399',
+  'Workflow执行': '#0EA5E9',
+  '导入': '#14B8A6',
+  '导出': '#FDE047',
+  '审核': '#FFD166',
+  '配置变更': '#6366F1'
+}
 const hexToRgb = (hex) => {
   const h = hex.replace('#','')
   const bigint = parseInt(h,16)
@@ -345,16 +370,8 @@ const hexToRgb = (hex) => {
   const b = bigint & 255
   return { r, g, b }
 }
-const hashString = (s) => {
-  let h = 0
-  for (let i = 0; i < s.length; i++) {
-    h = (h * 31 + s.charCodeAt(i)) >>> 0
-  }
-  return h
-}
 const getActionTypeStyle = (actionType) => {
-  const idx = hashString(actionType || '') % actionTypeColors.length
-  const bg = actionTypeColors[idx]
+  const bg = actionTypeColorMap[actionType] || '#3B82F6'
   const { r, g, b } = hexToRgb(bg)
   const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
   const text = lum > 0.7 ? '#303133' : '#fff'
@@ -370,6 +387,27 @@ const getMethodTag = (method) => {
     'PATCH': 'warning'
   }
   return tagMap[method] || ''
+}
+
+const moduleColorMap = {
+  '用户管理': '#3B82F6',
+  'AI应用管理': '#22C55E',
+  'AI应用': '#60A5FA',
+  '智能问答': '#10B981',
+  '对话管理': '#0EA5E9',
+  '数据源管理': '#FACC15',
+  '知识库管理': '#34D399',
+  '文档管理': '#38BDF8',
+  '系统配置': '#F59E0B',
+  '模型管理': '#6366F1',
+  '认证': '#2DD4BF'
+}
+const getModuleStyle = (module) => {
+  const bg = moduleColorMap[module] || '#22C55E'
+  const { r, g, b } = hexToRgb(bg)
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  const text = lum > 0.7 ? '#303133' : '#fff'
+  return { backgroundColor: bg, borderColor: bg, color: text }
 }
 
 const getExecutionTimeClass = (time) => {
