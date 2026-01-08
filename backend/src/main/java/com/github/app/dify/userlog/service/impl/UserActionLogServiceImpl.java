@@ -1,10 +1,7 @@
 package com.github.app.dify.userlog.service.impl;
-
-import com.github.app.dify.common.exception.NotFoundException;
 import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.userlog.document.UserActionLogDocument;
 import com.github.app.dify.userlog.domain.UserActionLog;
-import com.github.app.dify.userlog.repository.UserActionLogRepository;
 import com.github.app.dify.userlog.req.UserActionLogQueryReq;
 import com.github.app.dify.userlog.resp.UserActionLogResp;
 import com.github.app.dify.userlog.service.ElasticsearchLogService;
@@ -27,9 +24,6 @@ import java.util.stream.Collectors;
 public class UserActionLogServiceImpl implements UserActionLogService {
 
     private static final Logger logger = LoggerFactory.getLogger(UserActionLogServiceImpl.class);
-
-    @Autowired
-    private UserActionLogRepository userActionLogRepository;
 
     @Autowired
     private ElasticsearchLogService elasticsearchLogService;
