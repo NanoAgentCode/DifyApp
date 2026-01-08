@@ -47,6 +47,12 @@ spring:
     elasticsearch:
       repositories:
         enabled: false
+  
+  # 禁用Elasticsearch健康检查（避免与客户端版本冲突）
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.actuate.autoconfigure.data.elasticsearch.ElasticsearchReactiveHealthContributorAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.data.elasticsearch.ElasticsearchHealthContributorAutoConfiguration
     redis:
       database: 0
       timeout: 3000

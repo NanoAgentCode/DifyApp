@@ -11,6 +11,7 @@ import com.github.app.dify.chat.req.UpdateAiAppReq;
 import com.github.app.dify.chat.resp.AiAppResp;
 import com.github.app.dify.chat.resp.DifyResponse;
 import com.github.app.dify.chat.service.AiAppService;
+import com.github.app.dify.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +43,7 @@ public class AiAppController extends BaseController {
     /**
      * 创建AI应用
      */
+    @UserAction(module = "AI应用管理", actionType = "创建应用", description = "创建AI应用")
     @Operation(summary = "创建AI应用")
     @PostMapping
     public ResponseEntity<AiAppResp> createAiApp(@Validated @RequestBody CreateAiAppReq req) {
@@ -54,6 +56,7 @@ public class AiAppController extends BaseController {
     /**
      * 更新AI应用
      */
+    @UserAction(module = "AI应用管理", actionType = "更新应用", description = "更新AI应用配置")
     @Operation(summary = "更新AI应用")
     @PutMapping("/{id}")
     public ResponseEntity<AiAppResp> updateAiApp(@PathVariable Long id, 
@@ -81,6 +84,7 @@ public class AiAppController extends BaseController {
     /**
      * 删除AI应用
      */
+    @UserAction(module = "AI应用管理", actionType = "删除应用", description = "删除AI应用")
     @Operation(summary = "删除AI应用")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteAiApp(@PathVariable Long id) {

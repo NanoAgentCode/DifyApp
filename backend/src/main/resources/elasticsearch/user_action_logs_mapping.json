@@ -1,0 +1,69 @@
+{
+  "mappings": {
+    "properties": {
+      "id": {
+        "type": "keyword"
+      },
+      "userId": {
+        "type": "long"
+      },
+      "username": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "module": {
+        "type": "keyword"
+      },
+      "actionType": {
+        "type": "keyword"
+      },
+      "description": {
+        "type": "text"
+      },
+      "method": {
+        "type": "keyword"
+      },
+      "requestPath": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword"
+          }
+        }
+      },
+      "requestParams": {
+        "type": "text"
+      },
+      "result": {
+        "type": "keyword"
+      },
+      "errorMsg": {
+        "type": "text"
+      },
+      "ipAddress": {
+        "type": "ip"
+      },
+      "userAgent": {
+        "type": "text"
+      },
+      "executionTime": {
+        "type": "long"
+      },
+      "createTime": {
+        "type": "date",
+        "format": "yyyy-MM-dd'T'HH:mm:ss"
+      }
+    }
+  },
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1,
+    "index": {
+      "max_result_window": 10000
+    }
+  }
+}

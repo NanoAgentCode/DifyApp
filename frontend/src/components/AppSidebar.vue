@@ -45,11 +45,11 @@
             <span>高级功能</span>
           </el-menu-item>
         </el-tooltip>
-        <!-- 系统管理 -->
-        <el-tooltip v-if="isAdmin" content="LLM管理" placement="right" :show-after="200">
+        <!-- 组件管理 -->
+        <el-tooltip v-if="isAdmin" content="组件管理" placement="right" :show-after="200">
           <el-menu-item index="/admin/models">
             <el-icon><Setting /></el-icon>
-            <span>LLM管理</span>
+            <span>组件管理</span>
           </el-menu-item>
         </el-tooltip>
         <!-- 用户管理 -->
@@ -71,6 +71,12 @@
             <span>数据统计</span>
           </el-menu-item>
         </el-tooltip>
+        <el-tooltip v-if="isAdmin" content="行为日志" placement="right" :show-after="200">
+          <el-menu-item index="/admin/user-action-logs">
+            <el-icon><Document /></el-icon>
+            <span>行为日志</span>
+          </el-menu-item>
+        </el-tooltip>
       </template>
     </el-menu>
   </el-aside>
@@ -85,7 +91,8 @@ import {
   Search,
   Setting,
   User,
-  Tools
+  Tools,
+  Document
 } from '@element-plus/icons-vue'
 
 const props = defineProps({

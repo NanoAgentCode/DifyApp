@@ -108,19 +108,7 @@ const routes = [
                 path: 'models',
                 name: 'ModelManagement',
                 component: () => import('@/views/admin/ModelManagement.vue'),
-                meta: {title: '大模型管理', requiresAuth: true, requiresAdmin: true}
-            },
-            {
-                path: 'vector-databases',
-                name: 'VectorDatabaseManagement',
-                component: () => import('@/views/admin/VectorDatabaseManagement.vue'),
-                meta: {title: '向量数据库', requiresAuth: true, requiresAdmin: true}
-            },
-            {
-                path: 'data-sources',
-                name: 'DataSourceManagement',
-                component: () => import('@/views/admin/DataSourceManagement.vue'),
-                meta: {title: '数据源管理', requiresAuth: true, requiresAdmin: true}
+                meta: {title: '组件管理', requiresAuth: true, requiresAdmin: true}
             },
             {
                 path: 'text2sql',
@@ -145,6 +133,12 @@ const routes = [
                 name: 'Statistics',
                 component: () => import('@/views/admin/Statistics.vue'),
                 meta: {title: '数据统计', requiresAuth: true, requiresAdmin: true}
+            },
+            {
+                path: 'user-action-logs',
+                name: 'UserActionLog',
+                component: () => import('@/views/admin/UserActionLog.vue'),
+                meta: {title: '用户行为日志', requiresAuth: true, requiresAdmin: true}
             },
             {
                 path: 'document-reader',
@@ -446,4 +440,3 @@ router.beforeEach(async (to, from, next) => {
 })
 
 export default router
-

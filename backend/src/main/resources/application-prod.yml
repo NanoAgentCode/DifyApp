@@ -45,3 +45,11 @@ minio:
 mcp:
   browser-search:
     searxng-base-url: http://localhost:10086  # SearX-NG服务地址
+
+# Elasticsearch配置（需要根据环境修改）
+elasticsearch:
+  enabled: false  # 是否启用Elasticsearch，设置为true启用（需要先安装Elasticsearch）
+  host: localhost
+  port: 9200
+  username:  # 可选，如果Elasticsearch设置了用户名
+  password:  # 可选，如果Elasticsearch设置了密码

@@ -1,12 +1,15 @@
 package com.github.app.dify.system.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.github.app.dify.system.service.SystemConfigService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
@@ -87,8 +90,14 @@ public class DifyConfig {
     }
     
     @Bean
+    @Primary
     public ObjectMapper objectMapper() {
-        return new ObjectMapper();
+        ObjectMapper objectMapper = new ObjectMapper();
+        // 注册Java 8日期时间模块
+        objectMapper.registerModule(new JavaTimeModule());
+        // 禁用将日期写为时间戳
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        return objectMapper;
     }
     
     public String getDefaultBaseUrl() {

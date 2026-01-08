@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>LLM管理</span>
+          <span>组件管理</span>
         </div>
       </template>
 
@@ -269,6 +269,11 @@
         <!-- 向量数据库 -->
         <el-tab-pane label="向量数据库" name="vectorDatabase">
           <VectorDatabaseManagement />
+        </el-tab-pane>
+
+        <!-- 数据源管理 -->
+        <el-tab-pane label="数据源管理" name="dataSource">
+          <DataSourceManagement />
         </el-tab-pane>
 
         <!-- 提示词管理 -->
@@ -625,6 +630,7 @@ import {
 import { getModelConfig, updateModelConfig, testModelConnection } from '@/api/model'
 import { getModelStyle } from '@/utils/modelColor'
 import VectorDatabaseManagement from './VectorDatabaseManagement.vue'
+import DataSourceManagement from './DataSourceManagement.vue'
 import {
   getPrompts,
   createPrompt,

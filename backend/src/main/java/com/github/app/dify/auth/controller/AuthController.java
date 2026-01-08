@@ -13,6 +13,7 @@ import com.github.app.dify.permission.resp.UserDataSourceVisibilityResp;
 import com.github.app.dify.auth.service.AuthService;
 import com.github.app.dify.auth.util.JwtUtil;
 import com.github.app.dify.common.resp.PageResponse;
+import com.github.app.dify.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.slf4j.Logger;
@@ -51,6 +52,7 @@ public class AuthController {
     /**
      * 用户注册
      */
+    @UserAction(module = "用户管理", actionType = "用户注册", description = "用户注册")
     @Operation(summary = "用户注册")
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(@Validated @RequestBody RegisterRequest request) {
@@ -66,6 +68,7 @@ public class AuthController {
     /**
      * 用户登录
      */
+    @UserAction(module = "用户管理", actionType = "用户登录", description = "用户登录", logParams = false)
     @Operation(summary = "用户登录")
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Validated @RequestBody LoginRequest request) {
@@ -81,6 +84,7 @@ public class AuthController {
     /**
      * 管理员审核用户（激活用户）
      */
+    @UserAction(module = "用户管理", actionType = "审核用户", description = "管理员审核并激活用户")
     @Operation(summary = "管理员审核用户（激活用户）")
     @PostMapping("/approve/{userId}")
     public ResponseEntity<Void> approveUser(@PathVariable Long userId) {
@@ -96,6 +100,7 @@ public class AuthController {
     /**
      * 管理员禁用用户
      */
+    @UserAction(module = "用户管理", actionType = "禁用用户", description = "管理员禁用用户")
     @Operation(summary = "管理员禁用用户")
     @PostMapping("/disable/{userId}")
     public ResponseEntity<Void> disableUser(@PathVariable Long userId) {
@@ -139,6 +144,7 @@ public class AuthController {
     /**
      * 修改密码
      */
+    @UserAction(module = "用户管理", actionType = "修改密码", description = "用户修改密码", logParams = false)
     @Operation(summary = "修改密码")
     @PostMapping("/change-password")
     public ResponseEntity<Void> changePassword(
@@ -176,6 +182,7 @@ public class AuthController {
     /**
      * 管理员重置用户密码
      */
+    @UserAction(module = "用户管理", actionType = "重置密码", description = "管理员重置用户密码", logParams = false)
     @Operation(summary = "管理员重置用户密码")
     @PostMapping("/reset-password/{userId}")
     public ResponseEntity<Void> resetPassword(
@@ -232,6 +239,7 @@ public class AuthController {
     /**
      * 更新用户角色
      */
+    @UserAction(module = "用户管理", actionType = "更新用户角色", description = "管理员更新用户角色")
     @Operation(summary = "更新用户角色")
     @PutMapping("/users/{userId}/role")
     public ResponseEntity<Void> updateUserRole(
