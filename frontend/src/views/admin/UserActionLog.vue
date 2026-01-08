@@ -107,8 +107,8 @@
           stripe
           fit
         >
-          <el-table-column prop="username" label="用户名" min-width="120" show-overflow-tooltip />
-          <el-table-column prop="module" label="操作模块" min-width="120" align="center" />
+          <el-table-column prop="username" label="用户名" min-width="100" show-overflow-tooltip align="center"/>
+          <el-table-column prop="module" label="操作模块" min-width="100" align="center" />
           <el-table-column prop="actionType" label="操作类型" min-width="100" align="center">
             <template #default="scope">
               <el-tag :type="getActionTypeTag(scope.row.actionType)" size="small">
@@ -117,7 +117,7 @@
             </template>
           </el-table-column>
           <el-table-column prop="description" label="操作描述" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="requestPath" label="请求路径" min-width="220" show-overflow-tooltip />
+          <el-table-column prop="requestPath" label="请求路径" min-width="180" show-overflow-tooltip />
           <el-table-column prop="result" label="执行结果" width="100" align="center">
             <template #default="scope">
               <el-tag :type="scope.row.result === 'SUCCESS' ? 'success' : 'danger'" size="small">
@@ -132,12 +132,12 @@
               </span>
             </template>
           </el-table-column>
-          <el-table-column prop="createTime" label="操作时间" width="180" align="center">
+          <el-table-column prop="createTime" label="操作时间" width="220" align="center">
             <template #default="scope">
               {{ formatDate(scope.row.createTime) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="100" align="center" fixed="right">
+          <el-table-column label="操作" width="150" align="center" fixed="right">
             <template #default="scope">
               <el-button
                 type="primary"
