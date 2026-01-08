@@ -216,7 +216,6 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
             // 先尝试使用dense_vector类型（Elasticsearch 7.3+支持）
             // 如果失败，将使用float数组作为后备方案
             String mappingJson = null;
-            boolean useDenseVector = true;
             
             try {
                 // 尝试使用dense_vector类型
@@ -268,7 +267,6 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
                                          errorMsg.contains("Unknown type") ||
                                          errorMsg.contains("dims"))) {
                     logger.warn("Elasticsearch不支持dense_vector类型，尝试使用float数组作为后备方案 - 索引名: {}, 错误: {}", indexName, errorMsg);
-                    useDenseVector = false;
                 } else {
                     // 其他错误，直接抛出
                     throw e;

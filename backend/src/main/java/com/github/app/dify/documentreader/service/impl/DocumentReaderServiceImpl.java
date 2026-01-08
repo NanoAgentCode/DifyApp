@@ -19,7 +19,6 @@ import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.output.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -42,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.github.app.dify.knowledgebase.service.DocumentParserService;
@@ -70,7 +68,6 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     
     // 常量定义
     private static final long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
-    private static final int MAX_GUIDE_WORDS = 1500; // 导读字数上限：800-1500字
     private static final int MAX_TEXT_LENGTH_FOR_GUIDE = 8000;
     private static final int MAX_TEXT_LENGTH_FOR_MINDMAP = 12000;
     private static final int MAX_TEXT_LENGTH_FOR_MINDMAP_FINAL = 15000;
@@ -555,129 +552,6 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             truncatedText
         );
     }
-    
-    /**
-     * 安全截断文本到指定字数（中文字符计数），确保在完整部分之后截断
-     * @param text 原始文本
-     * @param maxWords 最大字数
-     * @return 截断后的文本
-     */
-    private String truncateToMaxWordsSafely(String text, int maxWords) {
-        if (text == null || text.isEmpty()) {
-            return text;
-        }
-        
-        // 计算中文字符数（中文字符、中文标点等）
-        int charCount = 0;
-        int lastValidIndex = 0;
-        
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            // 中文字符、中文标点、全角字符都算作1个字
-            if (c >= 0x4E00 && c <= 0x9FFF || // 中文字符
-                c >= 0x3000 && c <= 0x303F || // 中文标点
-                c >= 0xFF00 && c <= 0xFFEF) {  // 全角字符
-                charCount++;
-            } else if (c > 0x007F) {
-                // 其他非ASCII字符也算作1个字
-                charCount++;
-            } else {
-                // ASCII字符（英文、数字、标点）按0.5个字计算
-                charCount += 0.5;
-            }
-            
-            if (charCount <= maxWords) {
-                lastValidIndex = i + 1;
-            } else {
-                break;
-            }
-        }
-        
-        // 如果内容未超过限制，直接返回
-        if (lastValidIndex >= text.length()) {
-            return text;
-        }
-        
-        // 尝试在完整部分之后截断（优先在标题、段落、列表项之后）
-        int bestCutPoint = lastValidIndex;
-        
-        // 1. 优先在标题之后截断（查找最后一个 # 开头的行）
-        int lastHeadingEnd = -1;
-        for (int i = lastValidIndex - 1; i >= Math.max(0, lastValidIndex - 200); i--) {
-            if (text.charAt(i) == '\n') {
-                // 检查是否是标题行
-                int lineStart = i + 1;
-                if (lineStart < text.length() && text.charAt(lineStart) == '#') {
-                    // 找到标题行，查找标题结束位置（下一个换行或文本结束）
-                    for (int j = lineStart + 1; j < text.length() && j < lastValidIndex + 100; j++) {
-                        if (text.charAt(j) == '\n') {
-                            lastHeadingEnd = j;
-                            break;
-                        }
-                    }
-                    if (lastHeadingEnd == -1 && lineStart + 50 < text.length()) {
-                        lastHeadingEnd = Math.min(lineStart + 50, text.length());
-                    }
-                    break;
-                }
-            }
-        }
-        
-        // 2. 其次在列表项之后截断
-        if (lastHeadingEnd == -1) {
-            for (int i = lastValidIndex - 1; i >= Math.max(0, lastValidIndex - 100); i--) {
-                if (text.charAt(i) == '\n' && i + 1 < text.length()) {
-                    char nextChar = text.charAt(i + 1);
-                    if (nextChar == '-' || nextChar == '*' || nextChar == '+' || 
-                        (nextChar >= '0' && nextChar <= '9')) {
-                        // 找到列表项结束，查找下一个换行
-                        for (int j = i + 1; j < text.length() && j < lastValidIndex + 50; j++) {
-                            if (text.charAt(j) == '\n') {
-                                lastHeadingEnd = j;
-                                break;
-                            }
-                        }
-                        if (lastHeadingEnd == -1) {
-                            lastHeadingEnd = Math.min(i + 100, text.length());
-                        }
-                        break;
-                    }
-                }
-            }
-        }
-        
-        // 3. 再次在段落结束（句号、问号、感叹号）之后截断
-        if (lastHeadingEnd == -1) {
-            for (int i = lastValidIndex - 1; i >= Math.max(0, lastValidIndex - 50); i--) {
-                char c = text.charAt(i);
-                if (c == '。' || c == '！' || c == '？' || 
-                    c == '.' || c == '!' || c == '?') {
-                    lastHeadingEnd = i + 1;
-                    break;
-                }
-            }
-        }
-        
-        // 4. 如果都没找到，在换行处截断
-        if (lastHeadingEnd == -1) {
-            for (int i = lastValidIndex - 1; i >= Math.max(0, lastValidIndex - 20); i--) {
-                if (text.charAt(i) == '\n') {
-                    lastHeadingEnd = i + 1;
-                    break;
-                }
-            }
-        }
-        
-        // 使用最佳截断点
-        if (lastHeadingEnd > 0 && lastHeadingEnd <= lastValidIndex + 50) {
-            bestCutPoint = lastHeadingEnd;
-        } else {
-            bestCutPoint = lastValidIndex;
-        }
-        
-        return text.substring(0, bestCutPoint).trim() + "\n\n---\n\n> **提示**：导读内容已截断至1500字以内，如需查看完整内容，请阅读原文档。";
-    }
-    
     /**
      * 翻译文档（懒加载模式：只翻译第一段）
      */
@@ -1429,41 +1303,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             logger.error("单段翻译失败，目标语言: {}", targetLanguageName, e);
             throw new RuntimeException("翻译失败: " + e.getMessage(), e);
         }
-    }
-    
-    /**
-     * 查找最佳的分段截断点，尽量在段落或句子边界处截断
-     */
-    private int findBestBreakPoint(String text, int start, int end) {
-        // 优先在段落边界（双换行）处截断
-        int lastDoubleNewline = text.lastIndexOf("\n\n", end - 1);
-        if (lastDoubleNewline > start && lastDoubleNewline > end - 2000) {
-            return lastDoubleNewline + 2;
-        }
-        
-        // 其次在单换行处截断
-        int lastNewline = text.lastIndexOf("\n", end - 1);
-        if (lastNewline > start && lastNewline > end - 1000) {
-            return lastNewline + 1;
-        }
-        
-        // 再次在句号、问号、感叹号处截断
-        int lastSentenceEnd = -1;
-        for (int i = end - 1; i >= start && i >= end - 500; i--) {
-            char c = text.charAt(i);
-            if (c == '。' || c == '.' || c == '！' || c == '!' || c == '？' || c == '?') {
-                lastSentenceEnd = i + 1;
-                break;
-            }
-        }
-        if (lastSentenceEnd > start) {
-            return lastSentenceEnd;
-        }
-        
-        // 如果找不到合适的截断点，返回原结束位置
-        return end;
-    }
-    
+    } 
     /**
      * 去除文档的页眉页脚
      * 页眉页脚通常出现在文档的开头和结尾，包含页码、标题、日期等信息

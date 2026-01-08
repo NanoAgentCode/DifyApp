@@ -14,8 +14,6 @@ import java.time.Duration;
  */
 public class DocumentReaderWebClientUtil {
     
-    // 默认超时时间
-    private static final int DEFAULT_TIMEOUT_SECONDS = 60;
     private static final int DEFAULT_CONNECT_TIMEOUT_MS = 30000;
     
     // 默认缓冲区大小（10MB）

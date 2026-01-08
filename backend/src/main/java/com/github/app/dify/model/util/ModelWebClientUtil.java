@@ -15,8 +15,6 @@ import static io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS;
  */
 public class ModelWebClientUtil {
     
-    // 默认超时时间
-    private static final int DEFAULT_TIMEOUT_SECONDS = 60;
     private static final int DEFAULT_CONNECT_TIMEOUT_MS = 30000;
     
     // 默认缓冲区大小（10MB）
