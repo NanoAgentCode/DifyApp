@@ -130,22 +130,14 @@
                     >
                       编辑
                     </el-button>
-                    <el-dropdown @command="(cmd) => handleActionCommand(cmd, row)" trigger="click">
-                      <el-button size="small" :icon="More">
-                        更多<el-icon class="el-icon--right"><ArrowDown /></el-icon>
-                      </el-button>
-                      <template #dropdown>
-                        <el-dropdown-menu>
-                          <el-dropdown-item
-                            command="delete"
-                            :disabled="row.isDefault"
-                            :icon="Delete"
-                          >
-                            删除
-                          </el-dropdown-item>
-                        </el-dropdown-menu>
-                      </template>
-                    </el-dropdown>
+                     <el-button
+                      size="small"
+                      type="danger"
+                      @click="handleDeleteModel(row)"
+                      :icon="Delete"
+                    >
+                      编辑
+                    </el-button>
                   </div>
                 </template>
               </el-table-column>
@@ -243,22 +235,14 @@
                     >
                       编辑
                     </el-button>
-                    <el-dropdown @command="(cmd) => handleEmbeddingActionCommand(cmd, row)" trigger="click">
-                      <el-button size="small" :icon="More">
-                        更多<el-icon class="el-icon--right"><ArrowDown /></el-icon>
-                      </el-button>
-                      <template #dropdown>
-                        <el-dropdown-menu>
-                          <el-dropdown-item
-                            command="delete"
-                            :disabled="row.isDefault"
-                            :icon="Delete"
-                          >
-                            删除
-                          </el-dropdown-item>
-                        </el-dropdown-menu>
-                      </template>
-                    </el-dropdown>
+                    <el-button
+                    size="small"
+                    type="danger"
+                    @click="handleDeleteEmbeddingModel(row)"
+                    :icon="Delete"
+                    >
+                      删除
+                    </el-button>
                   </div>
                 </template>
               </el-table-column>
@@ -1141,13 +1125,6 @@ const handleToggleEnabled = async (row, newEnabled) => {
 const handleActionCommand = (command, row) => {
   if (command === 'delete') {
     handleDeleteModel(row)
-  }
-}
-
-// 处理操作命令（向量化模型）
-const handleEmbeddingActionCommand = (command, row) => {
-  if (command === 'delete') {
-    handleDeleteEmbeddingModel(row)
   }
 }
 

@@ -28,7 +28,7 @@
           <el-table-column prop="id" label="ID" width="80" align="center" />
           <el-table-column prop="name" label="数据源名称" min-width="200" />
           <el-table-column prop="description" label="描述" min-width="250" show-overflow-tooltip />
-          <el-table-column prop="type" label="数据库类型" width="120" align="center">
+          <el-table-column prop="type" label="数据库类型" width="150" align="center">
             <template #default="{ row }">
               <el-tag :type="getTypeTag(row.type)">{{ getTypeName(row.type) }}</el-tag>
             </template>

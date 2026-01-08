@@ -49,8 +49,8 @@
         border
         style="width: 100%; margin-top: 20px"
       >
-        <el-table-column prop="configKey" label="配置键" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="configValue" label="配置值" min-width="200" show-overflow-tooltip>
+        <el-table-column prop="configKey" label="配置键" min-width="180" show-overflow-tooltip align="center"/>
+        <el-table-column prop="configValue" label="配置值" min-width="100" show-overflow-tooltip align="center">
           <template #default="{ row }">
             <span v-if="row.configValue && row.configValue.length > 50">
               {{ row.configValue.substring(0, 50) }}...
@@ -58,13 +58,13 @@
             <span v-else>{{ row.configValue || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="configGroup" label="配置分组" width="120" align="center">
+        <el-table-column prop="configGroup" label="配置分组" width="140" align="center">
           <template #default="{ row }">
             <el-tag v-if="row.configGroup" size="small">{{ row.configGroup }}</el-tag>
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="configType" label="配置类型" width="100" align="center">
+        <el-table-column prop="configType" label="配置类型" width="140" align="center">
           <template #default="{ row }">
             <el-tag v-if="row.configType" size="small" type="info">{{ row.configType }}</el-tag>
             <span v-else>-</span>

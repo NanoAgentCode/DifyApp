@@ -76,7 +76,7 @@
           </el-table-column>
           <el-table-column label="操作" width="250" align="center" fixed="right">
             <template #default="{ row }">
-              <el-button size="small" @click="handleTestConnection(row.id)">测试连接</el-button>
+              <el-button size="small" type="success" @click="handleTestConnection(row.id)">测试</el-button>
               <el-button size="small" type="primary" @click="handleEdit(row)">编辑</el-button>
               <el-button size="small" type="danger" @click="handleDelete(row.id)">删除</el-button>
             </template>
