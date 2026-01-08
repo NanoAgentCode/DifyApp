@@ -214,9 +214,6 @@
       </template>
     </el-dialog>
       </el-tab-pane>
-      <el-tab-pane label="数据源管理" name="dataSource">
-        <DataSourceManagement />
-      </el-tab-pane>
       </el-tabs>
   
   </div>
@@ -228,7 +225,6 @@ import { ElMessage } from 'element-plus'
 import { getDataSourceList } from '@/api/dataSource'
 import { getTableList, executeText2SqlQuery, getTableSchema } from '@/api/text2sql'
 import { getModelConfig } from '@/api/model'
-import DataSourceManagement from './DataSourceManagement.vue'
 import AIDrawIO from './AIDrawIO.vue'
 
 const activeTab = ref('aiDrawio')

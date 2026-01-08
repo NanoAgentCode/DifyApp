@@ -1,6 +1,5 @@
 <template>
   <div class="data-source-management">
-    <el-card>
       <!-- 操作栏 -->
       <div class="action-bar">
         <div class="search-filters">
@@ -84,7 +83,6 @@
           </el-table-column>
         </el-table>
       </div>
-    </el-card>
 
     <!-- 创建/编辑对话框 -->
     <el-dialog

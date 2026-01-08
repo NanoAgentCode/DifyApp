@@ -55,7 +55,6 @@ public class UserActionAspect {
         long startTime = System.currentTimeMillis();
         UserActionLog log = new UserActionLog();
         Object result = null;
-        Throwable exception = null;
 
         try {
             // 获取Request对象
@@ -87,14 +86,11 @@ public class UserActionAspect {
 
             // 执行目标方法
             result = joinPoint.proceed();
-
             // 记录成功信息
             log.setResult("SUCCESS");
-
             return result;
 
         } catch (Throwable e) {
-            exception = e;
             // 记录失败信息
             log.setResult("FAILURE");
             log.setErrorMsg(e.getMessage() != null ? 
