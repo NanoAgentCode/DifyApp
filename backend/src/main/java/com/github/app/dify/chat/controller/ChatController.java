@@ -8,6 +8,7 @@ import com.github.app.dify.common.controller.BaseController;
 import com.github.app.dify.common.util.RequestHelper;
 import com.github.app.dify.common.util.SSEResponseUtil;
 import com.github.app.dify.knowledgebase.repository.QAModelRepository;
+import com.github.app.dify.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +48,7 @@ public class ChatController extends BaseController {
      * 1. JSON格式（application/json）：传统方式，不支持附件
      * 2. Multipart格式（multipart/form-data）：支持附件上传
      */
+    @UserAction(module = "智能问答", actionType = "问答", description = "用户发起智能问答")
     @Operation(summary = "智能问答")
     @PostMapping(consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE})
     public ResponseEntity<ChatResponse> chat(
@@ -74,6 +76,7 @@ public class ChatController extends BaseController {
      * 1. JSON格式（application/json）：传统方式，不支持附件
      * 2. Multipart格式（multipart/form-data）：支持附件上传
      */
+    @UserAction(module = "智能问答", actionType = "流式问答", description = "用户发起流式智能问答")
     @Operation(summary = "智能问答（流式）")
     @PostMapping(value = "/stream", 
                  produces = MediaType.TEXT_EVENT_STREAM_VALUE,

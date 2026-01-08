@@ -150,6 +150,7 @@ public class AiAppController extends BaseController {
     /**
      * 调用Chat Flow（非流式）
      */
+    @UserAction(module = "AI应用", actionType = "Chat Flow问答", description = "调用AI应用的Chat Flow")
     @Operation(summary = "调用Chat Flow（非流式）")
     @PostMapping("/{id}/chat")
     public Mono<ResponseEntity<DifyResponse>> chat(@PathVariable Long id, 
@@ -165,6 +166,7 @@ public class AiAppController extends BaseController {
     /**
      * 调用Chat Flow（流式）
      */
+    @UserAction(module = "AI应用", actionType = "流式Chat Flow问答", description = "调用AI应用的流式Chat Flow")
     @Operation(summary = "调用Chat Flow（流式）")
     @PostMapping(value = "/{id}/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<DifyResponse>> chatStream(@PathVariable Long id, 
@@ -215,6 +217,7 @@ public class AiAppController extends BaseController {
     /**
      * 调用Workflow（非流式）
      */
+    @UserAction(module = "AI应用", actionType = "Workflow执行", description = "调用AI应用的Workflow")
     @Operation(summary = "调用Workflow（非流式）")
     @PostMapping("/{id}/workflow")
     public Mono<ResponseEntity<DifyResponse>> workflow(@PathVariable Long id, 
@@ -233,6 +236,7 @@ public class AiAppController extends BaseController {
     /**
      * 调用Workflow（流式）
      */
+    @UserAction(module = "AI应用", actionType = "流式Workflow执行", description = "调用AI应用的流式Workflow")
     @Operation(summary = "调用Workflow（流式）")
     @PostMapping(value = "/{id}/workflow/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<DifyResponse>> workflowStream(@PathVariable Long id, 
