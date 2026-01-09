@@ -2,7 +2,6 @@ package com.github.app.dify.datasource.util;
 
 import com.github.app.dify.common.util.DateTimeUtil;
 import com.github.app.dify.datasource.domain.DataSource;
-import com.github.app.dify.datasource.domain.TableSchemaCache;
 
 import java.util.Date;
 
@@ -33,27 +32,4 @@ public class DataSourceDateTimeUtil {
     public static void setUpdateTime(DataSource dataSource) {
         dataSource.setUpdateTime(DateTimeUtil.now());
     }
-    
-    /**
-     * 设置表结构缓存的创建时间和更新时间
-     * 适用于新建缓存
-     * 
-     * @param cache 表结构缓存实体
-     */
-    public static void setCreateAndUpdateTime(TableSchemaCache cache) {
-        Date now = DateTimeUtil.now();
-        cache.setCreateTime(now);
-        cache.setUpdateTime(now);
-    }
-    
-    /**
-     * 设置表结构缓存的更新时间
-     * 适用于更新缓存
-     * 
-     * @param cache 表结构缓存实体
-     */
-    public static void setUpdateTime(TableSchemaCache cache) {
-        cache.setUpdateTime(DateTimeUtil.now());
-    }
 }
-

@@ -577,35 +577,6 @@ CREATE INDEX idx_user_data_source_visibility_user_id ON "USER_DATA_SOURCE_VISIBI
 CREATE INDEX idx_user_data_source_visibility_data_source_id ON "USER_DATA_SOURCE_VISIBILITY"(data_source_id);
 
 -- ============================================
--- 13. 创建表结构缓存表 (TABLE_SCHEMA_CACHE)
--- ============================================
-DROP TABLE IF EXISTS "TABLE_SCHEMA_CACHE" CASCADE;
-
-CREATE TABLE "TABLE_SCHEMA_CACHE" (
-    id BIGSERIAL PRIMARY KEY,
-    data_source_id BIGINT NOT NULL,
-    table_name VARCHAR(255) NOT NULL,
-    schema_info TEXT,
-    last_refresh_time TIMESTAMP,
-    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_data_source_table UNIQUE (data_source_id, table_name)
-);
-
-COMMENT ON TABLE "TABLE_SCHEMA_CACHE" IS '表结构缓存表';
-COMMENT ON COLUMN "TABLE_SCHEMA_CACHE".id IS '主键ID';
-COMMENT ON COLUMN "TABLE_SCHEMA_CACHE".data_source_id IS '数据源ID';
-COMMENT ON COLUMN "TABLE_SCHEMA_CACHE".table_name IS '表名';
-COMMENT ON COLUMN "TABLE_SCHEMA_CACHE".schema_info IS '表结构信息（JSON格式）';
-COMMENT ON COLUMN "TABLE_SCHEMA_CACHE".last_refresh_time IS '最后刷新时间';
-COMMENT ON COLUMN "TABLE_SCHEMA_CACHE".create_time IS '创建时间';
-COMMENT ON COLUMN "TABLE_SCHEMA_CACHE".update_time IS '更新时间';
-
--- 创建索引
-CREATE INDEX idx_table_schema_cache_data_source_id ON "TABLE_SCHEMA_CACHE"(data_source_id);
-CREATE INDEX idx_table_schema_cache_table_name ON "TABLE_SCHEMA_CACHE"(table_name);
-
--- ============================================
 -- 第五部分：DrawIO相关表
 -- ============================================
 
@@ -742,4 +713,3 @@ ON CONFLICT (config_key) DO NOTHING;
 -- 该脚本包含：
 -- - 主数据库迁移：知识库ID约束、序列重置等
 -- - pgvector数据库迁移：文档解读向量表user_id字段添加（如果使用pgvector）
-

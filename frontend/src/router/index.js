@@ -111,12 +111,6 @@ const routes = [
                 meta: {title: '组件管理', requiresAuth: true, requiresAdmin: true}
             },
             {
-                path: 'text2sql',
-                name: 'Text2Sql',
-                component: () => import('@/views/admin/Text2Sql.vue'),
-                meta: {title: 'SQL 生成', requiresAuth: true, requiresAdmin: true}
-            },
-            {
                 path: 'system-config',
                 name: 'SystemConfig',
                 component: () => import('@/views/admin/SystemConfig.vue'),

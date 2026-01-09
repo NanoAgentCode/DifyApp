@@ -2,8 +2,6 @@ package com.github.app.dify.datasource.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.datasource.domain.DataSource;
-import com.github.app.dify.datasource.domain.TableSchemaCache;
-import com.github.app.dify.datasource.repository.TableSchemaCacheRepository;
 import com.github.app.dify.datasource.service.DatabaseConnectionService;
 import com.github.app.dify.datasource.service.DatabaseSchemaService;
 import com.github.app.dify.datasource.util.DatabaseDriverManager;
@@ -16,10 +14,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.github.app.dify.datasource.util.DataSourceDateTimeUtil;
-import com.github.app.dify.common.util.DateTimeUtil;
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 /**
  * 数据库表结构服务
  * 负责获取和缓存数据库表结构信息
@@ -31,11 +28,14 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
     
     @Autowired
     private DatabaseConnectionService connectionService;
-    
-    @Autowired
-    private TableSchemaCacheRepository schemaCacheRepository;
-    
+
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private final Map<String, String> schemaCache = new ConcurrentHashMap<>();
+
+    private static String cacheKey(Long dataSourceId, String tableName) {
+        return dataSourceId + "::" + tableName;
+    }
     
     /**
      * 获取数据库表列表
@@ -79,11 +79,10 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
         
         // 如果不强制刷新，先尝试从缓存获取
         if (!forceRefresh) {
-            Optional<TableSchemaCache> cache = schemaCacheRepository.findByDataSourceIdAndTableName(
-                    dataSource.getId(), tableName);
-            if (cache.isPresent()) {
+            String cached = schemaCache.get(cacheKey(dataSource.getId(), tableName));
+            if (cached != null) {
                 logger.debug("从缓存获取表结构 - 数据源ID: {}, 表名: {}", dataSource.getId(), tableName);
-                return cache.get().getSchemaInfo();
+                return cached;
             }
         }
         
@@ -100,10 +99,9 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                 schemaInfo = getJdbcSchema(dataSource, dbType, tableName);
             }
             
-            // 保存到缓存
+            String json = objectMapper.writeValueAsString(schemaInfo);
             saveSchemaToCache(dataSource.getId(), tableName, schemaInfo);
-            
-            return objectMapper.writeValueAsString(schemaInfo);
+            return json;
         } catch (Exception e) {
             logger.error("获取表结构失败 - 数据源ID: {}, 表名: {}", dataSource.getId(), tableName, e);
             throw new RuntimeException("获取表结构失败: " + e.getMessage(), e);
@@ -124,12 +122,13 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
         
         if (tableName != null && !tableName.isEmpty()) {
             // 刷新单个表
-            schemaCacheRepository.deleteByDataSourceIdAndTableName(dataSource.getId(), tableName);
+            schemaCache.remove(cacheKey(dataSource.getId(), tableName));
             getTableSchema(dataSource, tableName, true);
             logger.info("刷新表结构成功 - 数据源ID: {}, 表名: {}", dataSource.getId(), tableName);
         } else {
             // 刷新所有表
-            schemaCacheRepository.deleteByDataSourceId(dataSource.getId());
+            String prefix = dataSource.getId() + "::";
+            schemaCache.keySet().removeIf(key -> key.startsWith(prefix));
             List<String> tables = getTableList(dataSource);
             for (String table : tables) {
                 getTableSchema(dataSource, table, true);
@@ -381,24 +380,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
     @Override
     public void saveSchemaToCache(Long dataSourceId, String tableName, Map<String, Object> schemaInfo) {
         try {
-            Optional<TableSchemaCache> existing = schemaCacheRepository.findByDataSourceIdAndTableName(
-                    dataSourceId, tableName);
-            
-            TableSchemaCache cache;
-            if (existing.isPresent()) {
-                cache = existing.get();
-                DataSourceDateTimeUtil.setUpdateTime(cache);
-            } else {
-                cache = new TableSchemaCache();
-                cache.setDataSourceId(dataSourceId);
-                cache.setTableName(tableName);
-                DataSourceDateTimeUtil.setCreateAndUpdateTime(cache);
-            }
-            
-            cache.setSchemaInfo(objectMapper.writeValueAsString(schemaInfo));
-            cache.setLastRefreshTime(DateTimeUtil.now());
-            
-            schemaCacheRepository.save(cache);
+            schemaCache.put(cacheKey(dataSourceId, tableName), objectMapper.writeValueAsString(schemaInfo));
         } catch (Exception e) {
             logger.error("保存表结构缓存失败 - 数据源ID: {}, 表名: {}", dataSourceId, tableName, e);
         }

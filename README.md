@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-DifyApp 是一个基于 Spring Boot 和 Vue 3 构建的企业级 AI 应用平台，提供完整的 AI 应用生命周期管理、知识库管理、智能问答、Text2SQL、AI 绘图等功能。系统采用前后端分离架构，支持多种向量数据库和 LLM 集成，实现了现代化的 RAG（检索增强生成）架构。
+DifyApp 是一个基于 Spring Boot 和 Vue 3 构建的企业级 AI 应用平台，提供完整的 AI 应用生命周期管理、知识库管理、智能问答、AI 绘图等功能。系统采用前后端分离架构，支持多种向量数据库和 LLM 集成，实现了现代化的 RAG（检索增强生成）架构。
 
 ### 项目特点
 
@@ -59,15 +59,6 @@ DifyApp 是一个基于 Spring Boot 和 Vue 3 构建的企业级 AI 应用平台
   - 应用可见性控制（公开/私有）
   - 应用使用统计和分析
   - 应用模板和快速创建
-
-- **Text2SQL 功能**
-  - 自然语言转 SQL 查询
-  - 支持多种数据库（PostgreSQL、MySQL、Oracle、MongoDB）
-  - 支持复杂查询（聚合、统计、分组等）
-  - 数据源连接和管理
-  - 表结构自动发现和缓存
-  - SQL/MongoDB 查询结果可视化
-  - 查询历史记录
 
 - **AI 绘图功能**
   - 基于 Mermaid 的图表生成
@@ -394,7 +385,6 @@ graph LR
     end
     
     subgraph "服务层"
-        Text2SQL[Text2SQL]
         MCP[MCP协议服务]
         OCR[OCR服务]
         DataSource[数据源管理]
@@ -418,7 +408,6 @@ graph LR
     DocReader --> KB
     DocReader --> System
     
-    System --> Text2SQL
     System --> DataSource
     System --> Model
     System --> Permission
@@ -432,7 +421,6 @@ graph LR
     style KB fill:#9b59b6,stroke:#333,stroke-width:2px,color:#fff
     style App fill:#f39c12,stroke:#333,stroke-width:2px,color:#fff
     style System fill:#1abc9c,stroke:#333,stroke-width:2px,color:#fff
-    style Text2SQL fill:#16a085,stroke:#333,stroke-width:2px,color:#fff
     style MCP fill:#e67e22,stroke:#333,stroke-width:2px,color:#fff
     style OCR fill:#95a5a6,stroke:#333,stroke-width:2px,color:#fff
     style DocReader fill:#8e44ad,stroke:#333,stroke-width:2px,color:#fff
@@ -568,7 +556,6 @@ graph LR
 - 模型管理（LLM 模型配置、测试）
 - 向量数据库配置管理
 - Prompt 模板管理（创建、编辑、删除、使用）
-- Text2SQL 功能（自然语言转 SQL）
 - 用户管理（管理员功能）：
   - 用户列表查询
   - 用户审核（激活、禁用）
@@ -581,7 +568,6 @@ graph LR
 - 模型管理界面（配置、测试）
 - 向量数据库配置界面
 - Prompt 模板管理界面
-- Text2SQL 界面（输入自然语言、显示 SQL、执行查询、查看结果）
 - 用户管理界面（管理员，用户列表、审核、编辑）
 
 ### 7. 文档解读模块 (documentreader)

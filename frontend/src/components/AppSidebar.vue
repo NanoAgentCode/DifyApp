@@ -38,13 +38,6 @@
             <span>智能问答</span>
           </el-menu-item>
         </el-tooltip>
-        <!-- 工具 -->
-        <el-tooltip v-if="isAdmin" content="高级功能" placement="right" :show-after="200">
-          <el-menu-item index="/admin/text2sql">
-            <el-icon><Search /></el-icon>
-            <span>高级功能</span>
-          </el-menu-item>
-        </el-tooltip>
         <!-- 组件管理 -->
         <el-tooltip v-if="isAdmin" content="组件管理" placement="right" :show-after="200">
           <el-menu-item index="/admin/models">
@@ -88,7 +81,6 @@ import { useRoute } from 'vue-router'
 import { 
   ChatLineRound, 
   DataAnalysis, 
-  Search,
   Setting,
   User,
   Tools,
