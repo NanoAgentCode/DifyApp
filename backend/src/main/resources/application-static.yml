@@ -26,9 +26,8 @@ spring:
       max-lifetime: 1800000
       connection-test-query: SELECT 1
       leak-detection-threshold: 60000
-      pool-name: DifyAppHikariPool
+      pool-name: DeifyAppHikariPool
       register-mbeans: true
-  
   jpa:
     open-in-view: false
     properties:
@@ -42,17 +41,16 @@ spring:
         jdbc.batch_size: 50
         default_batch_fetch_size: 20
         generate_statistics: false
-  
-  data:
+---
+management:
+  health:
     elasticsearch:
-      repositories:
-        enabled: false
-  
-  # 禁用Elasticsearch健康检查（避免与客户端版本冲突）
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.actuate.autoconfigure.data.elasticsearch.ElasticsearchReactiveHealthContributorAutoConfiguration
-      - org.springframework.boot.actuate.autoconfigure.data.elasticsearch.ElasticsearchHealthContributorAutoConfiguration
+      enabled: false
+    neo4j:
+      enabled: false
+---
+spring:
+  data:
     redis:
       database: 0
       timeout: 3000
@@ -100,8 +98,8 @@ rag:
 # MCP配置
 mcp:
   browser-search:
-    # 商业搜索API（按优先级自动选择）
-    tavily-api-key: "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"        # Tavily API密钥（推荐）
+    # 商业搜索API（按优先级自动选择）  # Tavily API密钥（推荐）
+    tavily-api-key: "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"
     serp-api-key: ""          # SerpAPI密钥
     serp-engine: "google"     # SerpAPI搜索引擎
     bing-api-key: ""          # Bing API密钥
