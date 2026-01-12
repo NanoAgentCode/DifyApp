@@ -156,7 +156,7 @@
       </div>
       
       <!-- 分页 -->
-      <div class="pagination-fixed">
+      <div class="pagination-wrapper">
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
@@ -449,11 +449,11 @@ onMounted(() => {
 }
 
 :deep(.el-card) {
-  height: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   margin: 0;
+  overflow: hidden;
 }
 
 :deep(.el-card__header) {
@@ -465,8 +465,8 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   padding: 20px;
+  overflow: hidden;
   min-height: 0;
 }
 
@@ -486,21 +486,19 @@ onMounted(() => {
 
 .table-wrapper {
   flex: 1;
+  overflow: hidden;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-bottom: 80px;
 }
 
-.pagination-fixed {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 1000;
-  background: white;
-  padding: 10px 20px;
-  border-radius: 4px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+:deep(.el-table) {
+  height: 100%;
+}
+
+.pagination-wrapper {
+  flex-shrink: 0;
+  padding-top: 20px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .log-detail {
