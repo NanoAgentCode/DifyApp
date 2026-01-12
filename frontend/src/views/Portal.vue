@@ -492,7 +492,7 @@
 
           <el-button
             type="primary"
-            :disabled="(!question.trim() && selectedFiles.length === 0) || sending"
+            :disabled="!canSend"
             @click="handleSend"
             :loading="sending"
             class="send-button"
@@ -676,6 +676,20 @@ const selectedModelName = computed(() => {
   if (!selectedModelId.value) return 'DS V3.2'
   const model = availableModels.value.find(m => m.id === selectedModelId.value)
   return model ? model.name : 'DS V3.2'
+})
+
+const hasMeaningfulQuestion = computed(() => {
+  const trimmed = question.value.trim()
+  if (!trimmed) return false
+  return !/^[@/]+$/.test(trimmed)
+})
+
+const canSend = computed(() => {
+  if (sending.value) return false
+  if (selectedKnowledgeBaseId.value || selectedDocumentId.value) {
+    return hasMeaningfulQuestion.value
+  }
+  return hasMeaningfulQuestion.value || selectedFiles.value.length > 0
 })
 
 // Utility function to parse response data with various formats
@@ -1240,7 +1254,10 @@ const handleFeatureClick = async (feature) => {
 
 // 发送消息
 const handleSend = async () => {
-  if ((!question.value.trim() && selectedFiles.value.length === 0) || sending.value) {
+  if (showKbList.value || showDocList.value) {
+    return
+  }
+  if (!canSend.value) {
     return
   }
 
