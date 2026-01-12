@@ -55,9 +55,20 @@ public class AuthController {
     @UserAction(module = "用户管理", actionType = "用户注册", description = "用户注册")
     @Operation(summary = "用户注册")
     @PostMapping("/register")
-    public ResponseEntity<RegisterResponse> register(@Validated @RequestBody RegisterRequest request) {
+    public ResponseEntity<RegisterResponse> register(
+            @Validated @RequestBody RegisterRequest request,
+            HttpServletRequest httpRequest) {
         try {
             RegisterResponse response = authService.register(request);
+            
+            // 手动设置用户信息到request，以便UserActionAspect能够捕获
+            try {
+                httpRequest.setAttribute("userId", response.getUserId());
+                httpRequest.setAttribute("username", response.getUsername());
+            } catch (Exception e) {
+                logger.warn("设置用户信息到request失败", e);
+            }
+            
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("用户注册失败", e);
@@ -71,9 +82,20 @@ public class AuthController {
     @UserAction(module = "用户管理", actionType = "用户登录", description = "用户登录", logParams = false)
     @Operation(summary = "用户登录")
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Validated @RequestBody LoginRequest request) {
+    public ResponseEntity<LoginResponse> login(
+            @Validated @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest) {
         try {
             LoginResponse response = authService.login(request);
+            
+            // 手动设置用户信息到request，以便UserActionAspect能够捕获
+            try {
+                httpRequest.setAttribute("userId", response.getUserId());
+                httpRequest.setAttribute("username", response.getUsername());
+            } catch (Exception e) {
+                logger.warn("设置用户信息到request失败", e);
+            }
+            
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("用户登录失败", e);
@@ -360,4 +382,3 @@ public class AuthController {
         }
     }
 }
-
