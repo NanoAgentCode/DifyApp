@@ -21,6 +21,7 @@ import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.output.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.github.app.dify.system.util.SkillLoader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -281,26 +282,29 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     private List<ChatMessage> buildMessages(KnowledgeBaseQARequest request) {
         List<ChatMessage> messages = new ArrayList<>();
         
-        // 添加系统消息
-        messages.add(SystemMessage.from("你是一个专业的AI助手，基于提供的知识库内容回答问题。" +
-                "如果知识库中没有相关信息，请明确说明无法回答。" +
-                "\n\n重要：请使用Markdown格式来组织你的回答，包括：\n" +
-                "- 使用标题（#、##、###）来组织内容结构\n" +
-                "- 使用列表（-、*、1.）来列举要点\n" +
-                "- 使用代码块（```）来展示代码或技术内容\n" +
-                "- 使用**粗体**和*斜体*来强调重要信息\n" +
-                "- 使用表格来展示结构化数据\n" +
-                "- 确保代码块包含正确的语言标识符\n" +
-                "\n【关键要求】数学公式格式（必须严格遵守）：\n" +
-                "1. 所有数学公式必须使用LaTeX格式编写，不要使用占位符或省略公式内容\n" +
-                "2. 行内公式使用 $...$ 格式，例如：$E = mc^2$ 或 $\\phi = \\frac{1+\\sqrt{5}}{2}$\n" +
-                "3. 块级公式使用 $$...$$ 格式，例如：\n" +
-                "   $$F(n) = \\frac{1}{\\sqrt{5}} \\left( \\left( \\frac{1 + \\sqrt{5}}{2} \\right)^n - \\left( \\frac{1 - \\sqrt{5}}{2} \\right)^n \\right)$$\n" +
-                "4. 也可以使用 [...] 格式表示块级公式，例如：\n" +
-                "   [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]\n" +
-                "5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式\n" +
-                "6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等\n" +
-                "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符"));
+        String systemPrompt = SkillLoader.loadSkill("knowledge_base_qa_system_prompt");
+        if (systemPrompt == null || systemPrompt.trim().isEmpty()) {
+            systemPrompt = "你是一个专业的AI助手，基于提供的知识库内容回答问题。" +
+                    "如果知识库中没有相关信息，请明确说明无法回答。" +
+                    "\n\n重要：请使用Markdown格式来组织你的回答，包括：\n" +
+                    "- 使用标题（#、##、###）来组织内容结构\n" +
+                    "- 使用列表（-、*、1.）来列举要点\n" +
+                    "- 使用代码块（```）来展示代码或技术内容\n" +
+                    "- 使用**粗体**和*斜体*来强调重要信息\n" +
+                    "- 使用表格来展示结构化数据\n" +
+                    "- 确保代码块包含正确的语言标识符\n" +
+                    "\n【关键要求】数学公式格式（必须严格遵守）：\n" +
+                    "1. 所有数学公式必须使用LaTeX格式编写，不要使用占位符或省略公式内容\n" +
+                    "2. 行内公式使用 $...$ 格式，例如：$E = mc^2$ 或 $\\phi = \\frac{1+\\sqrt{5}}{2}$\n" +
+                    "3. 块级公式使用 $$...$$ 格式，例如：\n" +
+                    "   $$F(n) = \\frac{1}{\\sqrt{5}} \\left( \\left( \\frac{1 + \\sqrt{5}}{2} \\right)^n - \\left( \\frac{1 - \\sqrt{5}}{2} \\right)^n \\right)$$\n" +
+                    "4. 也可以使用 [...] 格式表示块级公式，例如：\n" +
+                    "   [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]\n" +
+                    "5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式\n" +
+                    "6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等\n" +
+                    "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符";
+        }
+        messages.add(SystemMessage.from(systemPrompt));
         
         // 添加历史对话
         if (request.getHistory() != null && !request.getHistory().isEmpty()) {

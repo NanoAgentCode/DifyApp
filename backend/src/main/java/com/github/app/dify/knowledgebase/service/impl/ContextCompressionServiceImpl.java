@@ -14,6 +14,7 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.output.Response;
 import org.slf4j.Logger;
+import com.github.app.dify.system.util.SkillLoader;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -328,7 +329,13 @@ public class ContextCompressionServiceImpl implements ContextCompressionService 
      */
     private List<ChatMessage> compressBySummaryForDocument(List<ChatMessage> historyMessages, DocumentQARequest request) {
         try {
-            // 构建总结提示
+            List<ChatMessage> summaryMessages = new ArrayList<>();
+            String systemSkill = SkillLoader.loadSkill("dialog_summary_system_prompt");
+            if (systemSkill == null || systemSkill.trim().isEmpty()) {
+                systemSkill = "你是一个专业的对话总结助手，能够准确总结对话历史的关键信息。";
+            }
+            summaryMessages.add(SystemMessage.from(systemSkill));
+            
             StringBuilder historyText = new StringBuilder();
             for (ChatMessage msg : historyMessages) {
                 if (msg instanceof UserMessage) {
@@ -344,10 +351,6 @@ public class ContextCompressionServiceImpl implements ContextCompressionService 
                     "请提供简洁的总结，保留重要的问答内容和上下文信息：",
                     historyText.toString()
             );
-            
-            // 调用LLM生成总结
-            List<ChatMessage> summaryMessages = new ArrayList<>();
-            summaryMessages.add(SystemMessage.from("你是一个专业的对话总结助手，能够准确总结对话历史的关键信息。"));
             summaryMessages.add(UserMessage.from(summaryPrompt));
             
             // 使用默认的RAG模型进行总结
@@ -448,9 +451,12 @@ public class ContextCompressionServiceImpl implements ContextCompressionService 
                     historyText.toString()
             );
             
-            // 调用LLM生成总结
             List<ChatMessage> summaryMessages = new ArrayList<>();
-            summaryMessages.add(SystemMessage.from("你是一个专业的对话总结助手，能够准确总结对话历史的关键信息。"));
+            String systemSkill = com.github.app.dify.system.util.SkillLoader.loadSkill("dialog_summary_system_prompt");
+            if (systemSkill == null || systemSkill.trim().isEmpty()) {
+                systemSkill = "你是一个专业的对话总结助手，能够准确总结对话历史的关键信息。";
+            }
+            summaryMessages.add(SystemMessage.from(systemSkill));
             summaryMessages.add(UserMessage.from(summaryPrompt));
             
             // 使用默认的RAG模型进行总结

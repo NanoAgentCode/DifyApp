@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
-
+import com.github.app.dify.system.util.SkillLoader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -428,9 +428,13 @@ public class ChatServiceImpl implements ChatService {
                                 Boolean.TRUE.equals(qaModel.getSupportsVision()) &&
                                 Boolean.TRUE.equals(qaModel.getSupportsMultimodal());
         
-        // 构建系统消息
+        String base = SkillLoader.loadSkill("chat_system_prompt");
         StringBuilder systemMessageBuilder = new StringBuilder();
-        systemMessageBuilder.append("你是一个专业的AI助手，能够回答各种问题，特别擅长编程和技术问题。\n\n");
+        if (base != null && !base.trim().isEmpty()) {
+            systemMessageBuilder.append(base.trim()).append("\n\n");
+        } else {
+            systemMessageBuilder.append("你是一个专业的AI助手，能够回答各种问题，特别擅长编程和技术问题。\n\n");
+        }
         
         // 如果模型支持视觉输入，添加图片处理说明
         if (supportsVision) {

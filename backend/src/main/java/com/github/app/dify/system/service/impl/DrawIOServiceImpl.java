@@ -25,6 +25,7 @@ import dev.langchain4j.model.output.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.github.app.dify.system.util.SkillLoader;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.github.app.dify.system.util.SystemConverterUtil;
@@ -268,44 +269,48 @@ public class DrawIOServiceImpl implements DrawIOService {
      * 构建系统提示词（生成）
      */
     private String buildSystemPrompt(String diagramType) {
+        String base = SkillLoader.loadSkill("drawio_generate_system_prompt");
         StringBuilder prompt = new StringBuilder();
-        prompt.append("你是一个专业的图表生成助手，专门生成 Mermaid 格式的图表代码。\n\n");
-        prompt.append("重要要求：\n");
-        prompt.append("1. 你必须只返回有效的 Mermaid 代码，不要包含任何解释文字\n");
-        prompt.append("2. 代码必须符合 Mermaid 语法规范\n");
-        prompt.append("3. 使用中文标签和文本\n");
-        prompt.append("4. 代码块不要使用 ```mermaid 包裹，直接返回代码\n");
-        prompt.append("5. 必须使用指定的颜色主题来区分不同类型的组件\n");
-        prompt.append("6. **关键要求：必须生成详细、完整的图表，包含足够的节点和层次**\n");
-        prompt.append("   - 流程图：至少包含 8-15 个节点，覆盖所有主要步骤和分支\n");
-        prompt.append("   - 架构图：至少包含 3-5 层，每层至少 3-5 个组件\n");
-        prompt.append("   - 思维导图：至少包含 3-4 个主要分支，每个分支至少 2-3 个子分支\n");
-        prompt.append("   - 时序图：至少包含 4-6 个参与者，10-15 条交互消息\n");
-        prompt.append("   - UML图：至少包含 5-8 个类，展示完整的关系\n");
-        prompt.append("   - 组织架构：至少包含 3-4 层，每层多个节点\n");
-        prompt.append("   - 网络图：至少包含 8-12 个设备节点\n");
-        prompt.append("7. 必须充分理解用户描述，生成包含所有相关细节的完整图表，不要简化或省略任何重要部分\n\n");
-        
-        // 添加颜色主题约束
-        prompt.append("颜色主题规范（必须严格遵守）：\n");
-        prompt.append("- 浅蓝色 (#ADD8E6 或 #E3F2FD): 用于输入/输出嵌入层、线性层、基础组件\n");
-        prompt.append("- 黄色 (#FFD700 或 #FFF9C4): 用于位置编码、时间相关组件\n");
-        prompt.append("- 紫色 (#9370DB 或 #BA68C8): 用于编码器块、编码相关组件\n");
-        prompt.append("- 红色 (#FF5252 或 #F44336): 用于注意力机制、前馈网络、核心处理组件\n");
-        prompt.append("- 绿色 (#4CAF50 或 #66BB6A): 用于归一化层、添加操作、辅助组件\n");
-        prompt.append("- 橙色 (#FF9800 或 #FFB74D): 用于解码器块、解码相关组件\n");
-        prompt.append("- 深蓝色 (#1976D2 或 #1565C0): 用于输出层、最终结果\n");
-        prompt.append("- 灰色 (#808080 或 #9E9E9E): 用于连接线、辅助连接\n\n");
-        
-        prompt.append("在 Mermaid 中使用颜色的方法（注意：不同图表类型支持不同）：\n");
-        prompt.append("1. 对于 flowchart：使用 classDef 定义样式类，然后使用 class 语句或 ::: 语法\n");
-        prompt.append("   例如：classDef lightBlue fill:#ADD8E6,stroke:#1976D2,stroke-width:2px\n");
-        prompt.append("   然后：class A lightBlue 或 A[节点]:::lightBlue\n");
-        prompt.append("2. 对于 mindmap：不支持自定义颜色类，mindmap 会自动应用颜色，不要使用 ::: 或 classDef\n");
-        prompt.append("   mindmap 语法：mindmap\\n  root((中心))\\n    分支1\\n      子分支\n");
-        prompt.append("3. 对于 sequenceDiagram：不支持颜色类，使用 participant 定义即可\n");
-        prompt.append("4. 对于 classDiagram：不支持 classDef，必须使用 style 语句，例如：style ClassName fill:#ADD8E6,stroke:#1976D2,stroke-width:2px\n");
-        prompt.append("5. 确保不同类型的组件使用对应的颜色，保持视觉一致性\n\n");
+        if (base != null && !base.trim().isEmpty()) {
+            prompt.append(base.trim()).append("\n\n");
+        } else {
+            prompt.append("你是一个专业的图表生成助手，专门生成 Mermaid 格式的图表代码。\n\n");
+            prompt.append("重要要求：\n");
+            prompt.append("1. 你必须只返回有效的 Mermaid 代码，不要包含任何解释文字\n");
+            prompt.append("2. 代码必须符合 Mermaid 语法规范\n");
+            prompt.append("3. 使用中文标签和文本\n");
+            prompt.append("4. 代码块不要使用 ```mermaid 包裹，直接返回代码\n");
+            prompt.append("5. 必须使用指定的颜色主题来区分不同类型的组件\n");
+            prompt.append("6. **关键要求：必须生成详细、完整的图表，包含足够的节点和层次**\n");
+            prompt.append("   - 流程图：至少包含 8-15 个节点，覆盖所有主要步骤和分支\n");
+            prompt.append("   - 架构图：至少包含 3-5 层，每层至少 3-5 个组件\n");
+            prompt.append("   - 思维导图：至少包含 3-4 个主要分支，每个分支至少 2-3 个子分支\n");
+            prompt.append("   - 时序图：至少包含 4-6 个参与者，10-15 条交互消息\n");
+            prompt.append("   - UML图：至少包含 5-8 个类，展示完整的关系\n");
+            prompt.append("   - 组织架构：至少包含 3-4 层，每层多个节点\n");
+            prompt.append("   - 网络图：至少包含 8-12 个设备节点\n");
+            prompt.append("7. 必须充分理解用户描述，生成包含所有相关细节的完整图表，不要简化或省略任何重要部分\n\n");
+            
+            prompt.append("颜色主题规范（必须严格遵守）：\n");
+            prompt.append("- 浅蓝色 (#ADD8E6 或 #E3F2FD): 用于输入/输出嵌入层、线性层、基础组件\n");
+            prompt.append("- 黄色 (#FFD700 或 #FFF9C4): 用于位置编码、时间相关组件\n");
+            prompt.append("- 紫色 (#9370DB 或 #BA68C8): 用于编码器块、编码相关组件\n");
+            prompt.append("- 红色 (#FF5252 或 #F44336): 用于注意力机制、前馈网络、核心处理组件\n");
+            prompt.append("- 绿色 (#4CAF50 或 #66BB6A): 用于归一化层、添加操作、辅助组件\n");
+            prompt.append("- 橙色 (#FF9800 或 #FFB74D): 用于解码器块、解码相关组件\n");
+            prompt.append("- 深蓝色 (#1976D2 或 #1565C0): 用于输出层、最终结果\n");
+            prompt.append("- 灰色 (#808080 或 #9E9E9E): 用于连接线、辅助连接\n\n");
+            
+            prompt.append("在 Mermaid 中使用颜色的方法（注意：不同图表类型支持不同）：\n");
+            prompt.append("1. 对于 flowchart：使用 classDef 定义样式类，然后使用 class 语句或 ::: 语法\n");
+            prompt.append("   例如：classDef lightBlue fill:#ADD8E6,stroke:#1976D2,stroke-width:2px\n");
+            prompt.append("   然后：class A lightBlue 或 A[节点]:::lightBlue\n");
+            prompt.append("2. 对于 mindmap：不支持自定义颜色类，mindmap 会自动应用颜色，不要使用 ::: 或 classDef\n");
+            prompt.append("   mindmap 语法：mindmap\\n  root((中心))\\n    分支1\\n      子分支\n");
+            prompt.append("3. 对于 sequenceDiagram：不支持颜色类，使用 participant 定义即可\n");
+            prompt.append("4. 对于 classDiagram：不支持 classDef，必须使用 style 语句，例如：style ClassName fill:#ADD8E6,stroke:#1976D2,stroke-width:2px\n");
+            prompt.append("5. 确保不同类型的组件使用对应的颜色，保持视觉一致性\n\n");
+        }
         
         // 根据图表类型添加特定指导
         if (diagramType != null) {
@@ -545,6 +550,10 @@ public class DrawIOServiceImpl implements DrawIOService {
      * 构建系统提示词（修改）
      */
     private String buildModifySystemPrompt() {
+        String base = com.github.app.dify.system.util.SkillLoader.loadSkill("drawio_modify_system_prompt");
+        if (base != null && !base.trim().isEmpty()) {
+            return base;
+        }
         return "你是一个专业的图表修改助手，专门修改 Mermaid 格式的图表代码。\n\n" +
                 "重要要求：\n" +
                 "1. 你必须只返回修改后的完整 Mermaid 代码，不要包含任何解释文字\n" +

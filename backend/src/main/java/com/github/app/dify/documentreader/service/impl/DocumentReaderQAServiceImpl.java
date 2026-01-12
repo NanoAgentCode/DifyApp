@@ -20,6 +20,7 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.output.Response;
 import org.slf4j.Logger;
+import com.github.app.dify.system.util.SkillLoader;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -305,9 +306,12 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
                                             String documentName) {
         List<ChatMessage> messages = new ArrayList<>();
         
-        // 构建系统提示词
+        String base = SkillLoader.loadSkill("document_qa_system_prompt");
+        if (base == null || base.trim().isEmpty()) {
+            base = "你是一个专业的文档问答助手。请基于以下文档内容回答用户的问题。\n\n";
+        }
         StringBuilder systemPrompt = new StringBuilder();
-        systemPrompt.append("你是一个专业的文档问答助手。请基于以下文档内容回答用户的问题。\n\n");
+        systemPrompt.append(base).append("\n");
         systemPrompt.append("文档名称：").append(documentName != null ? documentName : "未知文档").append("\n\n");
         systemPrompt.append("相关文档片段：\n");
         for (int i = 0; i < retrievalResults.size(); i++) {
@@ -315,7 +319,7 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
             systemPrompt.append("片段").append(i + 1).append("（相似度：").append(String.format("%.2f", result.getScore())).append("）：\n");
             systemPrompt.append(result.getText()).append("\n\n");
         }
-        systemPrompt.append("请基于以上文档片段回答用户的问题。如果文档中没有相关信息，请明确说明。");
+        // 作答要求与格式已在技能文件中描述
         
         messages.add(SystemMessage.from(systemPrompt.toString()));
         
