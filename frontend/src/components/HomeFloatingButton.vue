@@ -1,6 +1,6 @@
 <template>
   <div v-if="shouldShow" class="home-floating-button">
-    <div class="split-button-container">
+    <div class="split-button-container" tabindex="0">
       <!-- 左半部分：回到主页 -->
       <el-tooltip content="回到主页" placement="left" :show-after="300">
         <div
@@ -88,7 +88,7 @@ const handleHelpClick = () => {
 <style scoped>
 .home-floating-button {
   position: fixed;
-  right: 20px;
+  right: 0;
   top: 50%;
   transform: translateY(-50%);
   z-index: 1000;
@@ -96,18 +96,21 @@ const handleHelpClick = () => {
 
 .split-button-container {
   display: flex;
+  flex-direction: column;
   width: 56px;
   height: 56px;
   border-radius: 50%;
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
   border: 2px solid var(--el-color-primary);
   background-color: transparent;
+  transform: translateX(50%);
 }
 
-.split-button-container:hover {
-  transform: scale(1.1);
+.home-floating-button:hover .split-button-container,
+.home-floating-button:focus-within .split-button-container {
+  transform: translateX(0);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
 }
 
@@ -121,14 +124,15 @@ const handleHelpClick = () => {
   color: var(--el-color-primary);
   background-color: transparent;
   position: relative;
+  width: 100%;
 }
 
 .split-button-left {
-  border-right: 1px solid var(--el-color-primary);
+  border-bottom: 1px solid var(--el-color-primary);
 }
 
 .split-button-right {
-  border-left: 1px solid var(--el-color-primary);
+  border-top: 1px solid var(--el-color-primary);
 }
 
 .split-button:hover,
@@ -139,22 +143,23 @@ const handleHelpClick = () => {
 
 .split-button-left:hover,
 .split-button-left.btn-focused {
-  border-right-color: rgba(255, 255, 255, 0.3);
+  border-bottom-color: rgba(255, 255, 255, 0.3);
 }
 
 .split-button-right:hover,
 .split-button-right.btn-focused {
-  border-left-color: rgba(255, 255, 255, 0.3);
+  border-top-color: rgba(255, 255, 255, 0.3);
 }
 
 @media (max-width: 768px) {
   .home-floating-button {
-    right: 10px;
+    right: 0;
   }
   
   .split-button-container {
     width: 48px;
     height: 48px;
+    transform: translateX(50%);
   }
 }
 </style>
