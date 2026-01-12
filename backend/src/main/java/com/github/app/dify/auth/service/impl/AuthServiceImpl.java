@@ -37,7 +37,7 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     private JwtUtil jwtUtil;
     
-    private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     
     /**
      * 用户注册
@@ -81,7 +81,7 @@ public class AuthServiceImpl implements AuthService {
     public LoginResponse login(LoginRequest request) {
         // 查找用户
         Optional<User> optional = userRepository.findByUsername(request.getUsername());
-        if (!optional.isPresent()) {
+        if (optional.isEmpty()) {
             throw new RuntimeException("用户名或密码错误");
         }
         
@@ -130,7 +130,7 @@ public class AuthServiceImpl implements AuthService {
     @CacheEvict(value = "user", key = "#userId")
     public void approveUser(Long userId) {
         Optional<User> optional = userRepository.findById(userId);
-        if (!optional.isPresent()) {
+        if (optional.isEmpty()) {
             throw new RuntimeException("用户不存在: " + userId);
         }
         
@@ -151,7 +151,7 @@ public class AuthServiceImpl implements AuthService {
     @CacheEvict(value = "user", key = "#userId")
     public void disableUser(Long userId) {
         Optional<User> optional = userRepository.findById(userId);
-        if (!optional.isPresent()) {
+        if (optional.isEmpty()) {
             throw new RuntimeException("用户不存在: " + userId);
         }
         
@@ -176,7 +176,7 @@ public class AuthServiceImpl implements AuthService {
     @Cacheable(value = "user", key = "#userId")
     public User getUserById(Long userId) {
         Optional<User> optional = userRepository.findById(userId);
-        if (!optional.isPresent()) {
+        if (optional.isEmpty()) {
             throw new RuntimeException("用户不存在: " + userId);
         }
         return optional.get();
@@ -189,7 +189,7 @@ public class AuthServiceImpl implements AuthService {
     @Cacheable(value = "user", key = "'username:' + #username")
     public User getUserByUsername(String username) {
         Optional<User> optional = userRepository.findByUsername(username);
-        if (!optional.isPresent()) {
+        if (optional.isEmpty()) {
             throw new RuntimeException("用户不存在: " + username);
         }
         return optional.get();
@@ -247,7 +247,7 @@ public class AuthServiceImpl implements AuthService {
             // 为了准确计算总数，先查询所有未删除的用户
             List<User> allUsers = userRepository.findAll().stream()
                     .filter(user -> user.getDeleted() == null || user.getDeleted() == 0)
-                    .collect(Collectors.toList());
+                    .toList();
             
             // 手动分页
             int start = (page - 1) * pageSize;
@@ -283,7 +283,7 @@ public class AuthServiceImpl implements AuthService {
     @CacheEvict(value = "user", key = "#userId")
     public void changePassword(Long userId, String oldPassword, String newPassword) {
         Optional<User> optional = userRepository.findById(userId);
-        if (!optional.isPresent()) {
+        if (optional.isEmpty()) {
             throw new RuntimeException("用户不存在: " + userId);
         }
         
@@ -317,7 +317,7 @@ public class AuthServiceImpl implements AuthService {
     @CacheEvict(value = "user", key = "#userId")
     public void resetPassword(Long userId, String newPassword) {
         Optional<User> optional = userRepository.findById(userId);
-        if (!optional.isPresent()) {
+        if (optional.isEmpty()) {
             throw new RuntimeException("用户不存在: " + userId);
         }
         
@@ -342,7 +342,7 @@ public class AuthServiceImpl implements AuthService {
     @CacheEvict(value = "user", key = "#userId")
     public void updateUserRole(Long userId, Integer role) {
         Optional<User> optional = userRepository.findById(userId);
-        if (!optional.isPresent()) {
+        if (optional.isEmpty()) {
             throw new RuntimeException("用户不存在: " + userId);
         }
         

@@ -7,12 +7,15 @@ import com.github.app.dify.auth.req.ResetPasswordRequest;
 import com.github.app.dify.auth.resp.LoginResponse;
 import com.github.app.dify.auth.resp.RegisterResponse;
 import com.github.app.dify.auth.resp.UserResp;
-import com.github.app.dify.permission.resp.UserAppVisibilityResp;
-import com.github.app.dify.permission.resp.UserKnowledgeBaseVisibilityResp;
-import com.github.app.dify.permission.resp.UserDataSourceVisibilityResp;
 import com.github.app.dify.auth.service.AuthService;
 import com.github.app.dify.auth.util.JwtUtil;
 import com.github.app.dify.common.resp.PageResponse;
+import com.github.app.dify.permission.resp.UserAppVisibilityResp;
+import com.github.app.dify.permission.resp.UserDataSourceVisibilityResp;
+import com.github.app.dify.permission.resp.UserKnowledgeBaseVisibilityResp;
+import com.github.app.dify.permission.service.UserAppVisibilityService;
+import com.github.app.dify.permission.service.UserDataSourceVisibilityService;
+import com.github.app.dify.permission.service.UserKnowledgeBaseVisibilityService;
 import com.github.app.dify.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,13 +41,13 @@ public class AuthController {
     private AuthService authService;
     
     @Autowired(required = false)
-    private com.github.app.dify.permission.service.UserAppVisibilityService userAppVisibilityService;
+    private UserAppVisibilityService userAppVisibilityService;
     
     @Autowired(required = false)
-    private com.github.app.dify.permission.service.UserKnowledgeBaseVisibilityService userKnowledgeBaseVisibilityService;
+    private UserKnowledgeBaseVisibilityService userKnowledgeBaseVisibilityService;
     
     @Autowired(required = false)
-    private com.github.app.dify.permission.service.UserDataSourceVisibilityService userDataSourceVisibilityService;
+    private UserDataSourceVisibilityService userDataSourceVisibilityService;
     
     @Autowired
     private JwtUtil jwtUtil;
@@ -59,16 +62,8 @@ public class AuthController {
             @Validated @RequestBody RegisterRequest request,
             HttpServletRequest httpRequest) {
         try {
+            // 注册成功后需要记录日志，但用户还没登录，所以先注册再记录
             RegisterResponse response = authService.register(request);
-            
-            // 手动设置用户信息到request，以便UserActionAspect能够捕获
-            try {
-                httpRequest.setAttribute("userId", response.getUserId());
-                httpRequest.setAttribute("username", response.getUsername());
-            } catch (Exception e) {
-                logger.warn("设置用户信息到request失败", e);
-            }
-            
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("用户注册失败", e);
@@ -86,16 +81,23 @@ public class AuthController {
             @Validated @RequestBody LoginRequest request,
             HttpServletRequest httpRequest) {
         try {
-            LoginResponse response = authService.login(request);
-            
-            // 手动设置用户信息到request，以便UserActionAspect能够捕获
+            // 先查询用户，即使登录失败也要记录用户名
+            com.github.app.dify.auth.domain.User user = null;
             try {
-                httpRequest.setAttribute("userId", response.getUserId());
-                httpRequest.setAttribute("username", response.getUsername());
+                user = authService.getUserByUsername(request.getUsername());
             } catch (Exception e) {
-                logger.warn("设置用户信息到request失败", e);
+                // 用户不存在，忽略，稍后会在login中抛出异常
             }
             
+            // 立即设置用户信息到request（在AOP获取用户信息之前）
+            if (user != null) {
+                httpRequest.setAttribute("userId", user.getId());
+                httpRequest.setAttribute("username", user.getUsername());
+                logger.info("在方法开始时设置用户信息到request - userId: {}, username: {}", user.getId(), user.getUsername());
+            }
+            
+            // 执行登录逻辑
+            LoginResponse response = authService.login(request);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("用户登录失败", e);

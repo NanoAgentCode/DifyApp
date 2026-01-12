@@ -72,11 +72,9 @@ public class UserActionAspect {
             log.setDescription(userAction.description());
             log.setCreateTime(LocalDateTime.now());
 
-            // 获取用户信息
+            // 填充请求信息（不需要用户信息）
             if (request != null) {
-                fillUserInfo(request, log);
                 fillRequestInfo(request, log);
-
                 // 记录请求参数
                 if (userAction.logParams()) {
                     String params = getRequestParams(joinPoint, request);
@@ -86,11 +84,24 @@ public class UserActionAspect {
 
             // 执行目标方法
             result = joinPoint.proceed();
+            
+            // 执行目标方法后再次获取用户信息（Controller可能已经设置了）
+            if (request != null) {
+                fillUserInfo(request, log);
+            }
+            
             // 记录成功信息
             log.setResult("SUCCESS");
             return result;
 
         } catch (Throwable e) {
+            // 即使失败也尝试获取用户信息（Controller可能已经设置了）
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            HttpServletRequest request = attributes != null ? attributes.getRequest() : null;
+            if (request != null) {
+                fillUserInfo(request, log);
+            }
+            
             // 记录失败信息
             log.setResult("FAILURE");
             log.setErrorMsg(e.getMessage() != null ? 
@@ -121,6 +132,8 @@ public class UserActionAspect {
             Object userIdObj = request.getAttribute("userId");
             Object usernameObj = request.getAttribute("username");
 
+            logger.info("AOP切面获取用户信息 - userId: {}, username: {}", userIdObj, usernameObj);
+
             if (userIdObj != null) {
                 if (userIdObj instanceof Long) {
                     log.setUserId((Long) userIdObj);
@@ -143,8 +156,10 @@ public class UserActionAspect {
                         String username = jwtUtil.getUsernameFromToken(token);
                         log.setUserId(userId);
                         log.setUsername(username);
+                        logger.info("从Token获取用户信息 - userId: {}, username: {}", userId, username);
                     } catch (Exception e) {
                         // Token解析失败，忽略
+                        logger.warn("Token解析失败", e);
                     }
                 }
             }
