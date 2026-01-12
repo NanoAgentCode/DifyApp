@@ -23,7 +23,6 @@ public class DocumentReaderConfig {
     private static final String CONFIG_KEY_VECTOR_STORE_TYPE = "documentReader.vectorStoreType";
     private static final String CONFIG_KEY_VECTOR_DATABASE_ID = "documentReader.vectorDatabaseId";
     private static final String CONFIG_KEY_TOP_K = "documentReader.topK";
-    private static final String CONFIG_KEY_MIND_MAP_APP_ID = "documentReader.mindMapAppId";
     private static final String CONFIG_KEY_MIND_MAP_SERVICE_URL = "documentReader.mindMapServiceUrl";
     
     // 默认值
@@ -39,7 +38,6 @@ public class DocumentReaderConfig {
     private String vectorStoreType;
     private Long vectorDatabaseId;
     private Integer topK;
-    private Long mindMapAppId;
     private String mindMapServiceUrl;
     
     @PostConstruct
@@ -123,17 +121,6 @@ public class DocumentReaderConfig {
                 logger.info("使用默认文档解读Top-K: {}", this.topK);
             }
             
-            // 加载思维导图应用ID
-            String mindMapAppIdStr = systemConfigService.getConfigValue(CONFIG_KEY_MIND_MAP_APP_ID);
-            if (mindMapAppIdStr != null && !mindMapAppIdStr.trim().isEmpty()) {
-                try {
-                    this.mindMapAppId = Long.parseLong(mindMapAppIdStr.trim());
-                    logger.info("从系统配置加载文档解读思维导图应用ID: {}", this.mindMapAppId);
-                } catch (NumberFormatException e) {
-                    logger.warn("系统配置中的文档解读思维导图应用ID格式错误: {}, 使用null", mindMapAppIdStr);
-                }
-            }
-            
             // 加载思维导图服务URL（服务位于mindmap目录，默认端口6066）
             String mindMapServiceUrlStr = systemConfigService.getConfigValue(CONFIG_KEY_MIND_MAP_SERVICE_URL);
             if (mindMapServiceUrlStr != null && !mindMapServiceUrlStr.trim().isEmpty()) {
@@ -159,7 +146,6 @@ public class DocumentReaderConfig {
         this.vectorStoreType = DEFAULT_VECTOR_STORE_TYPE;
         this.vectorDatabaseId = null;
         this.topK = DEFAULT_TOP_K;
-        this.mindMapAppId = null;
         this.mindMapServiceUrl = "http://localhost:6066"; // 思维导图服务位于mindmap目录，默认端口6066
     }
     
@@ -195,10 +181,6 @@ public class DocumentReaderConfig {
         return topK;
     }
     
-    public Long getMindMapAppId() {
-        return mindMapAppId;
-    }
-    
     public String getMindMapServiceUrl() {
         return mindMapServiceUrl;
     }
@@ -224,12 +206,7 @@ public class DocumentReaderConfig {
         return CONFIG_KEY_TOP_K;
     }
     
-    public static String getConfigKeyMindMapAppId() {
-        return CONFIG_KEY_MIND_MAP_APP_ID;
-    }
-    
     public static String getConfigKeyMindMapServiceUrl() {
         return CONFIG_KEY_MIND_MAP_SERVICE_URL;
     }
 }
-
