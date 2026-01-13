@@ -2702,8 +2702,8 @@ onUnmounted(() => {
 
 /* 顶部收起时，调整欢迎区域高度 */
 .portal-content.content-header-collapsed .welcome-section {
-  height: calc(100vh - 20px - 20px) !important; /* 视口高度 - 上下padding（无header） */
-  max-height: calc(100vh - 20px - 20px) !important;
+  height: calc(100vh - 40px) !important; /* 视口高度 - 上下padding（20px + 20px） */
+  max-height: calc(100vh - 40px) !important;
 }
 
 /* 顶部系统图标（在 padding-top 位置） */
@@ -2713,8 +2713,8 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  height: calc(100vh - 60px - 20px - 20px); /* 视口高度 - header - 上下padding */
-  max-height: calc(100vh - 60px - 20px - 20px);
+  height: calc(100vh - 100px); /* 视口高度 - header高度(60px) - 上下padding(20px + 20px) */
+  max-height: calc(100vh - 100px);
   padding: 12px 20px !important; /* 进一步减少内边距 */
   width: 100%;
   max-width: 1200px;
@@ -3123,6 +3123,23 @@ onUnmounted(() => {
 
 /* 收起状态下显示4行 */
 .conversations-list.collapsed-mode {
+  grid-template-rows: repeat(4, 44px); /* 收起状态4行，每行44px高度 */
+}
+
+/* 确保grid容器不会显示不完整的条目 */
+.conversations-list {
+  align-content: start; /* 从顶部开始对齐 */
+  overflow: hidden; /* 隐藏溢出部分 */
+}
+
+/* 对建议问题列表也应用相同的逻辑 */
+.questions-grid {
+  align-content: start; /* 从顶部开始对齐 */
+  overflow: hidden; /* 隐藏溢出部分 */
+}
+
+/* 收起状态下显示4行 */
+.questions-grid.collapsed-mode {
   grid-template-rows: repeat(4, 44px); /* 收起状态4行，每行44px高度 */
 }
 
@@ -3728,7 +3745,7 @@ onUnmounted(() => {
   width: 100%;
   max-width: 900px; /* 输入区域宽度，比问答区域窄一些 */
   min-width: 500px; /* 最小宽度，确保在小屏幕上也有良好显示 */
-  margin: 0 auto 20px;
+  margin: 0 auto 10px;
   position: sticky;
   bottom: 0;
   background: var(--el-bg-color-page, #f5f7fa);
@@ -4315,4 +4332,3 @@ onUnmounted(() => {
   }
 }
 </style>
-
