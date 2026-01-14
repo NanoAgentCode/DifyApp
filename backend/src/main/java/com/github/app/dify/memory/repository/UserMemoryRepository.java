@@ -83,4 +83,14 @@ public interface UserMemoryRepository extends JpaRepository<UserMemory, Long> {
     int softDeleteAllByUserIdAndScope(@Param("userId") Long userId,
                                       @Param("scopeType") String scopeType,
                                       @Param("scopeId") Long scopeId);
+
+    @Query("UPDATE UserMemory m SET m.deleted = 1, m.updateTime = CURRENT_TIMESTAMP WHERE m.id = :id " +
+            "AND m.userId = :userId AND (m.deleted IS NULL OR m.deleted = 0)")
+    @org.springframework.data.jpa.repository.Modifying
+    int softDeleteByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId);
+
+    @Query("UPDATE UserMemory m SET m.deleted = 1, m.updateTime = CURRENT_TIMESTAMP WHERE m.id = :id " +
+            "AND (m.deleted IS NULL OR m.deleted = 0)")
+    @org.springframework.data.jpa.repository.Modifying
+    int softDeleteById(@Param("id") Long id);
 }

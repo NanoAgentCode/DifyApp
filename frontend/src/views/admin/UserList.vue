@@ -350,7 +350,7 @@
                       {{ row.memoryType === 'entity' ? '实体' : '长期' }}
                     </el-tag>
                     <el-tag style="margin-left: 8px;" size="small">
-                      {{ row.scopeType || 'chat' }}{{ row.scopeId != null ? `:${row.scopeId}` : '' }}
+                      {{ row.scopeType || 'chat' }}
                     </el-tag>
                     <span style="margin-left: 8px;">{{ row.memoryKey }}</span>
                   </div>
@@ -364,11 +364,6 @@
                 <el-tag size="small">{{ row.scopeType || 'chat' }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="scopeId" label="Scope ID" width="120" align="center">
-              <template #default="{ row }">
-                {{ row.scopeId != null ? row.scopeId : '-' }}
-              </template>
-            </el-table-column>
             <el-table-column prop="memoryType" label="类型" width="110" align="center">
               <template #default="{ row }">
                 <el-tag :type="row.memoryType === 'entity' ? 'info' : 'success'" size="small">
@@ -378,21 +373,16 @@
             </el-table-column>
             <el-table-column prop="memoryKey" label="Key" min-width="160" show-overflow-tooltip />
             <el-table-column prop="importance" label="重要度" width="90" align="center" />
-            <el-table-column label="内容" min-width="360">
-              <template #default="{ row }">
-                <span class="memory-snippet" :title="row.content">{{ makeMemorySnippet(row.content) }}</span>
-              </template>
-            </el-table-column>
             <el-table-column prop="updateTime" label="更新时间" width="180" align="center">
               <template #default="{ row }">
                 {{ formatDate(row.updateTime) }}
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="100" align="center" fixed="right">
-              <template #default="{ row }">
-                <el-button size="small" plain @click="copyMemory(row)">复制</el-button>
-              </template>
-            </el-table-column>
+          <el-table-column label="操作" width="100" align="center" fixed="right">
+            <template #default="{ row }">
+              <el-button size="small" type="danger" plain :disabled="memoryDeleting" @click="handleDeleteMemoryRow(row)">删除</el-button>
+            </template>
+          </el-table-column>
           </el-table>
         </div>
         <div class="memory-pagination">
@@ -418,7 +408,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, InfoFilled, Search, Check, Close, Clock } from '@element-plus/icons-vue'
-import { getUserList, approveUser, disableUser, getUserAppVisibilities, updateUserAppVisibility, getUserKnowledgeBaseVisibilities, updateUserKnowledgeBaseVisibility, updateUserRole, clearUserMemory, getUserMemoryItems } from '@/api/user'
+import { getUserList, approveUser, disableUser, getUserAppVisibilities, updateUserAppVisibility, getUserKnowledgeBaseVisibilities, updateUserKnowledgeBaseVisibility, updateUserRole, clearUserMemory, getUserMemoryItems, deleteUserMemoryItem } from '@/api/user'
 import ResetPasswordDialog from '@/components/ResetPasswordDialog.vue'
 
 const loading = ref(false)
@@ -442,6 +432,7 @@ const memoryPage = ref(1)
 const memoryPageSize = ref(50)
 const memoryScopeType = ref('all')
 const memoryClearing = ref(false)
+const memoryDeleting = ref(false)
 
 const filteredMemoryItems = computed(() => {
   const keyword = (memorySearch.value || '').trim().toLowerCase()
@@ -702,6 +693,36 @@ const copyMemory = async (row) => {
   const ok = await copyText(formatMemoryContent(row))
   if (ok) ElMessage.success('已复制')
   else ElMessage.error('复制失败')
+}
+
+const handleDeleteMemoryRow = async (row) => {
+  if (!memoryUser.value) return
+  const id = row?.id
+  if (!id) {
+    ElMessage.error('缺少记忆ID')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm('确定要删除这条记忆吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+  } catch (e) {
+    return
+  }
+
+  memoryDeleting.value = true
+  try {
+    await deleteUserMemoryItem(memoryUser.value.id, id)
+    ElMessage.success('已删除')
+    await loadUserMemory()
+  } catch (error) {
+    ElMessage.error(error.response?.data?.error || error.message || '删除失败')
+  } finally {
+    memoryDeleting.value = false
+  }
 }
 
 const handleClearMemory = async (user) => {

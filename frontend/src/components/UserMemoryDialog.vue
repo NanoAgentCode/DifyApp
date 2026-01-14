@@ -61,7 +61,7 @@
                     {{ row.memoryType === 'entity' ? '实体' : '长期' }}
                   </el-tag>
                   <el-tag style="margin-left: 8px;" size="small">
-                    {{ row.scopeType || 'chat' }}{{ row.scopeId != null ? `:${row.scopeId}` : '' }}
+                    {{ row.scopeType || 'chat' }}
                   </el-tag>
                   <span style="margin-left: 8px;">{{ row.memoryKey }}</span>
                 </div>
@@ -75,11 +75,6 @@
               <el-tag size="small">{{ row.scopeType || 'chat' }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="scopeId" label="Scope ID" width="120" align="center">
-            <template #default="{ row }">
-              {{ row.scopeId != null ? row.scopeId : '-' }}
-            </template>
-          </el-table-column>
           <el-table-column prop="memoryType" label="类型" width="110" align="center">
             <template #default="{ row }">
               <el-tag :type="row.memoryType === 'entity' ? 'info' : 'success'" size="small">
@@ -89,11 +84,6 @@
           </el-table-column>
           <el-table-column prop="memoryKey" label="Key" min-width="160" show-overflow-tooltip />
           <el-table-column prop="importance" label="重要度" width="90" align="center" />
-          <el-table-column label="内容" min-width="360">
-            <template #default="{ row }">
-              <span class="memory-snippet" :title="row.content">{{ makeMemorySnippet(row.content) }}</span>
-            </template>
-          </el-table-column>
           <el-table-column prop="updateTime" label="更新时间" width="180" align="center">
             <template #default="{ row }">
               {{ formatDate(row.updateTime) }}
@@ -101,7 +91,7 @@
           </el-table-column>
           <el-table-column label="操作" width="100" align="center" fixed="right">
             <template #default="{ row }">
-              <el-button size="small" plain @click="copyMemory(row)">复制</el-button>
+              <el-button size="small" type="danger" plain :disabled="deleting" @click="handleDeleteRow(row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -125,7 +115,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { clearMyMemory, getMyMemoryItems } from '@/api/memory'
+import { clearMyMemory, deleteMyMemoryItem, getMyMemoryItems } from '@/api/memory'
 
 const props = defineProps({
   modelValue: {
@@ -143,6 +133,7 @@ const visible = computed({
 
 const loading = ref(false)
 const clearing = ref(false)
+const deleting = ref(false)
 const items = ref([])
 const keyword = ref('')
 const page = ref(1)
@@ -293,6 +284,35 @@ const copyMemory = async (row) => {
   const ok = await copyText(formatMemoryContent(row))
   if (ok) ElMessage.success('已复制')
   else ElMessage.error('复制失败')
+}
+
+const handleDeleteRow = async (row) => {
+  const id = row?.id
+  if (!id) {
+    ElMessage.error('缺少记忆ID')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm('确定要删除这条记忆吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+  } catch (e) {
+    return
+  }
+
+  deleting.value = true
+  try {
+    await deleteMyMemoryItem(id)
+    ElMessage.success('已删除')
+    await loadMemory()
+  } catch (error) {
+    ElMessage.error(error.response?.data?.error || error.message || '删除失败')
+  } finally {
+    deleting.value = false
+  }
 }
 
 const buildClearParams = () => {

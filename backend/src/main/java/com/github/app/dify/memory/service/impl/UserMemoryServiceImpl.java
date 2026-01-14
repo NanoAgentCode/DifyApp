@@ -2,6 +2,7 @@ package com.github.app.dify.memory.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.app.dify.common.exception.NotFoundException;
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
@@ -213,6 +214,30 @@ public class UserMemoryServiceImpl implements UserMemoryService {
             resp.add(r);
         }
         return resp;
+    }
+
+    @Override
+    @Transactional
+    public void deleteUserMemoryItem(Long userId, Long itemId) {
+        if (userId == null || itemId == null) {
+            throw new NotFoundException("记忆不存在");
+        }
+        int updated = userMemoryRepository.softDeleteByIdAndUserId(itemId, userId);
+        if (updated <= 0) {
+            throw new NotFoundException("记忆不存在");
+        }
+    }
+
+    @Override
+    @Transactional
+    public void deleteUserMemoryItemAsAdmin(Long itemId) {
+        if (itemId == null) {
+            throw new NotFoundException("记忆不存在");
+        }
+        int updated = userMemoryRepository.softDeleteById(itemId);
+        if (updated <= 0) {
+            throw new NotFoundException("记忆不存在");
+        }
     }
 
     private String extractMemoryJson(ChatLanguageModel model, String question, String answer) {

@@ -69,4 +69,16 @@ public class AdminUserMemoryController extends BaseController {
         );
         return ResponseEntity.ok(resp);
     }
+
+    @Operation(summary = "删除用户记忆条目")
+    @DeleteMapping("/users/{userId}/items/{id}")
+    public ResponseEntity<Void> deleteUserMemoryItem(
+            @PathVariable Long userId,
+            @PathVariable Long id,
+            HttpServletRequest request
+    ) {
+        checkAdmin(request);
+        userMemoryService.deleteUserMemoryItem(userId, id);
+        return ResponseEntity.ok().build();
+    }
 }

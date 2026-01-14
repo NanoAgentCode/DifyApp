@@ -16,3 +16,9 @@ export function clearMyMemory(params) {
   })
 }
 
+export function deleteMyMemoryItem(id) {
+  return request({
+    url: `/api/memory/items/${id}`,
+    method: 'delete'
+  })
+}

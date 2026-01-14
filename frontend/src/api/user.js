@@ -119,3 +119,10 @@ export function getUserMemoryItems(userId, params) {
   })
 }
 
+export function deleteUserMemoryItem(userId, itemId) {
+  return request({
+    url: `/api/admin/memory/users/${userId}/items/${itemId}`,
+    method: 'delete'
+  })
+}
+

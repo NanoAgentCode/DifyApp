@@ -25,4 +25,8 @@ public interface UserMemoryService {
     }
 
     java.util.List<com.github.app.dify.memory.resp.UserMemoryItemResp> listUserMemory(Long userId, String memoryType, int page, int size, String scopeType, Long scopeId);
+
+    void deleteUserMemoryItem(Long userId, Long itemId);
+
+    void deleteUserMemoryItemAsAdmin(Long itemId);
 }
