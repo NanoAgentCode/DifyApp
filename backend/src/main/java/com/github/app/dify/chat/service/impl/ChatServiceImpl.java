@@ -226,7 +226,7 @@ public class ChatServiceImpl implements ChatService {
                         modelId, promptTokens, completionTokens, totalTokens);
                 logger.info("✓ 助手消息已保存");
                 try {
-                    userMemoryService.updateMemoryAsync(userId, request.getQuestion(), answer, modelId, conversationId);
+                    userMemoryService.updateMemoryAsync(userId, request.getQuestion(), answer, modelId, conversationId, "chat", null);
                 } catch (Exception e) {
                     logger.debug("触发异步记忆更新失败", e);
                 }
@@ -401,7 +401,7 @@ public class ChatServiceImpl implements ChatService {
                                 logger.info("✓ 流式响应完成 - 已保存助手消息到会话: {}, 模型ID: {}, Token: {}/{}/{}", 
                                         conversationId, qaModel.getId(), promptTokens, completionTokens, totalTokens);
                                 try {
-                                    userMemoryService.updateMemoryAsync(userId, request.getQuestion(), finalAnswer, qaModel.getId(), conversationId);
+                                    userMemoryService.updateMemoryAsync(userId, request.getQuestion(), finalAnswer, qaModel.getId(), conversationId, "chat", null);
                                 } catch (Exception e) {
                                     logger.debug("触发异步记忆更新失败（流式）", e);
                                 }
@@ -484,7 +484,7 @@ public class ChatServiceImpl implements ChatService {
             systemMessageBuilder.append(String.format("当前年份：%d年\n", currentYear));
         }
 
-        String memoryContext = userMemoryService.buildMemoryContext(userId, request.getQuestion());
+        String memoryContext = userMemoryService.buildMemoryContext(userId, request.getQuestion(), "chat", null);
         if (memoryContext != null && !memoryContext.trim().isEmpty()) {
             systemMessageBuilder.append("\n").append(memoryContext).append("\n");
         }

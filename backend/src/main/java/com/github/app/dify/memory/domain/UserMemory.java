@@ -8,8 +8,8 @@ import java.util.Date;
 
 @Entity
 @Table(
-        name = "user_memory",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "memory_type", "memory_key"})
+        name = "USER_MEMORY",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "scope_type", "scope_id", "memory_type", "memory_key"})
 )
 public class UserMemory implements Serializable {
 
@@ -21,6 +21,14 @@ public class UserMemory implements Serializable {
     @Schema(description = "用户ID")
     @Column(name = "user_id", nullable = false)
     private Long userId;
+
+    @Schema(description = "作用域类型：chat/knowledge_base/app")
+    @Column(name = "scope_type", length = 32, nullable = false)
+    private String scopeType;
+
+    @Schema(description = "作用域ID（知识库/应用ID，chat为空）")
+    @Column(name = "scope_id")
+    private Long scopeId;
 
     @Schema(description = "记忆类型：long_term/entity")
     @Column(name = "memory_type", length = 32, nullable = false)
@@ -64,6 +72,22 @@ public class UserMemory implements Serializable {
 
     public void setUserId(Long userId) {
         this.userId = userId;
+    }
+
+    public String getScopeType() {
+        return scopeType;
+    }
+
+    public void setScopeType(String scopeType) {
+        this.scopeType = scopeType;
+    }
+
+    public Long getScopeId() {
+        return scopeId;
+    }
+
+    public void setScopeId(Long scopeId) {
+        this.scopeId = scopeId;
     }
 
     public String getMemoryType() {

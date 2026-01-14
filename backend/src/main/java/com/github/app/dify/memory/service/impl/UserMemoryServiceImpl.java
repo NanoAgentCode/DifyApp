@@ -39,6 +39,10 @@ public class UserMemoryServiceImpl implements UserMemoryService {
     private static final String TYPE_LONG_TERM = "long_term";
     private static final String TYPE_ENTITY = "entity";
 
+    private static final String SCOPE_CHAT = "chat";
+    private static final String SCOPE_KNOWLEDGE_BASE = "knowledge_base";
+    private static final String SCOPE_APP = "app";
+
     private static final int MAX_RECENT_LONG_TERM = 30;
     private static final int MAX_RECENT_ENTITY = 30;
     private static final int MAX_MEMORY_ITEMS_PER_TYPE = 200;
@@ -60,17 +64,18 @@ public class UserMemoryServiceImpl implements UserMemoryService {
     private ModelLanguageModelFactory modelLanguageModelFactory;
 
     @Override
-    public String buildMemoryContext(Long userId, String question) {
+    public String buildMemoryContext(Long userId, String question, String scopeType, Long scopeId) {
         if (userId == null) {
             return "";
         }
+        Scope scope = normalizeScope(scopeType, scopeId);
         String q = question != null ? question.trim() : "";
         List<String> tokens = tokenizeForMatch(q);
 
-        List<UserMemory> longTerms = userMemoryRepository.findRecentByUserIdAndType(
-                userId, TYPE_LONG_TERM, PageRequest.of(0, MAX_RECENT_LONG_TERM));
-        List<UserMemory> entities = userMemoryRepository.findRecentByUserIdAndType(
-                userId, TYPE_ENTITY, PageRequest.of(0, MAX_RECENT_ENTITY));
+        List<UserMemory> longTerms = userMemoryRepository.findRecentByUserIdAndScopeAndType(
+                userId, scope.type, scope.id, TYPE_LONG_TERM, PageRequest.of(0, MAX_RECENT_LONG_TERM));
+        List<UserMemory> entities = userMemoryRepository.findRecentByUserIdAndScopeAndType(
+                userId, scope.type, scope.id, TYPE_ENTITY, PageRequest.of(0, MAX_RECENT_ENTITY));
 
         List<UserMemory> pickedLong = pickBest(longTerms, tokens, MAX_CONTEXT_ITEMS_LONG_TERM);
         List<UserMemory> pickedEnt = pickBest(entities, tokens, MAX_CONTEXT_ITEMS_ENTITY);
@@ -105,10 +110,11 @@ public class UserMemoryServiceImpl implements UserMemoryService {
 
     @Async
     @Override
-    public void updateMemoryAsync(Long userId, String question, String answer, Long modelId, Long conversationId) {
+    public void updateMemoryAsync(Long userId, String question, String answer, Long modelId, Long conversationId, String scopeType, Long scopeId) {
         if (userId == null) {
             return;
         }
+        Scope scope = normalizeScope(scopeType, scopeId);
         String q = question != null ? question.trim() : "";
         String a = answer != null ? answer.trim() : "";
         if (q.isEmpty() || a.isEmpty()) {
@@ -140,9 +146,9 @@ public class UserMemoryServiceImpl implements UserMemoryService {
             if (extraction == null || extraction.trim().isEmpty()) {
                 return;
             }
-            upsertFromJson(userId, extraction, conversationId);
-            enforceLimit(userId, TYPE_LONG_TERM);
-            enforceLimit(userId, TYPE_ENTITY);
+            upsertFromJson(userId, scope, extraction, conversationId);
+            enforceLimit(userId, scope, TYPE_LONG_TERM);
+            enforceLimit(userId, scope, TYPE_ENTITY);
         } catch (Exception e) {
             logger.debug("异步记忆更新失败 - userId={}", userId, e);
         }
@@ -150,15 +156,20 @@ public class UserMemoryServiceImpl implements UserMemoryService {
 
     @Override
     @Transactional
-    public void clearUserMemory(Long userId) {
+    public void clearUserMemory(Long userId, String scopeType, Long scopeId) {
         if (userId == null) {
             return;
         }
-        userMemoryRepository.softDeleteAllByUserId(userId);
+        if (scopeType == null || scopeType.trim().isEmpty()) {
+            userMemoryRepository.softDeleteAllByUserId(userId);
+            return;
+        }
+        Scope scope = normalizeScope(scopeType, scopeId);
+        userMemoryRepository.softDeleteAllByUserIdAndScope(userId, scope.type, scope.id);
     }
 
     @Override
-    public List<UserMemoryItemResp> listUserMemory(Long userId, String memoryType, int page, int size) {
+    public List<UserMemoryItemResp> listUserMemory(Long userId, String memoryType, int page, int size, String scopeType, Long scopeId) {
         if (userId == null) {
             return List.of();
         }
@@ -168,18 +179,32 @@ public class UserMemoryServiceImpl implements UserMemoryService {
 
         List<UserMemory> items;
         String type = memoryType != null ? memoryType.trim() : null;
-        if (type == null || type.isEmpty()) {
-            items = userMemoryRepository.findRecentByUserId(userId, pageable);
-        } else if (TYPE_LONG_TERM.equals(type) || TYPE_ENTITY.equals(type)) {
-            items = userMemoryRepository.findRecentByUserIdAndType(userId, type, pageable);
+        boolean hasScope = scopeType != null && !scopeType.trim().isEmpty();
+        if (hasScope) {
+            Scope scope = normalizeScope(scopeType, scopeId);
+            if (type == null || type.isEmpty()) {
+                items = userMemoryRepository.findRecentByUserIdAndScope(userId, scope.type, scope.id, pageable);
+            } else if (TYPE_LONG_TERM.equals(type) || TYPE_ENTITY.equals(type)) {
+                items = userMemoryRepository.findRecentByUserIdAndScopeAndType(userId, scope.type, scope.id, type, pageable);
+            } else {
+                items = List.of();
+            }
         } else {
-            items = List.of();
+            if (type == null || type.isEmpty()) {
+                items = userMemoryRepository.findRecentByUserId(userId, pageable);
+            } else if (TYPE_LONG_TERM.equals(type) || TYPE_ENTITY.equals(type)) {
+                items = userMemoryRepository.findRecentByUserIdAndType(userId, type, pageable);
+            } else {
+                items = List.of();
+            }
         }
 
         List<UserMemoryItemResp> resp = new ArrayList<>();
         for (UserMemory m : items) {
             UserMemoryItemResp r = new UserMemoryItemResp();
             r.setId(m.getId());
+            r.setScopeType(m.getScopeType());
+            r.setScopeId(m.getScopeId());
             r.setMemoryType(m.getMemoryType());
             r.setMemoryKey(m.getMemoryKey());
             r.setContent(m.getContent());
@@ -224,7 +249,7 @@ public class UserMemoryServiceImpl implements UserMemoryService {
     }
 
     @Transactional
-    protected void upsertFromJson(Long userId, String json, Long conversationId) {
+    protected void upsertFromJson(Long userId, Scope scope, String json, Long conversationId) {
         JsonNode root;
         try {
             root = objectMapper.readTree(json);
@@ -260,7 +285,7 @@ public class UserMemoryServiceImpl implements UserMemoryService {
                     continue;
                 }
                 String stableKey = key != null && !key.trim().isEmpty() ? key.trim() : sha1Short(content);
-                upsertOne(userId, TYPE_LONG_TERM, stableKey, content.trim(), clampImportance(importance), conversationId);
+                upsertOne(userId, scope, TYPE_LONG_TERM, stableKey, content.trim(), clampImportance(importance), conversationId);
             }
         }
 
@@ -286,13 +311,13 @@ public class UserMemoryServiceImpl implements UserMemoryService {
                 } catch (Exception e) {
                     continue;
                 }
-                upsertOne(userId, TYPE_ENTITY, key, content, 3, conversationId);
+                upsertOne(userId, scope, TYPE_ENTITY, key, content, 3, conversationId);
             }
         }
     }
 
-    private void upsertOne(Long userId, String type, String key, String content, Integer importance, Long conversationId) {
-        Optional<UserMemory> existing = userMemoryRepository.findActiveByUserIdAndTypeAndKey(userId, type, key);
+    private void upsertOne(Long userId, Scope scope, String type, String key, String content, Integer importance, Long conversationId) {
+        Optional<UserMemory> existing = userMemoryRepository.findActiveByUserIdAndScopeAndTypeAndKey(userId, scope.type, scope.id, type, key);
         UserMemory m;
         if (existing.isPresent()) {
             m = existing.get();
@@ -302,6 +327,8 @@ public class UserMemoryServiceImpl implements UserMemoryService {
         } else {
             m = new UserMemory();
             m.setUserId(userId);
+            m.setScopeType(scope.type);
+            m.setScopeId(scope.id);
             m.setMemoryType(type);
             m.setMemoryKey(key);
             m.setContent(content);
@@ -313,8 +340,8 @@ public class UserMemoryServiceImpl implements UserMemoryService {
     }
 
     @Transactional
-    protected void enforceLimit(Long userId, String type) {
-        long count = userMemoryRepository.countActiveByUserIdAndType(userId, type);
+    protected void enforceLimit(Long userId, Scope scope, String type) {
+        long count = userMemoryRepository.countActiveByUserIdAndScopeAndType(userId, scope.type, scope.id, type);
         if (count <= MAX_MEMORY_ITEMS_PER_TYPE) {
             return;
         }
@@ -322,8 +349,8 @@ public class UserMemoryServiceImpl implements UserMemoryService {
         if (toRemove <= 0) {
             return;
         }
-        List<UserMemory> oldest = userMemoryRepository.findOldestActiveByUserIdAndType(
-                userId, type, PageRequest.of(0, (int) Math.min(toRemove, 200)));
+        List<UserMemory> oldest = userMemoryRepository.findOldestActiveByUserIdAndScopeAndType(
+                userId, scope.type, scope.id, type, PageRequest.of(0, (int) Math.min(toRemove, 200)));
         if (oldest.isEmpty()) {
             return;
         }
@@ -332,6 +359,30 @@ public class UserMemoryServiceImpl implements UserMemoryService {
             MemoryDateTimeUtil.setUpdateTime(m);
         }
         userMemoryRepository.saveAll(oldest);
+    }
+
+    private static class Scope {
+        final String type;
+        final Long id;
+
+        private Scope(String type, Long id) {
+            this.type = type;
+            this.id = id;
+        }
+    }
+
+    private Scope normalizeScope(String scopeType, Long scopeId) {
+        String type = scopeType != null ? scopeType.trim().toLowerCase(Locale.ROOT) : "";
+        if (type.isEmpty()) {
+            return new Scope(SCOPE_CHAT, null);
+        }
+        if (SCOPE_KNOWLEDGE_BASE.equals(type) || SCOPE_APP.equals(type)) {
+            return new Scope(type, scopeId);
+        }
+        if (SCOPE_CHAT.equals(type)) {
+            return new Scope(SCOPE_CHAT, null);
+        }
+        return new Scope(SCOPE_CHAT, null);
     }
 
     private List<UserMemory> pickBest(List<UserMemory> candidates, List<String> tokens, int max) {

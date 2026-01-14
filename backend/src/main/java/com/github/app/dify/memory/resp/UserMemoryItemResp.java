@@ -10,6 +10,12 @@ public class UserMemoryItemResp {
     @Schema(description = "ID")
     private Long id;
 
+    @Schema(description = "作用域类型：chat/knowledge_base/app")
+    private String scopeType;
+
+    @Schema(description = "作用域ID（知识库/应用ID，chat为空）")
+    private Long scopeId;
+
     @Schema(description = "记忆类型：long_term/entity")
     private String memoryType;
 
@@ -39,6 +45,22 @@ public class UserMemoryItemResp {
 
     public void setMemoryType(String memoryType) {
         this.memoryType = memoryType;
+    }
+
+    public String getScopeType() {
+        return scopeType;
+    }
+
+    public void setScopeType(String scopeType) {
+        this.scopeType = scopeType;
+    }
+
+    public Long getScopeId() {
+        return scopeId;
+    }
+
+    public void setScopeId(Long scopeId) {
+        this.scopeId = scopeId;
     }
 
     public String getMemoryKey() {

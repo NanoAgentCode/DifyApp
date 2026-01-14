@@ -95,7 +95,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                 return response;
             }
 
-            String memoryContext = userMemoryService.buildMemoryContext(userId, request.getQuestion());
+            String memoryContext = userMemoryService.buildMemoryContext(userId, request.getQuestion(), "knowledge_base", knowledgeBaseId);
             
             // 构建消息列表（包含历史对话）
             List<ChatMessage> messages = buildMessages(request, memoryContext);
@@ -195,7 +195,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                     chatHistoryService.saveMessage(conversationId, "assistant", answer, 
                             modelId, promptTokens, completionTokens, totalTokens);
                     try {
-                        userMemoryService.updateMemoryAsync(userId, request.getQuestion(), answer, modelId, conversationId);
+                        userMemoryService.updateMemoryAsync(userId, request.getQuestion(), answer, modelId, conversationId, "knowledge_base", knowledgeBaseId);
                     } catch (Exception e) {
                         logger.debug("触发异步记忆更新失败（知识库问答）", e);
                     }
@@ -270,7 +270,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                 return source;
             }).collect(Collectors.toList());
 
-            String memoryContext = userMemoryService.buildMemoryContext(userId, request.getQuestion());
+            String memoryContext = userMemoryService.buildMemoryContext(userId, request.getQuestion(), "knowledge_base", knowledgeBaseId);
             
             // 构建消息列表（包含历史对话）
             List<ChatMessage> messages = buildMessages(request, memoryContext);
@@ -603,7 +603,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                                     finalModelId, null, null, null);
                             logger.info("流式响应完成 - 保存助手消息到会话: {}, 模型ID: {}", conversationId, finalModelId);
                             try {
-                                userMemoryService.updateMemoryAsync(userId, request.getQuestion(), finalAnswer, finalModelId, conversationId);
+                                userMemoryService.updateMemoryAsync(userId, request.getQuestion(), finalAnswer, finalModelId, conversationId, "knowledge_base", knowledgeBaseId);
                             } catch (Exception e) {
                                 logger.debug("触发异步记忆更新失败（知识库流式）", e);
                             }

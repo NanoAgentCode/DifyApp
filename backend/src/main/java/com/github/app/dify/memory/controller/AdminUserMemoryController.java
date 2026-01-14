@@ -48,6 +48,8 @@ public class AdminUserMemoryController extends BaseController {
     public ResponseEntity<List<UserMemoryItemResp>> listUserMemory(
             @PathVariable Long userId,
             @RequestParam(required = false) String type,
+            @RequestParam(required = false) String scopeType,
+            @RequestParam(required = false) Long scopeId,
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "50") Integer size,
             HttpServletRequest request) {
@@ -56,7 +58,9 @@ public class AdminUserMemoryController extends BaseController {
                 userId,
                 type,
                 page != null ? page : 1,
-                size != null ? size : 50
+                size != null ? size : 50,
+                scopeType,
+                scopeId
         );
         return ResponseEntity.ok(resp);
     }
