@@ -93,7 +93,7 @@
         </el-card>
 
         <!-- 输入字段配置 -->
-        <el-card shadow="never" class="form-section" v-if="form.type === 2">
+        <el-card shadow="never" class="form-section" v-if="form.type === 1 || form.type === 2">
           <template #header>
             <span class="section-title">输入字段配置</span>
           </template>
@@ -103,35 +103,57 @@
                 <el-icon><Plus /></el-icon>
                 添加字段
               </el-button>
-              <el-button @click="importFromJson" size="small" type="info">
+              <el-button @click="openInputsJsonDialog('import')" size="small" type="info">
                 <el-icon><DocumentCopy /></el-icon>
                 从JSON导入
               </el-button>
-              <el-button @click="exportToJson" size="small" type="info">
+              <el-button @click="openInputsJsonDialog('export')" size="small" type="info">
                 <el-icon><Download /></el-icon>
                 导出JSON
               </el-button>
+              <el-button @click="copyFinalInputs" size="small" type="success" :disabled="!finalInputsJson">
+                <el-icon><DocumentCopy /></el-icon>
+                复制最终inputs
+              </el-button>
+            </div>
+
+            <div v-if="finalInputsJson" class="final-json-preview">
+              <el-input
+                :model-value="finalInputsJson"
+                type="textarea"
+                :rows="6"
+                readonly
+              />
             </div>
             
             <el-form :model="inputFieldsConfig" label-width="140px">
               <div 
                 v-for="(field, index) in inputFieldsList" 
-                :key="field.key || index"
+                :key="field.id || index"
                 class="input-field-item"
               >
                 <el-card shadow="hover" class="field-card">
                   <template #header>
                     <div class="field-header">
                       <span class="field-title">{{ field.label || field.key || `字段 ${index + 1}` }}</span>
-                      <el-button 
-                        type="danger" 
-                        size="small" 
-                        text 
-                        @click="removeInputField(index)"
-                      >
-                        <el-icon><Delete /></el-icon>
-                        删除
-                      </el-button>
+                      <div class="field-header-actions">
+                        <el-button
+                          size="small"
+                          text
+                          @click="toggleFieldAdvanced(field.id)"
+                        >
+                          {{ expandedFieldIds[field.id] ? '收起高级' : '展开高级' }}
+                        </el-button>
+                        <el-button 
+                          type="danger" 
+                          size="small" 
+                          text 
+                          @click="removeInputField(index)"
+                        >
+                          <el-icon><Delete /></el-icon>
+                          删除
+                        </el-button>
+                      </div>
                     </div>
                   </template>
                   
@@ -142,6 +164,14 @@
                       @blur="validateFieldKey(field, index)"
                     />
                     <div class="form-item-tip">用于API请求的字段名，必须唯一</div>
+                  </el-form-item>
+
+                  <el-form-item label="映射到Dify字段">
+                    <el-input
+                      v-model="field.mapTo"
+                      placeholder="留空则与字段键名相同，例如: user.name"
+                    />
+                    <div class="form-item-tip">支持点路径，例如 user.profile.name</div>
                   </el-form-item>
                   
                   <el-form-item label="显示标签">
@@ -164,45 +194,47 @@
                     </el-select>
                   </el-form-item>
                   
-                  <el-form-item label="占位符">
-                    <el-input 
-                      v-model="field.placeholder" 
-                      placeholder="请输入占位符文本"
-                    />
-                  </el-form-item>
-                  
-                  <el-form-item label="默认值">
-                    <el-input 
-                      v-model="field.defaultValue" 
-                      placeholder="字段的默认值"
-                    />
-                    <div class="form-item-tip">对于JSON类型，请输入有效的JSON字符串</div>
-                  </el-form-item>
-                  
-                  <el-form-item label="帮助文本">
-                    <el-input 
-                      v-model="field.helpText" 
-                      type="textarea"
-                      :rows="2"
-                      placeholder="显示在输入框下方的提示文本"
-                    />
-                  </el-form-item>
-                  
                   <el-form-item label="是否必填">
                     <el-switch v-model="field.required" />
                   </el-form-item>
                   
-                  <el-form-item label="行数" v-if="field.type === 'textarea'">
+                  <el-form-item label="行数" v-if="field.type === 'textarea' || field.type === 'json'">
                     <el-input-number 
                       v-model="field.rows" 
                       :min="1" 
                       :max="20" 
                       :step="1"
                     />
-                    <div class="form-item-tip">多行文本输入框的行数</div>
+                    <div class="form-item-tip">多行文本或JSON编辑器的行数</div>
                   </el-form-item>
                   
-                  <el-form-item label="选项列表" v-if="field.type === 'select'">
+                  <div v-show="expandedFieldIds[field.id]">
+                    <el-form-item label="占位符">
+                      <el-input 
+                        v-model="field.placeholder" 
+                        placeholder="请输入占位符文本"
+                      />
+                    </el-form-item>
+                    
+                    <el-form-item label="默认值">
+                      <el-input 
+                        v-model="field.defaultValue" 
+                        placeholder="字段的默认值"
+                      />
+                      <div class="form-item-tip">对于JSON类型，请输入有效的JSON字符串</div>
+                    </el-form-item>
+                    
+                    <el-form-item label="帮助文本">
+                      <el-input 
+                        v-model="field.helpText" 
+                        type="textarea"
+                        :rows="2"
+                        placeholder="显示在输入框下方的提示文本"
+                      />
+                    </el-form-item>
+                  </div>
+                  
+                  <el-form-item label="选项列表" v-if="field.type === 'select' && expandedFieldIds[field.id]">
                     <div class="select-options">
                       <div 
                         v-for="(option, optIndex) in field.options || []" 
@@ -240,7 +272,7 @@
                     </div>
                   </el-form-item>
                   
-                  <el-form-item label="样式配置">
+                  <el-form-item label="样式配置" v-if="expandedFieldIds[field.id]">
                     <div class="style-config">
                       <el-input 
                         v-model="field.style.width" 
@@ -255,7 +287,7 @@
                     </div>
                   </el-form-item>
                   
-                  <el-form-item label="验证规则">
+                  <el-form-item label="验证规则" v-if="expandedFieldIds[field.id]">
                     <div class="validation-config">
                       <el-input-number 
                         v-model="field.validation.minLength" 
@@ -350,6 +382,37 @@
         </el-form-item>
       </el-form>
     </el-card>
+
+    <el-dialog
+      v-model="inputsJsonDialogVisible"
+      :title="inputsJsonDialogMode === 'export' ? '导出 inputs JSON' : '从 JSON 导入 inputs'"
+      width="900px"
+      :close-on-click-modal="false"
+    >
+      <el-input
+        v-model="inputsJsonDraft"
+        type="textarea"
+        :rows="18"
+        placeholder="请输入 inputs JSON..."
+      />
+      <template #footer>
+        <el-button @click="inputsJsonDialogVisible = false">取消</el-button>
+        <el-button
+          v-if="inputsJsonDialogMode === 'export'"
+          type="primary"
+          @click="copyText(inputsJsonDraft)"
+        >
+          复制
+        </el-button>
+        <el-button
+          v-else
+          type="primary"
+          @click="applyInputsJsonDraft"
+        >
+          导入
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -395,16 +458,18 @@ const form = reactive({
 
 // 输入字段配置
 const inputFieldsConfig = reactive({})
+const expandedFieldIds = reactive({})
+const inputsJsonDialogVisible = ref(false)
+const inputsJsonDialogMode = ref('export')
+const inputsJsonDraft = ref('')
 const inputFieldsList = computed(() => {
-  return Object.keys(inputFieldsConfig).map(key => ({
-    key,
-    ...inputFieldsConfig[key]
-  }))
+  return Object.values(inputFieldsConfig)
 })
 
 // 创建默认字段配置
 const createDefaultField = () => ({
   key: '',
+  mapTo: '',
   label: '',
   type: 'text',
   placeholder: '',
@@ -427,17 +492,23 @@ const createDefaultField = () => ({
 // 添加输入字段
 const addInputField = () => {
   const field = createDefaultField()
-  const key = `field_${Date.now()}`
-  field.key = key
-  inputFieldsConfig[key] = field
+  const id = `field_${Date.now()}`
+  inputFieldsConfig[id] = { ...field, id }
+  expandedFieldIds[id] = true
 }
 
 // 删除输入字段
 const removeInputField = (index) => {
   const field = inputFieldsList.value[index]
-  if (field && field.key) {
-    delete inputFieldsConfig[field.key]
+  if (field && field.id) {
+    delete inputFieldsConfig[field.id]
+    delete expandedFieldIds[field.id]
   }
+}
+
+const toggleFieldAdvanced = (id) => {
+  if (!id) return
+  expandedFieldIds[id] = !expandedFieldIds[id]
 }
 
 // 验证字段键名
@@ -453,7 +524,7 @@ const validateFieldKey = (field, index) => {
   )
   if (duplicates.length > 0) {
     ElMessage.warning('字段键名已存在，请使用不同的键名')
-    field.key = `field_${Date.now()}`
+    field.key = ''
   }
 }
 
@@ -472,75 +543,66 @@ const removeOption = (field, index) => {
   }
 }
 
-// 从JSON导入配置
-const importFromJson = async () => {
+const copyText = async (text) => {
   try {
-    const { value } = await ElMessageBox.prompt(
-      '请输入JSON配置（格式：{"field1": {"label": "字段1", "type": "text", ...}, ...}）',
-      '从JSON导入',
-      {
-        confirmButtonText: '导入',
-        cancelButtonText: '取消',
-        inputType: 'textarea',
-        inputPlaceholder: '请输入JSON配置...',
-        inputValue: form.inputs || ''
-      }
-    )
-    
-    if (value && value.trim()) {
-      try {
-        const parsed = JSON.parse(value.trim())
-        
-        // 如果是旧格式（简单的键值对），转换为新格式
-        if (isOldFormat(parsed)) {
-          const converted = convertOldFormat(parsed)
-          Object.assign(inputFieldsConfig, converted)
-        } else {
-          // 新格式，直接使用
-          Object.assign(inputFieldsConfig, parsed)
-        }
-        
-        ElMessage.success('导入成功')
-      } catch (e) {
-        ElMessage.error('JSON格式错误: ' + e.message)
-      }
-    }
+    await navigator.clipboard.writeText(text || '')
+    ElMessage.success('已复制到剪贴板')
   } catch (e) {
-    // 用户取消
+    ElMessage.error('复制失败')
   }
 }
 
-// 导出为JSON
-const exportToJson = () => {
-  const config = {}
-  Object.keys(inputFieldsConfig).forEach(key => {
-    const field = inputFieldsConfig[key]
-    config[key] = {
-      label: field.label || '',
-      type: field.type || 'text',
-      placeholder: field.placeholder || '',
-      defaultValue: field.defaultValue || '',
-      helpText: field.helpText || '',
-      required: field.required || false,
-      rows: field.rows || 2,
-      options: field.options || [],
-      style: field.style || {},
-      validation: field.validation || {}
-    }
+const finalInputsJson = computed(() => {
+  if ((form.type === 1 || form.type === 2) && inputFieldsList.value.length > 0) {
+    return convertFieldsToInputs()
+  }
+  return ''
+})
+
+const copyFinalInputs = async () => {
+  if (!finalInputsJson.value) return
+  await copyText(finalInputsJson.value)
+}
+
+const resetInputFieldsConfig = () => {
+  Object.keys(inputFieldsConfig).forEach(k => {
+    delete inputFieldsConfig[k]
   })
-  
-  const jsonStr = JSON.stringify(config, null, 2)
-  
-  // 复制到剪贴板
-  navigator.clipboard.writeText(jsonStr).then(() => {
-    ElMessage.success('JSON配置已复制到剪贴板')
-  }).catch(() => {
-    // 如果复制失败，显示在对话框中
-    ElMessageBox.alert(jsonStr, 'JSON配置', {
-      confirmButtonText: '确定',
-      type: 'info'
-    })
+  Object.keys(expandedFieldIds).forEach(k => {
+    delete expandedFieldIds[k]
   })
+}
+
+const openInputsJsonDialog = (mode) => {
+  inputsJsonDialogMode.value = mode === 'import' ? 'import' : 'export'
+  if (inputsJsonDialogMode.value === 'export') {
+    inputsJsonDraft.value = finalInputsJson.value || form.inputs || ''
+  } else {
+    inputsJsonDraft.value = form.inputs || ''
+  }
+  inputsJsonDialogVisible.value = true
+}
+
+const applyInputsJsonDraft = () => {
+  if (!inputsJsonDraft.value || !inputsJsonDraft.value.trim()) {
+    resetInputFieldsConfig()
+    form.inputs = ''
+    inputsJsonDialogVisible.value = false
+    return
+  }
+
+  try {
+    JSON.parse(inputsJsonDraft.value)
+  } catch (e) {
+    ElMessage.error('JSON格式错误: ' + e.message)
+    return
+  }
+
+  resetInputFieldsConfig()
+  form.inputs = inputsJsonDraft.value
+  loadFieldsFromInputs(inputsJsonDraft.value)
+  inputsJsonDialogVisible.value = false
+  ElMessage.success('已导入 inputs 配置')
 }
 
 // 检查是否为旧格式
@@ -567,6 +629,7 @@ const convertOldFormat = (oldConfig) => {
     newConfig[key] = {
       label: key,
       type: Array.isArray(value) || (typeof value === 'object' && value !== null) ? 'json' : 'text',
+      mapTo: '',
       placeholder: `请输入${key}`,
       defaultValue: typeof value === 'string' ? value : JSON.stringify(value),
       helpText: '',
@@ -616,6 +679,7 @@ const convertFieldsToInputs = () => {
       fieldsConfig[field.key] = {
         label: field.label || '',
         type: field.type || 'text',
+        mapTo: field.mapTo || '',
         placeholder: field.placeholder || '',
         defaultValue: field.defaultValue || '',
         helpText: field.helpText || '',
@@ -647,23 +711,25 @@ const loadFieldsFromInputs = (inputsStr) => {
     // 检查是否是新格式（包含fields和defaults）
     if (parsed.fields && parsed.defaults) {
       // 新格式
+      resetInputFieldsConfig()
       Object.keys(parsed.fields).forEach(key => {
-        inputFieldsConfig[key] = {
-          key,
-          ...parsed.fields[key]
-        }
+        inputFieldsConfig[key] = { ...createDefaultField(), ...parsed.fields[key], key, id: key }
+        expandedFieldIds[key] = false
       })
     } else if (isOldFormat(parsed)) {
       // 旧格式，转换为新格式
       const converted = convertOldFormat(parsed)
-      Object.assign(inputFieldsConfig, converted)
+      resetInputFieldsConfig()
+      Object.keys(converted).forEach(k => {
+        inputFieldsConfig[k] = { ...createDefaultField(), ...converted[k], key: k, id: k }
+        expandedFieldIds[k] = false
+      })
     } else {
       // 可能是字段配置格式
+      resetInputFieldsConfig()
       Object.keys(parsed).forEach(key => {
-        inputFieldsConfig[key] = {
-          key,
-          ...parsed[key]
-        }
+        inputFieldsConfig[key] = { ...createDefaultField(), ...parsed[key], key, id: key }
+        expandedFieldIds[key] = false
       })
     }
   } catch (e) {
@@ -753,9 +819,14 @@ const handleSubmit = async () => {
     await formRef.value.validate()
     
     // 将输入字段配置转换为inputs JSON字符串
-    if (form.type === 2 && inputFieldsList.value.length > 0) {
+    if ((form.type === 1 || form.type === 2) && inputFieldsList.value.length > 0) {
+      const missingKey = inputFieldsList.value.find(f => !f.key || !String(f.key).trim())
+      if (missingKey) {
+        ElMessage.warning('存在未填写字段键名的输入字段')
+        return
+      }
       form.inputs = convertFieldsToInputs()
-    } else if (form.type === 2 && inputFieldsList.value.length === 0) {
+    } else if (form.type === 1 || form.type === 2) {
       // 如果没有配置字段，设置为空字符串
       form.inputs = ''
     }
@@ -887,6 +958,16 @@ onMounted(() => {
   margin-bottom: 20px;
   padding-bottom: 15px;
   border-bottom: 1px solid #e4e7ed;
+}
+
+.final-json-preview {
+  margin-bottom: 20px;
+}
+
+.field-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .input-field-item {

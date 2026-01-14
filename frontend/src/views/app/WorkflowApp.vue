@@ -14,214 +14,197 @@
       <div class="workflow-content">
         <div class="input-section">
           <h4>输入参数</h4>
-          <el-form :model="inputs" :label-width="formLabelWidth">
-            <!-- 根据配置动态渲染输入字段 -->
-            <el-form-item
-              v-for="field in inputFields"
-              :key="field.key"
-              :label="field.label || field.key"
-              :required="field.required"
-              v-if="appInfo?.inputEnabled === true"
-              :style="field.style || {}"
-            >
-              <!-- 文本输入 -->
-              <el-input
-                v-if="field.type === 'text'"
-                v-model="inputs[field.key]"
-                :placeholder="field.placeholder || `请输入${field.label || field.key}`"
-                :style="{ width: (field.style && field.style.width) || '100%' }"
-              />
-              
-              <!-- 多行文本 -->
-              <el-input
-                v-else-if="field.type === 'textarea'"
-                v-model="inputs[field.key]"
-                type="textarea"
-                :rows="field.rows || 2"
-                :placeholder="field.placeholder || `请输入${field.label || field.key}`"
-                :style="{ width: (field.style && field.style.width) || '100%' }"
-              />
-              
-              <!-- 数字输入 -->
-              <el-input-number
-                v-else-if="field.type === 'number'"
-                v-model="inputs[field.key]"
-                :placeholder="field.placeholder || `请输入${field.label || field.key}`"
-                :style="{ width: (field.style && field.style.width) || '100%' }"
-              />
-              
-              <!-- 下拉选择 -->
-              <el-select
-                v-else-if="field.type === 'select'"
-                v-model="inputs[field.key]"
-                :placeholder="field.placeholder || `请选择${field.label || field.key}`"
-                :style="{ width: (field.style && field.style.width) || '100%' }"
+          <div class="input-section-body">
+            <el-form :model="inputs" :label-width="formLabelWidth">
+              <!-- 根据配置动态渲染输入字段 -->
+              <el-form-item
+                v-for="field in inputFields"
+                :key="field.key"
+                :label="field.label || field.key"
+                :required="field.required"
+                v-if="appInfo?.inputEnabled === true"
+                :style="field.style || {}"
               >
-                <el-option
-                  v-for="option in field.options || []"
-                  :key="option.value"
-                  :label="option.label"
-                  :value="option.value"
-                />
-              </el-select>
-              
-              <!-- JSON编辑器 -->
-              <div v-else-if="field.type === 'json'" class="complex-input">
+                <!-- 文本输入 -->
                 <el-input
-                  v-model="inputsJson[field.key]"
-                  type="textarea"
-                  :rows="field.rows || 6"
-                  :placeholder="field.placeholder || getComplexInputPlaceholder(field.key)"
-                  @blur="validateAndUpdateJson(field.key)"
+                  v-if="field.type === 'text'"
+                  v-model="inputs[field.key]"
+                  :placeholder="field.placeholder || `请输入${field.label || field.key}`"
                   :style="{ width: (field.style && field.style.width) || '100%' }"
                 />
-                <div class="input-tip">
-                  <el-text type="info" size="small">
-                    {{ field.helpText || '支持 JSON 格式，可以是字符串、数组或对象' }}
-                  </el-text>
-                </div>
-              </div>
-              
-              <!-- 日期选择 -->
-              <el-date-picker
-                v-else-if="field.type === 'date'"
-                v-model="inputs[field.key]"
-                type="date"
-                :placeholder="field.placeholder || `请选择${field.label || field.key}`"
-                :style="{ width: (field.style && field.style.width) || '100%' }"
-              />
-              
-              <!-- 开关 -->
-              <el-switch
-                v-else-if="field.type === 'switch'"
-                v-model="inputs[field.key]"
-              />
-              
-              <!-- 默认：文本输入 -->
-              <el-input
-                v-else
-                v-model="inputs[field.key]"
-                :placeholder="field.placeholder || `请输入${field.label || field.key}`"
-                :style="{ width: (field.style && field.style.width) || '100%' }"
-              />
-              
-              <!-- 帮助文本 -->
-              <div v-if="field.helpText" class="input-tip">
-                <el-text type="info" size="small">
-                  {{ field.helpText }}
-                </el-text>
-              </div>
-            </el-form-item>
-            
-            <!-- 兼容旧格式：如果没有配置字段，使用旧的渲染方式 -->
-            <template v-if="inputFields.length === 0">
-              <el-form-item
-                v-for="(value, key) in inputs"
-                :key="key"
-                :label="key"
-                v-if="appInfo?.inputEnabled === true"
-              >
-                <!-- 简单字符串输入 -->
+                
+                <!-- 多行文本 -->
                 <el-input
-                  v-if="isSimpleValue(value)"
-                  v-model="inputs[key]"
-                  :placeholder="`请输入${key}`"
+                  v-else-if="field.type === 'textarea'"
+                  v-model="inputs[field.key]"
                   type="textarea"
-                  :rows="2"
+                  :rows="field.rows || 2"
+                  :placeholder="field.placeholder || `请输入${field.label || field.key}`"
+                  :style="{ width: (field.style && field.style.width) || '100%' }"
                 />
-                <!-- 复杂结构（数组或对象）使用 JSON 编辑器 -->
-                <div v-else class="complex-input">
+                
+                <!-- 数字输入 -->
+                <el-input-number
+                  v-else-if="field.type === 'number'"
+                  v-model="inputs[field.key]"
+                  :placeholder="field.placeholder || `请输入${field.label || field.key}`"
+                  :style="{ width: (field.style && field.style.width) || '100%' }"
+                />
+                
+                <!-- 下拉选择 -->
+                <el-select
+                  v-else-if="field.type === 'select'"
+                  v-model="inputs[field.key]"
+                  :placeholder="field.placeholder || `请选择${field.label || field.key}`"
+                  :style="{ width: (field.style && field.style.width) || '100%' }"
+                >
+                  <el-option
+                    v-for="option in field.options || []"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                
+                <!-- JSON编辑器 -->
+                <div v-else-if="field.type === 'json'" class="complex-input">
                   <el-input
-                    v-model="inputsJson[key]"
+                    v-model="inputsJson[field.key]"
                     type="textarea"
-                    :rows="6"
-                    :placeholder="getComplexInputPlaceholder(key)"
-                    @blur="validateAndUpdateJson(key)"
+                    :rows="field.rows || 6"
+                    :placeholder="field.placeholder || getComplexInputPlaceholder(field.key)"
+                    @blur="validateAndUpdateJson(field.key)"
+                    :style="{ width: (field.style && field.style.width) || '100%' }"
                   />
                   <div class="input-tip">
                     <el-text type="info" size="small">
-                      支持 JSON 格式，可以是字符串、数组或对象
+                      {{ field.helpText || '支持 JSON 格式，可以是字符串、数组或对象' }}
                     </el-text>
                   </div>
                 </div>
-              </el-form-item>
-            </template>
-            <!-- 文件上传区域 -->
-            <el-form-item v-if="appInfo?.fileUploadEnabled" label="文件上传">
-              <el-upload
-                ref="uploadRef"
-                v-model:file-list="fileList"
-                :auto-upload="false"
-                :on-change="handleFileChange"
-                :on-remove="handleFileRemove"
-                :limit="10"
-                multiple
-                drag
-                list-type="text"
-              >
-                <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-                <div class="el-upload__text">
-                  将文件拖到此处，或<em>点击上传</em>
+                
+                <!-- 日期选择 -->
+                <el-date-picker
+                  v-else-if="field.type === 'date'"
+                  v-model="inputs[field.key]"
+                  type="date"
+                  :placeholder="field.placeholder || `请选择${field.label || field.key}`"
+                  :style="{ width: (field.style && field.style.width) || '100%' }"
+                />
+                
+                <!-- 开关 -->
+                <el-switch
+                  v-else-if="field.type === 'switch'"
+                  v-model="inputs[field.key]"
+                />
+                
+                <!-- 默认：文本输入 -->
+                <el-input
+                  v-else
+                  v-model="inputs[field.key]"
+                  :placeholder="field.placeholder || `请输入${field.label || field.key}`"
+                  :style="{ width: (field.style && field.style.width) || '100%' }"
+                />
+                
+                <!-- 帮助文本 -->
+                <div v-if="field.helpText" class="input-tip">
+                  <el-text type="info" size="small">
+                    {{ field.helpText }}
+                  </el-text>
                 </div>
-                <template #tip>
-                  <div class="el-upload__tip">
-                    单个文件不超过10MB,选择文件后将立即上传到Dify。
+              </el-form-item>
+              
+              <!-- 兼容旧格式：如果没有配置字段，使用旧的渲染方式 -->
+              <template v-if="inputFields.length === 0">
+                <el-form-item
+                  v-for="(value, key) in inputs"
+                  :key="key"
+                  :label="key"
+                  v-if="appInfo?.inputEnabled === true"
+                >
+                  <!-- 简单字符串输入 -->
+                  <el-input
+                    v-if="isSimpleValue(value)"
+                    v-model="inputs[key]"
+                    :placeholder="`请输入${key}`"
+                    type="textarea"
+                    :rows="2"
+                  />
+                  <!-- 复杂结构（数组或对象）使用 JSON 编辑器 -->
+                  <div v-else class="complex-input">
+                    <el-input
+                      v-model="inputsJson[key]"
+                      type="textarea"
+                      :rows="6"
+                      :placeholder="getComplexInputPlaceholder(key)"
+                      @blur="validateAndUpdateJson(key)"
+                    />
+                    <div class="input-tip">
+                      <el-text type="info" size="small">
+                        支持 JSON 格式，可以是字符串、数组或对象
+                      </el-text>
+                    </div>
                   </div>
-                </template>
-                <template #file="{ file }">
-                  <div class="upload-file-item">
-                    <div class="file-info">
-                      <el-icon class="file-icon">
-                        <Document v-if="!isImageFile(file)" />
-                        <Picture v-else />
-                      </el-icon>
-                      <span class="file-name">{{ file.name }}</span>
-                      <span class="file-size">{{ formatFileSize(file.size) }}</span>
-                      <el-tag 
-                        :type="getFileStatusType(file.status)" 
-                        size="small"
-                        class="file-status"
-                      >
-                        {{ getFileStatusText(file.status) }}
-                      </el-tag>
-                    </div>
-                    <!-- 上传成功/失败信息 -->
-                    <div v-if="file.status === 'success'" class="file-success">
-                      <el-icon class="success-icon"><Check /></el-icon>
-                      <span>上传成功</span>
-                    </div>
-                    <div v-if="file.status === 'fail'" class="file-error">
-                      <el-icon class="error-icon"><Close /></el-icon>
-                      <span>上传失败</span>
-                    </div>
+                </el-form-item>
+              </template>
+              <!-- 文件上传区域 -->
+              <el-form-item v-if="appInfo?.fileUploadEnabled" label="文件上传">
+                <el-upload
+                  ref="uploadRef"
+                  v-model:file-list="fileList"
+                  :auto-upload="false"
+                  :on-change="handleFileChange"
+                  :on-remove="handleFileRemove"
+                  :limit="10"
+                  multiple
+                  drag
+                  list-type="text"
+                >
+                  <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+                  <div class="el-upload__text">
+                    将文件拖到此处，或<em>点击上传</em>
                   </div>
-                </template>
-              </el-upload>
-            </el-form-item>
-            <el-form-item>
-              <el-button 
-                type="primary" 
-                @click="handleRun" 
-                :loading="loading"
-              >
-                运行工作流
-              </el-button>
-              <el-button @click="handleClear">清空</el-button>
-              <el-button @click="showInputsJson = !showInputsJson" type="info" size="small">
-                {{ showInputsJson ? '隐藏' : '显示' }}完整 JSON
-              </el-button>
-            </el-form-item>
-            <!-- 完整 JSON 编辑器 -->
-            <el-form-item v-if="showInputsJson" label="完整 JSON">
-              <el-input
-                v-model="fullInputsJson"
-                type="textarea"
-                :rows="10"
-                :placeholder="fullJsonPlaceholder"
-                @blur="validateAndUpdateFullJson"
-              />
-            </el-form-item>
-          </el-form>
+                  <template #tip>
+                    <div class="el-upload__tip">
+                      单个文件不超过10MB,选择文件后将立即上传到Dify。
+                    </div>
+                  </template>
+                  <template #file="{ file }">
+                    <div class="upload-file-item">
+                      <div class="file-info">
+                        <el-icon class="file-icon">
+                          <Document v-if="!isImageFile(file)" />
+                          <Picture v-else />
+                        </el-icon>
+                        <span class="file-name">{{ file.name }}</span>
+                        <span class="file-size">{{ formatFileSize(file.size) }}</span>
+                        <el-tag 
+                          :type="getFileStatusType(file.status)" 
+                          size="small"
+                          class="file-status"
+                        >
+                          {{ getFileStatusText(file.status) }}
+                        </el-tag>
+                      </div>
+                      <!-- 上传成功/失败信息 -->
+                      <div v-if="file.status === 'success'" class="file-success">
+                        <el-icon class="success-icon"><Check /></el-icon>
+                        <span>上传成功</span>
+                      </div>
+                      <div v-if="file.status === 'fail'" class="file-error">
+                        <el-icon class="error-icon"><Close /></el-icon>
+                        <span>上传失败</span>
+                      </div>
+                    </div>
+                  </template>
+                </el-upload>
+              </el-form-item>
+            </el-form>
+          </div>
+          <div class="input-actions-bar">
+            <el-button type="primary" @click="handleRun" :loading="loading">运行</el-button>
+            <el-button @click="handleClear">清空</el-button>
+          </div>
         </div>
 
         <div class="output-section">
@@ -254,11 +237,11 @@
                       <el-button 
                         class="open-file-btn"
                         size="small" 
-                        @click="openFile(file.fullUrl)" 
+                        @click="openPreview(file)" 
                         type="primary" 
                         :icon="FullScreen"
                         circle
-                        :title="'在新窗口打开'"
+                        :title="'全屏预览'"
                       />
                     </div>
                     <!-- 图片预览 -->
@@ -283,6 +266,12 @@
                           <div class="resize-handle-line"></div>
                         </div>
                       </div>
+                    </div>
+                    <!-- DOCX预览 -->
+                    <div v-else-if="isDocx(file)" class="docx-preview">
+                      <div v-if="docxErrorMap[file.fullUrl]" class="docx-error">{{ docxErrorMap[file.fullUrl] }}</div>
+                      <div v-else-if="docxLoadingMap[file.fullUrl]" class="docx-loading">正在加载文档...</div>
+                      <div v-else v-html="docxHtmlMap[file.fullUrl]" class="docx-content"></div>
                     </div>
                     <!-- PDF预览 -->
                     <div v-else-if="isPdf(file)" class="pdf-preview">
@@ -342,10 +331,10 @@
                                 <div class="pdf-fallback-actions">
                                   <el-button 
                                     type="primary" 
-                                    @click="openFile(file.fullUrl)"
+                                    @click="openPreview(file)"
                                     :icon="FullScreen"
                                   >
-                                    在新窗口打开
+                                    全屏预览
                                   </el-button>
                                   <el-button 
                                     type="success" 
@@ -380,6 +369,40 @@
         </div>
       </div>
     </el-card>
+    <el-dialog v-model="previewDialog.visible" fullscreen class="preview-dialog" :show-close="false">
+      <template #header>
+        <div class="preview-dialog-header">
+          <div class="preview-dialog-title">{{ previewDialogTitle }}</div>
+          <el-button class="preview-dialog-close" circle @click="previewDialog.visible = false">
+            <el-icon><Close /></el-icon>
+          </el-button>
+        </div>
+      </template>
+      <div class="fullscreen-preview-body">
+        <img
+          v-if="previewDialogType === 'image'"
+          :src="previewDialog.file?.fullUrl"
+          class="fullscreen-image"
+        />
+        <iframe
+          v-else-if="previewDialogType === 'html'"
+          :src="previewDialog.file?.fullUrl"
+          frameborder="0"
+          class="fullscreen-iframe"
+        ></iframe>
+        <embed
+          v-else-if="previewDialogType === 'pdf'"
+          :src="(pdfBlobUrl || previewDialog.file?.fullUrl || '') + '#toolbar=0&navpanes=0'"
+          type="application/pdf"
+          class="fullscreen-embed"
+        />
+        <div v-else-if="previewDialogType === 'docx'" class="fullscreen-docx">
+          <div v-if="docxErrorMap[previewDialog.file?.fullUrl]" class="docx-error">{{ docxErrorMap[previewDialog.file?.fullUrl] }}</div>
+          <div v-else-if="docxLoadingMap[previewDialog.file?.fullUrl]" class="docx-loading">正在加载文档...</div>
+          <div v-else v-html="docxHtmlMap[previewDialog.file?.fullUrl]" class="docx-content"></div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -394,6 +417,8 @@ import request from '@/utils/request'
 import AppIcon from '@/components/AppIcon.vue'
 import { logger } from '@/utils/logger'
 import { useThrottleFn } from '@/utils/debounce'
+import mammoth from 'mammoth'
+import { buildMappedInputs } from '@/utils/difyInputMapping'
 
 const route = useRoute()
 const router = useRouter()
@@ -404,9 +429,7 @@ const inputsJson = reactive({}) // 用于存储复杂输入的 JSON 字符串
 // 使用shallowRef优化大型对象性能（result可能包含大量数据）
 const result = shallowRef(null)
 const loading = ref(false)
-const showInputsJson = ref(false) // 是否显示完整 JSON 编辑器
-const fullInputsJson = ref('') // 完整 JSON 字符串
-const fullJsonPlaceholder = '{"variable_name": [{"transfer_method": "local_file", "upload_file_id": "file_id", "type": "document"}]}'
+
 const fileUrlPrefix = ref('http://localhost:80') // 文件URL前缀
 const fileList = ref([]) // 文件列表
 const uploadRef = ref(null) // 上传组件引用
@@ -419,6 +442,10 @@ const isResizing = ref(false) // 是否正在调整大小
 const resizeStartY = ref(0) // 拖拽开始时的Y坐标
 const resizeStartHeight = ref(0) // 拖拽开始时的高度
 const currentResizeIndex = ref(-1) // 当前正在调整的文件索引
+const previewDialog = ref({ visible: false, file: null })
+const docxHtmlMap = ref({})
+const docxLoadingMap = ref({})
+const docxErrorMap = ref({})
 
 // 输入字段配置
 const inputFields = ref([])
@@ -433,6 +460,21 @@ const extractedFiles = computed(() => {
 // 缓存是否有可预览文件（性能优化）
 const hasPreviewableFilesComputed = computed(() => {
   return extractedFiles.value.length > 0
+})
+
+const previewDialogType = computed(() => {
+  const file = previewDialog.value?.file
+  if (!file) return ''
+  if (isImage(file)) return 'image'
+  if (isHtml(file)) return 'html'
+  if (isPdf(file)) return 'pdf'
+  if (isDocx(file)) return 'docx'
+  return ''
+})
+
+const previewDialogTitle = computed(() => {
+  const file = previewDialog.value?.file
+  return file?.filename || file?.saved_filename || '预览'
 })
 
 // 获取复杂输入的占位符
@@ -478,6 +520,7 @@ const parseInputFieldsConfig = (inputsStr) => {
         const fieldConfig = parsed.fields[key]
         fields.push({
           key,
+          mapTo: fieldConfig.mapTo || fieldConfig.targetKey || '',
           label: fieldConfig.label || key,
           type: fieldConfig.type || 'text',
           placeholder: fieldConfig.placeholder || `请输入${fieldConfig.label || key}`,
@@ -527,6 +570,7 @@ const parseInputFieldsConfig = (inputsStr) => {
           // 字段配置格式
           fields.push({
             key,
+            mapTo: value.mapTo || value.targetKey || '',
             label: value.label || key,
             type: value.type || 'text',
             placeholder: value.placeholder || `请输入${value.label || key}`,
@@ -583,7 +627,6 @@ const fetchAppInfo = async () => {
         delete inputsJson[key]
       }
     }
-    fullInputsJson.value = ''
     inputFields.value = []
     
     // 解析inputs配置，初始化输入表单
@@ -602,8 +645,6 @@ const fetchAppInfo = async () => {
             Object.keys(inputsConfig).forEach(key => {
               initializeInput(key, inputsConfig[key])
             })
-            // 更新完整 JSON
-            fullInputsJson.value = JSON.stringify(inputs, null, 2)
           } else {
             // 如果解析的不是对象，使用默认输入
             logger.debug('inputs 配置格式不正确，使用默认配置')
@@ -650,33 +691,6 @@ const validateAndUpdateJson = (key) => {
   }
 }
 
-// 验证并更新完整 JSON
-const validateAndUpdateFullJson = () => {
-  if (!fullInputsJson.value || !fullInputsJson.value.trim()) {
-    return
-  }
-  try {
-    const parsed = JSON.parse(fullInputsJson.value)
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-      throw new Error('必须是对象格式')
-    }
-    // 清空并重新初始化
-    Object.keys(inputs).forEach(key => {
-      delete inputs[key]
-    })
-    Object.keys(inputsJson).forEach(key => {
-      delete inputsJson[key]
-    })
-    Object.keys(parsed).forEach(key => {
-      initializeInput(key, parsed[key])
-    })
-    ElMessage.success('JSON 格式正确，已更新所有输入')
-  } catch (e) {
-    ElMessage.error(`JSON 格式错误: ${e.message}`)
-    // 恢复为原始值
-    fullInputsJson.value = JSON.stringify(inputs, null, 2)
-  }
-}
 
 const handleRun = async () => {
   loading.value = true
@@ -701,33 +715,9 @@ const handleRun = async () => {
     
     // 如果有配置的字段，使用配置的字段
     if (inputFields.value.length > 0) {
-      inputFields.value.forEach(field => {
-        const key = field.key
-        const value = inputs[key]
-        
-        // 根据字段类型处理值
-        if (field.type === 'json' && inputsJson[key]) {
-          // JSON类型，使用inputsJson中的值
-          try {
-            filteredInputs[key] = JSON.parse(inputsJson[key])
-          } catch (e) {
-            ElMessage.error(`${field.label || key} JSON格式错误`)
-            throw e
-          }
-        } else if (field.type === 'switch') {
-          // 开关类型，转换为布尔值
-          filteredInputs[key] = value === true || value === 'true'
-        } else if (field.type === 'number') {
-          // 数字类型
-          if (value !== null && value !== undefined && value !== '') {
-            filteredInputs[key] = Number(value)
-          }
-        } else {
-          // 其他类型，过滤空字符串
-          if (value !== null && value !== undefined && value !== '') {
-            filteredInputs[key] = value
-          }
-        }
+      const mapped = buildMappedInputs(inputFields.value, inputs, inputsJson)
+      Object.keys(mapped).forEach(k => {
+        filteredInputs[k] = mapped[k]
       })
     } else {
       // 旧格式：使用原有的逻辑（优化：直接遍历对象属性）
@@ -1029,7 +1019,6 @@ const handleClear = () => {
       }
     }
   }
-  fullInputsJson.value = JSON.stringify(inputs, null, 2)
 }
 
 const handleBack = () => {
@@ -1234,9 +1223,60 @@ const isPdf = (file) => {
   return type.includes('pdf') || extension === '.pdf'
 }
 
-// 打开文件
-const openFile = (url) => {
-  window.open(url, '_blank')
+// 判断是否为DOCX
+const isDocx = (file) => {
+  const type = (file.type || file.mime_type || '').toLowerCase()
+  const extension = (file.extension || '').toLowerCase()
+  return extension === '.docx' || type.includes('officedocument.wordprocessingml') || type.includes('application/vnd.openxmlformats-officedocument.wordprocessingml')
+}
+
+const ensureDocxLoaded = async (file) => {
+  const url = file?.fullUrl
+  if (!url) return
+  if (docxHtmlMap.value[url] || docxLoadingMap.value[url]) return
+
+  docxLoadingMap.value = { ...docxLoadingMap.value, [url]: true }
+  docxErrorMap.value = { ...docxErrorMap.value, [url]: '' }
+
+  try {
+    const token = localStorage.getItem('token') || ''
+    const resp = await fetch(url, token ? { headers: { 'Authorization': `Bearer ${token}` } } : undefined)
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    const arrayBuffer = await resp.arrayBuffer()
+    const result = await mammoth.convertToHtml(
+      { arrayBuffer },
+      {
+        styleMap: [
+          "p[style-name='Heading 1'] => h1:fresh",
+          "p[style-name='Heading 2'] => h2:fresh",
+          "p[style-name='Heading 3'] => h3:fresh",
+          "p[style-name='Heading 4'] => h4:fresh",
+          "p[style-name='Heading 5'] => h5:fresh",
+          "p[style-name='Heading 6'] => h6:fresh",
+          "r[style-name='Strong'] => strong",
+          "p[style-name='Title'] => h1.title:fresh",
+          "p[style-name='Subtitle'] => h2.subtitle:fresh"
+        ],
+        includeDefaultStyleMap: true
+      }
+    )
+    docxHtmlMap.value = { ...docxHtmlMap.value, [url]: result.value || '' }
+  } catch (e) {
+    docxErrorMap.value = { ...docxErrorMap.value, [url]: '文档加载失败，请下载后查看' }
+  } finally {
+    docxLoadingMap.value = { ...docxLoadingMap.value, [url]: false }
+  }
+}
+
+const openPreview = (file) => {
+  previewDialog.value = { visible: true, file }
+  if (isPdf(file)) {
+    nextTick(() => {
+      resetPdfError()
+      loadPdfForPreview(file)
+    })
+  }
+  if (isDocx(file)) ensureDocxLoaded(file)
 }
 
 // 下载文件
@@ -1252,7 +1292,6 @@ const downloadFile = (file) => {
     const link = document.createElement('a')
     link.href = url
     link.download = file.filename || file.saved_filename || 'download'
-    link.target = '_blank'
     
     // 添加到DOM并触发点击
     document.body.appendChild(link)
@@ -1264,9 +1303,7 @@ const downloadFile = (file) => {
     ElMessage.success('文件下载已开始')
   } catch (error) {
     logger.error('下载文件失败:', error)
-    // 如果下载失败，尝试在新窗口打开
-    window.open(url, '_blank')
-    ElMessage.info('已在新窗口打开文件，请手动保存')
+    ElMessage.error('文件下载失败')
   }
 }
 
@@ -1276,6 +1313,7 @@ const getFileTypeLabel = (file) => {
     const type = (file.type || file.mime_type).toLowerCase()
     if (type.includes('pdf')) return 'PDF'
     if (type.includes('html')) return 'HTML'
+    if (type.includes('officedocument.wordprocessingml')) return 'DOCX'
     if (type.startsWith('image/')) return '图片'
     return type.split('/')[1]?.toUpperCase() || '文件'
   }
@@ -1304,9 +1342,11 @@ const loadPdfForPreview = async (file) => {
   
   try {
     // 使用fetch获取PDF内容
+    const token = localStorage.getItem('token') || ''
     const response = await fetch(file.fullUrl, {
       method: 'GET',
       headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         'Accept': 'application/pdf'
       }
     })
@@ -1334,8 +1374,7 @@ const loadPdfForPreview = async (file) => {
     pdfLoading.value = false
     pdfLoadError.value = true
     
-    // 如果fetch失败，尝试直接使用URL（可能会触发下载，但至少可以尝试）
-    ElMessage.warning('PDF预览加载失败，将尝试直接打开')
+    ElMessage.warning('PDF预览加载失败，可尝试全屏或下载')
   }
 }
 
@@ -1525,6 +1564,9 @@ watch(extractedFiles, (files) => {
         break
       }
     }
+    for (let i = 0; i < files.length; i++) {
+      if (isDocx(files[i])) ensureDocxLoaded(files[i])
+    }
     if (pdfFile) {
       // 延迟加载，确保DOM已更新
       nextTick(() => {
@@ -1622,6 +1664,23 @@ onBeforeUnmount(() => {
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  min-height: 0;
+}
+
+.input-section-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.input-actions-bar {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e4e7ed;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: #fff;
 }
 
 .input-section h4,
@@ -1743,6 +1802,84 @@ onBeforeUnmount(() => {
 .image-actions {
   margin-top: 12px;
   text-align: center;
+}
+
+.docx-preview {
+  width: 100%;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  padding: 12px;
+  max-height: 600px;
+  overflow: auto;
+  background: #fff;
+}
+
+.docx-loading,
+.docx-error {
+  font-size: 13px;
+  color: #909399;
+}
+
+.docx-error {
+  color: #f56c6c;
+}
+
+.docx-content :deep(img) {
+  max-width: 100%;
+  height: auto;
+}
+
+.preview-dialog :deep(.el-dialog__body) {
+  padding: 0;
+  height: 100%;
+}
+
+.preview-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.preview-dialog-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #303133;
+}
+
+.preview-dialog-close {
+  flex-shrink: 0;
+}
+
+.fullscreen-preview-body {
+  height: 100%;
+  width: 100%;
+  background: #fff;
+}
+
+.fullscreen-iframe,
+.fullscreen-embed {
+  width: 100%;
+  height: calc(100vh - 54px);
+  display: block;
+}
+
+.fullscreen-image {
+  max-width: 100%;
+  max-height: calc(100vh - 54px);
+  display: block;
+  margin: 0 auto;
+}
+
+.fullscreen-docx {
+  height: calc(100vh - 54px);
+  overflow: auto;
+  padding: 16px;
 }
 
 .html-preview {

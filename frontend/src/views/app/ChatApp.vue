@@ -109,8 +109,98 @@
       </div>
     </el-dialog>
 
-      <div v-if="isInputEnabled || isFileUploadEnabled" class="chat-input">
+        <div v-if="isInputEnabled || isFileUploadEnabled" class="chat-input">
         <div class="chat-input-main">
+          <div v-if="extraInputFields.length" class="extra-inputs">
+            <el-form :model="extraInputs" :label-width="extraFormLabelWidth">
+              <el-form-item
+                v-for="field in extraInputFields"
+                :key="field.key"
+                :label="field.label || field.key"
+                :required="field.required"
+                :style="field.style || {}"
+              >
+                <el-input
+                  v-if="field.type === 'text'"
+                  v-model="extraInputs[field.key]"
+                  :placeholder="field.placeholder || `请输入${field.label || field.key}`"
+                  :style="{ width: (field.style && field.style.width) || '100%' }"
+                />
+
+                <el-input
+                  v-else-if="field.type === 'textarea'"
+                  v-model="extraInputs[field.key]"
+                  type="textarea"
+                  :rows="field.rows || 2"
+                  :placeholder="field.placeholder || `请输入${field.label || field.key}`"
+                  :style="{ width: (field.style && field.style.width) || '100%' }"
+                />
+
+                <el-input-number
+                  v-else-if="field.type === 'number'"
+                  v-model="extraInputs[field.key]"
+                  :placeholder="field.placeholder || `请输入${field.label || field.key}`"
+                  :style="{ width: (field.style && field.style.width) || '100%' }"
+                />
+
+                <el-select
+                  v-else-if="field.type === 'select'"
+                  v-model="extraInputs[field.key]"
+                  :placeholder="field.placeholder || `请选择${field.label || field.key}`"
+                  :style="{ width: (field.style && field.style.width) || '100%' }"
+                >
+                  <el-option
+                    v-for="option in field.options || []"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+
+                <div v-else-if="field.type === 'json'" class="complex-input">
+                  <el-input
+                    v-model="extraInputsJson[field.key]"
+                    type="textarea"
+                    :rows="field.rows || 6"
+                    :placeholder="field.placeholder || getComplexInputPlaceholder(field.key)"
+                    @blur="validateAndUpdateExtraJson(field.key)"
+                    :style="{ width: (field.style && field.style.width) || '100%' }"
+                  />
+                  <div class="input-tip">
+                    <el-text type="info" size="small">
+                      {{ field.helpText || '支持 JSON 格式，可以是字符串、数组或对象' }}
+                    </el-text>
+                  </div>
+                </div>
+
+                <el-date-picker
+                  v-else-if="field.type === 'date'"
+                  v-model="extraInputs[field.key]"
+                  type="date"
+                  :placeholder="field.placeholder || `请选择${field.label || field.key}`"
+                  :style="{ width: (field.style && field.style.width) || '100%' }"
+                />
+
+                <el-switch
+                  v-else-if="field.type === 'switch'"
+                  v-model="extraInputs[field.key]"
+                />
+
+                <el-input
+                  v-else
+                  v-model="extraInputs[field.key]"
+                  :placeholder="field.placeholder || `请输入${field.label || field.key}`"
+                  :style="{ width: (field.style && field.style.width) || '100%' }"
+                />
+
+                <div v-if="field.helpText" class="input-tip">
+                  <el-text type="info" size="small">
+                    {{ field.helpText }}
+                  </el-text>
+                </div>
+              </el-form-item>
+            </el-form>
+          </div>
           <div v-if="isFileUploadEnabled" class="upload-header">
             <div v-if="fileList.length" class="upload-file-list">
               <div class="upload-file-item" v-for="file in fileList" :key="file.uid">
@@ -184,7 +274,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getAppDetail, chatApp, chatAppStream, uploadFile } from '@/api/aiApp'
@@ -195,6 +285,7 @@ import { getFullAPIUrl } from '@/config/api'
 import AppIcon from '@/components/AppIcon.vue'
 import { UploadFilled, Document, Picture, Delete, Promotion, FullScreen, Close } from '@element-plus/icons-vue'
 import mammoth from 'mammoth'
+import { buildMappedInputs } from '@/utils/difyInputMapping'
 
 const route = useRoute()
 const router = useRouter()
@@ -214,6 +305,11 @@ const fullscreenPreview = ref({ visible: false, url: '', type: '' })
 const docxHtmlMap = ref({})
 const docxLoadingMap = ref({})
 const docxErrorMap = ref({})
+const extraInputs = reactive({})
+const extraInputsJson = reactive({})
+const extraInputFields = ref([])
+const extraFormLabelWidth = ref('140px')
+const extraStaticInputs = ref({})
 
 const isInputEnabled = computed(() => appInfo.value?.inputEnabled !== false)
 const isFileUploadEnabled = computed(() => appInfo.value?.fileUploadEnabled === true)
@@ -230,10 +326,177 @@ const fullscreenPreviewTitle = computed(() => {
   return getFilenameFromUrl(fullscreenPreview.value.url) || '预览'
 })
 
+const getComplexInputPlaceholder = (key) => {
+  return `请输入 ${key} 的 JSON 格式，例如：\n[\n  {\n    "transfer_method": "local_file",\n    "upload_file_id": "file_id",\n    "type": "document"\n  }\n]`
+}
+
+const clearReactiveObject = (obj) => {
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) delete obj[key]
+  }
+}
+
+const isSimpleValue = (value) => {
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null || value === undefined
+}
+
+const initializeExtraInput = (key, value) => {
+  if (isSimpleValue(value)) {
+    extraInputs[key] = value !== null && value !== undefined ? String(value) : ''
+    extraInputsJson[key] = ''
+  } else {
+    extraInputs[key] = value
+    try {
+      extraInputsJson[key] = JSON.stringify(value, null, 2)
+    } catch (e) {
+      extraInputsJson[key] = ''
+    }
+  }
+}
+
+const validateAndUpdateExtraJson = (key) => {
+  const jsonStr = extraInputsJson[key]
+  if (!jsonStr || !String(jsonStr).trim()) return
+  try {
+    extraInputs[key] = JSON.parse(jsonStr)
+  } catch (e) {
+    ElMessage.error(`${key} JSON 格式错误: ${e.message}`)
+    try {
+      extraInputsJson[key] = JSON.stringify(extraInputs[key], null, 2)
+    } catch (e2) {
+      extraInputsJson[key] = ''
+    }
+  }
+}
+
+const loadExtraInputConfig = (inputsStr) => {
+  clearReactiveObject(extraInputs)
+  clearReactiveObject(extraInputsJson)
+  extraInputFields.value = []
+  extraFormLabelWidth.value = '140px'
+  extraStaticInputs.value = {}
+
+  if (!inputsStr || !String(inputsStr).trim()) return
+
+  try {
+    const parsed = JSON.parse(inputsStr)
+    if (parsed && typeof parsed === 'object' && parsed.fields) {
+      const fields = []
+      const defaults = parsed.defaults && typeof parsed.defaults === 'object' ? parsed.defaults : {}
+      Object.keys(parsed.fields).forEach(key => {
+        const cfg = parsed.fields[key] || {}
+        fields.push({
+          key,
+          mapTo: cfg.mapTo || cfg.targetKey || '',
+          label: cfg.label || key,
+          type: cfg.type || 'text',
+          placeholder: cfg.placeholder || `请输入${cfg.label || key}`,
+          defaultValue: cfg.defaultValue || '',
+          helpText: cfg.helpText || '',
+          required: cfg.required || false,
+          rows: cfg.rows || 2,
+          options: cfg.options || [],
+          style: cfg.style || {},
+          validation: cfg.validation || {}
+        })
+
+        if (Object.prototype.hasOwnProperty.call(defaults, key)) {
+          initializeExtraInput(key, defaults[key])
+        } else if (cfg.type === 'json' && cfg.defaultValue) {
+          try {
+            initializeExtraInput(key, JSON.parse(cfg.defaultValue))
+          } catch (e) {
+            initializeExtraInput(key, cfg.defaultValue)
+          }
+        } else if (cfg.type === 'number') {
+          extraInputs[key] = cfg.defaultValue !== '' && cfg.defaultValue !== null && cfg.defaultValue !== undefined ? Number(cfg.defaultValue) : null
+        } else if (cfg.type === 'switch') {
+          extraInputs[key] = cfg.defaultValue === 'true' || cfg.defaultValue === true
+        } else {
+          extraInputs[key] = cfg.defaultValue || ''
+        }
+
+        if (cfg.type === 'json') {
+          try {
+            extraInputsJson[key] = JSON.stringify(extraInputs[key], null, 2)
+          } catch (e) {
+            extraInputsJson[key] = ''
+          }
+        }
+
+        if (fields.length === 1 && cfg.style && cfg.style.labelWidth) {
+          extraFormLabelWidth.value = cfg.style.labelWidth
+        }
+      })
+      extraInputFields.value = fields
+      return
+    }
+
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const maybeFieldConfig = Object.keys(parsed).some(k => parsed[k] && typeof parsed[k] === 'object' && Object.prototype.hasOwnProperty.call(parsed[k], 'type'))
+      if (maybeFieldConfig) {
+        const fields = []
+        Object.keys(parsed).forEach(key => {
+          const cfg = parsed[key]
+          if (cfg && typeof cfg === 'object' && Object.prototype.hasOwnProperty.call(cfg, 'type')) {
+            fields.push({
+              key,
+              mapTo: cfg.mapTo || cfg.targetKey || '',
+              label: cfg.label || key,
+              type: cfg.type || 'text',
+              placeholder: cfg.placeholder || `请输入${cfg.label || key}`,
+              defaultValue: cfg.defaultValue || '',
+              helpText: cfg.helpText || '',
+              required: cfg.required || false,
+              rows: cfg.rows || 2,
+              options: cfg.options || [],
+              style: cfg.style || {},
+              validation: cfg.validation || {}
+            })
+            if (cfg.type === 'json' && cfg.defaultValue) {
+              try {
+                initializeExtraInput(key, JSON.parse(cfg.defaultValue))
+              } catch (e) {
+                initializeExtraInput(key, cfg.defaultValue)
+              }
+            } else if (cfg.type === 'number') {
+              extraInputs[key] = cfg.defaultValue !== '' && cfg.defaultValue !== null && cfg.defaultValue !== undefined ? Number(cfg.defaultValue) : null
+            } else if (cfg.type === 'switch') {
+              extraInputs[key] = cfg.defaultValue === 'true' || cfg.defaultValue === true
+            } else {
+              extraInputs[key] = cfg.defaultValue || ''
+            }
+            if (cfg.type === 'json') {
+              try {
+                extraInputsJson[key] = JSON.stringify(extraInputs[key], null, 2)
+              } catch (e) {
+                extraInputsJson[key] = ''
+              }
+            }
+            if (fields.length === 1 && cfg.style && cfg.style.labelWidth) {
+              extraFormLabelWidth.value = cfg.style.labelWidth
+            }
+          } else {
+            initializeExtraInput(key, cfg)
+          }
+        })
+        extraInputFields.value = fields
+        return
+      }
+
+      extraStaticInputs.value = parsed
+      return
+    }
+  } catch (e) {
+    extraStaticInputs.value = {}
+  }
+}
+
 const fetchAppInfo = async () => {
   try {
     const res = await getAppDetail(route.params.id)
     appInfo.value = res
+    loadExtraInputConfig(res?.inputs)
   } catch (error) {
     ElMessage.error('获取应用信息失败')
   }
@@ -497,7 +760,7 @@ const handleSend = async () => {
       userId: sessionUserId.value,
       conversationId: conversationId.value,
       stream: appInfo.value?.streamEnabled || false,
-      inputs: {},
+      inputs: extraInputFields.value.length ? buildMappedInputs(extraInputFields.value, extraInputs, extraInputsJson) : (extraStaticInputs.value || {}),
       files: uploadedFiles.length ? uploadedFiles : undefined
     }
 
@@ -891,6 +1154,22 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.extra-inputs {
+  padding: 10px 0 0;
+}
+
+.extra-inputs :deep(.el-form-item) {
+  margin-bottom: 10px;
+}
+
+.complex-input {
+  width: 100%;
+}
+
+.input-tip {
+  margin-top: 6px;
 }
 
 .inline-preview-item {
