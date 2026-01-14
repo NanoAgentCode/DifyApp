@@ -5,7 +5,10 @@
         <div class="chat-header">
           <div class="chat-header-left">
             <AppIcon :icon="appInfo?.icon" :size="32" class="app-icon" />
-            <h3>{{ appInfo?.name || '聊天应用' }}</h3>
+            <h3>
+              {{ appInfo?.name || '聊天应用' }}
+              <span v-if="isFileUploadEnabled" class="header-upload-tip">（单个文件不超过10MB，选择文件后将立即上传到Dify。）</span>
+            </h3>
           </div>
           <el-button @click="handleBack">返回</el-button>
         </div>
@@ -20,6 +23,50 @@
           <div class="message-content">
             <div class="message-time">{{ formatTime(message.time) }}</div>
             <div class="message-text" v-html="formatMessage(message.content)"></div>
+            <div v-if="message.role === 'assistant'" class="message-preview">
+              <div
+                v-for="file in getPreviewFiles(message)"
+                :key="file.url"
+                class="inline-preview-item"
+              >
+                <div class="inline-preview-header">
+                  <span class="inline-preview-name">{{ file.filename }}</span>
+                  <el-button
+                    size="small"
+                    class="inline-preview-fullscreen"
+                    @click="openPreview(file.url, file.type)"
+                  >
+                    <el-icon><FullScreen /></el-icon>
+                    全屏
+                  </el-button>
+                </div>
+                <div class="inline-preview-body">
+                  <img
+                    v-if="file.type === 'image'"
+                    :src="file.url"
+                    :alt="file.filename"
+                    class="inline-image"
+                  />
+                  <iframe
+                    v-else-if="file.type === 'html'"
+                    :src="file.url"
+                    frameborder="0"
+                    class="inline-iframe"
+                  ></iframe>
+                  <embed
+                    v-else-if="file.type === 'pdf'"
+                    :src="file.url + '#toolbar=0&navpanes=0'"
+                    type="application/pdf"
+                    class="inline-embed"
+                  />
+                  <div v-else-if="file.type === 'docx'" class="inline-docx">
+                    <div v-if="docxErrorMap[file.url]" class="docx-error">{{ docxErrorMap[file.url] }}</div>
+                    <div v-else-if="docxLoadingMap[file.url]" class="docx-loading">正在加载文档...</div>
+                    <div v-else v-html="docxHtmlMap[file.url]" class="docx-content"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         <div v-if="loading && (!messages.length || messages[messages.length - 1]?.role !== 'assistant' || !messages[messages.length - 1]?.content)" class="message assistant">
@@ -28,13 +75,43 @@
           </div>
         </div>
       </div>
+    <el-dialog v-model="fullscreenPreview.visible" fullscreen class="preview-dialog" :show-close="false">
+      <template #header>
+        <div class="preview-dialog-header">
+          <div class="preview-dialog-title">{{ fullscreenPreviewTitle }}</div>
+          <el-button class="preview-dialog-close" circle @click="fullscreenPreview.visible = false">
+            <el-icon><Close /></el-icon>
+          </el-button>
+        </div>
+      </template>
+      <div class="fullscreen-preview-body">
+        <img
+          v-if="fullscreenPreview.type === 'image'"
+          :src="fullscreenPreview.url"
+          class="fullscreen-image"
+        />
+        <iframe
+          v-else-if="fullscreenPreview.type === 'html'"
+          :src="fullscreenPreview.url"
+          frameborder="0"
+          class="fullscreen-iframe"
+        ></iframe>
+        <embed
+          v-else-if="fullscreenPreview.type === 'pdf'"
+          :src="fullscreenPreview.url + '#toolbar=0&navpanes=0'"
+          type="application/pdf"
+          class="fullscreen-embed"
+        />
+        <div v-else-if="fullscreenPreview.type === 'docx'" class="fullscreen-docx">
+          <div v-if="docxErrorMap[fullscreenPreview.url]" class="docx-error">{{ docxErrorMap[fullscreenPreview.url] }}</div>
+          <div v-else v-html="docxHtmlMap[fullscreenPreview.url]" class="docx-content"></div>
+        </div>
+      </div>
+    </el-dialog>
 
       <div v-if="isInputEnabled || isFileUploadEnabled" class="chat-input">
         <div class="chat-input-main">
           <div v-if="isFileUploadEnabled" class="upload-header">
-            <div class="upload-tip">
-              单个文件不超过10MB,选择文件后将立即上传到Dify。
-            </div>
             <div v-if="fileList.length" class="upload-file-list">
               <div class="upload-file-item" v-for="file in fileList" :key="file.uid">
                 <div class="file-info">
@@ -107,7 +184,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getAppDetail, chatApp, chatAppStream, uploadFile } from '@/api/aiApp'
@@ -116,7 +193,8 @@ import { processSSEStream } from '@/composables/useSSEStream'
 import { extractContent, updateConversationId } from '@/composables/useResponseHandler'
 import { getFullAPIUrl } from '@/config/api'
 import AppIcon from '@/components/AppIcon.vue'
-import { UploadFilled, Document, Picture, Delete, Promotion } from '@element-plus/icons-vue'
+import { UploadFilled, Document, Picture, Delete, Promotion, FullScreen, Close } from '@element-plus/icons-vue'
+import mammoth from 'mammoth'
 
 const route = useRoute()
 const router = useRouter()
@@ -132,6 +210,10 @@ const autoScrollEnabled = ref(true) // 是否启用自动滚动
 const uploadRef = ref(null)
 const fileList = ref([])
 const sessionUserId = ref('user_' + Date.now())
+const fullscreenPreview = ref({ visible: false, url: '', type: '' })
+const docxHtmlMap = ref({})
+const docxLoadingMap = ref({})
+const docxErrorMap = ref({})
 
 const isInputEnabled = computed(() => appInfo.value?.inputEnabled !== false)
 const isFileUploadEnabled = computed(() => appInfo.value?.fileUploadEnabled === true)
@@ -143,6 +225,10 @@ const hasValidContent = computed(() => {
   return hasText || hasFiles
 })
 const canSend = computed(() => !loading.value && !hasUploadingFiles.value && hasValidContent.value)
+const fullscreenPreviewTitle = computed(() => {
+  if (!fullscreenPreview.value?.url) return '预览'
+  return getFilenameFromUrl(fullscreenPreview.value.url) || '预览'
+})
 
 const fetchAppInfo = async () => {
   try {
@@ -180,6 +266,122 @@ const getFileStatusText = (status) => {
   if (status === 'uploading') return '上传中'
   return '待上传'
 }
+
+const resolveUrl = (maybeUrl) => {
+  if (!maybeUrl) return ''
+  try {
+    return new URL(maybeUrl, window.location.origin).href
+  } catch (e) {
+    return String(maybeUrl)
+  }
+}
+
+const getUrlExtension = (url) => {
+  if (!url) return ''
+  const base = String(url).split('#')[0].split('?')[0]
+  const dot = base.lastIndexOf('.')
+  if (dot === -1) return ''
+  return base.slice(dot + 1).toLowerCase()
+}
+
+const getFilenameFromUrl = (url) => {
+  try {
+    const u = new URL(url)
+    const last = u.pathname.split('/').filter(Boolean).pop() || url
+    return decodeURIComponent(last)
+  } catch (e) {
+    const parts = String(url).split('?')[0].split('#')[0].split('/')
+    return decodeURIComponent(parts[parts.length - 1] || url)
+  }
+}
+
+const extractUrls = (text) => {
+  if (!text) return []
+  const raw = typeof text === 'string' ? text : String(text)
+  const matches = raw.match(/https?:\/\/[^\s<>"')]+/g) || []
+  const deduped = []
+  const seen = new Set()
+  for (const m of matches) {
+    const cleaned = m.replace(/[.,;:!?]+$/, '')
+    const resolved = resolveUrl(cleaned)
+    if (!seen.has(resolved)) {
+      seen.add(resolved)
+      deduped.push(resolved)
+    }
+  }
+  return deduped
+}
+
+const classifyPreviewType = (url) => {
+  const ext = getUrlExtension(url)
+  if (ext === 'pdf') return 'pdf'
+  if (ext === 'html' || ext === 'htm') return 'html'
+  if (ext === 'docx') return 'docx'
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(ext)) return 'image'
+  return ''
+}
+
+const getPreviewFiles = (message) => {
+  const urls = extractUrls(message?.content || '')
+  const files = []
+  for (const url of urls) {
+    const type = classifyPreviewType(url)
+    if (!type) continue
+    files.push({ url, type, filename: getFilenameFromUrl(url) })
+  }
+  return files
+}
+
+const ensureDocxLoaded = async (url) => {
+  if (!url) return
+  if (docxHtmlMap.value[url] || docxLoadingMap.value[url]) return
+  docxLoadingMap.value = { ...docxLoadingMap.value, [url]: true }
+  docxErrorMap.value = { ...docxErrorMap.value, [url]: '' }
+  try {
+    const token = localStorage.getItem('token') || ''
+    const resp = await fetch(url, token ? { headers: { 'Authorization': `Bearer ${token}` } } : undefined)
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    const arrayBuffer = await resp.arrayBuffer()
+    const result = await mammoth.convertToHtml(
+      { arrayBuffer },
+      {
+        styleMap: [
+          "p[style-name='Heading 1'] => h1:fresh",
+          "p[style-name='Heading 2'] => h2:fresh",
+          "p[style-name='Heading 3'] => h3:fresh",
+          "p[style-name='Heading 4'] => h4:fresh",
+          "p[style-name='Heading 5'] => h5:fresh",
+          "p[style-name='Heading 6'] => h6:fresh",
+          "r[style-name='Strong'] => strong",
+          "p[style-name='Title'] => h1.title:fresh",
+          "p[style-name='Subtitle'] => h2.subtitle:fresh"
+        ],
+        includeDefaultStyleMap: true
+      }
+    )
+    docxHtmlMap.value = { ...docxHtmlMap.value, [url]: result.value || '' }
+  } catch (e) {
+    docxErrorMap.value = { ...docxErrorMap.value, [url]: '文档加载失败，请点击链接在新窗口打开' }
+  } finally {
+    docxLoadingMap.value = { ...docxLoadingMap.value, [url]: false }
+  }
+}
+
+const openPreview = (url, type) => {
+  fullscreenPreview.value = { visible: true, url, type }
+  if (type === 'docx') ensureDocxLoaded(url)
+}
+
+watch(messages, () => {
+  const docxUrls = []
+  for (const m of messages.value || []) {
+    if (m?.role !== 'assistant') continue
+    for (const f of getPreviewFiles(m)) {
+      if (f.type === 'docx') docxUrls.push(f.url)
+    }
+  }
+  for (const u of docxUrls) ensureDocxLoaded(u)
+})
 
 const getFileType = (file) => {
   const type = file?.type || ''
@@ -558,6 +760,13 @@ onMounted(() => {
   margin: 0;
 }
 
+.header-upload-tip {
+  font-size: 12px;
+  font-weight: 400;
+  color: #909399;
+  margin-left: 8px;
+}
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -675,6 +884,133 @@ onMounted(() => {
 .message-text {
   word-wrap: break-word;
   line-height: 1.6;
+}
+
+.message-preview {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inline-preview-item {
+  border: 1px solid #ebeef5;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.inline-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #f5f7fa;
+}
+
+.inline-preview-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #303133;
+}
+
+.inline-preview-fullscreen {
+  flex-shrink: 0;
+}
+
+.inline-preview-body {
+  background: #fff;
+}
+
+.inline-iframe,
+.inline-embed {
+  width: 100%;
+  height: 420px;
+  display: block;
+}
+
+.inline-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.inline-docx {
+  max-height: 420px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.docx-loading,
+.docx-error {
+  color: #909399;
+  font-size: 13px;
+}
+
+.docx-error {
+  color: #f56c6c;
+}
+
+.docx-content :deep(img) {
+  max-width: 100%;
+  height: auto;
+}
+
+.preview-dialog :deep(.el-dialog__body) {
+  padding: 0;
+  height: 100%;
+}
+
+.preview-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.preview-dialog-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #303133;
+}
+
+.preview-dialog-close {
+  flex-shrink: 0;
+}
+
+.fullscreen-preview-body {
+  height: 100%;
+  width: 100%;
+  background: #fff;
+}
+
+.fullscreen-iframe,
+.fullscreen-embed {
+  width: 100%;
+  height: calc(100vh - 54px);
+  display: block;
+}
+
+.fullscreen-image {
+  max-width: 100%;
+  max-height: calc(100vh - 54px);
+  display: block;
+  margin: 0 auto;
+}
+
+.fullscreen-docx {
+  height: calc(100vh - 54px);
+  overflow: auto;
+  padding: 16px;
 }
 
 /* Markdown 样式 */
@@ -838,12 +1174,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-
-.upload-tip {
-  font-size: 12px;
-  color: #909399;
-  line-height: 1.2;
 }
 
 .upload-file-list {
