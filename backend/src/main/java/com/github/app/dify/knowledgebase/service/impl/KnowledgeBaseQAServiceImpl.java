@@ -11,6 +11,7 @@ import com.github.app.dify.chat.service.ChatHistoryService;
 import com.github.app.dify.knowledgebase.service.ContextCompressionService;
 import com.github.app.dify.knowledgebase.service.KnowledgeBaseQAService;
 import com.github.app.dify.knowledgebase.service.KnowledgeBaseService;
+import com.github.app.dify.memory.service.UserMemoryService;
 import com.github.app.dify.model.service.ModelConfigService;
 import com.github.app.dify.knowledgebase.service.RagRetrievalService;
 import com.github.app.dify.system.config.RagConfig;
@@ -59,6 +60,9 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     
     @Autowired
     private UserKnowledgeBaseVisibilityService userKnowledgeBaseVisibilityService;
+
+    @Autowired
+    private UserMemoryService userMemoryService;
     
     /**
      * 问答（非流式）
@@ -90,9 +94,11 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                 response.setSources(new ArrayList<>());
                 return response;
             }
+
+            String memoryContext = userMemoryService.buildMemoryContext(userId, request.getQuestion());
             
             // 构建消息列表（包含历史对话）
-            List<ChatMessage> messages = buildMessages(request);
+            List<ChatMessage> messages = buildMessages(request, memoryContext);
             
             // 记录历史对话信息
             if (request.getHistory() != null && !request.getHistory().isEmpty()) {
@@ -105,7 +111,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             logger.debug("压缩后的消息列表大小: {}", messages.size());
             
             // 使用langchain4j RAG生成答案（始终使用历史对话）
-            Response<AiMessage> aiResponse = generateAnswerWithHistory(messages, knowledgeBaseId, request);
+            Response<AiMessage> aiResponse = generateAnswerWithHistory(messages, knowledgeBaseId, request, memoryContext);
             String answer = aiResponse.content().text();
             
             // 提取token使用信息和模型ID
@@ -188,6 +194,11 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                     // 保存助手消息（带token信息）
                     chatHistoryService.saveMessage(conversationId, "assistant", answer, 
                             modelId, promptTokens, completionTokens, totalTokens);
+                    try {
+                        userMemoryService.updateMemoryAsync(userId, request.getQuestion(), answer, modelId, conversationId);
+                    } catch (Exception e) {
+                        logger.debug("触发异步记忆更新失败（知识库问答）", e);
+                    }
                 } catch (Exception e) {
                     logger.error("保存历史记录失败", e);
                     // 不抛出异常，避免影响主流程
@@ -258,16 +269,18 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                 source.setScore(r.getScore());
                 return source;
             }).collect(Collectors.toList());
+
+            String memoryContext = userMemoryService.buildMemoryContext(userId, request.getQuestion());
             
             // 构建消息列表（包含历史对话）
-            List<ChatMessage> messages = buildMessages(request);
+            List<ChatMessage> messages = buildMessages(request, memoryContext);
             
             // 应用上下文压缩策略
             messages = contextCompressionService.compressContext(messages, request);
             logger.debug("压缩后的消息列表大小（流式）: {}", messages.size());
             
             // 使用langchain4j流式LLM生成答案（手动检索+RAG）
-            return generateStreamAnswerWithHistory(messages, knowledgeBaseId, request, sources, userId);
+            return generateStreamAnswerWithHistory(messages, knowledgeBaseId, request, sources, userId, memoryContext);
             
         } catch (Exception e) {
             logger.error("知识库问答失败（流式） - 知识库ID: {}", knowledgeBaseId, e);
@@ -279,7 +292,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     /**
      * 构建消息列表（包含历史对话）
      */
-    private List<ChatMessage> buildMessages(KnowledgeBaseQARequest request) {
+    private List<ChatMessage> buildMessages(KnowledgeBaseQARequest request, String memoryContext) {
         List<ChatMessage> messages = new ArrayList<>();
         
         String systemPrompt = SkillLoader.loadSkill("knowledge_base_qa_system_prompt");
@@ -304,7 +317,11 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                     "6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等\n" +
                     "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符";
         }
-        messages.add(SystemMessage.from(systemPrompt));
+        StringBuilder systemMessage = new StringBuilder(systemPrompt);
+        if (memoryContext != null && !memoryContext.trim().isEmpty()) {
+            systemMessage.append("\n\n").append(memoryContext);
+        }
+        messages.add(SystemMessage.from(systemMessage.toString()));
         
         // 添加历史对话
         if (request.getHistory() != null && !request.getHistory().isEmpty()) {
@@ -326,7 +343,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     /**
      * 使用历史对话生成答案（非流式）
      */
-    private Response<AiMessage> generateAnswerWithHistory(List<ChatMessage> messages, Long knowledgeBaseId, KnowledgeBaseQARequest request) {
+    private Response<AiMessage> generateAnswerWithHistory(List<ChatMessage> messages, Long knowledgeBaseId, KnowledgeBaseQARequest request, String memoryContext) {
         // 获取最后一个用户消息作为查询
         String query = request.getQuestion();
         ChatMessage lastMessage = messages.get(messages.size() - 1);
@@ -357,7 +374,11 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             }
             
             // 替换系统消息
-            messages.set(0, SystemMessage.from(contextBuilder.toString() +
+            StringBuilder sys = new StringBuilder();
+            if (memoryContext != null && !memoryContext.trim().isEmpty()) {
+                sys.append(memoryContext).append("\n\n");
+            }
+            sys.append(contextBuilder.toString()).append(
                     "如果知识库中没有相关信息，请明确说明无法回答。" +
                     "\n\n重要：请使用Markdown格式来组织你的回答，包括：\n" +
                     "- 使用标题（#、##、###）来组织内容结构\n" +
@@ -375,7 +396,8 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                     "   [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]\n" +
                     "5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式\n" +
                     "6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等\n" +
-                    "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符"));
+                    "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符");
+            messages.set(0, SystemMessage.from(sys.toString()));
         }
         
         // 获取问答模型（优先使用请求中的modelId，否则使用默认的RAG模型）
@@ -408,7 +430,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
      */
     private Flux<KnowledgeBaseQAResponse> generateStreamAnswerWithHistory(
             List<ChatMessage> messages, Long knowledgeBaseId, 
-            KnowledgeBaseQARequest request, List<KnowledgeBaseQAResponse.SourceDocument> sources, Long userId) {
+            KnowledgeBaseQARequest request, List<KnowledgeBaseQAResponse.SourceDocument> sources, Long userId, String memoryContext) {
         // 获取最后一个用户消息作为查询
         String query = request.getQuestion();
         ChatMessage lastMessage = messages.get(messages.size() - 1);
@@ -430,7 +452,11 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             }
             
             // 构建完整的系统消息
-            String fullSystemMessage = contextBuilder.toString() +
+            StringBuilder sys = new StringBuilder();
+            if (memoryContext != null && !memoryContext.trim().isEmpty()) {
+                sys.append(memoryContext).append("\n\n");
+            }
+            sys.append(contextBuilder.toString()).append(
                     "如果知识库中没有相关信息，请明确说明无法回答。" +
                     "\n\n重要：请使用Markdown格式来组织你的回答，包括：\n" +
                     "- 使用标题（#、##、###）来组织内容结构\n" +
@@ -448,7 +474,8 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                     "   [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]\n" +
                     "5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式\n" +
                     "6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等\n" +
-                    "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符";
+                    "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符");
+            String fullSystemMessage = sys.toString();
             
             // 压缩系统消息中的文档内容
             String compressedSystemMessage = contextCompressionService.compressDocumentContent(
@@ -575,6 +602,11 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                             chatHistoryService.saveMessage(conversationId, "assistant", finalAnswer, 
                                     finalModelId, null, null, null);
                             logger.info("流式响应完成 - 保存助手消息到会话: {}, 模型ID: {}", conversationId, finalModelId);
+                            try {
+                                userMemoryService.updateMemoryAsync(userId, request.getQuestion(), finalAnswer, finalModelId, conversationId);
+                            } catch (Exception e) {
+                                logger.debug("触发异步记忆更新失败（知识库流式）", e);
+                            }
                         } catch (Exception e) {
                             logger.error("保存助手消息失败（流式）", e);
                             // 不抛出异常，避免影响主流程

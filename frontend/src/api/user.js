@@ -103,3 +103,18 @@ export function updateUserKnowledgeBaseVisibility(userId, knowledgeBaseId, visib
   })
 }
 
+export function clearUserMemory(userId) {
+  return request({
+    url: `/api/admin/memory/users/${userId}`,
+    method: 'delete'
+  })
+}
+
+export function getUserMemoryItems(userId, params) {
+  return request({
+    url: `/api/admin/memory/users/${userId}/items`,
+    method: 'get',
+    params
+  })
+}
+

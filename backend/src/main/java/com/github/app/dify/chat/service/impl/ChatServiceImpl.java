@@ -12,6 +12,7 @@ import com.github.app.dify.chat.resp.ChatResponse;
 import com.github.app.dify.chat.service.ChatHistoryService;
 import com.github.app.dify.chat.service.ChatService;
 import com.github.app.dify.knowledgebase.service.ContextCompressionService;
+import com.github.app.dify.memory.service.UserMemoryService;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -53,7 +54,10 @@ public class ChatServiceImpl implements ChatService {
     
     @Autowired
     private McpTimeService mcpTimeService;
-    
+
+    @Autowired
+    private UserMemoryService userMemoryService;
+
     @Override
     public ChatResponse chat(ChatRequest request, Long userId) {
         try {
@@ -100,7 +104,7 @@ public class ChatServiceImpl implements ChatService {
             }
             
             // 构建消息列表（包含历史对话）
-            List<ChatMessage> messages = buildMessages(request, browserSearchContext, qaModel);
+            List<ChatMessage> messages = buildMessages(request, browserSearchContext, qaModel, userId);
             
             // 记录历史对话信息
             if (request.getHistory() != null && !request.getHistory().isEmpty()) {
@@ -180,7 +184,7 @@ public class ChatServiceImpl implements ChatService {
                         promptTokens, completionTokens, totalTokens);
                 
                 // 构建响应（包含保存历史记录）
-                return buildChatResponse(answer, request, userId, null, qaModel.getId(), 
+                return buildChatResponse(answer, request, userId, null, qaModel.getId(),
                         promptTokens, completionTokens, totalTokens);
             } finally {
                 // 清除ThreadLocal数据
@@ -221,6 +225,11 @@ public class ChatServiceImpl implements ChatService {
                 chatHistoryService.saveMessage(conversationId, "assistant", answer, 
                         modelId, promptTokens, completionTokens, totalTokens);
                 logger.info("✓ 助手消息已保存");
+                try {
+                    userMemoryService.updateMemoryAsync(userId, request.getQuestion(), answer, modelId, conversationId);
+                } catch (Exception e) {
+                    logger.debug("触发异步记忆更新失败", e);
+                }
             } catch (Exception e) {
                 logger.error("保存历史记录失败", e);
                 // 不抛出异常，避免影响主流程
@@ -283,7 +292,7 @@ public class ChatServiceImpl implements ChatService {
             }
             
             // 构建消息列表（包含历史对话）
-            List<ChatMessage> messages = buildMessages(request, browserSearchContext, qaModel);
+            List<ChatMessage> messages = buildMessages(request, browserSearchContext, qaModel, userId);
             
             // 应用上下文压缩策略（转换为KnowledgeBaseQARequest格式以复用压缩逻辑）
             com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest kbRequest = convertToKBQARequest(request);
@@ -391,6 +400,11 @@ public class ChatServiceImpl implements ChatService {
                                         qaModel.getId(), promptTokens, completionTokens, totalTokens);
                                 logger.info("✓ 流式响应完成 - 已保存助手消息到会话: {}, 模型ID: {}, Token: {}/{}/{}", 
                                         conversationId, qaModel.getId(), promptTokens, completionTokens, totalTokens);
+                                try {
+                                    userMemoryService.updateMemoryAsync(userId, request.getQuestion(), finalAnswer, qaModel.getId(), conversationId);
+                                } catch (Exception e) {
+                                    logger.debug("触发异步记忆更新失败（流式）", e);
+                                }
                             } catch (Exception e) {
                                 logger.error("保存助手消息失败（流式）", e);
                                 // 不抛出异常，避免影响主流程
@@ -420,7 +434,7 @@ public class ChatServiceImpl implements ChatService {
     /**
      * 构建消息列表（包含历史对话和浏览器检索结果）
      */
-    private List<ChatMessage> buildMessages(ChatRequest request, String browserSearchContext, QAModel qaModel) {
+    private List<ChatMessage> buildMessages(ChatRequest request, String browserSearchContext, QAModel qaModel, Long userId) {
         List<ChatMessage> messages = new ArrayList<>();
         
         // 检查模型是否支持视觉输入
@@ -468,6 +482,11 @@ public class ChatServiceImpl implements ChatService {
             // MCP支持关闭时，只提供基本的年份信息（不告知用户MCP已关闭）
             systemMessageBuilder.append("【当前时间信息】\n");
             systemMessageBuilder.append(String.format("当前年份：%d年\n", currentYear));
+        }
+
+        String memoryContext = userMemoryService.buildMemoryContext(userId, request.getQuestion());
+        if (memoryContext != null && !memoryContext.trim().isEmpty()) {
+            systemMessageBuilder.append("\n").append(memoryContext).append("\n");
         }
         
         // 如果提供了浏览器检索结果，在系统消息中强调要使用检索结果

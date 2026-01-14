@@ -260,8 +260,20 @@
                 size="small"
                 @click="handleResetPassword(scope.row)"
               >
-                重置密码
+                重置
               </el-button>
+              <el-dropdown trigger="click" placement="bottom-end">
+                <el-button type="primary" size="small" plain>
+                  更多
+                  <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="openMemoryDialog(scope.row)">查看记忆</el-dropdown-item>
+                    <el-dropdown-item divided @click="handleClearMemory(scope.row)">清空记忆</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </div>
           </template>
         </el-table-column>
@@ -287,14 +299,99 @@
       :user-info="currentUser"
       @success="handleResetPasswordSuccess"
     />
+
+    <el-dialog
+      v-model="showMemoryDialog"
+      title="用户记忆"
+      width="900px"
+      class="memory-dialog"
+      destroy-on-close
+    >
+      <div class="memory-dialog-body">
+        <div class="memory-toolbar">
+          <div class="memory-user">
+            {{ memoryUser?.username ? `用户：${memoryUser.username}（ID: ${memoryUser.id}）` : '' }}
+          </div>
+          <el-input
+            v-model="memorySearch"
+            placeholder="搜索 Key / 内容"
+            clearable
+            style="width: 280px"
+            @input="handleMemorySearch"
+          />
+          <el-button type="primary" plain :loading="memoryLoading" @click="loadUserMemory">刷新</el-button>
+        </div>
+        <el-tabs v-model="memoryActiveTab" class="memory-tabs" @tab-change="handleMemoryTabChange">
+          <el-tab-pane label="全部" name="all" />
+          <el-tab-pane label="长期记忆" name="long_term" />
+          <el-tab-pane label="实体记忆" name="entity" />
+        </el-tabs>
+        <div class="memory-table-wrapper">
+          <el-table :data="pagedMemoryItems" v-loading="memoryLoading" border stripe style="width: 100%" height="100%">
+            <el-table-column type="expand" width="44">
+              <template #default="{ row }">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px;">
+                  <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <el-tag :type="row.memoryType === 'entity' ? 'info' : 'success'" size="small">
+                      {{ row.memoryType === 'entity' ? '实体' : '长期' }}
+                    </el-tag>
+                    <span style="margin-left: 8px;">{{ row.memoryKey }}</span>
+                  </div>
+                  <el-button size="small" plain @click="copyMemory(row)">复制内容</el-button>
+                </div>
+                <pre class="memory-content">{{ formatMemoryContent(row) }}</pre>
+              </template>
+            </el-table-column>
+            <el-table-column prop="memoryType" label="类型" width="110" align="center">
+              <template #default="{ row }">
+                <el-tag :type="row.memoryType === 'entity' ? 'info' : 'success'" size="small">
+                  {{ row.memoryType === 'entity' ? '实体' : '长期' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="memoryKey" label="Key" min-width="160" show-overflow-tooltip />
+            <el-table-column prop="importance" label="重要度" width="90" align="center" />
+            <el-table-column label="内容" min-width="360">
+              <template #default="{ row }">
+                <span class="memory-snippet" :title="row.content">{{ makeMemorySnippet(row.content) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="updateTime" label="更新时间" width="180" align="center">
+              <template #default="{ row }">
+                {{ formatDate(row.updateTime) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="100" align="center" fixed="right">
+              <template #default="{ row }">
+                <el-button size="small" plain @click="copyMemory(row)">复制</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <div class="memory-pagination">
+          <el-pagination
+            v-model:current-page="memoryPage"
+            v-model:page-size="memoryPageSize"
+            :page-sizes="[20, 50, 100, 200]"
+            :total="filteredMemoryItems.length"
+            layout="total, sizes, prev, pager, next"
+            @size-change="handleMemoryPageSizeChange"
+            @current-change="handleMemoryPageChange"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="showMemoryDialog = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, InfoFilled, Search, Check, Close, Clock } from '@element-plus/icons-vue'
-import { getUserList, approveUser, disableUser, getUserAppVisibilities, updateUserAppVisibility, getUserKnowledgeBaseVisibilities, updateUserKnowledgeBaseVisibility, updateUserRole } from '@/api/user'
+import { getUserList, approveUser, disableUser, getUserAppVisibilities, updateUserAppVisibility, getUserKnowledgeBaseVisibilities, updateUserKnowledgeBaseVisibility, updateUserRole, clearUserMemory, getUserMemoryItems } from '@/api/user'
 import ResetPasswordDialog from '@/components/ResetPasswordDialog.vue'
 
 const loading = ref(false)
@@ -307,6 +404,34 @@ const filterRole = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+
+const showMemoryDialog = ref(false)
+const memoryLoading = ref(false)
+const memoryItems = ref([])
+const memoryUser = ref(null)
+const memoryActiveTab = ref('all')
+const memorySearch = ref('')
+const memoryPage = ref(1)
+const memoryPageSize = ref(50)
+
+const filteredMemoryItems = computed(() => {
+  const keyword = (memorySearch.value || '').trim().toLowerCase()
+  const items = Array.isArray(memoryItems.value) ? memoryItems.value : []
+  if (!keyword) return items
+  return items.filter(item => {
+    const key = (item.memoryKey || '').toString().toLowerCase()
+    const content = (item.content || '').toString().toLowerCase()
+    return key.includes(keyword) || content.includes(keyword)
+  })
+})
+
+const pagedMemoryItems = computed(() => {
+  const page = Math.max(1, memoryPage.value)
+  const size = Math.max(1, memoryPageSize.value)
+  const start = (page - 1) * size
+  const end = start + size
+  return filteredMemoryItems.value.slice(start, end)
+})
 
 const loadUsers = async () => {
   loading.value = true
@@ -404,6 +529,124 @@ const handleResetPassword = (user) => {
 
 const handleResetPasswordSuccess = () => {
   loadUsers()
+}
+
+const openMemoryDialog = async (user) => {
+  memoryUser.value = user
+  memoryItems.value = []
+  memoryActiveTab.value = 'all'
+  memorySearch.value = ''
+  memoryPage.value = 1
+  memoryPageSize.value = 50
+  showMemoryDialog.value = true
+  await loadUserMemory()
+}
+
+const loadUserMemory = async () => {
+  if (!memoryUser.value) return
+  memoryLoading.value = true
+  try {
+    const params = { page: 1, size: 200 }
+    if (memoryActiveTab.value !== 'all') params.type = memoryActiveTab.value
+    const data = await getUserMemoryItems(memoryUser.value.id, params)
+    memoryItems.value = Array.isArray(data) ? data : []
+    memoryPage.value = 1
+  } catch (error) {
+    ElMessage.error(error.response?.data?.error || error.message || '获取用户记忆失败')
+    memoryItems.value = []
+  } finally {
+    memoryLoading.value = false
+  }
+}
+
+const handleMemoryTabChange = async () => {
+  await loadUserMemory()
+}
+
+const handleMemorySearch = () => {
+  memoryPage.value = 1
+}
+
+const handleMemoryPageChange = (page) => {
+  memoryPage.value = page
+}
+
+const handleMemoryPageSizeChange = (size) => {
+  memoryPageSize.value = size
+  memoryPage.value = 1
+}
+
+const makeMemorySnippet = (content) => {
+  if (!content) return ''
+  const text = String(content).replace(/\s+/g, ' ').trim()
+  if (text.length <= 120) return text
+  return text.slice(0, 119) + '…'
+}
+
+const formatMemoryContent = (row) => {
+  if (!row || !row.content) return ''
+  if (row.memoryType === 'entity') {
+    try {
+      const obj = JSON.parse(row.content)
+      return JSON.stringify(obj, null, 2)
+    } catch (e) {
+      return String(row.content)
+    }
+  }
+  return String(row.content)
+}
+
+const copyText = async (text) => {
+  const value = text == null ? '' : String(text)
+  try {
+    await navigator.clipboard.writeText(value)
+    return true
+  } catch (e) {
+    try {
+      const textarea = document.createElement('textarea')
+      textarea.value = value
+      textarea.style.position = 'fixed'
+      textarea.style.left = '-9999px'
+      textarea.style.top = '-9999px'
+      document.body.appendChild(textarea)
+      textarea.focus()
+      textarea.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(textarea)
+      return ok
+    } catch (err) {
+      return false
+    }
+  }
+}
+
+const copyMemory = async (row) => {
+  const ok = await copyText(formatMemoryContent(row))
+  if (ok) ElMessage.success('已复制')
+  else ElMessage.error('复制失败')
+}
+
+const handleClearMemory = async (user) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要清空用户 "${user.username}" 的长期记忆与实体记忆吗？`,
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    await clearUserMemory(user.id)
+    ElMessage.success('已清空用户记忆')
+    if (showMemoryDialog.value && memoryUser.value && memoryUser.value.id === user.id) {
+      await loadUserMemory()
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.response?.data?.error || error.message || '清空失败')
+    }
+  }
 }
 
 const loadUserAppVisibilities = async (user) => {
@@ -858,6 +1101,88 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+.memory-content {
+  max-height: 320px;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  background: #fafafa;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.memory-snippet {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:deep(.memory-dialog .el-dialog__body) {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+:deep(.memory-dialog .el-dialog) {
+  height: 720px;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.memory-dialog .el-tabs__header) {
+  margin: 0 0 8px 0;
+}
+
+.memory-dialog-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.memory-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-shrink: 0;
+  min-height: 40px;
+  margin-bottom: 8px;
+}
+
+.memory-user {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-tabs {
+  flex-shrink: 0;
+}
+
+.memory-table-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+
+.memory-pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  flex-shrink: 0;
+}
+
+:deep(.memory-dialog .el-table__body-wrapper .el-scrollbar__wrap) {
+  overflow-y: scroll;
 }
 </style>
 

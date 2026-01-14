@@ -1,0 +1,474 @@
+package com.github.app.dify.memory.service.impl;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.app.dify.knowledgebase.domain.QAModel;
+import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
+import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
+import com.github.app.dify.knowledgebase.repository.QAModelRepository;
+import com.github.app.dify.memory.domain.UserMemory;
+import com.github.app.dify.memory.repository.UserMemoryRepository;
+import com.github.app.dify.memory.resp.UserMemoryItemResp;
+import com.github.app.dify.memory.service.UserMemoryService;
+import com.github.app.dify.memory.util.MemoryDateTimeUtil;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.output.Response;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+
+@Service
+public class UserMemoryServiceImpl implements UserMemoryService {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserMemoryServiceImpl.class);
+
+    private static final String TYPE_LONG_TERM = "long_term";
+    private static final String TYPE_ENTITY = "entity";
+
+    private static final int MAX_RECENT_LONG_TERM = 30;
+    private static final int MAX_RECENT_ENTITY = 30;
+    private static final int MAX_MEMORY_ITEMS_PER_TYPE = 200;
+
+    private static final int MAX_CONTEXT_ITEMS_LONG_TERM = 8;
+    private static final int MAX_CONTEXT_ITEMS_ENTITY = 8;
+    private static final int MAX_CONTEXT_CHARS_PER_ITEM = 400;
+
+    @Autowired
+    private UserMemoryRepository userMemoryRepository;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private QAModelRepository qaModelRepository;
+
+    @Autowired
+    private ModelLanguageModelFactory modelLanguageModelFactory;
+
+    @Override
+    public String buildMemoryContext(Long userId, String question) {
+        if (userId == null) {
+            return "";
+        }
+        String q = question != null ? question.trim() : "";
+        List<String> tokens = tokenizeForMatch(q);
+
+        List<UserMemory> longTerms = userMemoryRepository.findRecentByUserIdAndType(
+                userId, TYPE_LONG_TERM, PageRequest.of(0, MAX_RECENT_LONG_TERM));
+        List<UserMemory> entities = userMemoryRepository.findRecentByUserIdAndType(
+                userId, TYPE_ENTITY, PageRequest.of(0, MAX_RECENT_ENTITY));
+
+        List<UserMemory> pickedLong = pickBest(longTerms, tokens, MAX_CONTEXT_ITEMS_LONG_TERM);
+        List<UserMemory> pickedEnt = pickBest(entities, tokens, MAX_CONTEXT_ITEMS_ENTITY);
+
+        if (pickedLong.isEmpty() && pickedEnt.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("【用户记忆】\n");
+        if (!pickedLong.isEmpty()) {
+            sb.append("【长期记忆】\n");
+            for (UserMemory m : pickedLong) {
+                String line = safeOneLine(m.getContent());
+                if (!line.isEmpty()) {
+                    sb.append("- ").append(trimToMax(line, MAX_CONTEXT_CHARS_PER_ITEM)).append("\n");
+                }
+            }
+        }
+        if (!pickedEnt.isEmpty()) {
+            sb.append("【实体记忆】\n");
+            for (UserMemory m : pickedEnt) {
+                String line = safeOneLine(m.getContent());
+                if (!line.isEmpty()) {
+                    sb.append("- ").append(trimToMax(line, MAX_CONTEXT_CHARS_PER_ITEM)).append("\n");
+                }
+            }
+        }
+        sb.append("\n请在不暴露记忆原文来源的前提下，利用以上信息进行个性化回答；若记忆与问题无关，请忽略。");
+        return sb.toString();
+    }
+
+    @Async
+    @Override
+    public void updateMemoryAsync(Long userId, String question, String answer, Long modelId, Long conversationId) {
+        if (userId == null) {
+            return;
+        }
+        String q = question != null ? question.trim() : "";
+        String a = answer != null ? answer.trim() : "";
+        if (q.isEmpty() || a.isEmpty()) {
+            return;
+        }
+        try {
+            Optional<QAModel> modelOpt = modelId != null ? qaModelRepository.findById(modelId) : Optional.empty();
+            if (modelOpt.isEmpty()) {
+                modelOpt = qaModelRepository.findDefaultByUseFor("chat");
+            }
+            if (modelOpt.isEmpty()) {
+                modelOpt = qaModelRepository.findDefaultByUseFor("both");
+            }
+            if (modelOpt.isEmpty()) {
+                logger.debug("找不到可用模型，跳过记忆更新 - userId={}", userId);
+                return;
+            }
+
+            QAModel qaModel = modelOpt.get();
+            if (qaModel.getDeleted() != null && qaModel.getDeleted() == 1) {
+                return;
+            }
+            if (qaModel.getEnabled() == null || !qaModel.getEnabled()) {
+                return;
+            }
+
+            ChatLanguageModel model = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+            String extraction = extractMemoryJson(model, q, a);
+            if (extraction == null || extraction.trim().isEmpty()) {
+                return;
+            }
+            upsertFromJson(userId, extraction, conversationId);
+            enforceLimit(userId, TYPE_LONG_TERM);
+            enforceLimit(userId, TYPE_ENTITY);
+        } catch (Exception e) {
+            logger.debug("异步记忆更新失败 - userId={}", userId, e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void clearUserMemory(Long userId) {
+        if (userId == null) {
+            return;
+        }
+        userMemoryRepository.softDeleteAllByUserId(userId);
+    }
+
+    @Override
+    public List<UserMemoryItemResp> listUserMemory(Long userId, String memoryType, int page, int size) {
+        if (userId == null) {
+            return List.of();
+        }
+        int safePage = Math.max(1, page);
+        int safeSize = Math.min(200, Math.max(1, size));
+        PageRequest pageable = PageRequest.of(safePage - 1, safeSize);
+
+        List<UserMemory> items;
+        String type = memoryType != null ? memoryType.trim() : null;
+        if (type == null || type.isEmpty()) {
+            items = userMemoryRepository.findRecentByUserId(userId, pageable);
+        } else if (TYPE_LONG_TERM.equals(type) || TYPE_ENTITY.equals(type)) {
+            items = userMemoryRepository.findRecentByUserIdAndType(userId, type, pageable);
+        } else {
+            items = List.of();
+        }
+
+        List<UserMemoryItemResp> resp = new ArrayList<>();
+        for (UserMemory m : items) {
+            UserMemoryItemResp r = new UserMemoryItemResp();
+            r.setId(m.getId());
+            r.setMemoryType(m.getMemoryType());
+            r.setMemoryKey(m.getMemoryKey());
+            r.setContent(m.getContent());
+            r.setImportance(m.getImportance());
+            r.setUpdateTime(m.getUpdateTime());
+            resp.add(r);
+        }
+        return resp;
+    }
+
+    private String extractMemoryJson(ChatLanguageModel model, String question, String answer) {
+        List<ChatMessage> messages = new ArrayList<>();
+        String system = "你是一个记忆抽取器。你需要从一轮问答中抽取适合长期保存的用户信息，并返回严格的JSON。"
+                + "只记录稳定、可复用的信息（偏好、背景、常用技术栈、项目上下文、重要实体及其属性）。"
+                + "不要记录一次性内容、临时验证码、敏感信息（密码、token、身份证、银行卡等）。"
+                + "如果没有可保存内容，返回空JSON对象 {}。"
+                + "输出必须是纯JSON，不要使用Markdown，不要使用代码块。";
+        messages.add(SystemMessage.from(system));
+
+        String user = "{\n"
+                + "  \"question\": " + objectMapper.valueToTree(question).toString() + ",\n"
+                + "  \"answer\": " + objectMapper.valueToTree(answer).toString() + "\n"
+                + "}\n\n"
+                + "请输出JSON，结构如下：\n"
+                + "{\n"
+                + "  \"long_term_facts\": [\n"
+                + "    {\"key\": \"\", \"content\": \"\", \"importance\": 0}\n"
+                + "  ],\n"
+                + "  \"entities\": [\n"
+                + "    {\"type\": \"\", \"name\": \"\", \"attributes\": {}}\n"
+                + "  ]\n"
+                + "}\n"
+                + "约束：importance 取 0-5；key 应短且稳定；entities 的 attributes 只能是对象。";
+        messages.add(UserMessage.from(user));
+
+        Response<AiMessage> resp = model.generate(messages);
+        String text = resp != null && resp.content() != null ? resp.content().text() : null;
+        if (text == null) {
+            return null;
+        }
+        return text.trim();
+    }
+
+    @Transactional
+    protected void upsertFromJson(Long userId, String json, Long conversationId) {
+        JsonNode root;
+        try {
+            root = objectMapper.readTree(json);
+        } catch (Exception e) {
+            String trimmed = json.trim();
+            int start = trimmed.indexOf('{');
+            int end = trimmed.lastIndexOf('}');
+            if (start >= 0 && end > start) {
+                String maybe = trimmed.substring(start, end + 1);
+                try {
+                    root = objectMapper.readTree(maybe);
+                } catch (Exception ex) {
+                    throw new RuntimeException("JSON解析失败: " + maybe, ex);
+                }
+            } else {
+                throw new RuntimeException("JSON解析失败: " + json, e);
+            }
+        }
+        if (root == null || !root.isObject()) {
+            return;
+        }
+
+        JsonNode facts = root.get("long_term_facts");
+        if (facts != null && facts.isArray()) {
+            for (JsonNode node : facts) {
+                if (node == null || !node.isObject()) {
+                    continue;
+                }
+                String key = asText(node.get("key"));
+                String content = asText(node.get("content"));
+                Integer importance = asInt(node.get("importance"));
+                if (content == null || content.trim().isEmpty()) {
+                    continue;
+                }
+                String stableKey = key != null && !key.trim().isEmpty() ? key.trim() : sha1Short(content);
+                upsertOne(userId, TYPE_LONG_TERM, stableKey, content.trim(), clampImportance(importance), conversationId);
+            }
+        }
+
+        JsonNode entities = root.get("entities");
+        if (entities != null && entities.isArray()) {
+            for (JsonNode node : entities) {
+                if (node == null || !node.isObject()) {
+                    continue;
+                }
+                String type = asText(node.get("type"));
+                String name = asText(node.get("name"));
+                JsonNode attrs = node.get("attributes");
+                if (type == null || type.trim().isEmpty() || name == null || name.trim().isEmpty()) {
+                    continue;
+                }
+                if (attrs != null && !attrs.isObject()) {
+                    continue;
+                }
+                String key = (type.trim() + ":" + name.trim());
+                String content;
+                try {
+                    content = objectMapper.writeValueAsString(node);
+                } catch (Exception e) {
+                    continue;
+                }
+                upsertOne(userId, TYPE_ENTITY, key, content, 3, conversationId);
+            }
+        }
+    }
+
+    private void upsertOne(Long userId, String type, String key, String content, Integer importance, Long conversationId) {
+        Optional<UserMemory> existing = userMemoryRepository.findActiveByUserIdAndTypeAndKey(userId, type, key);
+        UserMemory m;
+        if (existing.isPresent()) {
+            m = existing.get();
+            m.setContent(content);
+            m.setImportance(importance);
+            MemoryDateTimeUtil.setUpdateTime(m);
+        } else {
+            m = new UserMemory();
+            m.setUserId(userId);
+            m.setMemoryType(type);
+            m.setMemoryKey(key);
+            m.setContent(content);
+            m.setImportance(importance);
+            m.setDeleted(0);
+            MemoryDateTimeUtil.setCreateAndUpdateTime(m);
+        }
+        userMemoryRepository.save(m);
+    }
+
+    @Transactional
+    protected void enforceLimit(Long userId, String type) {
+        long count = userMemoryRepository.countActiveByUserIdAndType(userId, type);
+        if (count <= MAX_MEMORY_ITEMS_PER_TYPE) {
+            return;
+        }
+        long toRemove = count - MAX_MEMORY_ITEMS_PER_TYPE;
+        if (toRemove <= 0) {
+            return;
+        }
+        List<UserMemory> oldest = userMemoryRepository.findOldestActiveByUserIdAndType(
+                userId, type, PageRequest.of(0, (int) Math.min(toRemove, 200)));
+        if (oldest.isEmpty()) {
+            return;
+        }
+        for (UserMemory m : oldest) {
+            m.setDeleted(1);
+            MemoryDateTimeUtil.setUpdateTime(m);
+        }
+        userMemoryRepository.saveAll(oldest);
+    }
+
+    private List<UserMemory> pickBest(List<UserMemory> candidates, List<String> tokens, int max) {
+        if (candidates == null || candidates.isEmpty()) {
+            return List.of();
+        }
+        if (tokens == null || tokens.isEmpty()) {
+            return candidates.subList(0, Math.min(max, candidates.size()));
+        }
+        List<UserMemory> matched = new ArrayList<>();
+        List<UserMemory> rest = new ArrayList<>();
+        for (UserMemory m : candidates) {
+            String c = m.getContent() != null ? m.getContent() : "";
+            String lower = c.toLowerCase(Locale.ROOT);
+            boolean hit = false;
+            for (String t : tokens) {
+                if (t.length() < 2) {
+                    continue;
+                }
+                if (lower.contains(t)) {
+                    hit = true;
+                    break;
+                }
+            }
+            if (hit) {
+                matched.add(m);
+            } else {
+                rest.add(m);
+            }
+        }
+        List<UserMemory> out = new ArrayList<>();
+        for (UserMemory m : matched) {
+            if (out.size() >= max) {
+                break;
+            }
+            out.add(m);
+        }
+        for (UserMemory m : rest) {
+            if (out.size() >= max) {
+                break;
+            }
+            out.add(m);
+        }
+        return out;
+    }
+
+    private List<String> tokenizeForMatch(String text) {
+        if (text == null) {
+            return List.of();
+        }
+        String t = text.toLowerCase(Locale.ROOT);
+        String[] parts = t.split("[^\\p{IsAlphabetic}\\p{IsDigit}\\u4e00-\\u9fa5]+");
+        List<String> out = new ArrayList<>();
+        for (String p : parts) {
+            if (p == null) {
+                continue;
+            }
+            String s = p.trim();
+            if (s.length() >= 2) {
+                out.add(s);
+            }
+        }
+        return out;
+    }
+
+    private String safeOneLine(String s) {
+        if (s == null) {
+            return "";
+        }
+        String trimmed = s.trim();
+        if (trimmed.isEmpty()) {
+            return "";
+        }
+        return trimmed.replace("\r", " ").replace("\n", " ").replace("\t", " ");
+    }
+
+    private String trimToMax(String s, int max) {
+        if (s == null) {
+            return "";
+        }
+        if (s.length() <= max) {
+            return s;
+        }
+        return s.substring(0, Math.max(0, max - 1)) + "…";
+    }
+
+    private String asText(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (node.isTextual()) {
+            return node.asText();
+        }
+        return node.toString();
+    }
+
+    private Integer asInt(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (node.isInt() || node.isLong()) {
+            return node.asInt();
+        }
+        if (node.isTextual()) {
+            try {
+                return Integer.parseInt(node.asText().trim());
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private Integer clampImportance(Integer importance) {
+        if (importance == null) {
+            return 2;
+        }
+        if (importance < 0) {
+            return 0;
+        }
+        if (importance > 5) {
+            return 5;
+        }
+        return importance;
+    }
+
+    private String sha1Short(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.substring(0, 16);
+        } catch (Exception e) {
+            return String.valueOf(input.hashCode());
+        }
+    }
+}

@@ -642,6 +642,40 @@ CREATE INDEX idx_drawio_history_user_deleted ON "DRAWIO_HISTORY"(user_id, delete
 CREATE INDEX idx_drawio_history_create_time ON "DRAWIO_HISTORY"(create_time);
 
 -- ============================================
+-- 16. 创建用户记忆表 (USER_MEMORY)
+-- ============================================
+DROP TABLE IF EXISTS "USER_MEMORY" CASCADE;
+
+CREATE TABLE "USER_MEMORY" (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    memory_type VARCHAR(32) NOT NULL,
+    memory_key VARCHAR(200) NOT NULL,
+    content TEXT,
+    importance INTEGER,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted INTEGER DEFAULT 0,
+    CONSTRAINT uk_user_memory UNIQUE (user_id, memory_type, memory_key)
+);
+
+COMMENT ON TABLE "USER_MEMORY" IS '用户记忆表（长期记忆/实体记忆）';
+COMMENT ON COLUMN "USER_MEMORY".id IS '主键';
+COMMENT ON COLUMN "USER_MEMORY".user_id IS '用户ID';
+COMMENT ON COLUMN "USER_MEMORY".memory_type IS '记忆类型：long_term/entity';
+COMMENT ON COLUMN "USER_MEMORY".memory_key IS '记忆键（用于去重更新）';
+COMMENT ON COLUMN "USER_MEMORY".content IS '记忆内容';
+COMMENT ON COLUMN "USER_MEMORY".importance IS '重要度（0-5）';
+COMMENT ON COLUMN "USER_MEMORY".create_time IS '创建时间';
+COMMENT ON COLUMN "USER_MEMORY".update_time IS '更新时间';
+COMMENT ON COLUMN "USER_MEMORY".deleted IS '是否删除：0-未删除，1-已删除';
+
+CREATE INDEX idx_user_memory_user_id ON "USER_MEMORY"(user_id);
+CREATE INDEX idx_user_memory_type ON "USER_MEMORY"(memory_type);
+CREATE INDEX idx_user_memory_user_type ON "USER_MEMORY"(user_id, memory_type);
+CREATE INDEX idx_user_memory_deleted ON "USER_MEMORY"(deleted);
+
+-- ============================================
 -- 第六部分：初始化数据
 -- ============================================
 
