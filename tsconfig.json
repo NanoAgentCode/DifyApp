@@ -1,0 +1,6 @@
+{
+  "compilerOptions": {
+    "skipLibCheck": true
+  },
+  "files": ["./frontend/node_modules/vite/client.d.ts"]
+}
