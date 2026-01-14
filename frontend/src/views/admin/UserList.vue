@@ -318,10 +318,10 @@
       <div class="memory-dialog-body">
         <div class="memory-toolbar">
           <el-select v-model="memoryScopeType" size="small" style="width: 140px" @change="handleMemoryScopeChange">
-            <el-option label="全部Scope" value="all" />
-            <el-option label="Chat" value="chat" />
-            <el-option label="知识库" value="knowledge_base" />
-            <el-option label="应用" value="app" />
+            <el-option label="所有范围" value="all" />
+            <el-option label="智能对话" value="chat" />
+            <el-option label="知识问答" value="knowledge_base" />
+            <el-option label="智能应用" value="app" />
           </el-select>
           <el-select v-model="memoryType" size="small" style="width: 140px" @change="handleMemoryTypeChange">
             <el-option label="全部类型" value="all" />
