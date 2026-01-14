@@ -327,66 +327,6 @@
             </div>
           </el-form-item>
 
-          <el-form-item label="主题" prop="themeColor">
-            <div class="theme-selector">
-              <el-radio-group v-model="selectedTheme" @change="handleThemeChange" class="theme-grid">
-                <el-radio 
-                  v-for="theme in industrialThemes" 
-                  :key="theme.id" 
-                  :label="theme.id"
-                  class="theme-card"
-                >
-                  <div class="theme-preview-card">
-                    <div class="theme-header">
-                      <div class="theme-name">{{ theme.name }}</div>
-                      <div class="theme-check-icon" v-if="selectedTheme === theme.id">
-                        <el-icon><Check /></el-icon>
-                      </div>
-                    </div>
-                    <div class="theme-colors-preview">
-                      <div 
-                        class="color-dot primary" 
-                        :style="{ backgroundColor: theme.colors.primary }"
-                        :title="`主色: ${theme.colors.primary}`"
-                      ></div>
-                      <div 
-                        class="color-dot secondary" 
-                        :style="{ backgroundColor: theme.colors.secondary }"
-                        :title="`次色: ${theme.colors.secondary}`"
-                      ></div>
-                      <div 
-                        class="color-dot accent" 
-                        :style="{ backgroundColor: theme.colors.accent }"
-                        :title="`强调色: ${theme.colors.accent}`"
-                      ></div>
-                    </div>
-                    <div class="theme-info">
-                      <div class="theme-desc">{{ theme.description }}</div>
-                    </div>
-                  </div>
-                </el-radio>
-              </el-radio-group>
-              <div class="custom-color-section">
-                <el-divider>
-                  <span class="divider-text">或自定义颜色</span>
-                </el-divider>
-                <div class="custom-color-wrapper">
-                  <el-color-picker 
-                    v-model="form.themeColor" 
-                    @change="handleCustomColorChange"
-                    size="large"
-                  />
-                  <div class="custom-color-info">
-                    <div class="custom-color-tip">选择自定义颜色将覆盖预设主题</div>
-                    <div v-if="form.themeColor && !selectedTheme" class="custom-color-display">
-                      当前颜色: <span class="color-value">{{ form.themeColor }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </el-form-item>
-
           <el-form-item label="排序" prop="sort">
             <el-input-number v-model="form.sort" :min="0" />
             <div class="form-item-tip">数字越小越靠前</div>
@@ -417,10 +357,9 @@
 import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Check, Plus, Delete, DocumentCopy, Download, Picture, ArrowLeft } from '@element-plus/icons-vue'
+import { Plus, Delete, DocumentCopy, Download, Picture, ArrowLeft } from '@element-plus/icons-vue'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { createApp, updateApp, getAppDetail } from '@/api/aiApp'
-import { industrialThemes, getThemeById, findThemeByColor } from '@/utils/themes'
 import { builtInIcons, getIconById } from '@/utils/icons'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 
@@ -436,7 +375,6 @@ const route = useRoute()
 const router = useRouter()
 const formRef = ref(null)
 const isEdit = ref(false)
-const selectedTheme = ref('')
 const selectedIcon = ref('')
 const customIconUrl = ref('')
 
@@ -450,7 +388,6 @@ const form = reactive({
   fileUploadEnabled: false,
   inputEnabled: true,
   icon: '',
-  themeColor: '',
   sort: 0,
   tenantId: 1,
   inputs: ''
@@ -734,24 +671,6 @@ const loadFieldsFromInputs = (inputsStr) => {
   }
 }
 
-// 主题变化处理
-const handleThemeChange = (themeId) => {
-  const theme = getThemeById(themeId)
-  if (theme) {
-    // 保存主题ID和主色到themeColor字段（格式：themeId:primaryColor）
-    form.themeColor = `${themeId}:${theme.colors.primary}`
-  }
-}
-
-// 自定义颜色变化处理
-const handleCustomColorChange = (color) => {
-  if (color) {
-    // 如果选择了自定义颜色，清除主题选择
-    selectedTheme.value = ''
-    form.themeColor = color
-  }
-}
-
 // 图标变化处理
 const handleIconChange = (value) => {
   if (value === 'custom') {
@@ -787,25 +706,6 @@ const handleIconError = () => {
   ElMessage.warning('自定义图标URL无法加载，请检查URL是否正确')
 }
 
-// 监听form.themeColor变化，同步selectedTheme
-watch(() => form.themeColor, (newColor) => {
-  if (newColor && newColor.includes(':')) {
-    // 如果是主题格式 themeId:color
-    const [themeId] = newColor.split(':')
-    selectedTheme.value = themeId
-  } else if (newColor) {
-    // 如果是自定义颜色，尝试查找匹配的主题
-    const matchedTheme = findThemeByColor(newColor)
-    if (matchedTheme) {
-      selectedTheme.value = matchedTheme.id
-    } else {
-      selectedTheme.value = ''
-    }
-  } else {
-    selectedTheme.value = ''
-  }
-}, { immediate: true })
-
 const rules = {
   name: [{ required: true, message: '请输入应用名称', trigger: 'blur' }],
   type: [{ required: true, message: '请选择应用类型', trigger: 'change' }],
@@ -826,16 +726,6 @@ const fetchAppDetail = async () => {
       }
       
       // 初始化主题选择
-      if (res.themeColor) {
-        if (res.themeColor.includes(':')) {
-          const [themeId] = res.themeColor.split(':')
-          selectedTheme.value = themeId
-        } else {
-          const matchedTheme = findThemeByColor(res.themeColor)
-          selectedTheme.value = matchedTheme ? matchedTheme.id : ''
-        }
-      }
-      
       // 初始化图标选择
       if (res.icon) {
         if (res.icon.startsWith('icon:')) {
@@ -883,12 +773,11 @@ const handleSubmit = async () => {
     if (!submitData.icon || submitData.icon.trim() === '') {
       submitData.icon = null
     }
-    if (!submitData.themeColor || submitData.themeColor.trim() === '') {
-      submitData.themeColor = null
-    }
     if (!submitData.inputs || submitData.inputs.trim() === '') {
       submitData.inputs = null
     }
+
+    delete submitData.themeColor
     
     if (isEdit.value) {
       // 更新时排除 appId 和 tenantId 字段（API Key 和租户ID不应该被更新）
@@ -985,178 +874,6 @@ onMounted(() => {
 
 .form-actions .el-button {
   margin: 0 10px;
-}
-
-.theme-selector {
-  width: 100%;
-}
-
-.theme-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-  width: 100%;
-}
-
-.theme-card {
-  display: block;
-  height: auto;
-  margin: 0;
-  padding: 0;
-  border: 2px solid #e4e7ed;
-  border-radius: 12px;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  overflow: hidden;
-}
-
-.theme-card:hover {
-  border-color: #409eff;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
-  transform: translateY(-2px);
-}
-
-.theme-card.is-checked {
-  border-color: #409eff;
-  background: linear-gradient(135deg, #ecf5ff 0%, #ffffff 100%);
-  box-shadow: 0 4px 16px rgba(64, 158, 255, 0.2);
-}
-
-.theme-preview-card {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.theme-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.theme-check-icon {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #409eff;
-  color: #fff;
-  border-radius: 50%;
-  font-size: 12px;
-}
-
-.theme-colors-preview {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding: 12px;
-  background: #f5f7fa;
-  border-radius: 8px;
-}
-
-.color-dot {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  flex-shrink: 0;
-  transition: transform 0.2s;
-}
-
-.color-dot:hover {
-  transform: scale(1.1);
-}
-
-.color-dot.primary {
-  border-color: rgba(255, 255, 255, 0.9);
-}
-
-.theme-info {
-  flex: 1;
-}
-
-.theme-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: #303133;
-  line-height: 1.4;
-}
-
-.theme-desc {
-  font-size: 12px;
-  color: #909399;
-  line-height: 1.5;
-}
-
-.custom-color-section {
-  margin-top: 24px;
-  padding-top: 24px;
-}
-
-.divider-text {
-  color: #909399;
-  font-size: 13px;
-  padding: 0 16px;
-  background: #fff;
-}
-
-.custom-color-wrapper {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 16px;
-  background: #f9fafb;
-  border-radius: 8px;
-  border: 1px dashed #d9d9d9;
-}
-
-.custom-color-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.custom-color-tip {
-  font-size: 13px;
-  color: #606266;
-  line-height: 1.5;
-}
-
-.custom-color-display {
-  font-size: 12px;
-  color: #909399;
-}
-
-.color-value {
-  font-family: 'Courier New', monospace;
-  font-weight: 600;
-  color: #303133;
-  padding: 2px 6px;
-  background: #fff;
-  border-radius: 4px;
-  border: 1px solid #e4e7ed;
-}
-
-.theme-card :deep(.el-radio__input) {
-  display: none;
-}
-
-.theme-card :deep(.el-radio__label) {
-  padding: 0;
-  width: 100%;
-}
-
-.theme-card.is-checked .theme-name {
-  color: #409eff;
-}
-
-.theme-card.is-checked .theme-colors-preview {
-  background: linear-gradient(135deg, #d9ecff 0%, #ecf5ff 100%);
 }
 
 /* 输入字段配置样式 */
@@ -1285,4 +1002,3 @@ onMounted(() => {
   object-fit: contain;
 }
 </style>
-

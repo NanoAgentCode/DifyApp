@@ -1,5 +1,5 @@
 <template>
-  <div class="workflow-app" :style="themeStyles">
+  <div class="workflow-app">
     <el-card class="workflow-container">
       <template #header>
         <div class="workflow-header">
@@ -165,7 +165,7 @@
                 </div>
                 <template #tip>
                   <div class="el-upload__tip">
-                    支持上传多个文件，单个文件不超过10MB。选择文件后将立即上传到Dify。
+                    单个文件不超过10MB,选择文件后将立即上传到Dify。
                   </div>
                 </template>
                 <template #file="{ file }">
@@ -203,10 +203,6 @@
                 type="primary" 
                 @click="handleRun" 
                 :loading="loading"
-                :style="{ 
-                  backgroundColor: themeStyles['--theme-primary'] || undefined,
-                  borderColor: themeStyles['--theme-primary'] || undefined
-                }"
               >
                 运行工作流
               </el-button>
@@ -395,7 +391,6 @@ import { UploadFilled, FullScreen, Document, Picture, Check, Close, Download, Lo
 import { getAppDetail, workflowApp, workflowAppStream, uploadFile } from '@/api/aiApp'
 import { getFullAPIUrl } from '@/config/api'
 import request from '@/utils/request'
-import { getThemeById, getThemeCSSVariables } from '@/utils/themes'
 import AppIcon from '@/components/AppIcon.vue'
 import { logger } from '@/utils/logger'
 import { useThrottleFn } from '@/utils/debounce'
@@ -438,36 +433,6 @@ const extractedFiles = computed(() => {
 // 缓存是否有可预览文件（性能优化）
 const hasPreviewableFilesComputed = computed(() => {
   return extractedFiles.value.length > 0
-})
-
-// 主题样式计算
-const themeStyles = computed(() => {
-  if (!appInfo.value?.themeColor) return {}
-  
-  let theme = null
-  const themeColor = appInfo.value.themeColor
-  
-  // 检查是否是主题格式 themeId:color
-  if (themeColor.includes(':')) {
-    const [themeId] = themeColor.split(':')
-    theme = getThemeById(themeId)
-  } else {
-    // 尝试根据颜色查找主题
-    theme = getThemeById(themeColor) || null
-  }
-  
-  if (theme) {
-    return getThemeCSSVariables(theme)
-  }
-  
-  // 如果是自定义颜色，只设置主色
-  if (themeColor && !themeColor.includes(':')) {
-    return {
-      '--theme-primary': themeColor
-    }
-  }
-  
-  return {}
 })
 
 // 获取复杂输入的占位符
@@ -1664,18 +1629,9 @@ onBeforeUnmount(() => {
   margin: 0 0 20px 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--theme-text, #303133);
+  color: var(--el-text-color-primary, #303133);
   padding-bottom: 12px;
-  border-bottom: 2px solid var(--theme-primary, #409eff);
-}
-
-.workflow-app {
-  --theme-primary: #409eff;
-  --theme-secondary: #606266;
-  --theme-background: #ffffff;
-  --theme-surface: #f5f7fa;
-  --theme-text: #303133;
-  --theme-accent: #66b1ff;
+  border-bottom: 2px solid var(--el-color-primary, #409eff);
 }
 
 .result-content {

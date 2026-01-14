@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import { getFullAPIUrl } from '@/config/api'
 
 /**
  * 获取应用列表
@@ -106,7 +107,12 @@ export function uploadFile(id, formData, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     
-    xhr.open('POST', `/api/ai-apps/${id}/files/upload`, true)
+    xhr.open('POST', getFullAPIUrl(`/api/ai-apps/${id}/files/upload`), true)
+
+    const token = localStorage.getItem('token')
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    }
     
     // 监听上传进度
     if (onProgress) {
@@ -137,4 +143,3 @@ export function uploadFile(id, formData, onProgress) {
     xhr.send(formData)
   })
 }
-

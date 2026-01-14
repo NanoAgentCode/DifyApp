@@ -29,19 +29,77 @@
         </div>
       </div>
 
-      <div class="chat-input">
+      <div v-if="isInputEnabled || isFileUploadEnabled" class="chat-input">
+        <div class="chat-input-main">
+          <div v-if="isFileUploadEnabled" class="upload-header">
+            <div class="upload-tip">
+              单个文件不超过10MB,选择文件后将立即上传到Dify。
+            </div>
+            <div v-if="fileList.length" class="upload-file-list">
+              <div class="upload-file-item" v-for="file in fileList" :key="file.uid">
+                <div class="file-info">
+                  <el-icon class="file-icon">
+                    <Document v-if="!isImageFile(file)" />
+                    <Picture v-else />
+                  </el-icon>
+                  <span class="file-name">{{ file.name }}</span>
+                  <span class="file-size">{{ formatFileSize(file.size) }}</span>
+                  <span class="file-status-inline">
+                    <el-tag
+                      :type="getFileStatusType(file.status)"
+                      size="small"
+                      class="file-status"
+                    >
+                      {{ getFileStatusText(file.status) }}
+                    </el-tag>
+                  </span>
+                  <el-button link type="danger" class="file-remove" @click="removeFileFromList(file)">
+                    移除
+                  </el-button>
+                </div>
+                
+              </div>
+            </div>
+          </div>
+
         <el-input
+          v-if="isInputEnabled"
           v-model="inputText"
           type="textarea"
-          :rows="3"
+          :rows="2"
           placeholder="请输入消息..."
           @keydown.ctrl.enter="handleSend"
+          class="chat-input-textarea"
         />
-        <div class="input-actions">
-          <el-button @click="handleClear">清空</el-button>
-          <el-button type="primary" @click="handleSend" :loading="loading">
-            发送 (Ctrl+Enter)
-          </el-button>
+          <div class="input-actions">
+            <el-upload
+              v-if="isFileUploadEnabled"
+              ref="uploadRef"
+              v-model:file-list="fileList"
+              :auto-upload="false"
+              :on-change="handleFileChange"
+              :on-remove="handleFileRemove"
+              :limit="10"
+              multiple
+              list-type="text"
+              :show-file-list="false"
+            >
+              <template #trigger>
+                <el-button type="primary" plain class="action-btn action-btn--upload">
+                  <el-icon><UploadFilled /></el-icon>
+                  选择文件
+                </el-button>
+              </template>
+            </el-upload>
+            <el-button class="action-btn action-btn--clear" @click="handleClear">
+              <el-icon><Delete /></el-icon>
+              清空
+            </el-button>
+            <el-button class="action-btn action-btn--send" type="primary" @click="handleSend" :loading="loading" :disabled="!canSend">
+              <el-icon><Promotion /></el-icon>
+              发送 (Ctrl+Enter)
+            </el-button>
+          </div>
         </div>
       </div>
     </el-card>
@@ -49,15 +107,16 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick, triggerRef } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getAppDetail, chatApp, chatAppStream } from '@/api/aiApp'
+import { getAppDetail, chatApp, chatAppStream, uploadFile } from '@/api/aiApp'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { processSSEStream } from '@/composables/useSSEStream'
 import { extractContent, updateConversationId } from '@/composables/useResponseHandler'
 import { getFullAPIUrl } from '@/config/api'
 import AppIcon from '@/components/AppIcon.vue'
+import { UploadFilled, Document, Picture, Delete, Promotion } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -67,9 +126,23 @@ const messages = ref([])
 const loading = ref(false)
 const messagesRef = ref(null)
 const conversationId = ref(null)
-const updateKey = ref(0) // 用于强制更新
 const isUserScrolling = ref(false) // 标记用户是否在手动滚动
 const autoScrollEnabled = ref(true) // 是否启用自动滚动
+
+const uploadRef = ref(null)
+const fileList = ref([])
+const sessionUserId = ref('user_' + Date.now())
+
+const isInputEnabled = computed(() => appInfo.value?.inputEnabled !== false)
+const isFileUploadEnabled = computed(() => appInfo.value?.fileUploadEnabled === true)
+
+const hasUploadingFiles = computed(() => (fileList.value || []).some(f => f.status === 'uploading'))
+const hasValidContent = computed(() => {
+  const hasText = inputText.value && inputText.value.trim().length > 0
+  const hasFiles = (fileList.value || []).some(f => f.status === 'success' && f.uploadFileId)
+  return hasText || hasFiles
+})
+const canSend = computed(() => !loading.value && !hasUploadingFiles.value && hasValidContent.value)
 
 const fetchAppInfo = async () => {
   try {
@@ -80,20 +153,136 @@ const fetchAppInfo = async () => {
   }
 }
 
-const handleSend = async () => {
-  if (!inputText.value.trim()) {
-    ElMessage.warning('请输入消息')
+const isImageFile = (file) => {
+  const type = file?.raw?.type || file?.type || ''
+  return type.startsWith('image/')
+}
+
+const formatFileSize = (bytes) => {
+  if (!bytes && bytes !== 0) return ''
+  if (bytes === 0) return '0B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + sizes[i]
+}
+
+const getFileStatusType = (status) => {
+  if (status === 'success') return 'success'
+  if (status === 'fail') return 'danger'
+  if (status === 'uploading') return 'warning'
+  return 'info'
+}
+
+const getFileStatusText = (status) => {
+  if (status === 'success') return '上传成功'
+  if (status === 'fail') return '上传失败'
+  if (status === 'uploading') return '上传中'
+  return '待上传'
+}
+
+const getFileType = (file) => {
+  const type = file?.type || ''
+  if (type.startsWith('image/')) return 'image'
+  if (type.includes('pdf')) return 'document'
+  if (type.includes('text') || type.includes('html')) return 'document'
+  if (type.includes('word') || type.includes('officedocument')) return 'document'
+  if (type.includes('excel') || type.includes('spreadsheet')) return 'document'
+  if (type.includes('powerpoint') || type.includes('presentation')) return 'document'
+  return 'document'
+}
+
+const uploadSingleFile = async (fileItem) => {
+  if (!fileItem?.raw) return
+  fileItem.status = 'uploading'
+  try {
+    const formData = new FormData()
+    formData.append('file', fileItem.raw)
+    formData.append('user', sessionUserId.value)
+    const result = await uploadFile(route.params.id, formData)
+    if (result && result.id) {
+      fileItem.status = 'success'
+      fileItem.uploadFileId = result.id
+      fileItem.uploadFileType = getFileType(fileItem.raw)
+      fileItem.uploadResult = result
+      return result
+    }
+    throw new Error('上传响应中缺少文件ID')
+  } catch (e) {
+    fileItem.status = 'fail'
+    throw e
+  }
+}
+
+const handleFileChange = async (file, files) => {
+  if (!isFileUploadEnabled.value) return
+  const tooLarge = file?.raw?.size && file.raw.size > 10 * 1024 * 1024
+  if (tooLarge) {
+    ElMessage.error(`文件 ${file.name} 超过10MB限制`)
+    const index = fileList.value.findIndex(f => f.uid === file.uid)
+    if (index > -1) fileList.value.splice(index, 1)
     return
   }
 
+  // 覆盖为新数组以确保响应式更新
+  fileList.value = Array.isArray(files) ? [...files] : []
+
+  // 批量处理所有待上传/失败的文件（含刚选择的）
+  for (const f of fileList.value) {
+    if (f.status === 'success' && f.uploadFileId) continue
+    if (!f.raw) continue
+    try {
+      await uploadSingleFile(f)
+    } catch (e) {
+      ElMessage.error(`文件 ${f.name} 上传失败: ${e.message || '未知错误'}`)
+    }
+  }
+}
+
+const handleFileRemove = (file, files) => {
+  fileList.value = files
+}
+
+const removeFileFromList = (file) => {
+  const nextFiles = (fileList.value || []).filter(f => f.uid !== file.uid)
+  handleFileRemove(file, nextFiles)
+}
+
+const getUploadedFiles = () => {
+  const uploadedFiles = []
+  for (const fileItem of fileList.value || []) {
+    if (fileItem.status === 'success' && fileItem.uploadFileId) {
+      uploadedFiles.push({
+        transfer_method: 'local_file',
+        upload_file_id: fileItem.uploadFileId,
+        type: fileItem.uploadFileType || getFileType(fileItem.raw)
+      })
+    }
+  }
+  return uploadedFiles
+}
+
+const handleSend = async () => {
+  if (hasUploadingFiles.value) {
+    ElMessage.warning('文件正在上传中，请稍后发送')
+    return
+  }
+  if (!hasValidContent.value) {
+    ElMessage.warning('请输入消息或上传文件')
+    return
+  }
+
+  const uploadedFiles = isFileUploadEnabled.value ? getUploadedFiles() : []
   const userMessage = {
     role: 'user',
-    content: inputText.value,
+    content: inputText.value.trim() || (uploadedFiles.length ? `已发送 ${uploadedFiles.length} 个文件` : ''),
     time: new Date()
   }
   messages.value.push(userMessage)
-  const question = inputText.value
+  const question = inputText.value.trim()
+  const queryToSend = question || '请分析上传的文件。'
   inputText.value = ''
+  fileList.value = []
   loading.value = true
 
   await nextTick()
@@ -102,10 +291,12 @@ const handleSend = async () => {
 
   try {
     const requestData = {
-      query: question,
-      userId: 'user_' + Date.now(),
+      query: queryToSend,
+      userId: sessionUserId.value,
       conversationId: conversationId.value,
-      stream: appInfo.value?.streamEnabled || false
+      stream: appInfo.value?.streamEnabled || false,
+      inputs: {},
+      files: uploadedFiles.length ? uploadedFiles : undefined
     }
 
     if (appInfo.value?.streamEnabled) {
@@ -236,6 +427,8 @@ const handleStreamChat = async (requestData) => {
 const handleClear = () => {
   messages.value = []
   conversationId.value = null
+  fileList.value = []
+  inputText.value = ''
 }
 
 const handleBack = () => {
@@ -372,11 +565,55 @@ onMounted(() => {
   padding: 20px;
   background: #f5f7fa;
   min-height: 0; /* 确保 flex 子元素可以缩小 */
-  height: 0; /* 配合 flex: 1 使用 */
   scroll-behavior: auto; /* 禁用平滑滚动，避免跳动 */
   /* 优化滚动性能 */
   will-change: scroll-position;
   transform: translateZ(0); /* 启用硬件加速 */
+}
+
+.upload-file-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.file-icon {
+  flex-shrink: 0;
+  color: #909399;
+}
+
+.file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  flex-shrink: 0;
+  color: #909399;
+  font-size: 12px;
+}
+
+.file-status {
+  flex-shrink: 0;
+}
+
+.file-status-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .message {
@@ -425,7 +662,7 @@ onMounted(() => {
 }
 
 .message.user .message-content {
-  background: #409eff;
+  background: var(--el-color-primary, #409eff);
   color: white;
 }
 
@@ -591,11 +828,88 @@ onMounted(() => {
   flex-shrink: 0; /* 防止输入框被压缩 */
 }
 
-.input-actions {
+.chat-input-main {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 10px;
+  flex-direction: column;
   gap: 10px;
+}
+
+.upload-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.upload-tip {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.2;
+}
+
+.upload-file-list {
+  max-height: 140px;
+  overflow: auto;
+  padding: 4px 0;
+}
+
+.file-remove {
+  flex-shrink: 0;
+}
+
+.chat-input-textarea :deep(.el-textarea__inner) {
+  resize: none;
+}
+
+.chat-input-textarea :deep(.el-textarea__inner) {
+  height: 60px;
+  min-height: 60px;
+}
+
+.input-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  align-items: stretch;
+  margin-top: 8px;
+}
+
+.input-actions :deep(.el-upload),
+.input-actions :deep(.el-button) {
+  width: 100%;
+}
+
+.input-actions :deep(.el-button) {
+  height: 40px;
+}
+
+.input-actions :deep(.el-upload) {
+  display: flex;
+}
+
+.input-actions :deep(.el-upload .el-button) {
+  width: 100%;
+}
+
+.input-actions :deep(.action-btn) {
+  justify-content: center;
+  gap: 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.input-actions :deep(.action-btn--upload) {
+  border-color: #409eff;
+  color: #409eff;
+}
+
+.input-actions :deep(.action-btn--clear) {
+  border-color: #f56c6c;
+  color: #f56c6c;
+}
+
+.input-actions :deep(.action-btn--send) {
+  background-color: #67c23a;
+  border-color: #67c23a;
 }
 </style>
 

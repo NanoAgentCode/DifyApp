@@ -386,7 +386,8 @@ public class AiAppServiceImpl implements AiAppService {
                     request.getQuery(),
                     request.getConversationId(),
                     request.getUserId(),
-                    request.getInputs()
+                    request.getInputs(),
+                    request.getFiles()
             );
             // 转换为Mono，返回最后一个响应
             return flux.last();
@@ -398,7 +399,8 @@ public class AiAppServiceImpl implements AiAppService {
                     request.getQuery(),
                     request.getConversationId(),
                     request.getUserId(),
-                    request.getInputs()
+                    request.getInputs(),
+                    request.getFiles()
             );
         }
     }
@@ -433,7 +435,8 @@ public class AiAppServiceImpl implements AiAppService {
                 request.getQuery(),
                 request.getConversationId(),
                 request.getUserId(),
-                request.getInputs()
+                request.getInputs(),
+                request.getFiles()
         );
     }
     

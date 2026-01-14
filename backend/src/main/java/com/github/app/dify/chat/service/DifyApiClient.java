@@ -98,13 +98,13 @@ public class DifyApiClient {
      * 调用Chat Flow API（非流式）
      */
     public Mono<DifyResponse> chat(String apiKey, String baseUrl, String query, String conversationId, 
-                                    String userId, Map<String, Object> inputs) {
+                                    String userId, Map<String, Object> inputs, List<Map<String, Object>> files) {
         if (apiKey == null || apiKey.trim().isEmpty()) {
             throw new RuntimeException("API Key不能为空");
         }
         
         // 内部方法：执行实际的请求
-        return executeChatRequest(apiKey, baseUrl, query, conversationId, userId, inputs, true);
+        return executeChatRequest(apiKey, baseUrl, query, conversationId, userId, inputs, files, true);
     }
     
     /**
@@ -112,7 +112,7 @@ public class DifyApiClient {
      */
     private Mono<DifyResponse> executeChatRequest(String apiKey, String baseUrl, String query, 
                                                    String conversationId, String userId, 
-                                                   Map<String, Object> inputs, boolean allowRetry) {
+                                                   Map<String, Object> inputs, List<Map<String, Object>> files, boolean allowRetry) {
         WebClient webClient = createWebClient(baseUrl);
         
         Map<String, Object> requestBody = new java.util.HashMap<>();
@@ -123,8 +123,14 @@ public class DifyApiClient {
         if (userId != null && !userId.trim().isEmpty()) {
             requestBody.put("user", userId);
         }
-        // inputs 是必需参数，即使为空也要包含
-        requestBody.put("inputs", inputs != null ? inputs : new java.util.HashMap<>());
+        if (files != null && !files.isEmpty()) {
+            requestBody.put("files", files);
+        }
+        Map<String, Object> inputsPayload = inputs != null ? new java.util.HashMap<>(inputs) : new java.util.HashMap<>();
+        if (files != null && !files.isEmpty() && !inputsPayload.containsKey("file")) {
+            inputsPayload.put("file", files.get(0));
+        }
+        requestBody.put("inputs", inputsPayload);
         requestBody.put("response_mode", "blocking"); // Dify非流式响应模式
         requestBody.put("stream", false);
         
@@ -135,8 +141,8 @@ public class DifyApiClient {
         // Dify API路径
         String apiPath = "/v1/chat-messages";
         
-        // 对于非流式Chat响应，使用较长的超时时间（至少2分钟）
-        long chatTimeout = Math.max(difyConfig.getTimeout(), 120000L); // 至少2分钟
+        // 对于非流式Chat响应，使用较长的超时时间（至少5分钟）
+        long chatTimeout = Math.max(difyConfig.getTimeout(), 300000L); // 至少5分钟
         logger.info("Chat API超时时间设置为: {} 毫秒 ({} 分钟)", chatTimeout, chatTimeout / 60000);
         
         return webClient.post()
@@ -177,7 +183,7 @@ public class DifyApiClient {
                                 // 如果允许重试且 conversationId 不为空，则清除 conversationId 并重试
                                 if (allowRetry && conversationId != null && !conversationId.trim().isEmpty()) {
                                     logger.info("自动重试：清除无效的 conversationId 并重新发送请求");
-                                    return executeChatRequest(apiKey, baseUrl, query, null, userId, inputs, false);
+                                    return executeChatRequest(apiKey, baseUrl, query, null, userId, inputs, files, false);
                                 }
                             }
                         } catch (Exception e) {
@@ -193,13 +199,13 @@ public class DifyApiClient {
      * 调用Chat Flow API（流式）
      */
     public Flux<DifyResponse> chatStream(String apiKey, String baseUrl, String query, String conversationId,
-                                          String userId, Map<String, Object> inputs) {
+                                          String userId, Map<String, Object> inputs, List<Map<String, Object>> files) {
         if (apiKey == null || apiKey.trim().isEmpty()) {
             throw new RuntimeException("API Key不能为空");
         }
         
         // 内部方法：执行实际的流式请求
-        return executeChatStreamRequest(apiKey, baseUrl, query, conversationId, userId, inputs, true);
+        return executeChatStreamRequest(apiKey, baseUrl, query, conversationId, userId, inputs, files, true);
     }
     
     /**
@@ -207,7 +213,7 @@ public class DifyApiClient {
      */
     private Flux<DifyResponse> executeChatStreamRequest(String apiKey, String baseUrl, String query, 
                                                          String conversationId, String userId, 
-                                                         Map<String, Object> inputs, boolean allowRetry) {
+                                                         Map<String, Object> inputs, List<Map<String, Object>> files, boolean allowRetry) {
         WebClient webClient = createStreamWebClient(baseUrl);
         
         Map<String, Object> requestBody = new java.util.HashMap<>();
@@ -218,8 +224,14 @@ public class DifyApiClient {
         if (userId != null && !userId.trim().isEmpty()) {
             requestBody.put("user", userId);
         }
-        // inputs 是必需参数，即使为空也要包含
-        requestBody.put("inputs", inputs != null ? inputs : new java.util.HashMap<>());
+        if (files != null && !files.isEmpty()) {
+            requestBody.put("files", files);
+        }
+        Map<String, Object> inputsPayload = inputs != null ? new java.util.HashMap<>(inputs) : new java.util.HashMap<>();
+        if (files != null && !files.isEmpty() && !inputsPayload.containsKey("file")) {
+            inputsPayload.put("file", files.get(0));
+        }
+        requestBody.put("inputs", inputsPayload);
         requestBody.put("response_mode", "streaming"); // Dify流式响应模式
         requestBody.put("stream", true);
         
@@ -378,12 +390,12 @@ public class DifyApiClient {
                         try {
                             String responseBody = notFoundEx.getResponseBodyAsString();
                             // 检查是否是 conversation 不存在的错误
-                            if (responseBody != null && responseBody.contains("Conversation Not Exists")) {
+                            if (responseBody.contains("Conversation Not Exists")) {
                                 logger.warn("Conversation ID 不存在: {}, 将清除 conversationId 并重试", conversationId);
                                 // 如果允许重试且 conversationId 不为空，则清除 conversationId 并重试
                                 if (allowRetry && conversationId != null && !conversationId.trim().isEmpty()) {
                                     logger.info("自动重试：清除无效的 conversationId 并重新发送请求");
-                                    return executeChatStreamRequest(apiKey, baseUrl, query, null, userId, inputs, false);
+                                    return executeChatStreamRequest(apiKey, baseUrl, query, null, userId, inputs, files, false);
                                 }
                             }
                         } catch (Exception e) {
