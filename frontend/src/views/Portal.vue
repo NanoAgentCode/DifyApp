@@ -2663,8 +2663,8 @@ onUnmounted(() => {
 
 .portal-content > .chat-history-section {
   width: 100%;
-  max-width: 900px; /* 与输入区域同宽 */
-  min-width: 500px; /* 最小宽度，与输入区域保持一致 */
+  max-width: 1036px; /* 内容区与输入区（含左右边距）对齐，头像在两侧 */
+  min-width: 636px; /* 内容区与输入区（含左右边距）对齐，头像在两侧 */
   margin: 0 auto;
   padding-left: 20px;
   padding-right: 20px;
@@ -2680,8 +2680,8 @@ onUnmounted(() => {
   }
   
   .portal-content > .chat-history-section {
-    min-width: 400px;
-    max-width: 700px;
+    min-width: 536px;
+    max-width: 836px;
   }
 }
 
@@ -4063,8 +4063,9 @@ onUnmounted(() => {
 
 /* 当有标签时，调整输入框的样式，让文本从标签后开始，但换行后从最左侧开始 */
 .portal-input.has-mentions :deep(.el-textarea__inner) {
-  padding-left: var(--mention-width, 0px) !important;
-  text-indent: 0;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  text-indent: var(--mention-width, 0px);
   padding-top: 0;
   box-sizing: border-box;
   position: relative;
@@ -4239,14 +4240,17 @@ onUnmounted(() => {
 
 .chat-history-section {
   width: 100%;
-  max-width: 900px; /* 与输入区域同宽 */
-  min-width: 500px; /* 最小宽度，与输入区域保持一致 */
+  max-width: 1036px; /* 内容区与输入区（含左右边距）对齐，头像在两侧 */
+  min-width: 636px; /* 内容区与输入区（含左右边距）对齐，头像在两侧 */
   margin: 0 auto;
   flex: 1;
   overflow: visible; /* 移除滚动条，由父容器portal-content统一处理 */
   padding: 20px 20px 200px 20px !important; /* 底部增加padding，避免被输入区域遮挡 */
   box-sizing: border-box;
   transition: height 0.3s ease;
+  --portal-avatar-size: 36px;
+  --portal-avatar-gap: 12px;
+  --portal-message-content-width: 900px;
 }
 
 /* 当内容溢出时，固定高度到输入框底部 */
@@ -4261,8 +4265,9 @@ onUnmounted(() => {
 /* 中等屏幕自适应 */
 @media (max-width: 1024px) and (min-width: 769px) {
   .chat-history-section {
-    min-width: 400px;
-    max-width: 700px;
+    min-width: 536px;
+    max-width: 836px;
+    --portal-message-content-width: 700px;
   }
 }
 
@@ -4271,7 +4276,15 @@ onUnmounted(() => {
   .chat-history-section {
     min-width: auto; /* 小屏幕下取消最小宽度限制 */
     padding: 20px 16px 200px 16px !important; /* 底部增加padding，避免被输入区域遮挡 */
+    --portal-avatar-size: 32px;
+    --portal-avatar-gap: 8px;
+    --portal-message-content-width: 1fr;
   }
+}
+
+:deep(.chat-history-section .chat-history-content) {
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /* 底部免责声明 */

@@ -243,9 +243,11 @@ defineExpose({
 
 .message-item {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) 36px;
-  column-gap: 12px;
+  grid-template-columns: var(--portal-avatar-size, 36px) minmax(0, var(--portal-message-content-width, 1fr)) var(--portal-avatar-size, 36px);
+  column-gap: var(--portal-avatar-gap, 12px);
   align-items: start;
+  width: 100%;
+  justify-content: center;
   /* 只在首次添加时应用动画，更新时不应用 */
 }
 
