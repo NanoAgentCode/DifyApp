@@ -209,7 +209,8 @@ graph LR
     Chat --> KB
     Chat --> Dify
     Chat --> MCP
-    Chat --> OCR
+    KB --> OCR
+    DocReader --> OCR
     KB --> LangChain
     KB --> System
     DocReader --> KB
@@ -320,11 +321,6 @@ graph LR
   - 地理位置服务：获取用户位置信息
   - 时间服务：获取当前时间、时区等信息
   - 实时信息检测：检测和更新实时数据
-- OCR 服务集成：
-  - 调用外部 OCR 服务进行图片文字识别
-  - PDF 文档文字识别
-  - Word 文档图片识别
-  - 自动回退机制
 - 视觉模型支持：
   - 支持多模态输入（文本+图片）
   - 图片理解、文字识别、图表分析

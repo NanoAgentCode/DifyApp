@@ -9,7 +9,7 @@ graph TB
     end
     
     subgraph "OCR 服务"
-        EasyOCR[EasyOCR 服务<br/>Port: 8000]
+        EasyOCR[EasyOCR 服务<br/>Host Port: 8001<br/>Container Port: 8000]
         Docker[Docker 容器]
     end
     
@@ -96,7 +96,7 @@ docker build -t difyapp/easyocr:latest .
 # 4. 启动新容器
 docker run -d \
   --name easyocr-service \
-  -p 8000:8000 \
+  -p 8001:8000 \
   --restart unless-stopped \
   difyapp/easyocr:latest
 
@@ -117,7 +117,7 @@ docker ps | grep easyocr
 ### 2. 检查健康状态
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8001/health
 ```
 
 预期响应：
@@ -133,7 +133,7 @@ curl http://localhost:8000/health
 
 ```bash
 # 使用测试图片（如果有）
-curl -X POST http://localhost:8000/ocr \
+curl -X POST http://localhost:8001/ocr \
   -F "file=@test_image.png"
 ```
 
@@ -141,7 +141,7 @@ curl -X POST http://localhost:8000/ocr \
 
 1. **首次启动时间**：EasyOCR 首次启动需要下载模型，可能需要 1-2 分钟
 2. **模型缓存**：如果使用 docker-compose，模型会保存在 volume `easyocr-models` 中，下次启动会更快
-3. **端口占用**：确保 8000 端口未被其他服务占用
+3. **端口占用**：确保 8001 端口未被其他服务占用（容器内为8000）
 4. **资源限制**：根据 docker-compose.yml，容器限制为 2 CPU 和 4GB 内存
 
 ## 故障排查

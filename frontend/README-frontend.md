@@ -242,12 +242,21 @@ graph LR
 
 **页面组件：**
 
-- **聊天界面** (`views/app/Chat.vue`)：
-  - 实时聊天界面
-  - 消息发送和接收
-  - 流式消息显示
-  - 消息重试功能
-  - AI 应用选择下拉框
+- **门户智能问答** (`views/Portal.vue`)：
+  - 用户端入口：`/user/chat`
+  - 管理端入口：`/admin/chat`
+  - 实时聊天与流式消息显示（SSE）
+  - 消息发送、重试与状态提示
+  - AI 应用选择与快速跳转
+- **应用对话** (`views/app/ChatApp.vue`)：
+  - 应用入口：`/app/chat/:id`
+  - 面向具体 Chat Flow 应用的对话页
+- **工作流应用** (`views/app/WorkflowApp.vue`)：
+  - 应用入口：`/app/workflow/:id`
+  - 面向具体 Workflow 应用的运行页
+- **会话历史** (`views/user/ChatHistory.vue` / `views/admin/ChatHistory.vue`)：
+  - 会话列表与切换
+  - 会话删除与消息回看
 
 **功能组件：**
 
@@ -294,16 +303,15 @@ graph LR
 
 **页面组件：**
 
-- **知识库列表** (`views/user/KnowledgeBase.vue`)：
-  - 知识库列表展示
-  - 知识库搜索和筛选
-  - 知识库创建按钮
-- **知识库详情** (`views/user/KnowledgeBaseDetail.vue`)：
-  - 知识库信息展示
-  - 文档列表和管理
-  - 文档上传功能
-  - 文档处理状态显示
-- **知识库问答** (`views/user/KnowledgeBaseQA.vue`)：
+- **知识管理** (`views/user/KnowledgeBaseManagement.vue` / `views/admin/KnowledgeBaseManagement.vue`)：
+  - 知识库列表展示、搜索与筛选
+  - 知识库创建、编辑、删除
+  - 知识库公开/私有与可见性相关提示
+- **文档管理** (`views/user/DocumentManagement.vue` / `views/admin/DocumentManagement.vue`)：
+  - 路由：`/user/knowledge-base/:kbId/documents`、`/admin/knowledge-base/:kbId/documents`
+  - 文档上传、删除、重新处理
+  - 文档处理状态与结果查看
+- **知识库问答** (`views/user/KnowledgeBaseQA.vue` / `views/admin/KnowledgeBaseQA.vue`)：
   - 问题输入框
   - 答案显示区域
   - 引用来源显示
@@ -346,15 +354,16 @@ graph LR
 
 **页面组件：**
 
-- **应用列表** (`views/app/AiApp.vue`)：
-  - AI 应用列表展示
-  - 应用搜索和筛选
-  - 应用创建按钮
-- **应用详情** (`views/app/AiAppDetail.vue`)：
-  - 应用信息展示
-  - 应用配置编辑
-  - 应用可见性设置
-  - 应用使用统计
+- **应用列表** (`views/user/AppList.vue` / `views/admin/AppList.vue`)：
+  - AI 应用列表展示、搜索与筛选
+  - 管理端支持创建、编辑、查看详情
+- **应用创建/编辑** (`views/admin/AppForm.vue`)：
+  - 路由：`/admin/apps/create`、`/admin/apps/edit/:id`
+  - 应用类型选择（Chat Flow / Workflow）
+  - 应用参数与可见性配置
+- **应用详情** (`views/admin/AppDetail.vue`)：
+  - 路由：`/admin/apps/detail/:id`
+  - 应用信息展示与运行入口
 
 **功能组件：**
 
@@ -462,31 +471,31 @@ graph LR
 - **系统配置** (`views/admin/SystemConfig.vue`)：
   - 系统参数配置界面
   - 配置项编辑和保存
-- **数据源管理** (`views/admin/DataSource.vue`)：
+- **数据源管理** (`views/admin/DataSourceManagement.vue`)：
   - 数据源列表
   - 数据源添加、编辑、删除
   - 连接测试功能
   - 表结构查看
-- **模型管理** (`views/admin/Model.vue`)：
+- **模型管理** (`views/admin/ModelManagement.vue`)：
   - 模型列表
   - 模型添加、编辑、删除
   - 模型测试功能
-- **向量数据库配置** (`views/admin/VectorDatabase.vue`)：
+- **向量数据库配置** (`views/admin/VectorDatabaseManagement.vue`)：
   - 向量数据库配置列表
   - 配置添加、编辑、删除
   - 配置测试功能
-- **Prompt 模板管理** (`views/admin/Prompt.vue`)：
+- **Prompt 模板管理** (`views/admin/PromptManagement.vue`)：
   - 模板列表
   - 模板创建、编辑、删除
   - 模板预览功能
-- **用户管理** (`views/admin/User.vue`)：
+- **用户管理** (`views/admin/UserList.vue`)：
   - 用户列表（支持分页、搜索）
   - 用户审核功能（激活、禁用）
   - 用户信息编辑
   - 用户权限管理
-- **文档管理** (`views/admin/DocumentManagement.vue`)：
-  - 文档列表管理
-  - 文档批量操作
+- **用户行为日志** (`views/admin/UserActionLog.vue`)：
+  - 行为日志查询与筛选
+  - 日志明细查看
 
 **功能特性：**
 
