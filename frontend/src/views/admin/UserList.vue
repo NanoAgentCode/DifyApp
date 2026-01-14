@@ -302,22 +302,32 @@
 
     <el-dialog
       v-model="showMemoryDialog"
-      title="用户记忆"
+      title="记忆管理"
       width="900px"
       class="memory-dialog"
       destroy-on-close
     >
-      <div class="memory-dialog-body">
-        <div class="memory-toolbar">
-          <div class="memory-user">
+      <template #header>
+        <div class="dialog-header">
+          <div class="dialog-title">记忆管理</div>
+          <div class="dialog-subtitle">
             {{ memoryUser?.username ? `用户：${memoryUser.username}（ID: ${memoryUser.id}）` : '' }}
           </div>
-          <el-radio-group v-model="memoryScopeType" size="small" @change="handleMemoryScopeChange">
-            <el-radio-button label="all">全部Scope</el-radio-button>
-            <el-radio-button label="chat">Chat</el-radio-button>
-            <el-radio-button label="knowledge_base">知识库</el-radio-button>
-            <el-radio-button label="app">应用</el-radio-button>
-          </el-radio-group>
+        </div>
+      </template>
+      <div class="memory-dialog-body">
+        <div class="memory-toolbar">
+          <el-select v-model="memoryScopeType" size="small" style="width: 140px" @change="handleMemoryScopeChange">
+            <el-option label="全部Scope" value="all" />
+            <el-option label="Chat" value="chat" />
+            <el-option label="知识库" value="knowledge_base" />
+            <el-option label="应用" value="app" />
+          </el-select>
+          <el-select v-model="memoryType" size="small" style="width: 140px" @change="handleMemoryTypeChange">
+            <el-option label="全部类型" value="all" />
+            <el-option label="长期记忆" value="long_term" />
+            <el-option label="实体记忆" value="entity" />
+          </el-select>
           <el-input
             v-model="memorySearch"
             placeholder="搜索 Key / 内容"
@@ -330,11 +340,6 @@
           </el-button>
           <el-button type="primary" plain :loading="memoryLoading" @click="loadUserMemory">刷新</el-button>
         </div>
-        <el-tabs v-model="memoryActiveTab" class="memory-tabs" @tab-change="handleMemoryTabChange">
-          <el-tab-pane label="全部" name="all" />
-          <el-tab-pane label="长期记忆" name="long_term" />
-          <el-tab-pane label="实体记忆" name="entity" />
-        </el-tabs>
         <div class="memory-table-wrapper">
           <el-table :data="pagedMemoryItems" v-loading="memoryLoading" border stripe style="width: 100%" height="100%">
             <el-table-column type="expand" width="44">
@@ -431,7 +436,7 @@ const showMemoryDialog = ref(false)
 const memoryLoading = ref(false)
 const memoryItems = ref([])
 const memoryUser = ref(null)
-const memoryActiveTab = ref('all')
+const memoryType = ref('all')
 const memorySearch = ref('')
 const memoryPage = ref(1)
 const memoryPageSize = ref(50)
@@ -558,7 +563,7 @@ const handleResetPasswordSuccess = () => {
 const openMemoryDialog = async (user) => {
   memoryUser.value = user
   memoryItems.value = []
-  memoryActiveTab.value = 'all'
+  memoryType.value = 'all'
   memorySearch.value = ''
   memoryPage.value = 1
   memoryPageSize.value = 50
@@ -572,7 +577,7 @@ const loadUserMemory = async () => {
   memoryLoading.value = true
   try {
     const params = { page: 1, size: 200 }
-    if (memoryActiveTab.value !== 'all') params.type = memoryActiveTab.value
+    if (memoryType.value !== 'all') params.type = memoryType.value
     if (memoryScopeType.value !== 'all') {
       params.scopeType = memoryScopeType.value
     }
@@ -587,15 +592,16 @@ const loadUserMemory = async () => {
   }
 }
 
-const handleMemoryTabChange = async () => {
-  await loadUserMemory()
-}
-
 const handleMemorySearch = () => {
   memoryPage.value = 1
 }
 
 const handleMemoryScopeChange = async () => {
+  memoryPage.value = 1
+  await loadUserMemory()
+}
+
+const handleMemoryTypeChange = async () => {
   memoryPage.value = 1
   await loadUserMemory()
 }
@@ -1214,6 +1220,25 @@ onMounted(() => {
   margin: 0 0 8px 0;
 }
 
+.dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dialog-title {
+  font-weight: 600;
+  color: #303133;
+}
+
+.dialog-subtitle {
+  color: #909399;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .memory-dialog-body {
   flex: 1;
   display: flex;
@@ -1228,13 +1253,6 @@ onMounted(() => {
   flex-shrink: 0;
   min-height: 40px;
   margin-bottom: 8px;
-}
-
-.memory-user {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .memory-tabs {

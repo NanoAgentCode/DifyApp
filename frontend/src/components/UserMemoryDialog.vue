@@ -2,29 +2,35 @@
   <el-dialog
     v-model="visible"
     title="记忆管理"
-    width="980px"
+    width="900px"
     class="memory-dialog"
     destroy-on-close
     @open="handleOpen"
   >
+    <template #header>
+      <div class="dialog-header">
+        <div class="dialog-title">记忆管理</div>
+        <div class="dialog-subtitle">{{ currentUserLabel }}</div>
+      </div>
+    </template>
     <div class="memory-dialog-body">
       <div class="memory-toolbar">
-        <el-radio-group v-model="scopeType" size="small">
-          <el-radio-button label="all">全部</el-radio-button>
-          <el-radio-button label="chat">Chat</el-radio-button>
-          <el-radio-button label="knowledge_base">知识库</el-radio-button>
-          <el-radio-button label="app">应用</el-radio-button>
-        </el-radio-group>
-        <el-radio-group v-model="memoryType" size="small">
-          <el-radio-button label="all">全部</el-radio-button>
-          <el-radio-button label="long_term">长期</el-radio-button>
-          <el-radio-button label="entity">实体</el-radio-button>
-        </el-radio-group>
+        <el-select v-model="scopeType" size="small" style="width: 140px" @change="handleScopeChange">
+          <el-option label="全部Scope" value="all" />
+          <el-option label="Chat" value="chat" />
+          <el-option label="知识库" value="knowledge_base" />
+          <el-option label="应用" value="app" />
+        </el-select>
+        <el-select v-model="memoryType" size="small" style="width: 140px" @change="handleTypeChange">
+          <el-option label="全部类型" value="all" />
+          <el-option label="长期记忆" value="long_term" />
+          <el-option label="实体记忆" value="entity" />
+        </el-select>
         <el-input
           v-model="keyword"
           placeholder="搜索 Key / 内容"
           clearable
-          style="width: 260px"
+          style="width: 280px"
           @input="handleKeywordInput"
         />
         <el-button
@@ -36,6 +42,8 @@
           清空
         </el-button>
         <el-button
+          type="primary"
+          plain
           :loading="loading"
           @click="loadMemory"
         >
@@ -43,38 +51,57 @@
         </el-button>
       </div>
 
-      <div class="memory-table-wrapper" v-loading="loading">
-        <el-table
-          :data="pagedItems"
-          border
-          stripe
-          height="100%"
-          :header-cell-style="{ background: '#f5f7fa' }"
-        >
-          <el-table-column prop="scopeType" label="Scope" width="140" />
-          <el-table-column prop="scopeId" label="Scope ID" width="120">
+      <div class="memory-table-wrapper">
+        <el-table :data="pagedItems" v-loading="loading" border stripe style="width: 100%" height="100%">
+          <el-table-column type="expand" width="44">
             <template #default="{ row }">
-              <span>{{ row.scopeId ?? '-' }}</span>
+              <div class="expand-header">
+                <div class="expand-title">
+                  <el-tag :type="row.memoryType === 'entity' ? 'info' : 'success'" size="small">
+                    {{ row.memoryType === 'entity' ? '实体' : '长期' }}
+                  </el-tag>
+                  <el-tag style="margin-left: 8px;" size="small">
+                    {{ row.scopeType || 'chat' }}{{ row.scopeId != null ? `:${row.scopeId}` : '' }}
+                  </el-tag>
+                  <span style="margin-left: 8px;">{{ row.memoryKey }}</span>
+                </div>
+                <el-button size="small" plain @click="copyMemory(row)">复制内容</el-button>
+              </div>
+              <pre class="memory-content">{{ formatMemoryContent(row) }}</pre>
             </template>
           </el-table-column>
-          <el-table-column prop="memoryType" label="类型" width="110" />
-          <el-table-column prop="memoryKey" label="Key" min-width="180" show-overflow-tooltip />
-          <el-table-column label="内容" min-width="320" show-overflow-tooltip>
+          <el-table-column prop="scopeType" label="Scope" width="140" align="center">
             <template #default="{ row }">
-              <span class="memory-snippet" :title="String(row.content || '')">
-                {{ makeSnippet(row.content) }}
-              </span>
+              <el-tag size="small">{{ row.scopeType || 'chat' }}</el-tag>
             </template>
           </el-table-column>
+          <el-table-column prop="scopeId" label="Scope ID" width="120" align="center">
+            <template #default="{ row }">
+              {{ row.scopeId != null ? row.scopeId : '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="memoryType" label="类型" width="110" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.memoryType === 'entity' ? 'info' : 'success'" size="small">
+                {{ row.memoryType === 'entity' ? '实体' : '长期' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="memoryKey" label="Key" min-width="160" show-overflow-tooltip />
           <el-table-column prop="importance" label="重要度" width="90" align="center" />
-          <el-table-column prop="updateTime" label="更新时间" width="190">
+          <el-table-column label="内容" min-width="360">
             <template #default="{ row }">
-              <span>{{ formatTime(row.updateTime) }}</span>
+              <span class="memory-snippet" :title="row.content">{{ makeMemorySnippet(row.content) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="updateTime" label="更新时间" width="180" align="center">
+            <template #default="{ row }">
+              {{ formatDate(row.updateTime) }}
             </template>
           </el-table-column>
           <el-table-column label="操作" width="100" align="center" fixed="right">
             <template #default="{ row }">
-              <el-button size="small" @click="copyRow(row)">复制</el-button>
+              <el-button size="small" plain @click="copyMemory(row)">复制</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -124,8 +151,27 @@ const pageSize = ref(50)
 const scopeType = ref('all')
 const memoryType = ref('all')
 
+const currentUserLabel = ref('')
+
 const handleOpen = async () => {
+  currentUserLabel.value = getCurrentUserLabel()
   await loadMemory()
+}
+
+const getCurrentUserLabel = () => {
+  const userInfoStr = localStorage.getItem('userInfo')
+  if (!userInfoStr) return ''
+  try {
+    const userInfo = JSON.parse(userInfoStr)
+    const username = userInfo?.username
+    const userId = userInfo?.userId ?? userInfo?.id
+    if (username && userId != null) return `用户：${username}（ID: ${userId}）`
+    if (username) return `用户：${username}`
+    if (userId != null) return `用户ID：${userId}`
+    return ''
+  } catch (e) {
+    return ''
+  }
 }
 
 const buildListParams = () => {
@@ -171,6 +217,16 @@ const handleKeywordInput = () => {
   page.value = 1
 }
 
+const handleScopeChange = async () => {
+  page.value = 1
+  await loadMemory()
+}
+
+const handleTypeChange = async () => {
+  page.value = 1
+  await loadMemory()
+}
+
 const handlePageChange = (p) => {
   page.value = p
 }
@@ -180,35 +236,33 @@ const handlePageSizeChange = (s) => {
   page.value = 1
 }
 
-const makeSnippet = (content) => {
+const makeMemorySnippet = (content) => {
   if (!content) return ''
   const text = String(content).replace(/\s+/g, ' ').trim()
-  if (text.length <= 160) return text
-  return text.slice(0, 159) + '…'
+  if (text.length <= 120) return text
+  return text.slice(0, 119) + '…'
 }
 
-const formatTime = (val) => {
-  if (!val) return '-'
+const formatDate = (date) => {
+  if (!date) return '-'
   try {
-    const d = new Date(val)
-    if (Number.isNaN(d.getTime())) return String(val)
-    return d.toLocaleString()
+    return new Date(date).toLocaleString('zh-CN')
   } catch (e) {
-    return String(val)
+    return String(date)
   }
 }
 
-const formatRowForCopy = (row) => {
-  if (!row) return ''
-  const header = [
-    `scopeType: ${row.scopeType ?? ''}`,
-    `scopeId: ${row.scopeId ?? ''}`,
-    `memoryType: ${row.memoryType ?? ''}`,
-    `memoryKey: ${row.memoryKey ?? ''}`,
-    `importance: ${row.importance ?? ''}`,
-    `updateTime: ${formatTime(row.updateTime)}`
-  ].join('\n')
-  return `${header}\n\n${row.content ?? ''}`
+const formatMemoryContent = (row) => {
+  if (!row || !row.content) return ''
+  if (row.memoryType === 'entity') {
+    try {
+      const obj = JSON.parse(row.content)
+      return JSON.stringify(obj, null, 2)
+    } catch (e) {
+      return String(row.content)
+    }
+  }
+  return String(row.content)
 }
 
 const copyText = async (text) => {
@@ -235,8 +289,8 @@ const copyText = async (text) => {
   }
 }
 
-const copyRow = async (row) => {
-  const ok = await copyText(formatRowForCopy(row))
+const copyMemory = async (row) => {
+  const ok = await copyText(formatMemoryContent(row))
   if (ok) ElMessage.success('已复制')
   else ElMessage.error('复制失败')
 }
@@ -284,19 +338,42 @@ const handleClear = async () => {
 </script>
 
 <style scoped>
+.dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dialog-title {
+  font-weight: 600;
+  color: #303133;
+}
+
+.dialog-subtitle {
+  color: #909399;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .memory-dialog-body {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  height: 680px;
   min-height: 0;
 }
 
 .memory-toolbar {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
-  flex-wrap: wrap;
-  padding-bottom: 10px;
+  flex-shrink: 0;
+  min-height: 40px;
+  margin-bottom: 8px;
+}
+
+.memory-tabs {
   flex-shrink: 0;
 }
 
@@ -318,5 +395,53 @@ const handleClear = async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.expand-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.expand-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-content {
+  overflow: auto;
+  max-height: 380px;
+  background: #0b1020;
+  color: #e6edf3;
+  padding: 12px;
+  border-radius: 6px;
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+:deep(.memory-dialog .el-dialog__body) {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+:deep(.memory-dialog .el-dialog) {
+  height: 720px;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.memory-dialog .el-tabs__header) {
+  margin: 0 0 8px 0;
+}
+
+:deep(.memory-dialog .el-table__body-wrapper .el-scrollbar__wrap) {
+  overflow-y: scroll;
 }
 </style>
