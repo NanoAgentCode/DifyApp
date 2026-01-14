@@ -48,7 +48,7 @@
           </el-select>
         </div>
         <div class="search-right">
-          <el-button type="primary" @click="handleCreate">
+          <el-button class="create-app-btn" type="primary" @click="handleCreate">
             <el-icon><Plus /></el-icon>
             创建应用
           </el-button>
@@ -99,10 +99,12 @@
         </el-table-column>
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" type="info" @click="handleDetail(row.id)">详情</el-button>
-            <el-button size="small" type="primary" @click="handleEdit(row.id)">编辑</el-button>
-            <el-button size="small" type="primary" @click="handleUse(row)">使用</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row.id)">删除</el-button>
+            <div class="row-actions">
+              <el-button class="row-action-btn" size="small" type="info" plain @click="handleDetail(row.id)">详情</el-button>
+              <el-button class="row-action-btn" size="small" type="primary" plain @click="handleEdit(row.id)">编辑</el-button>
+              <el-button class="row-action-btn" size="small" type="primary" @click="handleUse(row)">使用</el-button>
+              <el-button class="row-action-btn" size="small" type="danger" plain @click="handleDelete(row.id)">删除</el-button>
+            </div>
           </template>
         </el-table-column>
         </el-table>
@@ -309,6 +311,23 @@ onBeforeUnmount(() => {
 .search-right {
   display: flex;
   align-items: center;
+}
+
+.create-app-btn {
+  font-weight: 600;
+  border-radius: 10px;
+  height: 40px;
+  padding: 0 16px;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+:deep(.row-action-btn.el-button) {
+  border-radius: 10px;
 }
 
 .table-container {

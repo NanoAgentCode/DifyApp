@@ -209,7 +209,7 @@
 
         <div class="output-section">
           <h4>输出结果</h4>
-          <el-card v-loading="loading">
+          <div class="output-panel" v-loading="loading">
             <div v-if="result" class="result-content">
               <div v-if="result.error" class="error-message">
                 <el-alert
@@ -365,7 +365,7 @@
             <div v-else class="result-placeholder">
               运行工作流后，结果将显示在这里
             </div>
-          </el-card>
+          </div>
         </div>
       </div>
     </el-card>
@@ -1667,6 +1667,11 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
+.output-panel {
+  flex: 1;
+  min-height: 0;
+}
+
 .input-section-body {
   flex: 1;
   min-height: 0;
@@ -1705,9 +1710,12 @@ onBeforeUnmount(() => {
 }
 
 .result-placeholder {
-  text-align: center;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: #909399;
-  padding: 40px;
+  padding: 12px;
 }
 
 .error-message {

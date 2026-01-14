@@ -1,14 +1,19 @@
 <template>
   <div class="user-app-list">
     <div class="page-header">
-      <div class="header-top">
-        <el-button type="text" @click="handleBack" style="margin-right: 10px">
-          <el-icon><ArrowLeft /></el-icon>
-          返回
-        </el-button>
+      <div class="header-bar">
+        <div class="header-left">
+          <el-button type="text" @click="handleBack" class="back-btn">
+            <el-icon><ArrowLeft /></el-icon>
+            返回
+          </el-button>
+        </div>
+        <div class="header-right"></div>
       </div>
-      <h1>智能应用</h1>
-      <p class="subtitle">选择您要使用的应用</p>
+      <div class="header-title">
+        <h1>智能应用</h1>
+        <p class="subtitle">选择您要使用的应用</p>
+      </div>
     </div>
     
     <div v-loading="loading" class="app-cards-container">
@@ -38,7 +43,7 @@
               </div>
             </div>
             <div class="app-action">
-              <el-button type="primary" size="large" @click.stop="handleUse(app)">
+              <el-button class="app-use-btn" type="primary" @click.stop="handleUse(app)">
                 使用
               </el-button>
             </div>
@@ -126,17 +131,22 @@ onMounted(() => {
 }
 
 .page-header {
-  text-align: center;
-  margin-bottom: 40px;
-  position: relative;
+  margin-bottom: 24px;
 }
 
-.header-top {
-  position: absolute;
-  top: 0;
-  right: 0;
+.header-bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.back-btn {
+  margin-right: 10px;
+}
+
+.header-title {
+  text-align: center;
 }
 
 .page-header h1 {
@@ -236,10 +246,11 @@ onMounted(() => {
   justify-content: center;
 }
 
-.app-action .el-button {
+.app-use-btn {
   width: 100%;
-  font-size: 16px;
-  padding: 12px 0;
+  height: 40px;
+  border-radius: 10px;
+  font-weight: 600;
 }
 </style>
 
