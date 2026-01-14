@@ -57,9 +57,11 @@ import { ElMessage } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { getAppDetail } from '@/api/aiApp'
 import AppIcon from '@/components/AppIcon.vue'
+import { useAppNavigation } from '@/composables/useAppNavigation'
 
 const route = useRoute()
 const router = useRouter()
+const { navigateToAppById } = useAppNavigation()
 const appDetail = ref(null)
 const loading = ref(false)
 
@@ -80,11 +82,7 @@ const handleEdit = () => {
 }
 
 const handleUse = () => {
-  if (appDetail.value.type === 1) {
-    router.push(`/app/chat/${route.params.id}`)
-  } else {
-    router.push(`/app/workflow/${route.params.id}`)
-  }
+  navigateToAppById(route.params.id, appDetail.value.type)
 }
 
 const handleBack = () => {

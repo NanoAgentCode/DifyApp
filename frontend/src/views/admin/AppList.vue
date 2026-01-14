@@ -133,8 +133,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, ArrowLeft } from '@element-plus/icons-vue'
 import { getAppList, deleteApp } from '@/api/aiApp'
 import AppIcon from '@/components/AppIcon.vue'
+import { useAppNavigation } from '@/composables/useAppNavigation'
 
 const router = useRouter()
+const { navigateToApp } = useAppNavigation()
 const appList = ref([])
 const loading = ref(false)
 const searchKeyword = ref('')
@@ -193,11 +195,7 @@ const handleDetail = (id) => {
 }
 
 const handleUse = (app) => {
-  if (app.type === 1) {
-    router.push(`/app/chat/${app.id}`)
-  } else {
-    router.push(`/app/workflow/${app.id}`)
-  }
+  navigateToApp(app)
 }
 
 const handleBack = () => {

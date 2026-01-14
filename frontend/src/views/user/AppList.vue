@@ -61,8 +61,10 @@ import { ElMessage } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { getAppList } from '@/api/aiApp'
 import AppIcon from '@/components/AppIcon.vue'
+import { useAppNavigation } from '@/composables/useAppNavigation'
 
 const router = useRouter()
+const { navigateToApp } = useAppNavigation()
 const loading = ref(false)
 const appList = ref([])
 
@@ -106,11 +108,7 @@ const fetchAppList = async () => {
 }
 
 const handleUse = (app) => {
-  if (app.type === 1) {
-    router.push(`/app/chat/${app.id}`)
-  } else {
-    router.push(`/app/workflow/${app.id}`)
-  }
+  navigateToApp(app)
 }
 
 const handleBack = () => {

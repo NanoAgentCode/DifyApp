@@ -2,16 +2,12 @@
   <div class="chat-app">
     <el-card class="chat-container">
       <template #header>
-        <div class="chat-header">
-          <div class="chat-header-left">
-            <AppIcon :icon="appInfo?.icon" :size="32" class="app-icon" />
-            <h3>
-              {{ appInfo?.name || '聊天应用' }}
-              <span v-if="isFileUploadEnabled" class="header-upload-tip">（单个文件不超过10MB，选择文件后将立即上传到Dify。）</span>
-            </h3>
-          </div>
-          <el-button @click="handleBack">返回</el-button>
-        </div>
+        <AppPageHeader
+          :title="appInfo?.name || '聊天应用'"
+          :subtitle="isFileUploadEnabled ? '（单个文件不超过10MB，选择文件后将立即上传到Dify。）' : ''"
+          :icon="appInfo?.icon"
+          @back="handleBack"
+        />
       </template>
 
       <div class="chat-messages" ref="messagesRef" @scroll="handleScroll">
@@ -282,7 +278,7 @@ import { renderMarkdown } from '@/composables/useMarkdown'
 import { processSSEStream } from '@/composables/useSSEStream'
 import { extractContent, updateConversationId } from '@/composables/useResponseHandler'
 import { getFullAPIUrl } from '@/config/api'
-import AppIcon from '@/components/AppIcon.vue'
+import AppPageHeader from '@/components/AppPageHeader.vue'
 import { UploadFilled, Document, Picture, Delete, Promotion, FullScreen, Close } from '@element-plus/icons-vue'
 import mammoth from 'mammoth'
 import { buildMappedInputs } from '@/utils/difyInputMapping'
@@ -1001,33 +997,6 @@ onMounted(() => {
   height: 100%;
   overflow: hidden;
   padding: 0;
-}
-
-.chat-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.chat-header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.chat-header-left .app-icon {
-  flex-shrink: 0;
-}
-
-.chat-header h3 {
-  margin: 0;
-}
-
-.header-upload-tip {
-  font-size: 12px;
-  font-weight: 400;
-  color: #909399;
-  margin-left: 8px;
 }
 
 .chat-messages {

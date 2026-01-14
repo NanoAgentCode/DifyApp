@@ -2,13 +2,11 @@
   <div class="workflow-app">
     <el-card class="workflow-container">
       <template #header>
-        <div class="workflow-header">
-          <div class="workflow-header-left">
-            <AppIcon :icon="appInfo?.icon" :size="32" class="app-icon" />
-            <h3>{{ appInfo?.name || '工作流应用' }}</h3>
-          </div>
-          <el-button @click="handleBack">返回</el-button>
-        </div>
+        <AppPageHeader
+          :title="appInfo?.name || '工作流应用'"
+          :icon="appInfo?.icon"
+          @back="handleBack"
+        />
       </template>
 
       <div class="workflow-content">
@@ -414,7 +412,7 @@ import { UploadFilled, FullScreen, Document, Picture, Check, Close, Download, Lo
 import { getAppDetail, workflowApp, workflowAppStream, uploadFile } from '@/api/aiApp'
 import { getFullAPIUrl } from '@/config/api'
 import request from '@/utils/request'
-import AppIcon from '@/components/AppIcon.vue'
+import AppPageHeader from '@/components/AppPageHeader.vue'
 import { logger } from '@/utils/logger'
 import { useThrottleFn } from '@/utils/debounce'
 import mammoth from 'mammoth'
@@ -1620,26 +1618,6 @@ onBeforeUnmount(() => {
   width: 100%;
   max-width: 1400px;
   height: 90vh;
-}
-
-.workflow-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.workflow-header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.workflow-header-left .app-icon {
-  flex-shrink: 0;
-}
-
-.workflow-header h3 {
-  margin: 0;
 }
 
 .workflow-content {
