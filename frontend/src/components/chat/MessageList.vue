@@ -242,14 +242,15 @@ defineExpose({
 }
 
 .message-item {
-  display: flex;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  column-gap: 12px;
+  align-items: start;
   /* 只在首次添加时应用动画，更新时不应用 */
 }
 
 /* 用户消息：右对齐，从右侧滑入动画 */
 .message-item.user {
-  flex-direction: row-reverse;
   animation: slideInFromRight 0.4s ease-out;
 }
 
@@ -296,6 +297,16 @@ defineExpose({
   font-size: 18px;
 }
 
+.message-item.assistant .message-avatar {
+  grid-column: 1;
+  justify-self: start;
+}
+
+.message-item.user .message-avatar {
+  grid-column: 3;
+  justify-self: end;
+}
+
 .message-item.user .message-avatar {
   background: #409eff;
   color: white;
@@ -307,9 +318,9 @@ defineExpose({
 }
 
 .message-content {
-  flex: 1;
+  grid-column: 2;
   min-width: 0;
-  max-width: 88%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -516,4 +527,3 @@ defineExpose({
   text-align: center;
 }
 </style>
-
