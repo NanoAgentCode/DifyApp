@@ -312,6 +312,12 @@
           <div class="memory-user">
             {{ memoryUser?.username ? `用户：${memoryUser.username}（ID: ${memoryUser.id}）` : '' }}
           </div>
+          <el-radio-group v-model="memoryScopeType" size="small" @change="handleMemoryScopeChange">
+            <el-radio-button label="all">全部Scope</el-radio-button>
+            <el-radio-button label="chat">Chat</el-radio-button>
+            <el-radio-button label="knowledge_base">知识库</el-radio-button>
+            <el-radio-button label="app">应用</el-radio-button>
+          </el-radio-group>
           <el-input
             v-model="memorySearch"
             placeholder="搜索 Key / 内容"
@@ -319,6 +325,9 @@
             style="width: 280px"
             @input="handleMemorySearch"
           />
+          <el-button type="danger" plain :disabled="memoryClearing" @click="handleClearMemoryInDialog">
+            清空
+          </el-button>
           <el-button type="primary" plain :loading="memoryLoading" @click="loadUserMemory">刷新</el-button>
         </div>
         <el-tabs v-model="memoryActiveTab" class="memory-tabs" @tab-change="handleMemoryTabChange">
@@ -335,11 +344,24 @@
                     <el-tag :type="row.memoryType === 'entity' ? 'info' : 'success'" size="small">
                       {{ row.memoryType === 'entity' ? '实体' : '长期' }}
                     </el-tag>
+                    <el-tag style="margin-left: 8px;" size="small">
+                      {{ row.scopeType || 'chat' }}{{ row.scopeId != null ? `:${row.scopeId}` : '' }}
+                    </el-tag>
                     <span style="margin-left: 8px;">{{ row.memoryKey }}</span>
                   </div>
                   <el-button size="small" plain @click="copyMemory(row)">复制内容</el-button>
                 </div>
                 <pre class="memory-content">{{ formatMemoryContent(row) }}</pre>
+              </template>
+            </el-table-column>
+            <el-table-column prop="scopeType" label="Scope" width="140" align="center">
+              <template #default="{ row }">
+                <el-tag size="small">{{ row.scopeType || 'chat' }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="scopeId" label="Scope ID" width="120" align="center">
+              <template #default="{ row }">
+                {{ row.scopeId != null ? row.scopeId : '-' }}
               </template>
             </el-table-column>
             <el-table-column prop="memoryType" label="类型" width="110" align="center">
@@ -413,6 +435,8 @@ const memoryActiveTab = ref('all')
 const memorySearch = ref('')
 const memoryPage = ref(1)
 const memoryPageSize = ref(50)
+const memoryScopeType = ref('all')
+const memoryClearing = ref(false)
 
 const filteredMemoryItems = computed(() => {
   const keyword = (memorySearch.value || '').trim().toLowerCase()
@@ -538,6 +562,7 @@ const openMemoryDialog = async (user) => {
   memorySearch.value = ''
   memoryPage.value = 1
   memoryPageSize.value = 50
+  memoryScopeType.value = 'all'
   showMemoryDialog.value = true
   await loadUserMemory()
 }
@@ -548,6 +573,9 @@ const loadUserMemory = async () => {
   try {
     const params = { page: 1, size: 200 }
     if (memoryActiveTab.value !== 'all') params.type = memoryActiveTab.value
+    if (memoryScopeType.value !== 'all') {
+      params.scopeType = memoryScopeType.value
+    }
     const data = await getUserMemoryItems(memoryUser.value.id, params)
     memoryItems.value = Array.isArray(data) ? data : []
     memoryPage.value = 1
@@ -565,6 +593,50 @@ const handleMemoryTabChange = async () => {
 
 const handleMemorySearch = () => {
   memoryPage.value = 1
+}
+
+const handleMemoryScopeChange = async () => {
+  memoryPage.value = 1
+  await loadUserMemory()
+}
+
+const handleClearMemoryInDialog = async () => {
+  if (!memoryUser.value) return
+
+  let message = `确定要清空用户 "${memoryUser.value.username}" 的记忆吗？`
+  if (memoryScopeType.value === 'chat') {
+    message = `确定要清空用户 "${memoryUser.value.username}" 的 Chat 记忆吗？`
+  } else if (memoryScopeType.value === 'knowledge_base') {
+    message = `确定要清空用户 "${memoryUser.value.username}" 的知识库记忆吗？`
+  } else if (memoryScopeType.value === 'app') {
+    message = `确定要清空用户 "${memoryUser.value.username}" 的应用记忆吗？`
+  }
+
+  try {
+    await ElMessageBox.confirm(message, '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+  } catch (e) {
+    return
+  }
+
+  const params = {}
+  if (memoryScopeType.value !== 'all') {
+    params.scopeType = memoryScopeType.value
+  }
+
+  memoryClearing.value = true
+  try {
+    await clearUserMemory(memoryUser.value.id, Object.keys(params).length ? params : undefined)
+    ElMessage.success('已清空用户记忆')
+    await loadUserMemory()
+  } catch (error) {
+    ElMessage.error(error.response?.data?.error || error.message || '清空失败')
+  } finally {
+    memoryClearing.value = false
+  }
 }
 
 const handleMemoryPageChange = (page) => {

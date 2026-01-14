@@ -545,6 +545,8 @@
       v-model="showChangePasswordDialog"
       @success="handlePasswordChangeSuccess"
     />
+
+    <UserMemoryDialog v-model="showUserMemoryDialog" />
   </div>
 </template>
 
@@ -587,6 +589,7 @@ import { getDocumentList } from '@/api/documentReader'
 import { documentQAStream } from '@/api/documentReader'
 import MessageList from '@/components/chat/MessageList.vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
+import UserMemoryDialog from '@/components/UserMemoryDialog.vue'
 import AppHeader from '@/components/AppHeader.vue'
 
 // Utility: Simple debounce function
@@ -618,6 +621,7 @@ const selectedKnowledgeBase = ref(null)
 // conversationMode 现在是计算属性，根据选择自动判断（见下方定义）
 const selectedKnowledgeBaseName = ref('')
 const showChangePasswordDialog = ref(false)
+const showUserMemoryDialog = ref(false)
 const isHeaderCollapsed = ref(false)
 const enableBrowserSearch = ref(false) // 联网搜索开关状态
 const currentView = ref('welcome') // 'welcome' 或 'features'
@@ -729,6 +733,8 @@ const getUserInfo = () => {
 const handleCommand = (command) => {
   if (command === 'changePassword') {
     showChangePasswordDialog.value = true
+  } else if (command === 'memory') {
+    showUserMemoryDialog.value = true
   }
   // logout 命令由 AppHeader 组件内部处理
 }

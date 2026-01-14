@@ -64,6 +64,60 @@ EXCEPTION
         RAISE WARNING '添加知识库ID约束失败：%', SQLERRM;
 END $$;
 
+-- 6. 用户记忆作用域字段迁移（新增）
+-- 说明：为USER_MEMORY表添加scope_type/scope_id，并升级唯一约束与索引
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_name = 'user_memory' OR table_name = 'USER_MEMORY'
+    ) THEN
+        BEGIN
+            ALTER TABLE "USER_MEMORY" ADD COLUMN IF NOT EXISTS scope_type VARCHAR(32) NOT NULL DEFAULT 'chat';
+        EXCEPTION WHEN OTHERS THEN
+            ALTER TABLE user_memory ADD COLUMN IF NOT EXISTS scope_type VARCHAR(32) NOT NULL DEFAULT 'chat';
+        END;
+
+        BEGIN
+            ALTER TABLE "USER_MEMORY" ADD COLUMN IF NOT EXISTS scope_id BIGINT;
+        EXCEPTION WHEN OTHERS THEN
+            ALTER TABLE user_memory ADD COLUMN IF NOT EXISTS scope_id BIGINT;
+        END;
+
+        BEGIN
+            ALTER TABLE "USER_MEMORY" DROP CONSTRAINT IF EXISTS uk_user_memory;
+        EXCEPTION WHEN OTHERS THEN
+            BEGIN
+                ALTER TABLE user_memory DROP CONSTRAINT IF EXISTS uk_user_memory;
+            EXCEPTION WHEN OTHERS THEN
+            END;
+        END;
+
+        BEGIN
+            ALTER TABLE "USER_MEMORY" ADD CONSTRAINT uk_user_memory UNIQUE (user_id, scope_type, scope_id, memory_type, memory_key);
+        EXCEPTION WHEN OTHERS THEN
+            ALTER TABLE user_memory ADD CONSTRAINT uk_user_memory UNIQUE (user_id, scope_type, scope_id, memory_type, memory_key);
+        END;
+
+        BEGIN
+            CREATE INDEX IF NOT EXISTS idx_user_memory_scope ON "USER_MEMORY"(scope_type, scope_id);
+            CREATE INDEX IF NOT EXISTS idx_user_memory_user_scope ON "USER_MEMORY"(user_id, scope_type, scope_id);
+            CREATE INDEX IF NOT EXISTS idx_user_memory_user_scope_type ON "USER_MEMORY"(user_id, scope_type, scope_id, memory_type);
+        EXCEPTION WHEN OTHERS THEN
+            CREATE INDEX IF NOT EXISTS idx_user_memory_scope ON user_memory(scope_type, scope_id);
+            CREATE INDEX IF NOT EXISTS idx_user_memory_user_scope ON user_memory(user_id, scope_type, scope_id);
+            CREATE INDEX IF NOT EXISTS idx_user_memory_user_scope_type ON user_memory(user_id, scope_type, scope_id, memory_type);
+        END;
+
+        RAISE NOTICE '已完成USER_MEMORY作用域字段迁移';
+    ELSE
+        RAISE NOTICE 'USER_MEMORY表不存在，跳过作用域字段迁移';
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE WARNING 'USER_MEMORY作用域字段迁移失败：%', SQLERRM;
+END $$;
+
 -- 确保知识库ID序列从1开始
 -- 注意：如果序列已经存在且当前值小于1，将其重置为1
 DO $$
@@ -253,4 +307,3 @@ END $$;
 -- 2. 如果pgvector和主数据库是分开的，需要分别在两个数据库中执行对应的部分
 -- 3. 如果某些表或字段已存在，相关语句会跳过，这是正常的
 -- ============================================
-

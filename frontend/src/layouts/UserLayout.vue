@@ -17,6 +17,8 @@
       v-model="showChangePasswordDialog"
       @success="handlePasswordChangeSuccess"
     />
+
+    <UserMemoryDialog v-model="showUserMemoryDialog" />
     
     <!-- 回到主页悬浮按钮（集成用户手册智能问答） -->
     <HomeFloatingButton @help-click="showHelpDialog = true" />
@@ -38,6 +40,7 @@ import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import HomeFloatingButton from '@/components/HomeFloatingButton.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
 import AppHeader from '@/components/AppHeader.vue'
+import UserMemoryDialog from '@/components/UserMemoryDialog.vue'
 import { getConfigsByGroup } from '@/api/systemConfig'
 
 const route = useRoute()
@@ -50,6 +53,7 @@ const isPortalMode = computed(() => {
 
 const userInfo = ref(null)
 const showChangePasswordDialog = ref(false)
+const showUserMemoryDialog = ref(false)
 const showHelpDialog = ref(false)
 const helpKnowledgeBaseId = ref(null)
 const helpModelId = ref(null)
@@ -154,6 +158,8 @@ onUnmounted(() => {
 const handleCommand = (command) => {
   if (command === 'changePassword') {
     showChangePasswordDialog.value = true
+  } else if (command === 'memory') {
+    showUserMemoryDialog.value = true
   }
   // logout 命令由 AppHeader 组件内部处理
 }

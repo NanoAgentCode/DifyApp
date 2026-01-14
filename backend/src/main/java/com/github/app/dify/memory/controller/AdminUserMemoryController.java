@@ -37,9 +37,14 @@ public class AdminUserMemoryController extends BaseController {
     @UserAction(module = "用户管理", actionType = "清空用户记忆", description = "管理员清空用户的长期记忆与实体记忆")
     @Operation(summary = "清空用户记忆")
     @DeleteMapping("/users/{userId}")
-    public ResponseEntity<Void> clearUserMemory(@PathVariable Long userId, HttpServletRequest request) {
+    public ResponseEntity<Void> clearUserMemory(
+            @PathVariable Long userId,
+            @RequestParam(required = false) String scopeType,
+            @RequestParam(required = false) Long scopeId,
+            HttpServletRequest request
+    ) {
         checkAdmin(request);
-        userMemoryService.clearUserMemory(userId);
+        userMemoryService.clearUserMemory(userId, scopeType, scopeId);
         return ResponseEntity.ok().build();
     }
 

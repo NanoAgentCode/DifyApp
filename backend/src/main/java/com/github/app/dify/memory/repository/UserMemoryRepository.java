@@ -24,7 +24,7 @@ public interface UserMemoryRepository extends JpaRepository<UserMemory, Long> {
                                                Pageable pageable);
 
     @Query("SELECT m FROM UserMemory m WHERE m.userId = :userId AND m.scopeType = :scopeType " +
-            "AND ((:scopeId IS NULL AND m.scopeId IS NULL) OR m.scopeId = :scopeId) " +
+            "AND (:scopeId IS NULL OR m.scopeId = :scopeId) " +
             "AND (m.deleted IS NULL OR m.deleted = 0) ORDER BY m.updateTime DESC")
     List<UserMemory> findRecentByUserIdAndScope(@Param("userId") Long userId,
                                                 @Param("scopeType") String scopeType,
@@ -32,7 +32,7 @@ public interface UserMemoryRepository extends JpaRepository<UserMemory, Long> {
                                                 Pageable pageable);
 
     @Query("SELECT m FROM UserMemory m WHERE m.userId = :userId AND m.scopeType = :scopeType " +
-            "AND ((:scopeId IS NULL AND m.scopeId IS NULL) OR m.scopeId = :scopeId) " +
+            "AND (:scopeId IS NULL OR m.scopeId = :scopeId) " +
             "AND m.memoryType = :memoryType " +
             "AND (m.deleted IS NULL OR m.deleted = 0) ORDER BY m.updateTime DESC")
     List<UserMemory> findRecentByUserIdAndScopeAndType(@Param("userId") Long userId,
@@ -42,7 +42,7 @@ public interface UserMemoryRepository extends JpaRepository<UserMemory, Long> {
                                                Pageable pageable);
 
     @Query("SELECT m FROM UserMemory m WHERE m.userId = :userId AND m.scopeType = :scopeType " +
-            "AND ((:scopeId IS NULL AND m.scopeId IS NULL) OR m.scopeId = :scopeId) " +
+            "AND (:scopeId IS NULL OR m.scopeId = :scopeId) " +
             "AND m.memoryType = :memoryType AND m.memoryKey = :memoryKey " +
             "AND (m.deleted IS NULL OR m.deleted = 0)")
     Optional<UserMemory> findActiveByUserIdAndScopeAndTypeAndKey(@Param("userId") Long userId,
@@ -52,7 +52,7 @@ public interface UserMemoryRepository extends JpaRepository<UserMemory, Long> {
                                                                  @Param("memoryKey") String memoryKey);
 
     @Query("SELECT COUNT(m) FROM UserMemory m WHERE m.userId = :userId AND m.scopeType = :scopeType " +
-            "AND ((:scopeId IS NULL AND m.scopeId IS NULL) OR m.scopeId = :scopeId) " +
+            "AND (:scopeId IS NULL OR m.scopeId = :scopeId) " +
             "AND m.memoryType = :memoryType " +
             "AND (m.deleted IS NULL OR m.deleted = 0)")
     long countActiveByUserIdAndScopeAndType(@Param("userId") Long userId,
@@ -61,7 +61,7 @@ public interface UserMemoryRepository extends JpaRepository<UserMemory, Long> {
                                             @Param("memoryType") String memoryType);
 
     @Query("SELECT m FROM UserMemory m WHERE m.userId = :userId AND m.scopeType = :scopeType " +
-            "AND ((:scopeId IS NULL AND m.scopeId IS NULL) OR m.scopeId = :scopeId) " +
+            "AND (:scopeId IS NULL OR m.scopeId = :scopeId) " +
             "AND m.memoryType = :memoryType " +
             "AND (m.deleted IS NULL OR m.deleted = 0) ORDER BY m.updateTime ASC")
     List<UserMemory> findOldestActiveByUserIdAndScopeAndType(@Param("userId") Long userId,
@@ -77,7 +77,7 @@ public interface UserMemoryRepository extends JpaRepository<UserMemory, Long> {
 
     @Query("UPDATE UserMemory m SET m.deleted = 1, m.updateTime = CURRENT_TIMESTAMP WHERE m.userId = :userId " +
             "AND m.scopeType = :scopeType " +
-            "AND ((:scopeId IS NULL AND m.scopeId IS NULL) OR m.scopeId = :scopeId) " +
+            "AND (:scopeId IS NULL OR m.scopeId = :scopeId) " +
             "AND (m.deleted IS NULL OR m.deleted = 0)")
     @org.springframework.data.jpa.repository.Modifying
     int softDeleteAllByUserIdAndScope(@Param("userId") Long userId,

@@ -20,7 +20,7 @@
       </div>
       <div class="header-right">
         <slot name="extra-buttons"></slot>
-        <el-dropdown @command="handleCommand">
+        <el-dropdown>
           <span class="user-info">
             <el-icon><User /></el-icon>
             <span>{{ userInfo?.username || '用户' }}</span>
@@ -28,8 +28,9 @@
           </span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="changePassword">修改密码</el-dropdown-item>
-              <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
+              <el-dropdown-item @click="handleCommand('changePassword')">修改密码</el-dropdown-item>
+              <el-dropdown-item @click="handleCommand('memory')">记忆管理</el-dropdown-item>
+              <el-dropdown-item divided @click="handleCommand('logout')">退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -332,4 +333,3 @@ onMounted(() => {
   }
 }
 </style>
-
