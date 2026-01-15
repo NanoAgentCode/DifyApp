@@ -79,20 +79,19 @@ public class ChatServiceImpl implements ChatService {
             // 如果启用了MCP支持，直接使用浏览器检索（不再进行检测）
             String browserSearchContext = "";
             if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
-                logger.info("MCP支持已开启，直接启用浏览器检索 - 查询: {}", request.getQuestion());
+                logger.debug("MCP支持已开启，直接启用浏览器检索 - 查询: {}", request.getQuestion());
                 try {
                     List<McpBrowserSearchService.SearchResult> searchResults = 
                             mcpBrowserSearchService.search(request.getQuestion(), 5);
                     if (searchResults != null && !searchResults.isEmpty()) {
                         browserSearchContext = mcpBrowserSearchService.formatSearchResultsForContext(searchResults);
-                        logger.info("浏览器检索完成 - 找到 {} 个结果，检索内容长度: {} 字符", 
-                                searchResults.size(), browserSearchContext.length());
+                        logger.info("浏览器检索完成 - 找到 {} 个结果", searchResults.size());
                         // 记录检索结果详情（仅记录前200字符，避免日志过长）
-                        logger.debug("检索结果预览: {}", 
+                        logger.trace("检索结果预览: {}", 
                                 browserSearchContext.length() > 200 ? 
                                 browserSearchContext.substring(0, 200) + "..." : browserSearchContext);
                     } else {
-                        logger.warn("浏览器检索未找到结果 - 查询: {}", request.getQuestion());
+                        logger.debug("浏览器检索未找到结果 - 查询: {}", request.getQuestion());
                         // 即使没有找到结果，也告知LLM已尝试检索
                         browserSearchContext = "【网络搜索提示】已启用MCP支持（浏览器检索功能），但未找到与问题相关的搜索结果。\n\n" +
                                 "问题：" + request.getQuestion() + "\n\n" +
@@ -103,7 +102,7 @@ public class ChatServiceImpl implements ChatService {
                     // 不抛出异常，继续使用原始问题
                 }
             } else {
-                logger.info("MCP支持已关闭，跳过浏览器检索");
+                logger.debug("MCP支持已关闭，跳过浏览器检索");
             }
             
             // 构建消息列表（包含历史对话）
@@ -111,21 +110,21 @@ public class ChatServiceImpl implements ChatService {
             
             // 记录历史对话信息
             if (request.getHistory() != null && !request.getHistory().isEmpty()) {
-                logger.info("使用历史对话，历史消息数量: {}", request.getHistory().size());
+                logger.debug("使用历史对话，历史消息数量: {}", request.getHistory().size());
             }
-            logger.debug("构建的消息列表大小: {}", messages.size());
+            logger.trace("构建的消息列表大小: {}", messages.size());
             
             // 应用上下文压缩策略（转换为KnowledgeBaseQARequest格式以复用压缩逻辑）
             com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest kbRequest = convertToKBQARequest(request);
             messages = contextCompressionService.compressContext(messages, kbRequest);
             logger.debug("压缩后的消息列表大小: {}", messages.size());
             
-            // 设置图片数据到ThreadLocal（用于多模态支持）
-            try {
-                if (request.getImages() != null && !request.getImages().isEmpty()) {
-                    modelLanguageModelFactory.setImageData(request.getImages());
-                    logger.info("已设置图片数据到模型工厂，图片数量: {}", request.getImages().size());
-                }
+                // 设置图片数据到ThreadLocal（用于多模态支持）
+                try {
+                    if (request.getImages() != null && !request.getImages().isEmpty()) {
+                        modelLanguageModelFactory.setImageData(request.getImages());
+                        logger.debug("已设置图片数据到模型工厂，图片数量: {}", request.getImages().size());
+                    }
                 
                 // 调用LLM生成答案
                 Response<AiMessage> response = chatLanguageModel.generate(messages);
@@ -137,7 +136,7 @@ public class ChatServiceImpl implements ChatService {
                 Long totalTokens = null;
                 
                 // 尝试从Response中获取token使用信息
-                logger.info("开始获取Token使用信息...");
+                logger.debug("开始获取Token使用信息...");
                 try {
                     // langchain4j的Response可能包含tokenUsage信息
                     dev.langchain4j.model.output.TokenUsage tokenUsage = response.tokenUsage();
@@ -308,7 +307,7 @@ public class ChatServiceImpl implements ChatService {
             // 设置图片数据到ThreadLocal（用于多模态支持）
             if (request.getImages() != null && !request.getImages().isEmpty()) {
                 modelLanguageModelFactory.setImageData(request.getImages());
-                logger.info("已设置图片数据到模型工厂（流式），图片数量: {}", request.getImages().size());
+                logger.debug("已设置图片数据到模型工厂（流式），图片数量: {}", request.getImages().size());
             }
             
             // 调用流式LLM生成答案

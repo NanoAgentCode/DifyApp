@@ -91,13 +91,13 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         if (role == null || role != 1) {
             // 普通用户，强制设置为私有
             knowledgeBase.setIsPublic(false);
-            logger.info("普通用户创建知识库，强制设置为私有 - 用户ID: {}, 名称: {}", userId, knowledgeBase.getName());
+            logger.debug("普通用户创建知识库，强制设置为私有 - 用户ID: {}, 名称: {}", userId, knowledgeBase.getName());
         } else {
             // 管理员，使用请求中的设置，如果没有设置则默认为私有
             if (knowledgeBase.getIsPublic() == null) {
                 knowledgeBase.setIsPublic(false);
             }
-            logger.info("管理员创建知识库 - 用户ID: {}, 名称: {}, 是否公开: {}", userId, knowledgeBase.getName(), knowledgeBase.getIsPublic());
+            logger.debug("管理员创建知识库 - 用户ID: {}, 名称: {}, 是否公开: {}", userId, knowledgeBase.getName(), knowledgeBase.getIsPublic());
         }
         
         // 设置默认值
@@ -121,15 +121,15 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
                     knowledgeBase.setVectorDatabaseId(req.getVectorDatabaseId());
                     // 同时设置类型（用于兼容）
                     knowledgeBase.setVectorStoreType(vectorDb.get().getType());
-                    logger.info("使用指定的向量库实例 - ID: {}, 类型: {}, 名称: {}", 
+                    logger.debug("使用指定的向量库实例 - ID: {}, 类型: {}, 名称: {}", 
                             req.getVectorDatabaseId(), vectorDb.get().getType(), vectorDb.get().getName());
                 } else {
-                    logger.warn("指定的向量库实例不存在或未启用 - ID: {}, 使用默认配置", req.getVectorDatabaseId());
+                    logger.debug("指定的向量库实例不存在或未启用 - ID: {}, 使用默认配置", req.getVectorDatabaseId());
                     // 使用默认配置
                     setDefaultVectorDatabase(knowledgeBase);
                 }
             } else {
-                logger.warn("VectorDatabaseRepository未注入，无法验证向量库实例ID，使用默认配置");
+                logger.debug("VectorDatabaseRepository未注入，无法验证向量库实例ID，使用默认配置");
                 setDefaultVectorDatabase(knowledgeBase);
             }
         } else {
@@ -137,7 +137,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             setDefaultVectorDatabase(knowledgeBase);
         }
         
-        logger.info("创建知识库 - 名称: {}, 创建者: {}, 是否公开: {}, 向量存储类型: {}, 向量库实例ID: {}", 
+        logger.debug("创建知识库 - 名称: {}, 创建者: {}, 是否公开: {}, 向量存储类型: {}, 向量库实例ID: {}", 
                 knowledgeBase.getName(), username, knowledgeBase.getIsPublic(), 
                 knowledgeBase.getVectorStoreType(), knowledgeBase.getVectorDatabaseId());
         
@@ -204,18 +204,18 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
                     knowledgeBase.setVectorDatabaseId(req.getVectorDatabaseId());
                     // 同时设置类型（用于兼容）
                     knowledgeBase.setVectorStoreType(vectorDb.get().getType());
-                    logger.info("更新知识库时使用指定的向量库实例 - ID: {}, 类型: {}, 名称: {}", 
+                    logger.debug("更新知识库时使用指定的向量库实例 - ID: {}, 类型: {}, 名称: {}", 
                             req.getVectorDatabaseId(), vectorDb.get().getType(), vectorDb.get().getName());
                 } else {
-                    logger.warn("指定的向量库实例不存在或未启用 - ID: {}, 保持原有配置", req.getVectorDatabaseId());
+                    logger.debug("指定的向量库实例不存在或未启用 - ID: {}, 保持原有配置", req.getVectorDatabaseId());
                 }
             } else {
-                logger.warn("VectorDatabaseRepository未注入，无法验证向量库实例ID");
+                logger.debug("VectorDatabaseRepository未注入，无法验证向量库实例ID");
             }
         } else if (req.getVectorStoreType() != null && !req.getVectorStoreType().trim().isEmpty()) {
             // 如果只指定了类型（兼容旧逻辑），设置类型但不设置实例ID
             knowledgeBase.setVectorStoreType(req.getVectorStoreType());
-            logger.info("更新知识库时使用指定的向量存储类型 - 类型: {}", req.getVectorStoreType());
+            logger.debug("更新知识库时使用指定的向量存储类型 - 类型: {}", req.getVectorStoreType());
         }
         
         KnowledgeBaseDateTimeUtil.setUpdateTime(knowledgeBase);
@@ -443,7 +443,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     @Override
     @Transactional
     public String generateSummary(Long knowledgeBaseId, Long modelId) {
-        logger.info("开始生成知识库摘要 - 知识库ID: {}, 模型ID: {}", knowledgeBaseId, modelId);
+        logger.debug("开始生成知识库摘要 - 知识库ID: {}, 模型ID: {}", knowledgeBaseId, modelId);
         
         // 1. 验证知识库是否存在
         Optional<KnowledgeBase> optional = knowledgeBaseRepository.findById(knowledgeBaseId);

@@ -47,7 +47,7 @@ public class DifyApiClient {
         String url = (baseUrl != null && !baseUrl.trim().isEmpty()) 
                 ? baseUrl.trim() 
                 : difyConfig.getDefaultBaseUrl();
-        logger.info("使用Dify API Base URL（非流式）: {}", url);
+        logger.debug("使用Dify API Base URL（非流式）: {}", url);
         return webClientConfig.getWebClient(url);
     }
     
@@ -58,7 +58,7 @@ public class DifyApiClient {
         String url = (baseUrl != null && !baseUrl.trim().isEmpty()) 
                 ? baseUrl.trim() 
                 : difyConfig.getDefaultBaseUrl();
-        logger.info("使用Dify API Base URL（流式）: {}", url);
+        logger.debug("使用Dify API Base URL（流式）: {}", url);
         return webClientConfig.getStreamingWebClient(url);
     }
     
@@ -103,15 +103,14 @@ public class DifyApiClient {
         requestBody.put("stream", false);
         
         String actualUrl = (baseUrl != null && !baseUrl.trim().isEmpty()) ? baseUrl.trim() : difyConfig.getDefaultBaseUrl();
-        logger.info("调用Dify Chat API, URL: {}, API Key: {}, conversationId: {}, 请求体: {}", 
-                actualUrl, apiKey.substring(0, Math.min(10, apiKey.length())) + "...", conversationId, requestBody);
+        logger.debug("调用Dify Chat API, URL: {}, conversationId: {}", actualUrl, conversationId);
         
         // Dify API路径
         String apiPath = "/v1/chat-messages";
         
         // 对于非流式Chat响应，使用较长的超时时间（至少5分钟）
         long chatTimeout = Math.max(difyConfig.getTimeout(), 300000L); // 至少5分钟
-        logger.info("Chat API超时时间设置为: {} 毫秒 ({} 分钟)", chatTimeout, chatTimeout / 60000);
+        logger.debug("Chat API超时时间设置为: {} 毫秒 ({} 分钟)", chatTimeout, chatTimeout / 60000);
         
         return webClient.post()
                 .uri(apiPath)
@@ -224,10 +223,10 @@ public class DifyApiClient {
                 .retrieve()
                 .bodyToFlux(DataBuffer.class)
                 .doOnSubscribe(subscription -> {
-                    logger.info("开始订阅Dify Chat Stream API响应");
+                    logger.debug("开始订阅Dify Chat Stream API响应");
                 })
                 .doOnNext(dataBuffer -> {
-                    logger.info("收到数据块，大小: {} 字节", dataBuffer.readableByteCount());
+                    logger.trace("收到数据块，大小: {} 字节", dataBuffer.readableByteCount());
                 })
                 .map(dataBuffer -> {
                     byte[] bytes = new byte[dataBuffer.readableByteCount()];
@@ -274,7 +273,7 @@ public class DifyApiClient {
                 })
                 .flatMap(line -> {
                     try {
-                        logger.info("收到SSE数据行: {}", line.length() > 200 ? line.substring(0, 200) + "..." : line);
+                        logger.trace("收到SSE数据行: {}", line.length() > 200 ? line.substring(0, 200) + "..." : line);
                         if (line == null || line.isEmpty()) {
                             return Mono.<DifyResponse>empty(); // 跳过空行
                         }
@@ -286,14 +285,14 @@ public class DifyApiClient {
                         if (jsonData.equals("[DONE]")) {
                             DifyResponse response = new DifyResponse();
                             response.setFinished(true);
-                            logger.info("收到流式响应结束标记");
+                            logger.debug("收到流式响应结束标记");
                             return Mono.just(response);
                         }
                         if (jsonData.isEmpty()) {
                             return Mono.<DifyResponse>empty(); // 跳过空数据
                         }
                         DifyResponse response = objectMapper.readValue(jsonData, DifyResponse.class);
-                        logger.info("成功解析Dify响应: event={}, answer长度={}, finished={}", 
+                        logger.debug("成功解析Dify响应: event={}, answer长度={}, finished={}", 
                                 response.getEvent(), 
                                 response.getAnswer() != null ? response.getAnswer().length() : 0,
                                 response.getFinished());

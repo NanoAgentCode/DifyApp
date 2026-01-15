@@ -45,8 +45,8 @@ public class KnowledgeBaseDocumentController extends BaseController {
             @RequestParam(value = "uploadUser", required = false) String uploadUser,
             @RequestParam(value = "tenantId", required = false) Integer tenantId) {
         long startTime = System.currentTimeMillis();
-        logger.info("=== 开始处理上传文档请求 ===");
-        logger.info("知识库ID: {}, 文件名: {}, 文件大小: {} 字节 ({} MB), 文件类型: {}, 上传用户: {}, 租户ID: {}", 
+        logger.debug("=== 开始处理上传文档请求 ===");
+        logger.debug("知识库ID: {}, 文件名: {}, 文件大小: {} 字节 ({} MB), 文件类型: {}, 上传用户: {}, 租户ID: {}", 
                 kbId, 
                 file.getOriginalFilename(), 
                 file.getSize(),
@@ -56,8 +56,8 @@ public class KnowledgeBaseDocumentController extends BaseController {
                 tenantId != null ? tenantId : "未指定");
         KnowledgeBaseDocumentResp resp = documentService.uploadDocument(kbId, file, uploadUser, tenantId);
         long duration = System.currentTimeMillis() - startTime;
-        logger.info("=== 上传文档成功 ===");
-        logger.info("知识库ID: {}, 文档ID: {}, 文件名: {}, 耗时: {} 毫秒", 
+        logger.debug("=== 上传文档成功 ===");
+        logger.info("文档上传成功 - 知识库ID: {}, 文档ID: {}, 文件名: {}, 耗时: {} 毫秒", 
                 kbId, resp.getId(), resp.getOriginalFileName(), duration);
         return ResponseEntity.ok(resp);
     }
@@ -145,8 +145,8 @@ public class KnowledgeBaseDocumentController extends BaseController {
             @PathVariable Long kbId,
             @PathVariable Long docId) {
         long startTime = System.currentTimeMillis();
-        logger.info("=== 开始处理重新向量化文档请求 ===");
-        logger.info("知识库ID: {}, 文档ID: {}", kbId, docId);
+        logger.debug("=== 开始处理重新向量化文档请求 ===");
+        logger.debug("知识库ID: {}, 文档ID: {}", kbId, docId);
         
         if (documentVectorizationService == null) {
             logger.warn("DocumentVectorizationService未配置，无法重新向量化 - 知识库ID: {}, 文档ID: {}", kbId, docId);
@@ -157,18 +157,18 @@ public class KnowledgeBaseDocumentController extends BaseController {
         logger.debug("验证文档是否存在 - 知识库ID: {}, 文档ID: {}", kbId, docId);
         KnowledgeBaseDocumentResp document = documentService.getDocumentById(kbId, docId);
         
-        logger.info("文档信息 - 知识库ID: {}, 文档ID: {}, 文件名: {}, 当前向量化状态: {}, 文件大小: {} 字节", 
+        logger.debug("文档信息 - 知识库ID: {}, 文档ID: {}, 文件名: {}, 当前向量化状态: {}, 文件大小: {} 字节", 
                 kbId, docId, document.getOriginalFileName(), 
                 document.getVectorizedStatus() != null ? document.getVectorizedStatus() : "未知",
                 document.getFileSize());
         
         // 异步重新向量化
-        logger.info("提交重新向量化任务到异步队列 - 知识库ID: {}, 文档ID: {}", kbId, docId);
+        logger.debug("提交重新向量化任务到异步队列 - 知识库ID: {}, 文档ID: {}", kbId, docId);
         documentVectorizationService.reindexDocument(kbId, docId);
         
         long duration = System.currentTimeMillis() - startTime;
-        logger.info("=== 重新向量化文档任务已提交 ===");
-        logger.info("知识库ID: {}, 文档ID: {}, 文件名: {}, 请求处理耗时: {} 毫秒", 
+        logger.debug("=== 重新向量化文档任务已提交 ===");
+        logger.info("重新向量化任务已提交 - 知识库ID: {}, 文档ID: {}, 文件名: {}, 耗时: {} 毫秒", 
                 kbId, docId, document.getOriginalFileName(), duration);
         return ResponseEntity.ok().build();
     }
