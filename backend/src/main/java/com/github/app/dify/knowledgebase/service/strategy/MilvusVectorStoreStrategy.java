@@ -1,5 +1,7 @@
 package com.github.app.dify.knowledgebase.service.strategy;
 
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.system.config.MilvusConfig;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
@@ -184,7 +186,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
             
         } catch (Exception e) {
             logger.error("确保Milvus集合存在失败 - 知识库ID: {}", knowledgeBaseId, e);
-            throw new RuntimeException("确保Milvus集合存在失败: " + e.getMessage(), e);
+            throw new BusinessException("确保Milvus集合存在失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -259,7 +261,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
             
             R<?> response = client.createCollection(createParam);
             if (response.getStatus() != R.Status.Success.getCode()) {
-                throw new RuntimeException("创建Milvus集合失败: " + response.getMessage());
+                throw new BusinessException("创建Milvus集合失败", ErrorCode.DATABASE_CONNECTION_ERROR);
             }
             
             logger.info("创建Milvus集合成功 - 集合名: {}, 向量维度: {}", collectionName, vectorSize);
@@ -269,7 +271,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
             
         } catch (Exception e) {
             logger.error("创建Milvus集合失败 - 集合名: {}", collectionName, e);
-            throw new RuntimeException("创建Milvus集合失败: " + e.getMessage(), e);
+            throw new BusinessException("创建Milvus集合失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -478,7 +480,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
             
             R<?> response = client.insert(insertParam);
             if (response.getStatus() != R.Status.Success.getCode()) {
-                throw new RuntimeException("插入Milvus向量失败: " + response.getMessage());
+                throw new BusinessException("插入Milvus向量失败", ErrorCode.DATABASE_CONNECTION_ERROR);
             }
             
             logger.info("Milvus向量插入完成 - 知识库ID: {}, 文档ID: {}, 向量数量: {}", 
@@ -496,7 +498,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
             
         } catch (Exception e) {
             logger.error("向量插入失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId, e);
-            throw new RuntimeException("向量插入失败: " + e.getMessage(), e);
+            throw new BusinessException("向量插入失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -554,7 +556,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
             
             R<?> response = client.search(searchParam);
             if (response.getStatus() != R.Status.Success.getCode()) {
-                throw new RuntimeException("Milvus搜索失败: " + response.getMessage());
+                throw new BusinessException("Milvus搜索失败", ErrorCode.DATABASE_CONNECTION_ERROR);
             }
             
             List<VectorStoreStrategy.SearchResult> results = new ArrayList<>();
@@ -619,7 +621,8 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
                             }
                             
                             // 如果 SearchResultData 构造函数不存在，尝试从 SearchResultData 构建 SearchResults
-                            if (!created && searchResultsData instanceof io.milvus.grpc.SearchResultData resultData) {
+                            if (!created && searchResultsData instanceof io.milvus.grpc.SearchResultData) {
+                                io.milvus.grpc.SearchResultData resultData = (io.milvus.grpc.SearchResultData) searchResultsData;
                                 try {
                                     // 尝试使用 SearchResults 构造函数
                                     java.lang.reflect.Constructor<SearchResultsWrapper> constructor = 
@@ -650,14 +653,14 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
                     }
                     
                     if (!created) {
-                        throw new RuntimeException("无法创建 SearchResultsWrapper。数据类型: " +
+                        throw new BusinessException("无法创建 SearchResultsWrapper。数据类型: " +
                                 (searchResultsData != null ? searchResultsData.getClass().getName() : "null") +
-                                "，可用构造函数: " + Arrays.toString(constructors));
+                                "，可用构造函数: " + Arrays.toString(constructors), ErrorCode.DATABASE_CONNECTION_ERROR);
                     }
                     
                     // 使用 wrapper 处理搜索结果
                     if (wrapper == null) {
-                        throw new RuntimeException("SearchResultsWrapper 创建成功但为null");
+                        throw new BusinessException("SearchResultsWrapper 创建成功但为null", ErrorCode.DATABASE_CONNECTION_ERROR);
                     }
                     
                     int rowCount = wrapper.getIDScore(0).size();
@@ -701,7 +704,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
                     }
                 } catch (Exception e) {
                     logger.error("解析搜索结果失败", e);
-                    throw new RuntimeException("解析搜索结果失败: " + e.getMessage(), e);
+                    throw new BusinessException("解析搜索结果失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
                 }
             }
             
@@ -712,7 +715,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
             
         } catch (Exception e) {
             logger.error("向量检索失败 - 知识库ID: {}, 集合名: {}", knowledgeBaseId, collectionName, e);
-            throw new RuntimeException("向量检索失败: " + e.getMessage(), e);
+            throw new BusinessException("向量检索失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     

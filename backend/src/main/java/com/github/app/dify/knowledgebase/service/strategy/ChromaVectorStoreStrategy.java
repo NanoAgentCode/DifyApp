@@ -1,5 +1,7 @@
 package com.github.app.dify.knowledgebase.service.strategy;
 
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.system.config.ChromaConfig;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import org.slf4j.Logger;
@@ -137,7 +139,7 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
                 return collectionId;
             }
             
-            throw new RuntimeException("创建集合失败，未返回 collection_id");
+            throw new BusinessException("创建集合失败，未返回 collection_id", ErrorCode.DATABASE_CONNECTION_ERROR);
             
         } catch (WebClientResponseException e) {
             // 如果是 409 或 400（已存在），尝试再次查找
@@ -167,7 +169,7 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
                     }
                 }
             }
-            throw new RuntimeException("获取或创建集合失败: " + e.getMessage(), e);
+            throw new BusinessException("获取或创建集合失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -219,7 +221,7 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
                     knowledgeBaseId, collectionName, collectionId, vectorSize);
         } catch (Exception e) {
             logger.error("确保Chroma集合存在失败 - 知识库ID: {}", knowledgeBaseId, e);
-            throw new RuntimeException("确保Chroma集合存在失败: " + e.getMessage(), e);
+            throw new BusinessException("确保Chroma集合存在失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -265,7 +267,7 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
             } catch (Exception e) {
                 logger.error("批次插入失败 - 知识库ID: {}, 文档ID: {}, 批次: {}/{}", 
                         knowledgeBaseId, documentId, batchIndex + 1, totalBatches, e);
-                throw new RuntimeException("向量插入失败（批次 " + (batchIndex + 1) + "/" + totalBatches + "）: " + e.getMessage(), e);
+                throw new BusinessException("向量插入失败（批次 " + (batchIndex + 1) + "/" + totalBatches + "）", ErrorCode.DATABASE_CONNECTION_ERROR, e);
             }
         }
         
@@ -362,18 +364,16 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
                         logger.error("Chroma v2 API 返回 405 Method Not Allowed - 知识库ID: {}, 文档ID: {}, 集合名: {}, 端点: /api/v2/collections/{}/add, 响应: {}", 
                                 knowledgeBaseId, documentId, collectionName, collectionName, e.getResponseBodyAsString());
                         throw new RuntimeException(String.format(
-                                """
-                                        Chroma v2 API 返回 405 Method Not Allowed。
-                                        端点: POST /api/v2/collections/%s/add
-                                        可能的原因：
-                                        - 端点路径不正确
-                                        - 请求格式不正确
-                                        - 服务器配置问题
-                                        
-                                        建议：
-                                        - 检查 Chroma 服务器版本和文档：https://docs.trychroma.com/
-                                        - 查看服务器日志获取更多信息
-                                        - 确认 v2 API 的正确端点格式""",
+                                "Chroma v2 API 返回 405 Method Not Allowed。\n" +
+                                "端点: POST /api/v2/collections/%s/add\n" +
+                                "可能的原因：\n" +
+                                "- 端点路径不正确\n" +
+                                "- 请求格式不正确\n" +
+                                "- 服务器配置问题\n\n" +
+                                "建议：\n" +
+                                "- 检查 Chroma 服务器版本和文档：https://docs.trychroma.com/\n" +
+                                "- 查看服务器日志获取更多信息\n" +
+                                "- 确认 v2 API 的正确端点格式",
                             collectionName
                         ), e);
                     }
@@ -410,7 +410,7 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
         } catch (Exception e) {
             logger.error("批次插入失败 - 知识库ID: {}, 文档ID: {}, 批次: {}/{}", 
                     knowledgeBaseId, documentId, batchNum, totalBatches, e);
-            throw new RuntimeException("向量插入失败: " + e.getMessage(), e);
+            throw new BusinessException("向量插入失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -540,12 +540,10 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
                 return new ArrayList<>();
             }
 
-            e.getResponseBodyAsString();
-            throw new RuntimeException("向量检索失败: " + e.getMessage() +
-                    " - " + e.getResponseBodyAsString(), e);
+            throw new BusinessException("向量检索失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         } catch (Exception e) {
             logger.error("向量检索失败 - 知识库ID: {}, 集合名: {}", knowledgeBaseId, collectionName, e);
-            throw new RuntimeException("向量检索失败: " + e.getMessage(), e);
+            throw new BusinessException("向量检索失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -638,12 +636,10 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
             }
             logger.error("删除文档向量失败 - 知识库ID: {}, 文档ID: {}, HTTP状态: {}, 响应: {}", 
                     knowledgeBaseId, documentId, e.getStatusCode(), e.getResponseBodyAsString(), e);
-            e.getResponseBodyAsString();
-            throw new RuntimeException("删除文档向量失败: " + e.getMessage() +
-                    " - " + e.getResponseBodyAsString(), e);
+            throw new BusinessException("删除文档向量失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         } catch (Exception e) {
             logger.error("删除文档向量失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId, e);
-            throw new RuntimeException("删除文档向量失败: " + e.getMessage(), e);
+            throw new BusinessException("删除文档向量失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     

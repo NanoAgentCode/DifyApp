@@ -1,5 +1,7 @@
 package com.github.app.dify.knowledgebase.service.strategy;
 
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.system.config.WeaviateConfig;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import com.github.app.dify.knowledgebase.repository.KnowledgeBaseRepository;
@@ -156,7 +158,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
             
         } catch (Exception e) {
             logger.error("确保Weaviate类存在失败 - 知识库ID: {}", knowledgeBaseId, e);
-            throw new RuntimeException("确保Weaviate类存在失败: " + e.getMessage(), e);
+            throw new BusinessException("确保Weaviate类存在失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -269,7 +271,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
             
         } catch (Exception e) {
             logger.error("创建Weaviate类失败 - 类名: {}", className, e);
-            throw new RuntimeException("创建Weaviate类失败: " + e.getMessage(), e);
+            throw new BusinessException("创建Weaviate类失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -414,7 +416,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
             
         } catch (Exception e) {
             logger.error("向量插入失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId, e);
-            throw new RuntimeException("向量插入失败: " + e.getMessage(), e);
+            throw new BusinessException("向量插入失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -559,11 +561,10 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                 return new ArrayList<>();
             }
             
-            throw new RuntimeException("向量检索失败: " + e.getMessage() + 
-                    (e.getResponseBodyAsString() != null ? " - " + e.getResponseBodyAsString() : ""), e);
+            throw new BusinessException("向量检索失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         } catch (Exception e) {
             logger.error("向量检索失败 - 知识库ID: {}, 类名: {}", knowledgeBaseId, className, e);
-            throw new RuntimeException("向量检索失败: " + e.getMessage(), e);
+            throw new BusinessException("向量检索失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -773,7 +774,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
             
         } catch (Exception e) {
             logger.error("删除文档向量失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId, e);
-            throw new RuntimeException("删除文档向量失败: " + e.getMessage(), e);
+            throw new BusinessException("删除文档向量失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     

@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.github.app.dify.system.util.SkillLoader;
+import com.github.app.dify.common.util.SensitiveDataUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.github.app.dify.system.util.SystemConverterUtil;
@@ -62,7 +63,10 @@ public class DrawIOServiceImpl implements DrawIOService {
     @Override
     public DrawIOGenerateResponse generateDiagram(DrawIOGenerateRequest request, Long userId) {
         try {
-            logger.info("生成图表请求 - 用户ID: {}, 提示: {}, 类型: {}", userId, request.getPrompt(), request.getDiagramType());
+            logger.info("生成图表请求 - 用户ID: {}, 提示: {}, 类型: {}", 
+                    SensitiveDataUtil.maskUserId(userId), 
+                    SensitiveDataUtil.mask(request.getPrompt()), 
+                    request.getDiagramType());
             
             // 获取模型
             QAModel qaModel = getQAModel(request.getModelId());
@@ -87,7 +91,9 @@ public class DrawIOServiceImpl implements DrawIOService {
             Response<AiMessage> response = chatLanguageModel.generate(messages);
             String diagramJson = extractDiagramJson(response.content().text(), request.getDiagramType());
             
-            logger.info("图表生成成功 - 用户ID: {}, JSON长度: {}", userId, diagramJson.length());
+            logger.info("图表生成成功 - 用户ID: {}, JSON长度: {}", 
+                    SensitiveDataUtil.maskUserId(userId), 
+                    diagramJson.length());
             
             // 构建响应
             DrawIOGenerateResponse generateResponse = new DrawIOGenerateResponse();
@@ -97,7 +103,9 @@ public class DrawIOServiceImpl implements DrawIOService {
             return generateResponse;
             
         } catch (Exception e) {
-            logger.error("生成图表失败 - 用户ID: {}, 提示: {}", userId, request.getPrompt(), e);
+            logger.error("生成图表失败 - 用户ID: {}, 提示: {}", 
+                    SensitiveDataUtil.maskUserId(userId), 
+                    SensitiveDataUtil.mask(request.getPrompt()), e);
             throw new RuntimeException("生成图表失败: " + e.getMessage(), e);
         }
     }
@@ -105,7 +113,9 @@ public class DrawIOServiceImpl implements DrawIOService {
     @Override
     public DrawIOGenerateResponse modifyDiagram(DrawIOModifyRequest request, Long userId) {
         try {
-            logger.info("修改图表请求 - 用户ID: {}, 修改指令: {}", userId, request.getPrompt());
+            logger.info("修改图表请求 - 用户ID: {}, 修改指令: {}", 
+                    SensitiveDataUtil.maskUserId(userId), 
+                    SensitiveDataUtil.mask(request.getPrompt()));
             
             // 获取模型
             QAModel qaModel = getQAModel(request.getModelId());
@@ -132,7 +142,9 @@ public class DrawIOServiceImpl implements DrawIOService {
             String diagramType = inferDiagramType(request.getDiagramJson());
             String diagramJson = extractDiagramJson(response.content().text(), diagramType);
             
-            logger.info("图表修改成功 - 用户ID: {}, JSON长度: {}", userId, diagramJson.length());
+            logger.info("图表修改成功 - 用户ID: {}, JSON长度: {}", 
+                    SensitiveDataUtil.maskUserId(userId), 
+                    diagramJson.length());
             
             // 构建响应
             DrawIOGenerateResponse generateResponse = new DrawIOGenerateResponse();
@@ -141,7 +153,9 @@ public class DrawIOServiceImpl implements DrawIOService {
             return generateResponse;
             
         } catch (Exception e) {
-            logger.error("修改图表失败 - 用户ID: {}, 修改指令: {}", userId, request.getPrompt(), e);
+            logger.error("修改图表失败 - 用户ID: {}, 修改指令: {}", 
+                    SensitiveDataUtil.maskUserId(userId), 
+                    SensitiveDataUtil.mask(request.getPrompt()), e);
             throw new RuntimeException("修改图表失败: " + e.getMessage(), e);
         }
     }
@@ -150,7 +164,9 @@ public class DrawIOServiceImpl implements DrawIOService {
     @Transactional
     public DrawIODiagramResp saveDiagram(DrawIOSaveRequest request, Long userId) {
         try {
-            logger.info("保存图表请求 - 用户ID: {}, 名称: {}", userId, request.getName());
+            logger.info("保存图表请求 - 用户ID: {}, 名称: {}", 
+                    SensitiveDataUtil.maskUserId(userId), 
+                    request.getName());
             
             DrawIODiagram diagram = new DrawIODiagram();
             diagram.setName(request.getName());
@@ -162,12 +178,16 @@ public class DrawIOServiceImpl implements DrawIOService {
             
             diagram = drawIODiagramRepository.save(diagram);
             
-            logger.info("图表保存成功 - ID: {}, 用户ID: {}", diagram.getId(), userId);
+            logger.info("图表保存成功 - ID: {}, 用户ID: {}", 
+                    diagram.getId(), 
+                    SensitiveDataUtil.maskUserId(userId));
             
             return SystemConverterUtil.convertToResp(diagram);
             
         } catch (Exception e) {
-            logger.error("保存图表失败 - 用户ID: {}, 名称: {}", userId, request.getName(), e);
+            logger.error("保存图表失败 - 用户ID: {}, 名称: {}", 
+                    SensitiveDataUtil.maskUserId(userId), 
+                    request.getName(), e);
             throw new RuntimeException("保存图表失败: " + e.getMessage(), e);
         }
     }
@@ -180,7 +200,8 @@ public class DrawIOServiceImpl implements DrawIOService {
                     .map(SystemConverterUtil::convertToResp)
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            logger.error("获取图表列表失败 - 用户ID: {}", userId, e);
+            logger.error("获取图表列表失败 - 用户ID: {}", 
+                    SensitiveDataUtil.maskUserId(userId), e);
             throw new RuntimeException("获取图表列表失败: " + e.getMessage(), e);
         }
     }
@@ -193,7 +214,9 @@ public class DrawIOServiceImpl implements DrawIOService {
             
             return SystemConverterUtil.convertToResp(diagram);
         } catch (Exception e) {
-            logger.error("获取图表详情失败 - ID: {}, 用户ID: {}", id, userId, e);
+            logger.error("获取图表详情失败 - ID: {}, 用户ID: {}", 
+                    id, 
+                    SensitiveDataUtil.maskUserId(userId), e);
             throw new RuntimeException("获取图表详情失败: " + e.getMessage(), e);
         }
     }
@@ -209,9 +232,13 @@ public class DrawIOServiceImpl implements DrawIOService {
             SystemDateTimeUtil.setUpdateTime(diagram);
             drawIODiagramRepository.save(diagram);
             
-            logger.info("图表删除成功 - ID: {}, 用户ID: {}", id, userId);
+            logger.info("图表删除成功 - ID: {}, 用户ID: {}", 
+                    id, 
+                    SensitiveDataUtil.maskUserId(userId));
         } catch (Exception e) {
-            logger.error("删除图表失败 - ID: {}, 用户ID: {}", id, userId, e);
+            logger.error("删除图表失败 - ID: {}, 用户ID: {}", 
+                    id, 
+                    SensitiveDataUtil.maskUserId(userId), e);
             throw new RuntimeException("删除图表失败: " + e.getMessage(), e);
         }
     }
@@ -1176,7 +1203,9 @@ public class DrawIOServiceImpl implements DrawIOService {
     @Transactional
     public DrawIOHistoryResp saveHistory(DrawIOHistoryRequest request, Long userId) {
         try {
-            logger.info("保存历史记录请求 - 用户ID: {}, 提示词: {}", userId, request.getPrompt());
+            logger.info("保存历史记录请求 - 用户ID: {}, 提示词: {}", 
+                    SensitiveDataUtil.maskUserId(userId), 
+                    SensitiveDataUtil.mask(request.getPrompt()));
             
             // 检查是否已存在相同的历史记录（避免重复）
             List<DrawIOHistory> existingHistories = drawIOHistoryRepository.findByUserIdAndNotDeleted(userId);
@@ -1217,12 +1246,16 @@ public class DrawIOServiceImpl implements DrawIOService {
             
             history = drawIOHistoryRepository.save(history);
             
-            logger.info("历史记录保存成功 - ID: {}, 用户ID: {}", history.getId(), userId);
+            logger.info("历史记录保存成功 - ID: {}, 用户ID: {}", 
+                    history.getId(), 
+                    SensitiveDataUtil.maskUserId(userId));
             
             return convertHistoryToResp(history);
             
         } catch (Exception e) {
-            logger.error("保存历史记录失败 - 用户ID: {}, 提示词: {}", userId, request.getPrompt(), e);
+            logger.error("保存历史记录失败 - 用户ID: {}, 提示词: {}", 
+                    SensitiveDataUtil.maskUserId(userId), 
+                    SensitiveDataUtil.mask(request.getPrompt()), e);
             throw new RuntimeException("保存历史记录失败: " + e.getMessage(), e);
         }
     }
@@ -1236,7 +1269,8 @@ public class DrawIOServiceImpl implements DrawIOService {
                     .map(this::convertHistoryToResp)
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            logger.error("获取历史记录列表失败 - 用户ID: {}", userId, e);
+            logger.error("获取历史记录列表失败 - 用户ID: {}", 
+                    SensitiveDataUtil.maskUserId(userId), e);
             throw new RuntimeException("获取历史记录列表失败: " + e.getMessage(), e);
         }
     }
@@ -1251,9 +1285,13 @@ public class DrawIOServiceImpl implements DrawIOService {
             history.setDeleted(1);
             drawIOHistoryRepository.save(history);
             
-            logger.info("历史记录删除成功 - ID: {}, 用户ID: {}", id, userId);
+            logger.info("历史记录删除成功 - ID: {}, 用户ID: {}", 
+                    id, 
+                    SensitiveDataUtil.maskUserId(userId));
         } catch (Exception e) {
-            logger.error("删除历史记录失败 - ID: {}, 用户ID: {}", id, userId, e);
+            logger.error("删除历史记录失败 - ID: {}, 用户ID: {}", 
+                    id, 
+                    SensitiveDataUtil.maskUserId(userId), e);
             throw new RuntimeException("删除历史记录失败: " + e.getMessage(), e);
         }
     }
@@ -1271,5 +1309,3 @@ public class DrawIOServiceImpl implements DrawIOService {
         return resp;
     }
 }
-
-

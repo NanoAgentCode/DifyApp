@@ -2,6 +2,8 @@ package com.github.app.dify.knowledgebase.service.strategy;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.system.config.FaissConfig;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import lombok.Getter;
@@ -68,9 +70,9 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
             } else {
                 // 检查向量维度是否匹配
                 if (index.getVectorSize() != vectorSize) {
-                    throw new IllegalArgumentException(
+                    throw new BusinessException(
                             String.format("向量维度不匹配 - 知识库ID: %d, 期望: %d, 实际: %d", 
-                                    knowledgeBaseId, vectorSize, index.getVectorSize()));
+                                    knowledgeBaseId, vectorSize, index.getVectorSize()), ErrorCode.INVALID_PARAMETER);
                 }
             }
         } finally {
@@ -265,7 +267,7 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
                     knowledgeBaseId, entries.size());
         } catch (Exception e) {
             logger.error("保存FAISS索引到文件失败 - 知识库ID: {}", knowledgeBaseId, e);
-            throw new RuntimeException("保存FAISS索引失败: " + e.getMessage(), e);
+            throw new BusinessException("保存FAISS索引失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -274,7 +276,7 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
      */
     private double cosineSimilarity(List<Float> a, List<Float> b) {
         if (a.size() != b.size()) {
-            throw new IllegalArgumentException("向量维度必须相同");
+            throw new BusinessException("向量维度必须相同", ErrorCode.INVALID_PARAMETER);
         }
         
         double dotProduct = 0.0;

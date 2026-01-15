@@ -1,5 +1,7 @@
 package com.github.app.dify.knowledgebase.service.strategy;
 
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import org.slf4j.Logger;
@@ -118,11 +120,11 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
                 currentPassword = null;
             }
         } else {
-            throw new RuntimeException("未找到pgvector配置，请先在向量库管理中配置pgvector");
+            throw new BusinessException("未找到pgvector配置，请先在向量库管理中配置pgvector", ErrorCode.CONFIG_ERROR);
         }
         
         if (currentUsername == null || currentUsername.trim().isEmpty()) {
-            throw new RuntimeException("pgvector配置缺少用户名，请在extraConfig中配置用户名和密码");
+            throw new BusinessException("pgvector配置缺少用户名，请在extraConfig中配置用户名和密码", ErrorCode.CONFIG_ERROR);
         }
         
         // 验证URL格式
@@ -193,7 +195,7 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
                         knowledgeBaseId, jdbcUrl);
             } catch (Exception e) {
                 logger.error("创建PgVector数据库连接失败", e);
-                throw new RuntimeException("创建PgVector数据库连接失败: " + e.getMessage(), e);
+                throw new BusinessException("创建PgVector数据库连接失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
             }
         }
         return conn;
@@ -223,9 +225,9 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
                      "SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'vector')")) {
                 
                 if (rs.next() && !rs.getBoolean(1)) {
-                    throw new RuntimeException(
+                    throw new BusinessException(
                         "pgvector扩展未安装。请执行以下SQL安装扩展：\n" +
-                        "CREATE EXTENSION IF NOT EXISTS vector;");
+                        "CREATE EXTENSION IF NOT EXISTS vector;", ErrorCode.CONFIG_ERROR);
                 }
             }
             
@@ -463,28 +465,27 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
                                     return;
                                 } catch (SQLException e) {
                                     logger.error("自动删除表失败 - 知识库ID: {}, 表名: {}", knowledgeBaseId, tableName, e);
-                                    throw new RuntimeException("自动删除表失败: " + e.getMessage(), e);
+                                    throw new BusinessException("自动删除表失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
                                 }
                             } else {
                                 // 如果表有数据，提供详细的错误信息和解决方案
                                 String errorMsg = String.format(
-                                        """
-                                                向量维度不匹配 - 知识库ID: %d, 期望: %d, 实际: %d
-                                                表 %s 中已有数据，无法自动修复。请选择以下方案之一：
-                                                方案1（推荐）：使用与现有维度匹配的嵌入模型
-                                                  - 当前表维度: %d
-                                                  - 请在系统配置中设置 documentReader.defaultEmbeddingModelId 为维度 %d 的模型
-                                                方案2：删除表并重新创建（会丢失所有数据）
-                                                  - 执行SQL: DROP TABLE IF EXISTS %s CASCADE;
-                                                  - 然后重新上传文档
-                                                方案3：手动修改表结构（需要迁移数据，操作复杂）
-                                                  - 执行SQL: ALTER TABLE %s ALTER COLUMN embedding TYPE vector(%d);
-                                                  - 注意：此操作可能需要较长时间，且需要确保所有现有向量维度匹配""",
+                                        "向量维度不匹配 - 知识库ID: %d, 期望: %d, 实际: %d\n" +
+                                        "表 %s 中已有数据，无法自动修复。请选择以下方案之一：\n" +
+                                        "方案1（推荐）：使用与现有维度匹配的嵌入模型\n" +
+                                        "  - 当前表维度: %d\n" +
+                                        "  - 请在系统配置中设置 documentReader.defaultEmbeddingModelId 为维度 %d 的模型\n" +
+                                        "方案2：删除表并重新创建（会丢失所有数据）\n" +
+                                        "  - 执行SQL: DROP TABLE IF EXISTS %s CASCADE;\n" +
+                                        "  - 然后重新上传文档\n" +
+                                        "方案3：手动修改表结构（需要迁移数据，操作复杂）\n" +
+                                        "  - 执行SQL: ALTER TABLE %s ALTER COLUMN embedding TYPE vector(%d);\n" +
+                                        "  - 注意：此操作可能需要较长时间，且需要确保所有现有向量维度匹配",
                                     knowledgeBaseId, vectorSize, existingSize, 
                                     tableName, existingSize, existingSize,
                                     tableName, tableName, vectorSize);
                                 logger.error(errorMsg);
-                                throw new IllegalArgumentException(errorMsg);
+                                throw new BusinessException(errorMsg, ErrorCode.INVALID_PARAMETER);
                             }
                         }
                     }
@@ -492,7 +493,7 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
             }
         } catch (SQLException e) {
             logger.error("确保PgVector集合存在失败 - 知识库ID: {}", knowledgeBaseId, e);
-            throw new RuntimeException("确保PgVector集合存在失败: " + e.getMessage(), e);
+            throw new BusinessException("确保PgVector集合存在失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -627,9 +628,9 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
                         String errorTextPreview = errorText.length() > 200 ? errorText.substring(0, 200) + "..." : errorText;
                         logger.error("批量插入PgVector向量失败 - 知识库ID: {}, 文档ID: {}, 批次索引: {}, 文本预览: {}", 
                                 knowledgeBaseId, documentId, i, errorTextPreview);
-                        throw new RuntimeException(String.format(
+                        throw new BusinessException(String.format(
                             "批量插入PgVector向量失败 - 批次索引: %d, 文本长度: %d, 文本预览: %s", 
-                            i, errorText.length(), errorTextPreview));
+                            i, errorText.length(), errorTextPreview), ErrorCode.DATABASE_CONNECTION_ERROR);
                     }
                 }
                 
@@ -642,7 +643,8 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
             String sqlState = e.getSQLState();
             
             // 尝试获取失败的批次信息
-            if (e instanceof BatchUpdateException batchEx) {
+            if (e.getClass().getName().equals("java.sql.BatchUpdateException")) {
+                BatchUpdateException batchEx = (BatchUpdateException) e;
                 int[] updateCounts = batchEx.getUpdateCounts();
                 for (int i = 0; i < updateCounts.length; i++) {
                     if (updateCounts[i] == Statement.EXECUTE_FAILED) {
@@ -660,7 +662,7 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
             
             logger.error("批量插入PgVector向量失败 - 知识库ID: {}, 文档ID: {}, SQL状态: {}, 错误: {}", 
                     knowledgeBaseId, documentId, sqlState, errorMessage, e);
-            throw new RuntimeException("批量插入PgVector向量失败: " + errorMessage, e);
+            throw new BusinessException("批量插入PgVector向量失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -722,7 +724,7 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
             return results;
         } catch (SQLException e) {
             logger.error("PgVector向量搜索失败 - 知识库ID: {}", knowledgeBaseId, e);
-            throw new RuntimeException("PgVector向量搜索失败: " + e.getMessage(), e);
+            throw new BusinessException("PgVector向量搜索失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -774,8 +776,7 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
             }
             logger.error("删除PgVector向量失败 - 知识库ID: {}, 文档ID: {}", 
                     knowledgeBaseId, documentId, e);
-            throw new RuntimeException("删除PgVector向量失败: " + e.getMessage(), e);
+            throw new BusinessException("删除PgVector向量失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
 }
-

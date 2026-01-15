@@ -13,6 +13,8 @@ import co.elastic.clients.json.JsonData;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.system.config.ElasticsearchConfig;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
@@ -171,7 +173,7 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
                         knowledgeBaseId, currentUrl);
             } catch (Exception e) {
                 logger.error("创建Elasticsearch客户端失败", e);
-                throw new RuntimeException("创建Elasticsearch客户端失败: " + e.getMessage(), e);
+                throw new BusinessException("创建Elasticsearch客户端失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
             }
         }
         return client;
@@ -204,7 +206,7 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
             
         } catch (Exception e) {
             logger.error("确保Elasticsearch索引存在失败 - 知识库ID: {}", knowledgeBaseId, e);
-            throw new RuntimeException("确保Elasticsearch索引存在失败: " + e.getMessage(), e);
+            throw new BusinessException("确保Elasticsearch索引存在失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -284,11 +286,11 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
                 indexName, vectorSize
             );
             logger.error(errorMsg);
-            throw new RuntimeException(errorMsg);
+            throw new BusinessException(errorMsg, ErrorCode.DATABASE_CONNECTION_ERROR);
 
         } catch (Exception e) {
             logger.error("创建Elasticsearch索引失败 - 索引名: {}", indexName, e);
-            throw new RuntimeException("创建Elasticsearch索引失败: " + e.getMessage(), e);
+            throw new BusinessException("创建Elasticsearch索引失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -363,7 +365,7 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
                         logger.error("批量操作错误: {}", error.reason());
                     }
                 });
-                throw new RuntimeException("批量插入向量时发生错误");
+                throw new BusinessException("批量插入向量时发生错误", ErrorCode.DATABASE_CONNECTION_ERROR);
             }
             
             logger.info("Elasticsearch向量插入完成 - 知识库ID: {}, 文档ID: {}, 向量数量: {}", 
@@ -371,7 +373,7 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
             
         } catch (Exception e) {
             logger.error("向量插入失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId, e);
-            throw new RuntimeException("向量插入失败: " + e.getMessage(), e);
+            throw new BusinessException("向量插入失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -458,7 +460,7 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
             
         } catch (Exception e) {
             logger.error("向量检索失败 - 知识库ID: {}, 索引名: {}", knowledgeBaseId, indexName, e);
-            throw new RuntimeException("向量检索失败: " + e.getMessage(), e);
+            throw new BusinessException("向量检索失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -511,4 +513,3 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
         return knowledgeBaseId + "_" + documentId + "_" + chunkIndex;
     }
 }
-

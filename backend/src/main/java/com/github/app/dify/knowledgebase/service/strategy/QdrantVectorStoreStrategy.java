@@ -1,5 +1,7 @@
 package com.github.app.dify.knowledgebase.service.strategy;
 
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.system.config.QdrantConfig;
 import com.github.app.dify.system.config.DocumentReaderConfig;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
@@ -254,7 +256,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
             
         } catch (Exception e) {
             logger.error("确保Qdrant集合存在失败 - 知识库ID: {}", knowledgeBaseId, e);
-            throw new RuntimeException("确保Qdrant集合存在失败: " + e.getMessage(), e);
+            throw new BusinessException("确保Qdrant集合存在失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -400,7 +402,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
             
         } catch (Exception e) {
             logger.error("向量插入失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId, e);
-            throw new RuntimeException("向量插入失败: " + e.getMessage(), e);
+            throw new BusinessException("向量插入失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -526,11 +528,10 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
                 return new ArrayList<>();
             }
             
-            throw new RuntimeException("向量检索失败: " + e.getMessage() + 
-                    (e.getResponseBodyAsString() != null ? " - " + e.getResponseBodyAsString() : ""), e);
+            throw new BusinessException("向量检索失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         } catch (Exception e) {
             logger.error("向量检索失败 - 知识库ID: {}, 集合名: {}", knowledgeBaseId, collectionName, e);
-            throw new RuntimeException("向量检索失败: " + e.getMessage(), e);
+            throw new BusinessException("向量检索失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -709,11 +710,10 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
             }
             logger.error("删除文档向量失败 - 知识库ID: {}, 文档ID: {}, HTTP状态: {}, 响应: {}", 
                     knowledgeBaseId, documentId, e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RuntimeException("删除文档向量失败: " + e.getMessage() + 
-                    (e.getResponseBodyAsString() != null ? " - " + e.getResponseBodyAsString() : ""), e);
+            throw new BusinessException("删除文档向量失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         } catch (Exception e) {
             logger.error("删除文档向量失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId, e);
-            throw new RuntimeException("删除文档向量失败: " + e.getMessage(), e);
+            throw new BusinessException("删除文档向量失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
 
