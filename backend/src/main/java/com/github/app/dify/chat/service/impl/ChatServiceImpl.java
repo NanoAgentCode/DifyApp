@@ -13,6 +13,7 @@ import com.github.app.dify.chat.service.ChatHistoryService;
 import com.github.app.dify.chat.service.ChatService;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
+import com.github.app.dify.common.util.TokenEstimator;
 import com.github.app.dify.knowledgebase.service.ContextCompressionService;
 import com.github.app.dify.memory.service.UserMemoryService;
 import dev.langchain4j.data.message.AiMessage;
@@ -154,7 +155,8 @@ public class ChatServiceImpl implements ChatService {
                     } else {
                         logger.warn("Response对象中tokenUsage为null，将使用估算方法");
                         // 如果无法获取token信息，尝试基于内容估算
-                        Long[] estimated = estimateTokenUsage(messages, answer);
+                        Long[] estimated = TokenEstimator.estimateTokenUsage(
+                                messages.toArray(new dev.langchain4j.data.message.ChatMessage[0]), answer);
                         promptTokens = estimated[0];
                         completionTokens = estimated[1];
                         totalTokens = estimated[2];
@@ -164,22 +166,24 @@ public class ChatServiceImpl implements ChatService {
                 } catch (NoSuchMethodError e) {
                     logger.warn("Response对象不包含tokenUsage方法，将使用估算方法: {}", e.getMessage());
                     // 如果方法不存在，尝试基于内容估算
-                    Long[] estimated = estimateTokenUsage(messages, answer);
+                    Long[] estimated = TokenEstimator.estimateTokenUsage(
+                            messages.toArray(new dev.langchain4j.data.message.ChatMessage[0]), answer);
                     promptTokens = estimated[0];
                     completionTokens = estimated[1];
                     totalTokens = estimated[2];
                     logger.info("✓ 使用估算方法获取Token - Prompt: {}, Completion: {}, Total: {}", 
-                            promptTokens, completionTokens, totalTokens);
+                                promptTokens, completionTokens, totalTokens);
                 } catch (Exception e) {
                     logger.warn("获取Token使用信息时发生异常: {}，将使用估算方法", e.getMessage());
                     logger.debug("Token获取异常详情", e);
                     // 尝试基于内容估算
-                    Long[] estimated = estimateTokenUsage(messages, answer);
+                    Long[] estimated = TokenEstimator.estimateTokenUsage(
+                            messages.toArray(new dev.langchain4j.data.message.ChatMessage[0]), answer);
                     promptTokens = estimated[0];
                     completionTokens = estimated[1];
                     totalTokens = estimated[2];
                     logger.info("✓ 使用估算方法获取Token - Prompt: {}, Completion: {}, Total: {}", 
-                            promptTokens, completionTokens, totalTokens);
+                                promptTokens, completionTokens, totalTokens);
                 }
                 
                 logger.info("最终Token值 - Prompt: {}, Completion: {}, Total: {}", 
@@ -391,7 +395,8 @@ public class ChatServiceImpl implements ChatService {
                             try {
                                 // 流式响应通常无法直接获取token使用信息，使用估算方法
                                 logger.info("流式响应完成，开始估算Token使用量...");
-                                Long[] estimated = estimateTokenUsage(finalMessages, finalAnswer);
+                                Long[] estimated = TokenEstimator.estimateTokenUsage(
+                                        finalMessages.toArray(new dev.langchain4j.data.message.ChatMessage[0]), finalAnswer);
                                 Long promptTokens = estimated[0];
                                 Long completionTokens = estimated[1];
                                 Long totalTokens = estimated[2];
@@ -670,46 +675,4 @@ public class ChatServiceImpl implements ChatService {
         }
     }
     
-    /**
-     * 估算Token使用量（基于内容长度）
-     * 这是一个简单的估算方法，实际token数可能因模型而异
-     * 一般规则：中文约1.5字符=1token，英文约4字符=1token
-     */
-    private Long[] estimateTokenUsage(List<dev.langchain4j.data.message.ChatMessage> messages, String answer) {
-        long promptTokens = 0;
-        long completionTokens = 0;
-        
-        // 估算prompt tokens（所有输入消息）
-        for (dev.langchain4j.data.message.ChatMessage msg : messages) {
-            String content = "";
-            if (msg instanceof UserMessage) {
-                content = ((UserMessage) msg).singleText();
-            } else if (msg instanceof SystemMessage) {
-                content = ((SystemMessage) msg).text();
-            } else if (msg instanceof AiMessage) {
-                content = ((AiMessage) msg).text();
-            }
-            if (content != null && !content.isEmpty()) {
-                // 简单估算：中文字符数/1.5 + 英文字符数/4
-                long chineseChars = content.chars().filter(ch -> ch >= 0x4E00 && ch <= 0x9FFF).count();
-                long otherChars = content.length() - chineseChars;
-                promptTokens += (long)(chineseChars / 1.5 + otherChars / 4);
-            }
-        }
-        
-        // 估算completion tokens（回答内容）
-        if (answer != null && !answer.isEmpty()) {
-            long chineseChars = answer.chars().filter(ch -> ch >= 0x4E00 && ch <= 0x9FFF).count();
-            long otherChars = answer.length() - chineseChars;
-            completionTokens = (long)(chineseChars / 1.5 + otherChars / 4);
-        }
-        
-        long totalTokens = promptTokens + completionTokens;
-        
-        logger.debug("估算Token使用量 - Prompt: {}, Completion: {}, Total: {}", 
-                promptTokens, completionTokens, totalTokens);
-        
-        return new Long[]{promptTokens, completionTokens, totalTokens};
-    }
 }
-
