@@ -1,5 +1,7 @@
 package com.github.app.dify.documentreader.service.impl;
 
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.exception.NotFoundException;
 import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.documentreader.domain.*;
@@ -139,7 +141,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             return fileStorageService.uploadFile(file, filePath);
         } catch (Exception e) {
             logger.error("文件上传到MinIO失败: {}", filePath, e);
-            throw new RuntimeException("文件上传失败: " + e.getMessage(), e);
+            throw new BusinessException("文件上传失败", ErrorCode.FILE_UPLOAD_FAILED, e);
         }
     }
     
@@ -200,12 +202,12 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     private DocumentReader getDocumentByIdAndValidateAccess(Long documentId, Long userId) {
         Optional<DocumentReader> optional = documentRepository.findByIdAndDeleted(documentId, 0);
         if (!optional.isPresent()) {
-            throw new NotFoundException("文档不存在: " + documentId);
+            throw new NotFoundException("文档不存在");
         }
         
         DocumentReader document = optional.get();
         if (!document.getUserId().equals(userId)) {
-            throw new RuntimeException("无权访问此文档");
+            throw new BusinessException("无权访问此文档", ErrorCode.FORBIDDEN);
         }
         
         return document;
@@ -293,7 +295,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             return fileStorageService.downloadFile(document.getFilePath());
         } catch (Exception e) {
             logger.error("获取文档内容失败: {}", document.getFilePath(), e);
-            throw new RuntimeException("获取文档内容失败: " + e.getMessage(), e);
+            throw new BusinessException("获取文档内容失败", ErrorCode.OPERATION_FAILED, e);
         }
     }
     
@@ -352,19 +354,19 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             if (effectiveModelId != null) {
                 qaModel = modelConfigService.getQAModelById(effectiveModelId);
                 if (qaModel == null) {
-                    throw new RuntimeException("模型不存在: " + effectiveModelId);
+                    throw new NotFoundException("模型不存在");
                 }
             } else {
                 // 使用默认RAG模型
                 qaModel = modelConfigService.getDefaultQAModelForRAG();
                 if (qaModel == null) {
-                    throw new RuntimeException("未配置默认问答模型，请在系统配置中设置documentReader.defaultQAModelId");
+                    throw new BusinessException("未配置默认问答模型，请在系统配置中设置documentReader.defaultQAModelId", ErrorCode.MODEL_NOT_FOUND);
                 }
             }
             
             // 验证模型是否启用
             if (qaModel.getEnabled() == null || !qaModel.getEnabled()) {
-                throw new RuntimeException("模型未启用: " + qaModel.getName());
+                throw new BusinessException("模型未启用", ErrorCode.MODEL_NOT_FOUND);
             }
             
             // 读取文档内容（尝试提取文本）
@@ -389,7 +391,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             String guideContent = aiResponse.content().text();
             
             if (guideContent == null || guideContent.trim().isEmpty()) {
-                throw new RuntimeException("大模型生成导读失败：返回内容为空");
+                throw new BusinessException("大模型生成导读失败：返回内容为空", ErrorCode.API_CALL_FAILED);
             }
             
             guideContent = guideContent.trim();
@@ -405,7 +407,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             
         } catch (Exception e) {
             logger.error("生成文档导读失败 - 文档ID: {}, 模型ID: {}", documentId, modelId, e);
-            throw new RuntimeException("生成文档导读失败: " + e.getMessage(), e);
+            throw new BusinessException("生成文档导读失败", ErrorCode.OPERATION_FAILED, e);
         }
     }
     
@@ -600,7 +602,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             String documentContent = extractDocumentText(document);
             if (documentContent == null || documentContent.trim().isEmpty()) {
                 logger.warn("文档内容为空，无法翻译 - 文档ID: {}", documentId);
-                throw new RuntimeException("文档内容为空，无法翻译");
+                throw new BusinessException("文档内容为空，无法翻译", ErrorCode.BAD_REQUEST);
             }
             
             // 去除页眉页脚
@@ -611,15 +613,15 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 String detectedLang = detectDocumentLanguage(documentContent);
                 logger.warn("禁止同种语言翻译 - 文档ID: {}, 文档语言: {}, 目标语言: {}", 
                            documentId, detectedLang, targetLang);
-                throw new IllegalArgumentException(
+                throw new BusinessException(
                     String.format("不能将%s文档翻译为%s，翻译功能仅支持不同语言之间的翻译", 
-                                 detectedLang, targetLang));
+                                 detectedLang, targetLang), ErrorCode.BAD_REQUEST);
             }
             
             // 获取模型配置（使用默认RAG模型）
             QAModel qaModel = modelConfigService.getDefaultQAModelForRAG();
             if (qaModel == null) {
-                throw new RuntimeException("未配置可用的模型，无法进行翻译");
+                throw new BusinessException("未配置可用的模型，无法进行翻译", ErrorCode.MODEL_NOT_FOUND);
             }
             
             // 将文档分段（用于懒加载）
@@ -643,7 +645,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             
         } catch (Exception e) {
             logger.error("翻译文档失败 - 文档ID: {}, 目标语言: {}", documentId, targetLang, e);
-            throw new RuntimeException("翻译文档失败: " + e.getMessage(), e);
+            throw new BusinessException("翻译文档失败", ErrorCode.OPERATION_FAILED, e);
         }
     }
     
@@ -734,7 +736,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         String documentContent = extractDocumentText(document);
         
         if (documentContent == null || documentContent.trim().isEmpty()) {
-            throw new RuntimeException("文档内容为空");
+            throw new BusinessException("文档内容为空", ErrorCode.BAD_REQUEST);
         }
         
         // 分段
@@ -799,9 +801,9 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 // 检查是否为同种语言翻译（禁止同种语言翻译）
                 if (isSameLanguageTranslation(documentContent, targetLang)) {
                     String detectedLang = detectDocumentLanguage(documentContent);
-                    throw new IllegalArgumentException(
+                    throw new BusinessException(
                         String.format("不能将%s文档翻译为%s，翻译功能仅支持不同语言之间的翻译", 
-                                     detectedLang, targetLang));
+                                     detectedLang, targetLang), ErrorCode.BAD_REQUEST);
                 }
                 
                 // 创建分段信息
@@ -817,7 +819,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             if (segmentIndex < 0 || segmentIndex >= segments.size()) {
                 logger.warn("分段索引无效 - 文档ID: {}, 目标语言: {}, 请求索引: {}, 总段数: {}", 
                            documentId, targetLang, segmentIndex, segments.size());
-                throw new IllegalArgumentException("分段索引无效: " + segmentIndex + ", 总段数: " + segments.size());
+                throw new BusinessException("分段索引无效: " + segmentIndex + ", 总段数: " + segments.size(), ErrorCode.BAD_REQUEST);
             }
             
             // 使用索引直接访问分段（已排序，索引即数组位置）
@@ -834,7 +836,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                     }
                 }
                 if (segment == null) {
-                    throw new IllegalArgumentException("找不到索引为 " + segmentIndex + " 的分段");
+                    throw new BusinessException("找不到索引为 " + segmentIndex + " 的分段", ErrorCode.BAD_REQUEST);
                 }
             }
             
@@ -847,7 +849,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             // 获取模型配置（延迟到真正需要翻译时才获取）
             QAModel qaModel = modelConfigService.getDefaultQAModelForRAG();
             if (qaModel == null) {
-                throw new RuntimeException("未配置可用的模型，无法进行翻译");
+                throw new BusinessException("未配置可用的模型，无法进行翻译", ErrorCode.MODEL_NOT_FOUND);
             }
             
             // 翻译该分段
@@ -862,8 +864,8 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             
             return translated;
             
-        } catch (IllegalArgumentException e) {
-            // 参数错误，直接抛出
+        } catch (BusinessException e) {
+            // 业务异常，直接抛出
             throw e;
         } catch (NotFoundException e) {
             // 资源不存在，直接抛出
@@ -871,7 +873,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         } catch (Exception e) {
             logger.error("翻译分段失败 - 文档ID: {}, 段索引: {}, 错误: {}", 
                         documentId, segmentIndex, e.getMessage(), e);
-            throw new RuntimeException("翻译分段失败: " + e.getMessage(), e);
+            throw new BusinessException("翻译分段失败", ErrorCode.OPERATION_FAILED, e);
         }
     }
     
@@ -965,19 +967,19 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             if (effectiveModelId != null) {
                 qaModel = modelConfigService.getQAModelById(effectiveModelId);
                 if (qaModel == null) {
-                    throw new RuntimeException("模型不存在: " + effectiveModelId);
+                    throw new NotFoundException("模型不存在");
                 }
             } else {
                 // 使用默认RAG模型
                 qaModel = modelConfigService.getDefaultQAModelForRAG();
                 if (qaModel == null) {
-                    throw new RuntimeException("未配置默认问答模型，请在系统配置中设置documentReader.defaultQAModelId");
+                    throw new BusinessException("未配置默认问答模型，请在系统配置中设置documentReader.defaultQAModelId", ErrorCode.MODEL_NOT_FOUND);
                 }
             }
             
             // 验证模型是否启用
             if (qaModel.getEnabled() == null || !qaModel.getEnabled()) {
-                throw new RuntimeException("模型未启用: " + qaModel.getName());
+                throw new BusinessException("模型未启用", ErrorCode.MODEL_NOT_FOUND);
             }
             
             String truncatedText = truncateText(documentContent, MAX_TEXT_LENGTH_FOR_MINDMAP_FINAL);
@@ -995,7 +997,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             String markdownContent = aiResponse.content().text();
             
             if (markdownContent == null || markdownContent.trim().isEmpty()) {
-                throw new RuntimeException("大模型生成思维导图markdown失败：返回内容为空");
+                throw new BusinessException("大模型生成思维导图markdown失败：返回内容为空", ErrorCode.API_CALL_FAILED);
             }
             
             markdownContent = markdownContent.trim();
@@ -1029,15 +1031,13 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 String errorDetail = e.getResponseBodyAsString();
                 logger.error("mindMap服务返回错误 - 状态码: {}, 响应体: {}, 文档ID: {}", 
                         e.getStatusCode(), errorDetail, documentId);
-                throw new RuntimeException(
-                        String.format("mindMap服务返回错误 (状态码: %s): %s", 
-                                e.getStatusCode(), 
-                                errorDetail != null && !errorDetail.isEmpty() ? errorDetail : e.getMessage()),
-                        e);
+                throw new BusinessException(
+                        String.format("mindMap服务返回错误 (状态码: %s)", e.getStatusCode()),
+                        ErrorCode.EXTERNAL_SERVICE_ERROR, e);
             }
             
             if (htmlUrl == null || htmlUrl.trim().isEmpty()) {
-                throw new RuntimeException("mindMap服务返回空响应");
+                throw new BusinessException("mindMap服务返回空响应", ErrorCode.EXTERNAL_SERVICE_ERROR);
             }
             
             // 清理URL：去除首尾空白和引号
@@ -1072,12 +1072,12 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             logger.info("文档脑图生成成功 - 文档ID: {}, 模型ID: {}, HTML URL: {}", documentId, effectiveModelId, cleanUrl);
             return mindMapJson;
             
-        } catch (RuntimeException e) {
+        } catch (BusinessException e) {
             logger.error("生成文档脑图失败 - 文档ID: {}", documentId, e);
             throw e;
         } catch (Exception e) {
             logger.error("生成文档脑图失败 - 文档ID: {}", documentId, e);
-            throw new RuntimeException("生成文档脑图失败: " + e.getMessage(), e);
+            throw new BusinessException("生成文档脑图失败", ErrorCode.OPERATION_FAILED, e);
         }
     }
     
@@ -1119,12 +1119,12 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     
     private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new RuntimeException("文件不能为空");
+            throw new BusinessException("文件不能为空", ErrorCode.FILE_UPLOAD_FAILED);
         }
         
         String fileExtension = getFileExtension(file.getOriginalFilename());
         if (fileExtension == null) {
-            throw new RuntimeException("无法识别文件类型");
+            throw new BusinessException("无法识别文件类型", ErrorCode.FILE_TYPE_NOT_SUPPORTED);
         }
         
         boolean allowed = false;
@@ -1136,11 +1136,11 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         }
         
         if (!allowed) {
-            throw new RuntimeException("不支持的文件类型: " + fileExtension);
+            throw new BusinessException("不支持的文件类型: " + fileExtension, ErrorCode.FILE_TYPE_NOT_SUPPORTED);
         }
         
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new RuntimeException("文件大小不能超过100MB");
+            throw new BusinessException("文件大小不能超过100MB", ErrorCode.FILE_TOO_LARGE);
         }
     }
     
@@ -1301,7 +1301,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             
         } catch (Exception e) {
             logger.error("单段翻译失败，目标语言: {}", targetLanguageName, e);
-            throw new RuntimeException("翻译失败: " + e.getMessage(), e);
+            throw new BusinessException("翻译失败", ErrorCode.OPERATION_FAILED, e);
         }
     } 
     /**
@@ -1586,7 +1586,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             
         } catch (Exception e) {
             logger.error("保存分段翻译信息失败 - 文档ID: {}, 目标语言: {}", documentId, targetLang, e);
-            throw new RuntimeException("保存分段翻译信息失败: " + e.getMessage(), e);
+            throw new BusinessException("保存分段翻译信息失败", ErrorCode.OPERATION_FAILED, e);
         }
     }
     
@@ -1738,4 +1738,3 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         return mindMapServiceUrl.trim();
     }
 }
-

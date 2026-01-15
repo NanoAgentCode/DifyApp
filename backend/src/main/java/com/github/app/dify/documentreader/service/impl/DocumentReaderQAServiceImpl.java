@@ -1,5 +1,8 @@
 package com.github.app.dify.documentreader.service.impl;
 
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
+import com.github.app.dify.common.exception.NotFoundException;
 import com.github.app.dify.chat.service.ChatHistoryService;
 import com.github.app.dify.documentreader.domain.DocumentReader;
 import com.github.app.dify.documentreader.repository.DocumentReaderRepository;
@@ -352,7 +355,7 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
         if (modelId != null) {
             qaModel = modelConfigService.getQAModelById(modelId);
             if (qaModel == null) {
-                throw new RuntimeException("模型不存在: " + modelId);
+                throw new NotFoundException("模型不存在");
             }
         } else {
             // 使用文档解读配置中的默认问答模型
@@ -368,12 +371,12 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
             }
             
             if (qaModel == null) {
-                throw new RuntimeException("未配置默认问答模型，请在系统配置中设置documentReader.defaultQAModelId");
+                throw new BusinessException("未配置默认问答模型，请在系统配置中设置documentReader.defaultQAModelId", ErrorCode.MODEL_NOT_FOUND);
             }
         }
         
         if (qaModel.getEnabled() == null || !qaModel.getEnabled()) {
-            throw new RuntimeException("模型未启用: " + qaModel.getName());
+            throw new BusinessException("模型未启用", ErrorCode.MODEL_NOT_FOUND);
         }
         
         return qaModel;
@@ -382,17 +385,17 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
     /**
      * 验证文档是否可以用于问答
      * @return DocumentReader 如果验证通过，null 如果文档未向量化
-     * @throws RuntimeException 如果文档不存在或无权访问
+     * @throws BusinessException 如果文档不存在或无权访问
      */
     private DocumentReader validateDocumentForQA(Long documentId, Long userId) {
         Optional<DocumentReader> docOptional = documentRepository.findByIdAndDeleted(documentId, 0);
         if (!docOptional.isPresent()) {
-            throw new RuntimeException("文档不存在: " + documentId);
+            throw new NotFoundException("文档不存在");
         }
         
         DocumentReader document = docOptional.get();
         if (!document.getUserId().equals(userId)) {
-            throw new RuntimeException("无权访问此文档");
+            throw new BusinessException("无权访问此文档", ErrorCode.FORBIDDEN);
         }
         
         // 检查文档是否已向量化
@@ -425,4 +428,3 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
         return response;
     }
 }
-
