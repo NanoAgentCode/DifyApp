@@ -114,7 +114,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             logger.debug("压缩后的消息列表大小: {}", messages.size());
             
             // 使用langchain4j RAG生成答案（始终使用历史对话）
-            Response<AiMessage> aiResponse = generateAnswerWithHistory(messages, knowledgeBaseId, request, memoryContext);
+            Response<AiMessage> aiResponse = generateAnswerWithHistory(messages, knowledgeBaseId, request, memoryContext, retrievalResults);
             String answer = aiResponse.content().text();
             
             // 提取token使用信息和模型ID
@@ -283,7 +283,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             logger.debug("压缩后的消息列表大小（流式）: {}", messages.size());
             
             // 使用langchain4j流式LLM生成答案（手动检索+RAG）
-            return generateStreamAnswerWithHistory(messages, knowledgeBaseId, request, sources, userId, memoryContext);
+            return generateStreamAnswerWithHistory(messages, knowledgeBaseId, request, sources, userId, memoryContext, retrievalResults);
             
         } catch (Exception e) {
             logger.error("知识库问答失败（流式） - 知识库ID: {}", knowledgeBaseId, e);
@@ -346,27 +346,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     /**
      * 使用历史对话生成答案（非流式）
      */
-    private Response<AiMessage> generateAnswerWithHistory(List<ChatMessage> messages, Long knowledgeBaseId, KnowledgeBaseQARequest request, String memoryContext) {
-        // 获取最后一个用户消息作为查询
-        String query = request.getQuestion();
-        ChatMessage lastMessage = messages.get(messages.size() - 1);
-        if (lastMessage instanceof UserMessage) {
-            query = ((UserMessage) lastMessage).singleText();
-        }
-        
-        // 获取知识库的topK配置
-        Integer topK = null;
-        try {
-            com.github.app.dify.knowledgebase.resp.KnowledgeBaseResp kb = knowledgeBaseService.getKnowledgeBaseById(knowledgeBaseId);
-            topK = kb.getTopK();
-        } catch (Exception e) {
-            logger.debug("获取知识库topK配置失败，使用全局配置 - 知识库ID: {}", knowledgeBaseId);
-        }
-        
-        // 使用RagRetrievalService检索相关内容（它已经处理了ContentRetriever的调用）
-        List<RagRetrievalService.RetrievalResult> retrievalResults = 
-                ragRetrievalService.retrieve(knowledgeBaseId, query, null, topK);
-        
+    private Response<AiMessage> generateAnswerWithHistory(List<ChatMessage> messages, Long knowledgeBaseId, KnowledgeBaseQARequest request, String memoryContext, List<RagRetrievalService.RetrievalResult> retrievalResults) {
         // 构建包含检索内容的系统消息
         if (!retrievalResults.isEmpty()) {
             StringBuilder contextBuilder = new StringBuilder();
@@ -433,18 +413,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
      */
     private Flux<KnowledgeBaseQAResponse> generateStreamAnswerWithHistory(
             List<ChatMessage> messages, Long knowledgeBaseId, 
-            KnowledgeBaseQARequest request, List<KnowledgeBaseQAResponse.SourceDocument> sources, Long userId, String memoryContext) {
-        // 获取最后一个用户消息作为查询
-        String query = request.getQuestion();
-        ChatMessage lastMessage = messages.get(messages.size() - 1);
-        if (lastMessage instanceof UserMessage) {
-            query = ((UserMessage) lastMessage).singleText();
-        }
-        
-        // 使用RagRetrievalService检索相关内容
-        List<RagRetrievalService.RetrievalResult> retrievalResults = 
-                ragRetrievalService.retrieve(knowledgeBaseId, query);
-        
+            KnowledgeBaseQARequest request, List<KnowledgeBaseQAResponse.SourceDocument> sources, Long userId, String memoryContext, List<RagRetrievalService.RetrievalResult> retrievalResults) {
         // 构建包含检索内容的系统消息
         if (!retrievalResults.isEmpty()) {
             StringBuilder contextBuilder = new StringBuilder();
