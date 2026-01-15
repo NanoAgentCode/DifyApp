@@ -146,6 +146,8 @@ public class ErrorCode {
      * 文件下载失败
      */
     public static final int FILE_DOWNLOAD_FAILED = 3003;
+
+    public static final int FILE_DELETE_FAILED = 3007;
     
     /**
      * 文件类型不支持
@@ -222,6 +224,8 @@ public class ErrorCode {
      * 缺少必需的输入参数
      */
     public static final int MISSING_REQUIRED_INPUT = 4012;
+
+    public static final int RAG_RETRIEVAL_ERROR = API_CALL_FAILED;
     
     // ==================== 数据库错误码 (5000-5999) ====================
     /**
@@ -248,6 +252,8 @@ public class ErrorCode {
      * 数据验证失败
      */
     public static final int DATA_VALIDATION_FAILED = 5005;
+
+    public static final int VALIDATION_ERROR = DATA_VALIDATION_FAILED;
     
     // ==================== 外部服务错误码 (6000-6999) ====================
     /**
