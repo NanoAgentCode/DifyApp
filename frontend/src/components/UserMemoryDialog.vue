@@ -34,14 +34,13 @@
           @input="handleKeywordInput"
         />
         <el-button
-          type="danger"
+          type="warning"
           plain
-          :disabled="clearing"
-          @click="handleClear"
+          @click="handleClearFilters"
         >
-          清空
+          重置
         </el-button>
-        <el-button
+                <el-button
           type="primary"
           plain
           :loading="loading"
@@ -49,6 +48,15 @@
         >
           刷新
         </el-button>
+        <el-button
+          type="danger"
+          plain
+          :disabled="clearing"
+          @click="handleClearMemory"
+        >
+          清空
+        </el-button>
+
       </div>
 
       <div class="memory-table-wrapper">
@@ -333,7 +341,16 @@ const clearConfirmText = computed(() => {
   return '确定要清空你的记忆吗？'
 })
 
-const handleClear = async () => {
+const handleClearFilters = () => {
+  keyword.value = ''
+  scopeType.value = 'all'
+  memoryType.value = 'all'
+  page.value = 1
+  pageSize.value = 50
+  ElMessage.success('查询条件已重置')
+}
+
+const handleClearMemory = async () => {
   try {
     await ElMessageBox.confirm(clearConfirmText.value, '提示', {
       confirmButtonText: '确定',

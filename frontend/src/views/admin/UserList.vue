@@ -335,10 +335,13 @@
             style="width: 280px"
             @input="handleMemorySearch"
           />
+          <el-button type="warning" plain @click="handleClearMemoryFilters">
+            重置
+          </el-button>
+          <el-button type="primary" plain :loading="memoryLoading" @click="loadUserMemory">刷新</el-button>
           <el-button type="danger" plain :disabled="memoryClearing" @click="handleClearMemoryInDialog">
             清空
           </el-button>
-          <el-button type="primary" plain :loading="memoryLoading" @click="loadUserMemory">刷新</el-button>
         </div>
         <div class="memory-table-wrapper">
           <el-table :data="pagedMemoryItems" v-loading="memoryLoading" border stripe style="width: 100%" height="100%">
@@ -595,6 +598,15 @@ const handleMemoryScopeChange = async () => {
 const handleMemoryTypeChange = async () => {
   memoryPage.value = 1
   await loadUserMemory()
+}
+
+const handleClearMemoryFilters = () => {
+  memorySearch.value = ''
+  memoryScopeType.value = 'all'
+  memoryType.value = 'all'
+  memoryPage.value = 1
+  memoryPageSize.value = 50
+  ElMessage.success('查询条件已重置')
 }
 
 const handleClearMemoryInDialog = async () => {
