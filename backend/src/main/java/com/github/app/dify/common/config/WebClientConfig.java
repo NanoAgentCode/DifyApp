@@ -37,9 +37,6 @@ public class WebClientConfig {
     // 缓存不同base URL的WebClient实例（流式）
     private final Map<String, WebClient> streamingWebClientCache = new ConcurrentHashMap<>();
     
-    // 默认连接超时时间（毫秒）
-    private static final int DEFAULT_CONNECT_TIMEOUT = 30000;
-    
     // 非流式响应超时时间（毫秒）- 至少5分钟
     private static final long DEFAULT_RESPONSE_TIMEOUT = Math.max(300000L, 30000L);
     
