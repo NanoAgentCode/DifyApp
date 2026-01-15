@@ -3,6 +3,7 @@ package com.github.app.dify.knowledgebase.service.impl;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.exception.NotFoundException;
+import com.github.app.dify.common.util.ServiceHelper;
 import com.github.app.dify.knowledgebase.domain.KnowledgeBase;
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
 import com.github.app.dify.knowledgebase.repository.KnowledgeBaseDocumentRepository;
@@ -151,7 +152,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             throw new BusinessException("知识库创建失败：ID为0，0保留给文档解读使用。请检查数据库序列配置。", ErrorCode.BAD_REQUEST);
         }
         
-        logger.info("知识库创建成功 - ID: {}", knowledgeBase.getId());
+        ServiceHelper.logCreateSuccess(logger, "知识库", knowledgeBase.getId());
         
         return KnowledgeBaseConverterUtil.convertToResp(knowledgeBase, documentRepository);
     }
@@ -164,12 +165,8 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             throw new IllegalArgumentException("知识库ID不能为0，0保留给文档解读使用");
         }
         
-        Optional<KnowledgeBase> optional = knowledgeBaseRepository.findById(id);
-        if (!optional.isPresent()) {
-            throw new NotFoundException("知识库不存在");
-        }
-        
-        KnowledgeBase knowledgeBase = optional.get();
+        KnowledgeBase knowledgeBase = ServiceHelper.checkExistsAndGet(
+                knowledgeBaseRepository.findById(id), "知识库", id, logger);
         
         // 检查是否已删除
         if (knowledgeBase.getDeleted() != null && knowledgeBase.getDeleted() == 1) {
@@ -221,19 +218,15 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         KnowledgeBaseDateTimeUtil.setUpdateTime(knowledgeBase);
         knowledgeBase = knowledgeBaseRepository.save(knowledgeBase);
         
-        logger.info("知识库更新成功 - ID: {}", knowledgeBase.getId());
+        ServiceHelper.logUpdateSuccess(logger, "知识库", knowledgeBase.getId());
         
         return KnowledgeBaseConverterUtil.convertToResp(knowledgeBase, documentRepository);
     }
     
     @Override
     public KnowledgeBaseResp getKnowledgeBaseById(Long id) {
-        Optional<KnowledgeBase> optional = knowledgeBaseRepository.findById(id);
-        if (!optional.isPresent()) {
-            throw new NotFoundException("知识库不存在");
-        }
-        
-        KnowledgeBase knowledgeBase = optional.get();
+        KnowledgeBase knowledgeBase = ServiceHelper.checkExistsAndGet(
+                knowledgeBaseRepository.findById(id), "知识库", id, logger);
         
         // 检查是否已删除
         if (knowledgeBase.getDeleted() != null && knowledgeBase.getDeleted() == 1) {
@@ -246,15 +239,11 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     @Override
     @Transactional
     public void deleteKnowledgeBase(Long id) {
-        Optional<KnowledgeBase> optional = knowledgeBaseRepository.findById(id);
-        if (!optional.isPresent()) {
-            throw new NotFoundException("知识库不存在");
-        }
-        
-        KnowledgeBase knowledgeBase = optional.get();
+        KnowledgeBase knowledgeBase = ServiceHelper.checkExistsAndGet(
+                knowledgeBaseRepository.findById(id), "知识库", id, logger);
         KnowledgeBaseSoftDeleteUtil.softDelete(knowledgeBase, knowledgeBaseRepository);
         
-        logger.info("知识库删除成功 - ID: {}", id);
+        ServiceHelper.logDeleteSuccess(logger, "知识库", id);
     }
     
     @Override
@@ -446,12 +435,8 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         logger.debug("开始生成知识库摘要 - 知识库ID: {}, 模型ID: {}", knowledgeBaseId, modelId);
         
         // 1. 验证知识库是否存在
-        Optional<KnowledgeBase> optional = knowledgeBaseRepository.findById(knowledgeBaseId);
-        if (!optional.isPresent()) {
-            throw new NotFoundException("知识库不存在");
-        }
-        
-        KnowledgeBase knowledgeBase = optional.get();
+        KnowledgeBase knowledgeBase = ServiceHelper.checkExistsAndGet(
+                knowledgeBaseRepository.findById(knowledgeBaseId), "知识库", knowledgeBaseId, logger);
         
         // 检查是否已删除
         if (knowledgeBase.getDeleted() != null && knowledgeBase.getDeleted() == 1) {
@@ -597,7 +582,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             KnowledgeBaseDateTimeUtil.setUpdateTime(knowledgeBase);
             knowledgeBaseRepository.save(knowledgeBase);
             
-            logger.info("知识库摘要生成成功 - 知识库ID: {}, 摘要长度: {}", knowledgeBaseId, summary.length());
+            logger.info("知识库摘要生成成功 - 摘要长度: {}", summary.length());
             
             return summary;
         } catch (Exception e) {
