@@ -517,7 +517,6 @@ const handleConfig = () => {
 </script>
 
 <style scoped>
-/* 容器 - 固定在左侧 */
 .help-chat-container {
   position: fixed;
   left: 0;
@@ -533,7 +532,6 @@ const handleConfig = () => {
   background: rgba(0, 0, 0, 0.3);
 }
 
-/* 聊天窗口 */
 .help-chat-window {
   width: 400px;
   max-width: calc(100vw - 40px);
@@ -549,7 +547,6 @@ const handleConfig = () => {
   position: relative;
 }
 
-/* 头部 */
 .chat-header {
   position: relative;
   background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
@@ -581,35 +578,15 @@ const handleConfig = () => {
   margin-bottom: 12px;
 }
 
-.header-top-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
+.header-top-left,
 .header-top-right {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.chat-icon {
-  font-size: 20px;
-}
-
-.header-action-btn {
-  font-size: 20px;
-  cursor: pointer;
-  transition: all 0.3s;
-  padding: 4px;
-  border-radius: 4px;
-}
-
-.header-action-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.1);
-}
-
+.chat-icon,
+.header-action-btn,
 .header-close-btn {
   font-size: 20px;
   cursor: pointer;
@@ -618,6 +595,7 @@ const handleConfig = () => {
   border-radius: 4px;
 }
 
+.header-action-btn:hover,
 .header-close-btn:hover {
   background: rgba(255, 255, 255, 0.2);
   transform: scale(1.1);
@@ -634,23 +612,6 @@ const handleConfig = () => {
   margin: 0 0 8px 0;
 }
 
-.header-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  opacity: 0.9;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  background: #409eff;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-/* 对话区域 */
 .chat-body {
   flex: 1;
   overflow-y: auto;
@@ -664,86 +625,30 @@ const handleConfig = () => {
   gap: 16px;
 }
 
-/* 欢迎消息 */
-.welcome-message {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.welcome-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #e4e7ed;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: #606266;
-  font-size: 18px;
-}
-
-.welcome-content {
-  flex: 1;
-}
-
-.welcome-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #303133;
-  margin-bottom: 6px;
-}
-
-.welcome-bubble {
-  background: #409eff;
-  color: white;
-  padding: 12px 16px;
-  border-radius: 12px;
-  line-height: 1.5;
-  display: inline-block;
-  max-width: 80%;
-}
-
-/* 消息项 */
 .message-item {
   display: flex;
   gap: 12px;
   width: 100%;
 }
 
-/* 用户消息：右对齐，从右侧滑入动画 */
 .message-item.user {
   justify-content: flex-end;
   animation: slideInFromRight 0.4s ease-out;
 }
 
-/* 助手消息：左对齐，从左向右动画 */
 .message-item.assistant {
   justify-content: flex-start;
   animation: slideInFromLeft 0.4s ease-out;
 }
 
 @keyframes slideInFromLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes slideInFromRight {
-  from {
-    opacity: 0;
-    transform: translateX(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 .message-avatar {
@@ -755,14 +660,6 @@ const handleConfig = () => {
   justify-content: center;
   flex-shrink: 0;
   font-size: 18px;
-}
-
-.message-item.user .message-avatar {
-  background: #409eff;
-  color: white;
-}
-
-.message-item.assistant .message-avatar {
   background: #409eff;
   color: white;
 }
@@ -775,12 +672,10 @@ const handleConfig = () => {
   flex-direction: column;
 }
 
-/* 用户消息内容右对齐 */
 .message-item.user .message-content {
   align-items: flex-end;
 }
 
-/* 助手消息内容左对齐 */
 .message-item.assistant .message-content {
   align-items: flex-start;
 }
@@ -802,11 +697,6 @@ const handleConfig = () => {
   border-color: #409eff;
 }
 
-.message-item.assistant .message-text {
-  background: white;
-  color: #303133;
-}
-
 .message-text.loading {
   display: flex;
   align-items: center;
@@ -814,17 +704,9 @@ const handleConfig = () => {
   color: #909399;
 }
 
-.message-text :deep(p) {
-  margin: 0.5em 0;
-}
-
-.message-text :deep(p:first-child) {
-  margin-top: 0;
-}
-
-.message-text :deep(p:last-child) {
-  margin-bottom: 0;
-}
+.message-text :deep(p) { margin: 0.5em 0; }
+.message-text :deep(p:first-child) { margin-top: 0; }
+.message-text :deep(p:last-child) { margin-bottom: 0; }
 
 .message-text :deep(code) {
   background: rgba(0, 0, 0, 0.05);
@@ -868,7 +750,6 @@ const handleConfig = () => {
   color: #606266;
 }
 
-/* 输入区域 */
 .chat-input-area {
   padding: 16px;
   background: white;
@@ -927,7 +808,6 @@ const handleConfig = () => {
   margin-left: 4px;
 }
 
-/* 确保在小屏幕上按钮也能完整显示 */
 @media (max-width: 480px) {
   .input-toolbar {
     flex-wrap: wrap;
@@ -940,7 +820,6 @@ const handleConfig = () => {
   }
 }
 
-/* 关闭按钮 */
 .close-button {
   position: absolute;
   bottom: -60px;
@@ -969,7 +848,6 @@ const handleConfig = () => {
   transform: translateX(-50%) scale(0.95);
 }
 
-/* 动画 */
 .slide-fade-enter-active {
   transition: all 0.3s ease-out;
 }
@@ -978,14 +856,9 @@ const handleConfig = () => {
   transition: all 0.3s ease-in;
 }
 
-.slide-fade-enter-from {
-  opacity: 0;
-  transform: translateX(-20px);
-}
-
+.slide-fade-enter-from,
 .slide-fade-leave-to {
   opacity: 0;
   transform: translateX(-20px);
 }
 </style>
-

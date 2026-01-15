@@ -143,7 +143,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 顶部系统图标占位 */
 .top-logo-placeholder {
   position: fixed;
   top: 0;
@@ -154,7 +153,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   background: var(--el-color-primary, #409EFF);
-  z-index: 1001; /* 高于导航栏，可以遮挡 */
+  z-index: 1001;
   border-bottom: 1px solid var(--el-border-color-primary-dark-2, rgba(64, 158, 255, 0.8));
   border-right: 1px solid var(--el-border-color-primary-dark-2, rgba(64, 158, 255, 0.8));
   box-sizing: border-box;
@@ -165,36 +164,31 @@ onMounted(() => {
   width: 40px;
   height: 40px;
   object-fit: contain;
-  display: block;
 }
 
 .top-logo-placeholder.logo-collapsed {
   transform: translateY(-100%);
 }
 
-/* 顶部导航栏 */
 .app-header {
-  display: flex !important; /* 确保显示 */
+  display: flex !important;
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
-  padding-top: 0 !important; /* 移除顶部内边距 */
-  margin: 0;
-  margin-top: 0 !important; /* 移除顶部外边距 */
-  width: 100vw !important; /* 占据整个视口宽度 */
-  max-width: 100vw !important; /* 确保不超过视口宽度 */
+  width: 100vw !important;
+  max-width: 100vw !important;
   height: 60px;
   background: var(--el-color-primary, #409EFF);
   border-bottom: 1px solid var(--el-border-color-primary-dark-2, rgba(64, 158, 255, 0.8));
-  position: fixed !important; /* 确保在所有页面都固定定位 */
+  position: fixed !important;
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  z-index: 1000 !important; /* 提高层级，确保显示在最上层 */
+  z-index: 1000 !important;
   transition: transform 0.3s ease;
   box-sizing: border-box;
-  visibility: visible !important; /* 确保可见 */
-  opacity: 1 !important; /* 确保不透明 */
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 .app-header.header-collapsed {
@@ -221,7 +215,6 @@ onMounted(() => {
   width: 32px;
   height: 32px;
   object-fit: contain;
-  display: block;
 }
 
 .header-left h2 {
@@ -235,7 +228,7 @@ onMounted(() => {
 .collapse-header-button {
   padding: 8px;
   color: #ffffff;
-  background-color: transparent; /* 默认透明 */
+  background-color: transparent;
   transition: color 0.2s, background-color 0.2s;
   flex-shrink: 0;
 }
@@ -243,12 +236,12 @@ onMounted(() => {
 .collapse-header-button:hover,
 .collapse-header-button:focus {
   color: #ffffff;
-  background-color: rgba(128, 128, 128, 0.3); /* 灰色半透明 */
+  background-color: rgba(128, 128, 128, 0.3);
 }
 
 .collapse-header-button:focus-visible {
   outline: none;
-  background-color: rgba(128, 128, 128, 0.3); /* 灰色半透明 */
+  background-color: rgba(128, 128, 128, 0.3);
 }
 
 .header-right {
@@ -257,7 +250,7 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   position: relative;
-  z-index: 1001; /* 高于导航栏，确保按钮可点击 */
+  z-index: 1001;
 }
 
 .user-info {
@@ -275,33 +268,32 @@ onMounted(() => {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* 顶部收起时的展开按钮 */
 .expand-header-button {
   position: fixed;
   top: 10px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 999; /* 低于导航栏（1000）但高于其他内容 */
+  z-index: 999;
   animation: slideDown 0.3s ease;
-  pointer-events: auto; /* 确保可以点击 */
+  pointer-events: auto;
 }
 
 .expand-header-button :deep(.el-button) {
-  background-color: transparent !important; /* 默认透明 */
+  background-color: transparent !important;
   border-color: transparent !important;
   color: #909399 !important;
 }
 
 .expand-header-button :deep(.el-button:hover),
 .expand-header-button :deep(.el-button:focus) {
-  background-color: rgba(128, 128, 128, 0.3) !important; /* 灰色半透明 */
+  background-color: rgba(128, 128, 128, 0.3) !important;
   border-color: rgba(128, 128, 128, 0.3) !important;
   color: #909399 !important;
 }
 
 .expand-header-button :deep(.el-button:focus-visible) {
   outline: none;
-  background-color: rgba(128, 128, 128, 0.3) !important; /* 灰色半透明 */
+  background-color: rgba(128, 128, 128, 0.3) !important;
 }
 
 @keyframes slideDown {
@@ -315,7 +307,6 @@ onMounted(() => {
   }
 }
 
-/* 小屏幕适配 */
 @media (max-width: 1024px) {
   .app-header {
     padding: 0 12px;

@@ -145,75 +145,70 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 强制覆盖 Element Plus el-aside 的默认宽度 */
 .app-sidebar :deep(.el-aside),
 .app-sidebar {
-  width: 56px !important; /* 明确设置宽度 */
-  min-width: 56px !important; /* 设置最小宽度 */
-  max-width: 56px !important; /* 设置最大宽度 */
+  width: 56px !important;
+  min-width: 56px !important;
+  max-width: 56px !important;
 }
 
 .app-sidebar {
-  width: 56px !important; /* 明确设置宽度 */
-  min-width: 56px !important; /* 设置最小宽度 */
-  max-width: 56px !important; /* 设置最大宽度 */
-  position: fixed; /* 统一使用固定定位 */
+  width: 56px !important;
+  min-width: 56px !important;
+  max-width: 56px !important;
+  position: fixed;
   left: 0;
-  top: 60px !important; /* 顶部展开时，导航栏从顶部导航栏下方开始 */
-  z-index: 50; /* 低于顶部导航栏（1000） */
-  height: calc(100vh - 60px) !important; /* 减去顶部导航栏高度 */
+  top: 60px !important;
+  z-index: 50;
+  height: calc(100vh - 60px) !important;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  flex-shrink: 0; /* 防止侧边栏被压缩 */
-  margin: 0 !important; /* 移除所有外边距 */
-  padding: 0 !important; /* 移除所有内边距 */
+  flex-shrink: 0;
+  margin: 0 !important;
+  padding: 0 !important;
   background: #fff;
   border-right: 1px solid #e4e7ed;
   transition: top 0.3s ease, height 0.3s ease;
   box-sizing: border-box;
 }
 
-/* 门户模式下，根据横幅展开/收起状态调整位置 */
 .app-sidebar.portal-sidebar:not(.sidebar-header-collapsed) {
-  top: 60px !important; /* 门户模式下横幅展开时，从60px开始 */
+  top: 60px !important;
   height: calc(100vh - 60px) !important;
 }
 
 .app-sidebar.portal-sidebar.sidebar-header-collapsed {
-  top: 0 !important; /* 门户模式下横幅收起时，紧贴顶部 */
+  top: 0 !important;
   height: 100vh !important;
 }
 
-/* 非门户模式，顶部展开时从 60px 开始 */
 .app-sidebar:not(.portal-sidebar):not(.sidebar-header-collapsed-non-portal):not(.sidebar-header-collapsed) {
-  top: 60px !important; /* 顶部展开时，导航栏被向下推 */
+  top: 60px !important;
   height: calc(100vh - 60px) !important;
 }
 
 .app-sidebar.sidebar-header-collapsed-non-portal {
   height: 100vh !important;
-  top: 0 !important; /* 顶部收起时，导航栏贴着顶部 */
+  top: 0 !important;
 }
 
-/* 导航栏顶部系统图标（仅在顶部横幅收起时显示） */
 .sidebar-logo {
   width: 56px;
   height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff; /* 与导航栏背景色一致 */
-  border-bottom: 1px solid #e4e7ed; /* 与导航栏边框一致 */
+  background: #fff;
+  border-bottom: 1px solid #e4e7ed;
   flex-shrink: 0;
   box-sizing: border-box;
 }
 
 .sidebar-logo-img {
-  width: 30px; /* 比菜单项图标稍大一些 */
-  height: 30px; /* 比菜单项图标稍大一些 */
+  width: 30px;
+  height: 30px;
   object-fit: contain;
-  display: block;
 }
 
 .menu {
@@ -224,13 +219,13 @@ onMounted(() => {
   overflow-x: hidden;
   background: #fff;
   margin: 0 !important;
-  padding: 0 !important; /* 确保没有内边距 */
+  padding: 0 !important;
   border-radius: 0;
   box-shadow: none;
 }
 
 .menu :deep(.el-menu--collapse) {
-  width: 56px !important; /* 明确设置菜单宽度 */
+  width: 56px !important;
   min-width: 56px !important;
   max-width: 56px !important;
   padding: 0 !important;
@@ -249,8 +244,8 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   padding: 0 !important;
-  height: 56px; /* 与导航栏宽度一致，保持方形 */
-  width: 56px; /* 确保宽度与高度一致 */
+  height: 56px;
+  width: 56px;
   margin: 0;
   box-sizing: border-box;
 }
@@ -258,9 +253,9 @@ onMounted(() => {
 .menu :deep(.el-menu--collapse .el-menu-item .el-icon) {
   margin: 0 !important;
   padding: 0 !important;
-  font-size: 24px; /* 稍微放大图标 */
-  width: 24px; /* 图标宽度 */
-  height: 24px; /* 图标高度，保持方形 */
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -271,8 +266,8 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   padding: 0 !important;
-  height: 56px; /* 与导航栏宽度一致，保持方形 */
-  width: 56px; /* 确保宽度与高度一致 */
+  height: 56px;
+  width: 56px;
   margin: 0;
   box-sizing: border-box;
 }
@@ -280,9 +275,9 @@ onMounted(() => {
 .menu :deep(.el-menu--collapse .el-sub-menu__title .el-icon) {
   margin: 0 !important;
   padding: 0 !important;
-  font-size: 24px; /* 稍微放大图标 */
-  width: 24px; /* 图标宽度 */
-  height: 24px; /* 图标高度，保持方形 */
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -297,30 +292,25 @@ onMounted(() => {
   background-color: #f5f7fa;
 }
 
-/* 小屏幕适配 */
 @media (max-width: 1024px) {
-  /* 门户模式下，根据横幅展开/收起状态调整位置 */
   .app-sidebar.portal-sidebar:not(.sidebar-header-collapsed) {
-    top: 50px !important; /* 小屏幕门户模式下横幅展开时，从50px开始 */
+    top: 50px !important;
     height: calc(100vh - 50px) !important;
   }
 
   .app-sidebar.portal-sidebar.sidebar-header-collapsed {
-    top: 0 !important; /* 小屏幕门户模式下横幅收起时，紧贴顶部 */
+    top: 0 !important;
     height: 100vh !important;
   }
 
-  /* 非门户模式，顶部展开时从 50px 开始 */
   .app-sidebar:not(.portal-sidebar):not(.sidebar-header-collapsed-non-portal) {
-    top: 50px !important; /* 小屏幕顶部导航栏高度为50px */
+    top: 50px !important;
     height: calc(100vh - 50px) !important;
   }
 
-  /* 非门户模式，顶部收起时紧贴顶部 */
   .app-sidebar.sidebar-header-collapsed-non-portal {
     top: 0 !important;
     height: 100vh !important;
   }
 }
 </style>
-
