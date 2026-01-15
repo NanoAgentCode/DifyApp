@@ -1,11 +1,11 @@
 package com.github.app.dify.chat.domain;
 
+import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.NotNull;
 import java.io.Serializable;
-import java.util.Date;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.validator.constraints.Length;
 /**
@@ -14,7 +14,7 @@ import org.hibernate.validator.constraints.Length;
 */
 @Entity
 @Table(name = "AI_APP_USER")
-public class AiAppUser implements Serializable {
+public class AiAppUser extends BaseSoftDeleteEntity implements Serializable {
 
     /**
     * 关联编号
@@ -70,27 +70,12 @@ public class AiAppUser implements Serializable {
     @Length(max= 64,message="编码长度不能超过64")
     private String creator;
     /**
-    * 创建时间
-    */
-    @Schema(description = "创建时间")
-    private Date createTime;
-    /**
     * 更新者
     */
     @Size(max= 64,message="编码长度不能超过64")
     @Schema(description = "更新者")
     @Length(max= 64,message="编码长度不能超过64")
     private String updater;
-    /**
-    * 更新时间
-    */
-    @Schema(description = "更新时间")
-    private Date updateTime;
-    /**
-    * 是否删除
-    */
-    @Schema(description = "是否删除")
-    private Integer deleted;
     /**
     * 租户编号
     */
@@ -157,29 +142,8 @@ public class AiAppUser implements Serializable {
     /**
     * 创建时间
     */
-    public void setCreateTime(Date createTime){
-    this.createTime = createTime;
-    }
-
-    /**
-    * 更新者
-    */
     public void setUpdater(String updater){
     this.updater = updater;
-    }
-
-    /**
-    * 更新时间
-    */
-    public void setUpdateTime(Date updateTime){
-    this.updateTime = updateTime;
-    }
-
-    /**
-    * 是否删除
-    */
-    public void setDeleted(Integer deleted){
-    this.deleted = deleted;
     }
 
     /**
@@ -249,29 +213,8 @@ public class AiAppUser implements Serializable {
     /**
     * 创建时间
     */
-    public Date getCreateTime(){
-    return this.createTime;
-    }
-
-    /**
-    * 更新者
-    */
     public String getUpdater(){
     return this.updater;
-    }
-
-    /**
-    * 更新时间
-    */
-    public Date getUpdateTime(){
-    return this.updateTime;
-    }
-
-    /**
-    * 是否删除
-    */
-    public Integer getDeleted(){
-    return this.deleted;
     }
 
     /**

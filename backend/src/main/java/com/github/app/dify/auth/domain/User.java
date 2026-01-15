@@ -1,10 +1,10 @@
 package com.github.app.dify.auth.domain;
 
+import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.io.Serializable;
-import java.util.Date;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
@@ -17,7 +17,7 @@ import org.hibernate.validator.constraints.Length;
 @Getter
 @Entity
 @Table(name = "SYS_USER")
-public class User implements Serializable {
+public class User extends BaseSoftDeleteEntity implements Serializable {
 
     /**
      * 用户编号
@@ -60,26 +60,5 @@ public class User implements Serializable {
     @Column(name = "status")
     private Integer status;
     
-    /**
-     * 创建时间
-     */
-    @Schema(description = "创建时间")
-    @Column(name = "create_time")
-    private Date createTime;
-    
-    /**
-     * 更新时间
-     */
-    @Schema(description = "更新时间")
-    @Column(name = "update_time")
-    private Date updateTime;
-    
-    /**
-     * 是否删除
-     */
-    @Schema(description = "是否删除")
-    @Column(name = "deleted")
-    private Integer deleted;
-
 }
 

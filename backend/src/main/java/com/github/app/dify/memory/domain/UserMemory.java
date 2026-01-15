@@ -1,17 +1,15 @@
 package com.github.app.dify.memory.domain;
 
+import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
-
-import java.io.Serializable;
-import java.util.Date;
 
 @Entity
 @Table(
         name = "USER_MEMORY",
         uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "scope_type", "scope_id", "memory_type", "memory_key"})
 )
-public class UserMemory implements Serializable {
+public class UserMemory extends BaseSoftDeleteEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,18 +43,6 @@ public class UserMemory implements Serializable {
     @Schema(description = "重要度（0-5）")
     @Column(name = "importance")
     private Integer importance;
-
-    @Schema(description = "创建时间")
-    @Column(name = "create_time")
-    private Date createTime;
-
-    @Schema(description = "更新时间")
-    @Column(name = "update_time")
-    private Date updateTime;
-
-    @Schema(description = "是否删除：0-未删除，1-已删除")
-    @Column(name = "deleted")
-    private Integer deleted;
 
     public Long getId() {
         return id;
@@ -122,28 +108,6 @@ public class UserMemory implements Serializable {
         this.importance = importance;
     }
 
-    public Date getCreateTime() {
-        return createTime;
-    }
-
-    public void setCreateTime(Date createTime) {
-        this.createTime = createTime;
-    }
-
-    public Date getUpdateTime() {
-        return updateTime;
-    }
-
-    public void setUpdateTime(Date updateTime) {
-        this.updateTime = updateTime;
-    }
-
-    public Integer getDeleted() {
-        return deleted;
-    }
-
-    public void setDeleted(Integer deleted) {
-        this.deleted = deleted;
-    }
+    
 }
 

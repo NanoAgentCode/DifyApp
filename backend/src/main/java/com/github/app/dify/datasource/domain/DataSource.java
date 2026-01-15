@@ -1,10 +1,10 @@
 package com.github.app.dify.datasource.domain;
 
+import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.io.Serializable;
-import java.util.Date;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.validator.constraints.Length;
 /**
@@ -13,7 +13,7 @@ import org.hibernate.validator.constraints.Length;
  */
 @Entity
 @Table(name = "DATA_SOURCE")
-public class DataSource implements Serializable {
+public class DataSource extends BaseSoftDeleteEntity implements Serializable {
 
     /**
      * 数据源编号
@@ -125,30 +125,12 @@ public class DataSource implements Serializable {
     private Boolean isPublic;
     
     /**
-     * 创建时间
-     */
-    @Schema(description = "创建时间")
-    private Date createTime;
-    
-    /**
      * 更新者
      */
     @Size(max= 64,message="编码长度不能超过64")
     @Schema(description = "更新者")
     @Length(max= 64,message="编码长度不能超过64")
     private String updater;
-    
-    /**
-     * 更新时间
-     */
-    @Schema(description = "更新时间")
-    private Date updateTime;
-    
-    /**
-     * 是否删除：0-未删除，1-已删除
-     */
-    @Schema(description = "是否删除：0-未删除，1-已删除")
-    private Integer deleted;
     
     /**
      * 租户编号
@@ -261,36 +243,12 @@ public class DataSource implements Serializable {
         this.isPublic = isPublic;
     }
 
-    public Date getCreateTime() {
-        return createTime;
-    }
-
-    public void setCreateTime(Date createTime) {
-        this.createTime = createTime;
-    }
-
     public String getUpdater() {
         return updater;
     }
 
     public void setUpdater(String updater) {
         this.updater = updater;
-    }
-
-    public Date getUpdateTime() {
-        return updateTime;
-    }
-
-    public void setUpdateTime(Date updateTime) {
-        this.updateTime = updateTime;
-    }
-
-    public Integer getDeleted() {
-        return deleted;
-    }
-
-    public void setDeleted(Integer deleted) {
-        this.deleted = deleted;
     }
 
     public Integer getTenantId() {

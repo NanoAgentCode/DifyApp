@@ -1,5 +1,6 @@
 package com.github.app.dify.knowledgebase.domain;
 
+import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -13,7 +14,7 @@ import org.hibernate.validator.constraints.Length;
  */
 @Entity
 @Table(name = "KNOWLEDGE_BASE_DOCUMENT")
-public class KnowledgeBaseDocument implements Serializable {
+public class KnowledgeBaseDocument extends BaseSoftDeleteEntity implements Serializable {
 
     /**
      * 文档编号
@@ -115,26 +116,6 @@ public class KnowledgeBaseDocument implements Serializable {
     @Length(max= 64,message="编码长度不能超过64")
     @Column(name = "upload_user")
     private String uploadUser;
-    
-    /**
-     * 创建时间
-     */
-    @Schema(description = "创建时间")
-    @Column(name = "create_time")
-    private Date createTime;
-    
-    /**
-     * 更新时间
-     */
-    @Schema(description = "更新时间")
-    @Column(name = "update_time")
-    private Date updateTime;
-    
-    /**
-     * 是否删除：0-未删除，1-已删除
-     */
-    @Schema(description = "是否删除：0-未删除，1-已删除")
-    private Integer deleted;
     
     /**
      * 租户编号
@@ -261,30 +242,6 @@ public class KnowledgeBaseDocument implements Serializable {
 
     public void setUploadUser(String uploadUser) {
         this.uploadUser = uploadUser;
-    }
-
-    public Date getCreateTime() {
-        return createTime;
-    }
-
-    public void setCreateTime(Date createTime) {
-        this.createTime = createTime;
-    }
-
-    public Date getUpdateTime() {
-        return updateTime;
-    }
-
-    public void setUpdateTime(Date updateTime) {
-        this.updateTime = updateTime;
-    }
-
-    public Integer getDeleted() {
-        return deleted;
-    }
-
-    public void setDeleted(Integer deleted) {
-        this.deleted = deleted;
     }
 
     public Integer getTenantId() {

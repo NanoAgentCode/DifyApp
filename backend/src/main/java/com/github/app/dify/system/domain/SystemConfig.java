@@ -1,10 +1,10 @@
 package com.github.app.dify.system.domain;
 
+import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.io.Serializable;
-import java.util.Date;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.validator.constraints.Length;
 
@@ -16,7 +16,7 @@ import org.hibernate.validator.constraints.Length;
 @Table(name = "SYSTEM_CONFIG", uniqueConstraints = {
     @UniqueConstraint(columnNames = {"config_key"})
 })
-public class SystemConfig implements Serializable {
+public class SystemConfig extends BaseSoftDeleteEntity implements Serializable {
 
     /**
      * 配置编号
@@ -71,20 +71,6 @@ public class SystemConfig implements Serializable {
     private String configType;
     
     /**
-     * 创建时间
-     */
-    @Schema(description = "创建时间")
-    @Column(name = "create_time")
-    private Date createTime;
-    
-    /**
-     * 更新时间
-     */
-    @Schema(description = "更新时间")
-    @Column(name = "update_time")
-    private Date updateTime;
-    
-    /**
      * 创建者
      */
     @Size(max= 64,message="创建者长度不能超过64")
@@ -100,13 +86,6 @@ public class SystemConfig implements Serializable {
     @Column(name = "creator_id")
     private Long creatorId;
     
-    /**
-     * 是否删除（0-未删除，1-已删除）
-     */
-    @Schema(description = "是否删除（0-未删除，1-已删除）")
-    @Column(name = "deleted")
-    private Integer deleted;
-
     // Getters and Setters
     public Long getId() {
         return id;
@@ -156,22 +135,6 @@ public class SystemConfig implements Serializable {
         this.configType = configType;
     }
 
-    public Date getCreateTime() {
-        return createTime;
-    }
-
-    public void setCreateTime(Date createTime) {
-        this.createTime = createTime;
-    }
-
-    public Date getUpdateTime() {
-        return updateTime;
-    }
-
-    public void setUpdateTime(Date updateTime) {
-        this.updateTime = updateTime;
-    }
-
     public String getCreator() {
         return creator;
     }
@@ -188,12 +151,5 @@ public class SystemConfig implements Serializable {
         this.creatorId = creatorId;
     }
 
-    public Integer getDeleted() {
-        return deleted;
-    }
-
-    public void setDeleted(Integer deleted) {
-        this.deleted = deleted;
-    }
 }
 

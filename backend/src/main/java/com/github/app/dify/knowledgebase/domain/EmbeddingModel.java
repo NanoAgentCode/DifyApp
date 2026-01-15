@@ -1,10 +1,10 @@
 package com.github.app.dify.knowledgebase.domain;
 
+import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.io.Serializable;
-import java.util.Date;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.validator.constraints.Length;
 /**
@@ -13,7 +13,7 @@ import org.hibernate.validator.constraints.Length;
  */
 @Entity
 @Table(name = "EMBEDDING_MODEL")
-public class EmbeddingModel implements Serializable {
+public class EmbeddingModel extends BaseSoftDeleteEntity implements Serializable {
 
     /**
      * 模型编号
@@ -109,27 +109,6 @@ public class EmbeddingModel implements Serializable {
     @Column(name = "is_default")
     private Boolean isDefault;
     
-    /**
-     * 创建时间
-     */
-    @Schema(description = "创建时间")
-    @Column(name = "create_time")
-    private Date createTime;
-    
-    /**
-     * 更新时间
-     */
-    @Schema(description = "更新时间")
-    @Column(name = "update_time")
-    private Date updateTime;
-    
-    /**
-     * 是否删除：0-未删除，1-已删除
-     */
-    @Schema(description = "是否删除：0-未删除，1-已删除")
-    @Column(name = "deleted")
-    private Integer deleted;
-
     // Getters and Setters
     public Long getId() {
         return id;
@@ -219,27 +198,4 @@ public class EmbeddingModel implements Serializable {
         this.isDefault = isDefault;
     }
 
-    public Date getCreateTime() {
-        return createTime;
-    }
-
-    public void setCreateTime(Date createTime) {
-        this.createTime = createTime;
-    }
-
-    public Date getUpdateTime() {
-        return updateTime;
-    }
-
-    public void setUpdateTime(Date updateTime) {
-        this.updateTime = updateTime;
-    }
-
-    public Integer getDeleted() {
-        return deleted;
-    }
-
-    public void setDeleted(Integer deleted) {
-        this.deleted = deleted;
-    }
 }

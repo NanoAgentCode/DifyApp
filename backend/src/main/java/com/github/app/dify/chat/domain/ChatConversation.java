@@ -1,8 +1,8 @@
 package com.github.app.dify.chat.domain;
 
+import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
 import jakarta.persistence.*;
 import java.io.Serializable;
-import java.util.Date;
 import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * 会话表（一个会话包含多轮对话）
@@ -10,7 +10,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 @Entity
 @Table(name = "chat_conversation")
-public class ChatConversation implements Serializable {
+public class ChatConversation extends BaseSoftDeleteEntity implements Serializable {
 
     /**
      * 主键
@@ -55,27 +55,6 @@ public class ChatConversation implements Serializable {
     @Schema(description = "会话标题")
     @Column(name = "title", length = 500)
     private String title;
-
-    /**
-     * 创建时间
-     */
-    @Schema(description = "创建时间")
-    @Column(name = "create_time")
-    private Date createTime;
-
-    /**
-     * 更新时间
-     */
-    @Schema(description = "更新时间")
-    @Column(name = "update_time")
-    private Date updateTime;
-
-    /**
-     * 是否删除（0-未删除，1-已删除）
-     */
-    @Schema(description = "是否删除")
-    @Column(name = "deleted")
-    private Integer deleted;
 
     /**
      * 模型ID（会话使用的模型，可选）
@@ -130,30 +109,6 @@ public class ChatConversation implements Serializable {
 
     public void setTitle(String title) {
         this.title = title;
-    }
-
-    public Date getCreateTime() {
-        return createTime;
-    }
-
-    public void setCreateTime(Date createTime) {
-        this.createTime = createTime;
-    }
-
-    public Date getUpdateTime() {
-        return updateTime;
-    }
-
-    public void setUpdateTime(Date updateTime) {
-        this.updateTime = updateTime;
-    }
-
-    public Integer getDeleted() {
-        return deleted;
-    }
-
-    public void setDeleted(Integer deleted) {
-        this.deleted = deleted;
     }
 
     public Long getModelId() {

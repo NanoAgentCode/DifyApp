@@ -1,9 +1,9 @@
 package com.github.app.dify.documentreader.domain;
 
+import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Size;
 import java.io.Serializable;
-import java.util.Date;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.validator.constraints.Length;
 
@@ -12,7 +12,7 @@ import org.hibernate.validator.constraints.Length;
  */
 @Entity
 @Table(name = "DOCUMENT_READER")
-public class DocumentReader implements Serializable {
+public class DocumentReader extends BaseSoftDeleteEntity implements Serializable {
 
     /**
      * 文档编号
@@ -104,26 +104,6 @@ public class DocumentReader implements Serializable {
     @Schema(description = "上传用户ID")
     @Column(name = "user_id")
     private Long userId;
-    
-    /**
-     * 创建时间
-     */
-    @Schema(description = "创建时间")
-    @Column(name = "create_time")
-    private Date createTime;
-    
-    /**
-     * 更新时间
-     */
-    @Schema(description = "更新时间")
-    @Column(name = "update_time")
-    private Date updateTime;
-    
-    /**
-     * 是否删除：0-未删除，1-已删除
-     */
-    @Schema(description = "是否删除：0-未删除，1-已删除")
-    private Integer deleted;
     
     /**
      * 总页数（用于PDF等分页文档）
@@ -237,30 +217,6 @@ public class DocumentReader implements Serializable {
         this.userId = userId;
     }
 
-    public Date getCreateTime() {
-        return createTime;
-    }
-
-    public void setCreateTime(Date createTime) {
-        this.createTime = createTime;
-    }
-
-    public Date getUpdateTime() {
-        return updateTime;
-    }
-
-    public void setUpdateTime(Date updateTime) {
-        this.updateTime = updateTime;
-    }
-
-    public Integer getDeleted() {
-        return deleted;
-    }
-
-    public void setDeleted(Integer deleted) {
-        this.deleted = deleted;
-    }
-
     public Integer getTotalPages() {
         return totalPages;
     }
@@ -285,4 +241,3 @@ public class DocumentReader implements Serializable {
         this.vectorizedError = vectorizedError;
     }
 }
-
