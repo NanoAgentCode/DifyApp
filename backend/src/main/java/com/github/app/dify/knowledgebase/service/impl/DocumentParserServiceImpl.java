@@ -146,7 +146,7 @@ public class DocumentParserServiceImpl implements DocumentParserService {
             return content != null ? content.trim() : "";
         } catch (IOException | TikaException e) {
             logger.error("文档解析失败 - 文件名: {}", file.getOriginalFilename(), e);
-            throw new BusinessException("文档解析失败", ErrorCode.DOCUMENT_PARSE_FAILED, e);
+            throw new BusinessException("文档解析失败", ErrorCode.DATA_VALIDATION_FAILED, e);
         }
     }
     
@@ -176,7 +176,7 @@ public class DocumentParserServiceImpl implements DocumentParserService {
             return content != null ? content.trim() : "";
         } catch (IOException | TikaException e) {
             logger.error("文档解析失败 - 文件名: {}", fileName, e);
-            throw new BusinessException("文档解析失败", ErrorCode.DOCUMENT_PARSE_FAILED, e);
+            throw new BusinessException("文档解析失败", ErrorCode.DATA_VALIDATION_FAILED, e);
         }
     }
     

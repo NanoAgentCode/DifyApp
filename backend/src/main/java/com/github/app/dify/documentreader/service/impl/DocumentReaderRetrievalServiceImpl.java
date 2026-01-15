@@ -85,7 +85,7 @@ public class DocumentReaderRetrievalServiceImpl implements DocumentReaderRetriev
         
         DocumentReader document = docOptional.get();
         if (document.getVectorizedStatus() == null || document.getVectorizedStatus() != 2) {
-            throw new BusinessException("文档尚未完成向量化，无法进行检索", ErrorCode.DOCUMENT_NOT_VECTORIZED);
+            throw new BusinessException("文档尚未完成向量化，无法进行检索", ErrorCode.DATA_VALIDATION_FAILED);
         }
         
         try {
@@ -220,10 +220,10 @@ public class DocumentReaderRetrievalServiceImpl implements DocumentReaderRetriev
                 return new ArrayList<>();
             }
             logger.error("文档检索失败 - 文档ID: {}, 查询: {}", documentId, query, e);
-            throw new BusinessException("文档检索失败", ErrorCode.VECTOR_SEARCH_ERROR, e);
+            throw new BusinessException("文档检索失败", ErrorCode.DATABASE_ERROR, e);
         } catch (Exception e) {
             logger.error("文档检索失败 - 文档ID: {}, 查询: {}", documentId, query, e);
-            throw new BusinessException("文档检索失败", ErrorCode.VECTOR_SEARCH_ERROR, e);
+            throw new BusinessException("文档检索失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
     

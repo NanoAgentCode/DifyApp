@@ -514,7 +514,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         }
         
         if (allResults.isEmpty()) {
-            throw new BusinessException("无法从知识库中检索到文档内容，请确保文档已成功向量化", ErrorCode.OPERATION_FAILED);
+            throw new BusinessException("无法从知识库中检索到文档内容，请确保文档已成功向量化", ErrorCode.DATA_VALIDATION_FAILED);
         }
         
         // 5. 去重并合并文档片段（按相似度排序，取前20个）
@@ -602,7 +602,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             return summary;
         } catch (Exception e) {
             logger.error("生成知识库摘要失败 - 知识库ID: {}", knowledgeBaseId, e);
-            throw new BusinessException("生成摘要失败", ErrorCode.OPERATION_FAILED, e);
+            throw new BusinessException("生成摘要失败", ErrorCode.API_CALL_FAILED, e);
         }
     }
 }

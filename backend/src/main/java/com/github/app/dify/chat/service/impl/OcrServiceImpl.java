@@ -106,16 +106,16 @@ public class OcrServiceImpl implements OcrService {
                 } else {
                     String error = (String) result.get("error");
                     logger.error("OCR识别失败: {}", error);
-                    throw new BusinessException("OCR识别失败", ErrorCode.OCR_FAILED);
+                    throw new BusinessException("OCR识别失败", ErrorCode.API_CALL_FAILED);
                 }
             } else {
                 logger.error("OCR服务返回错误状态: {}", response.getStatusCode());
-                throw new BusinessException("OCR服务返回错误状态", ErrorCode.OCR_FAILED);
+                throw new BusinessException("OCR服务返回错误状态", ErrorCode.API_CALL_FAILED);
             }
             
         } catch (RestClientException e) {
             logger.error("调用OCR服务失败", e);
-            throw new BusinessException("调用OCR服务失败", ErrorCode.OCR_FAILED, e);
+            throw new BusinessException("调用OCR服务失败", ErrorCode.API_CALL_FAILED, e);
         }
     }
     

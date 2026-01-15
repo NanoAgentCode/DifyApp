@@ -295,7 +295,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             return fileStorageService.downloadFile(document.getFilePath());
         } catch (Exception e) {
             logger.error("获取文档内容失败: {}", document.getFilePath(), e);
-            throw new BusinessException("获取文档内容失败", ErrorCode.OPERATION_FAILED, e);
+            throw new BusinessException("获取文档内容失败", ErrorCode.SYSTEM_BUSY, e);
         }
     }
     
@@ -407,7 +407,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             
         } catch (Exception e) {
             logger.error("生成文档导读失败 - 文档ID: {}, 模型ID: {}", documentId, modelId, e);
-            throw new BusinessException("生成文档导读失败", ErrorCode.OPERATION_FAILED, e);
+            throw new BusinessException("生成文档导读失败", ErrorCode.API_CALL_FAILED, e);
         }
     }
     
@@ -645,7 +645,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             
         } catch (Exception e) {
             logger.error("翻译文档失败 - 文档ID: {}, 目标语言: {}", documentId, targetLang, e);
-            throw new BusinessException("翻译文档失败", ErrorCode.OPERATION_FAILED, e);
+            throw new BusinessException("翻译文档失败", ErrorCode.API_CALL_FAILED, e);
         }
     }
     
@@ -867,13 +867,10 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         } catch (BusinessException e) {
             // 业务异常，直接抛出
             throw e;
-        } catch (NotFoundException e) {
-            // 资源不存在，直接抛出
-            throw e;
         } catch (Exception e) {
             logger.error("翻译分段失败 - 文档ID: {}, 段索引: {}, 错误: {}", 
                         documentId, segmentIndex, e.getMessage(), e);
-            throw new BusinessException("翻译分段失败", ErrorCode.OPERATION_FAILED, e);
+            throw new BusinessException("翻译分段失败", ErrorCode.API_CALL_FAILED, e);
         }
     }
     
@@ -1033,11 +1030,11 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                         e.getStatusCode(), errorDetail, documentId);
                 throw new BusinessException(
                         String.format("mindMap服务返回错误 (状态码: %s)", e.getStatusCode()),
-                        ErrorCode.EXTERNAL_SERVICE_ERROR, e);
+                        ErrorCode.EXTERNAL_SERVICE_TIMEOUT, e);
             }
             
             if (htmlUrl == null || htmlUrl.trim().isEmpty()) {
-                throw new BusinessException("mindMap服务返回空响应", ErrorCode.EXTERNAL_SERVICE_ERROR);
+                throw new BusinessException("mindMap服务返回空响应", ErrorCode.EXTERNAL_SERVICE_TIMEOUT);
             }
             
             // 清理URL：去除首尾空白和引号
@@ -1077,7 +1074,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             throw e;
         } catch (Exception e) {
             logger.error("生成文档脑图失败 - 文档ID: {}", documentId, e);
-            throw new BusinessException("生成文档脑图失败", ErrorCode.OPERATION_FAILED, e);
+            throw new BusinessException("生成文档脑图失败", ErrorCode.API_CALL_FAILED, e);
         }
     }
     
@@ -1301,7 +1298,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             
         } catch (Exception e) {
             logger.error("单段翻译失败，目标语言: {}", targetLanguageName, e);
-            throw new BusinessException("翻译失败", ErrorCode.OPERATION_FAILED, e);
+            throw new BusinessException("翻译失败", ErrorCode.API_CALL_FAILED, e);
         }
     } 
     /**
@@ -1586,7 +1583,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             
         } catch (Exception e) {
             logger.error("保存分段翻译信息失败 - 文档ID: {}, 目标语言: {}", documentId, targetLang, e);
-            throw new BusinessException("保存分段翻译信息失败", ErrorCode.OPERATION_FAILED, e);
+            throw new BusinessException("保存分段翻译信息失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
     

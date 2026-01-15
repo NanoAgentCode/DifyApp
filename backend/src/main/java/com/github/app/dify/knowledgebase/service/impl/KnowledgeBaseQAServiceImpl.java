@@ -227,7 +227,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             
         } catch (Exception e) {
             logger.error("知识库问答失败 - 知识库ID: {}", knowledgeBaseId, e);
-            throw new BusinessException("知识库问答失败", ErrorCode.OPERATION_FAILED, e);
+            throw new BusinessException("知识库问答失败", ErrorCode.SYSTEM_BUSY, e);
         }
     }
     
@@ -287,7 +287,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             
         } catch (Exception e) {
             logger.error("知识库问答失败（流式） - 知识库ID: {}", knowledgeBaseId, e);
-            return Flux.error(new BusinessException("知识库问答失败", ErrorCode.OPERATION_FAILED, e));
+            return Flux.error(new BusinessException("知识库问答失败", ErrorCode.SYSTEM_BUSY, e));
         }
     }
     
