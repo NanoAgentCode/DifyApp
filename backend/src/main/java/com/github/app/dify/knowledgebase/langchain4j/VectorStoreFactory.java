@@ -10,6 +10,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * 向量存储工厂类
  * 根据知识库的vector_store_type配置选择创建Qdrant、FAISS、Milvus、Chroma、Weaviate、Elasticsearch或PgVector EmbeddingStore
@@ -33,6 +36,10 @@ public class VectorStoreFactory {
     
     // 策略缓存：类型 -> 策略实例
     private java.util.Map<String, VectorStoreStrategy> strategyMap;
+    
+    // EmbeddingStore实例缓存：knowledgeBaseId -> EmbeddingStore
+    private final ConcurrentHashMap<Long, EmbeddingStore<TextSegment>> embeddingStoreCache =
+            new ConcurrentHashMap<>();
     
     /**
      * 初始化策略映射
@@ -62,11 +69,18 @@ public class VectorStoreFactory {
     }
     
     /**
-     * 为指定知识库创建EmbeddingStore
+     * 为指定知识库创建EmbeddingStore（带缓存）
      * @param knowledgeBaseId 知识库ID
      * @return EmbeddingStore实例
      */
     public EmbeddingStore<TextSegment> createEmbeddingStore(Long knowledgeBaseId) {
+        // 优先从缓存获取
+        EmbeddingStore<TextSegment> cachedStore = embeddingStoreCache.get(knowledgeBaseId);
+        if (cachedStore != null) {
+            logger.debug("从缓存获取EmbeddingStore - 知识库ID: {}", knowledgeBaseId);
+            return cachedStore;
+        }
+        
         // 获取知识库的向量存储类型
         String vectorStoreType = getVectorStoreType(knowledgeBaseId);
         
@@ -91,7 +105,7 @@ public class VectorStoreFactory {
         
         // 根据策略类型创建对应的EmbeddingStore
         String strategyType = strategy.getType().toLowerCase();
-        return switch (strategyType) {
+        EmbeddingStore<TextSegment> embeddingStore = switch (strategyType) {
             case "faiss" -> FaissEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
             case "milvus" -> MilvusEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
             case "chroma" -> ChromaEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
@@ -104,6 +118,17 @@ public class VectorStoreFactory {
                 // 默认使用Qdrant
                     QdrantEmbeddingStore.forKnowledgeBase(knowledgeBaseId, strategy);
         };
+        
+        // 存入缓存（使用putIfAbsent避免并发问题）
+        EmbeddingStore<TextSegment> existingStore = embeddingStoreCache.putIfAbsent(knowledgeBaseId, embeddingStore);
+        if (existingStore != null) {
+            logger.debug("EmbeddingStore已被其他线程创建，使用缓存实例 - 知识库ID: {}", knowledgeBaseId);
+            return existingStore;
+        }
+        
+        logger.info("EmbeddingStore已创建并缓存 - 知识库ID: {}, 类型: {}, 当前缓存数量: {}", 
+                knowledgeBaseId, vectorStoreType, embeddingStoreCache.size());
+        return embeddingStore;
     }
     
     /**

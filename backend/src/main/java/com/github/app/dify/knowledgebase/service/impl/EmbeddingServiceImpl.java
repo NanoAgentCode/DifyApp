@@ -10,6 +10,8 @@ import com.github.app.dify.common.exception.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheConfig;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -21,10 +23,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
 /**
- * 向量化服务
+ * 向量化服务（带缓存优化）
  */
 @Service
+@CacheConfig(cacheNames = "embedding")
 public class EmbeddingServiceImpl implements EmbeddingService {
     
     private static final Logger logger = LoggerFactory.getLogger(EmbeddingServiceImpl.class);
@@ -92,9 +96,12 @@ public class EmbeddingServiceImpl implements EmbeddingService {
     }
     
     /**
-     * 向量化单个文本（使用指定模型）
+     * 向量化单个文本（使用指定模型，带缓存）
+     * 缓存键格式: query:{modelId}:{text的hash值}
+     * 缓存时间: 7天（查询的embedding可以复用）
      */
     @Override
+    @Cacheable(key = "'query:' + (#modelId != null ? #modelId : 'default') + ':' + T(String).valueOf(#text.hashCode())")
     public List<Float> embed(String text, Long modelId) {
         if (text == null || text.trim().isEmpty()) {
             throw new IllegalArgumentException("文本不能为空");

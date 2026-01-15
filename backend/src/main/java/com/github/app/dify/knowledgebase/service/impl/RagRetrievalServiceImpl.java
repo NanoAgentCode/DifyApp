@@ -1,5 +1,6 @@
 package com.github.app.dify.knowledgebase.service.impl;
 
+import com.github.app.dify.knowledgebase.langchain4j.store.EmbeddingStoreUtils;
 import com.github.app.dify.system.config.RagConfig;
 import com.github.app.dify.knowledgebase.langchain4j.CustomEmbeddingModel;
 import com.github.app.dify.knowledgebase.langchain4j.VectorStoreFactory;
@@ -16,14 +17,18 @@ import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheConfig;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
 /**
- * RAG检索服务（使用LangChain4j）
+ * RAG检索服务（使用LangChain4j，带缓存优化）
  */
 @Service
+@CacheConfig(cacheNames = "ragRetrieval")
 public class RagRetrievalServiceImpl implements RagRetrievalService {
     
     private static final Logger logger = LoggerFactory.getLogger(RagRetrievalServiceImpl.class);
@@ -41,29 +46,33 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
     private RagConfig ragConfig;
     
     /**
-     * 检索相关文档chunks（使用LangChain4j）
+     * 检索相关文档chunks（使用LangChain4j，带缓存）
      */
     @Override
+    @Cacheable(key = "'kb:' + #knowledgeBaseId + ':' + T(String).valueOf(#query.hashCode())")
     public List<RetrievalResult> retrieve(Long knowledgeBaseId, String query) {
         return retrieve(knowledgeBaseId, query, null, null);
     }
     
     /**
-     * 检索相关文档chunks（使用LangChain4j，指定向量化模型ID）
+     * 检索相关文档chunks（使用LangChain4j，指定向量化模型ID，带缓存）
      */
     @Override
+    @Cacheable(key = "'kb:' + #knowledgeBaseId + ':model:' + (#embeddingModelId != null ? #embeddingModelId : 'default') + ':' + T(String).valueOf(#query.hashCode())")
     public List<RetrievalResult> retrieve(Long knowledgeBaseId, String query, Long embeddingModelId) {
         return retrieve(knowledgeBaseId, query, embeddingModelId, null);
     }
     
     /**
-     * 检索相关文档chunks（使用LangChain4j，指定向量化模型ID和topK）
+     * 检索相关文档chunks（使用LangChain4j，指定向量化模型ID和topK，带缓存）
+     * 注意：当topK变化时缓存会失效，因为topK影响返回结果数量
      * @param knowledgeBaseId 知识库ID
      * @param query 查询文本
      * @param embeddingModelId 向量化模型ID（可选，如果为null则使用默认模型）
      * @param topK Top-K检索数量（可选，如果为null则使用全局配置）
      */
     @Override
+    @Cacheable(key = "'kb:' + #knowledgeBaseId + ':model:' + (#embeddingModelId != null ? #embeddingModelId : 'default') + ':topK:' + (#topK != null ? #topK : 'default') + ':' + T(String).valueOf(#query.hashCode())")
     public List<RetrievalResult> retrieve(Long knowledgeBaseId, String query, Long embeddingModelId, Integer topK) {
         if (query == null || query.trim().isEmpty()) {
             throw new IllegalArgumentException("查询问题不能为空");
@@ -192,10 +201,6 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
      * 将List<Float>转换为float[]
      */
     private float[] convertToFloatArray(List<Float> floatList) {
-        float[] array = new float[floatList.size()];
-        for (int i = 0; i < floatList.size(); i++) {
-            array[i] = floatList.get(i);
-        }
-        return array;
+        return EmbeddingStoreUtils.convertToFloatArray(floatList);
     }
 }
