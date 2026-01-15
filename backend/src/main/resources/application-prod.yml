@@ -2,10 +2,12 @@
 # 生产环境配置 - 需要根据环境修改的配置
 # ============================================
 
-# 引入静态配置
+# 引入静态配置和HikariCP配置
 spring:
   config:
-    import: application-static.yml
+    import: 
+      - application-static.yml
+      - application-hikari.yml
   # 数据源配置（需要根据环境修改）
   datasource:
     driver-class-name: org.postgresql.Driver

@@ -1,5 +1,6 @@
 package com.github.app.dify.common.controller;
 
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.exception.UnauthorizedException;
 import com.github.app.dify.common.resp.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,14 +21,14 @@ public abstract class BaseController {
     protected Long getUserId(HttpServletRequest request) {
         Object userIdObj = request.getAttribute("userId");
         if (userIdObj == null) {
-            throw new UnauthorizedException("未登录或登录已过期，请重新登录");
+            throw new UnauthorizedException("未登录或登录已过期，请重新登录", ErrorCode.UNAUTHORIZED);
         }
         if (userIdObj instanceof Long) {
             return (Long) userIdObj;
         } else if (userIdObj instanceof Integer) {
             return ((Integer) userIdObj).longValue();
         }
-        throw new UnauthorizedException("无法获取用户信息");
+        throw new UnauthorizedException("无法获取用户信息", ErrorCode.UNAUTHORIZED);
     }
     
     /**

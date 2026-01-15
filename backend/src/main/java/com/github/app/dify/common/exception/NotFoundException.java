@@ -5,6 +5,10 @@ package com.github.app.dify.common.exception;
  */
 public class NotFoundException extends BusinessException {
     public NotFoundException(String message) {
-        super(message, 404);
+        super(message, ErrorCode.NOT_FOUND);
+    }
+    
+    public NotFoundException(String message, Integer code) {
+        super(message, code);
     }
 }

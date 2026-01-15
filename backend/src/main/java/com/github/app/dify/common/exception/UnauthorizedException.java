@@ -5,6 +5,10 @@ package com.github.app.dify.common.exception;
  */
 public class UnauthorizedException extends BusinessException {
     public UnauthorizedException(String message) {
-        super(message, 401);
+        super(message, ErrorCode.UNAUTHORIZED);
+    }
+    
+    public UnauthorizedException(String message, Integer code) {
+        super(message, code);
     }
 }

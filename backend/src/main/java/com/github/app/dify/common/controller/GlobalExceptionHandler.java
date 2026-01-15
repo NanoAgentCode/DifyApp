@@ -139,22 +139,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiResponse<Object>> handleRuntimeException(RuntimeException e) {
-        logger.error("运行时异常", e);
-        String message = e.getMessage();
+        logger.error("运行时异常: {}", e.getMessage(), e);
         
-        // 提供更友好的错误消息
-        if (message == null || message.trim().isEmpty()) {
-            message = "操作失败，请稍后重试";
-        } else {
-            // 过滤掉技术性的错误信息，提供更友好的提示
-            if (message.contains("SQL") || message.contains("database") || message.contains("connection")) {
-                message = "数据库操作失败，请稍后重试或联系管理员";
-            } else if (message.contains("timeout") || message.contains("超时")) {
-                message = "操作超时，请稍后重试";
-            } else if (message.contains("null") && message.contains("pointer")) {
-                message = "系统内部错误，请稍后重试";
-            }
-        }
+        // 使用统一的用户友好错误消息，不泄露技术细节
+        String message = sanitizeErrorMessage(e.getMessage());
         
         return ResponseEntity.badRequest().body(ApiResponse.error(message, 400));
     }
@@ -164,26 +152,96 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleException(Exception e) {
-        logger.error("系统异常", e);
-        String message = "系统内部错误，请稍后重试";
+        logger.error("系统异常: {} - 类型: {}", e.getMessage(), e.getClass().getSimpleName(), e);
         
-        // 根据异常类型提供更具体的错误信息
-        if (e instanceof java.sql.SQLException) {
-            message = "数据库操作失败，请检查数据库连接或联系管理员";
-        } else if (e instanceof java.net.ConnectException) {
+        // 统一使用用户友好的错误消息，不泄露技术细节
+        String message = sanitizeErrorMessage(e.getMessage());
+        
+        // 根据异常类型提供更具体的错误信息（仅非敏感信息）
+        if (e instanceof java.net.ConnectException) {
             message = "无法连接到服务，请检查网络连接";
-        } else if (e.getMessage() != null && !e.getMessage().trim().isEmpty()) {
-            // 如果异常有消息且不是技术性错误，则使用原消息
-            String originalMessage = e.getMessage();
-            if (!originalMessage.contains("Exception") && 
-                !originalMessage.contains("at ") && 
-                !originalMessage.contains("java.")) {
-                message = originalMessage;
-            }
+        } else if (e instanceof java.net.SocketTimeoutException) {
+            message = "请求超时，请稍后重试";
         }
         
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error(message, 500));
     }
+    
+    /**
+     * 清理和脱敏错误消息
+     * 移除敏感的技术细节，返回用户友好的消息
+     * 
+     * @param originalMessage 原始错误消息
+     * @return 清理后的用户友好消息
+     */
+    private String sanitizeErrorMessage(String originalMessage) {
+        if (originalMessage == null || originalMessage.trim().isEmpty()) {
+            return "操作失败，请稍后重试";
+        }
+        
+        String message = originalMessage.trim();
+        
+        // 移除可能包含敏感信息的模式
+        String[] sensitivePatterns = {
+            // SQL 相关（可能泄露表结构、字段名等）
+            "SQL", "SQLState", "ErrorCode", "syntax error", "constraint",
+            "column", "table", "foreign key", "duplicate key",
+            
+            // 数据库连接信息（可能泄露连接字符串、密码等）
+            "jdbc:", "postgresql://", "mysql://", "Connection refused",
+            
+            // 堆栈信息（绝对不能泄露）
+            "at ", "Caused by:", "Exception:", "java.lang.",
+            "org.springframework", "org.hibernate", "org.postgresql",
+            
+            // 文件路径信息（可能泄露服务器路径）
+            "/", "\\", ".java", ".class",
+            
+            // 其他技术细节
+            "classpath:", "jar:file:", "nested exception"
+        };
+        
+        for (String pattern : sensitivePatterns) {
+            if (message.contains(pattern)) {
+                // 检测到敏感信息，返回通用错误消息
+                logger.warn("检测到错误消息包含敏感信息，已过滤: {}", 
+                    message.substring(0, Math.min(100, message.length())));
+                return "操作失败，请稍后重试或联系管理员";
+            }
+        }
+        
+        // 检查消息是否过于技术性
+        if (isTechnicalMessage(message)) {
+            logger.warn("错误消息过于技术性，已替换为通用消息");
+            return "操作失败，请稍后重试";
+        }
+        
+        return message;
+    }
+    
+    /**
+     * 判断错误消息是否过于技术性
+     * 
+     * @param message 错误消息
+     * @return true 如果消息包含过多技术细节
+     */
+    private boolean isTechnicalMessage(String message) {
+        int technicalIndicators = 0;
+        
+        String[] technicalPatterns = {
+            "Exception", "Error", "failed", "timeout", "null",
+            "not found", "illegal", "invalid", "constraint",
+            "SQL", "database", "connection", "network"
+        };
+        
+        for (String pattern : technicalPatterns) {
+            if (message.toLowerCase().contains(pattern.toLowerCase())) {
+                technicalIndicators++;
+            }
+        }
+        
+        // 如果包含3个或以上技术关键词，认为是技术性消息
+        return technicalIndicators >= 3;
+    }
 }
-

@@ -3,6 +3,7 @@ package com.github.app.dify.chat.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.system.config.DifyConfig;
 import com.github.app.dify.chat.resp.DifyResponse;
+import com.github.app.dify.common.config.WebClientConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,11 +16,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.BodyInserters;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.netty.http.client.HttpClient;
-import io.netty.channel.ChannelOption;
 import reactor.util.function.Tuples;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -37,61 +35,29 @@ public class DifyApiClient {
     @Autowired
     private ObjectMapper objectMapper;
     
-    private WebClient createWebClient(String baseUrl) {
+    @Autowired
+    private WebClientConfig webClientConfig;
+    
+    /**
+     * 获取WebClient实例（非流式）- 使用缓存优化
+     */
+    private WebClient getWebClient(String baseUrl) {
         String url = (baseUrl != null && !baseUrl.trim().isEmpty()) 
                 ? baseUrl.trim() 
                 : difyConfig.getDefaultBaseUrl();
-        // 移除尾随斜杠
-        if (url.endsWith("/")) {
-            url = url.substring(0, url.length() - 1);
-        }
-        logger.info("使用Dify API Base URL: {}", url);
-        
-        // 配置HTTP客户端超时（用于非流式响应）
-        // 对于非流式响应，设置较长的超时时间（至少5分钟），特别是Workflow可能需要更长时间
-        long defaultTimeout = Math.max(difyConfig.getTimeout(), 300000L); // 至少5分钟
-        HttpClient httpClient = HttpClient.create()
-                .responseTimeout(Duration.ofMillis(defaultTimeout))
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, difyConfig.getConnectTimeout());
-        logger.info("非流式WebClient响应超时设置为: {} 毫秒 ({} 分钟)", defaultTimeout, defaultTimeout / 60000);
-        
-        return WebClient.builder()
-                .baseUrl(url)
-                .clientConnector(new org.springframework.http.client.reactive.ReactorClientHttpConnector(httpClient))
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
-                .build();
+        logger.info("使用Dify API Base URL（非流式）: {}", url);
+        return webClientConfig.getWebClient(url);
     }
     
     /**
-     * 创建用于流式响应的WebClient（设置较长的响应超时，由Flux级别控制）
+     * 获取WebClient实例（流式）- 使用缓存优化
      */
-    private WebClient createStreamWebClient(String baseUrl) {
+    private WebClient getStreamingWebClient(String baseUrl) {
         String url = (baseUrl != null && !baseUrl.trim().isEmpty()) 
                 ? baseUrl.trim() 
                 : difyConfig.getDefaultBaseUrl();
-        // 移除尾随斜杠
-        if (url.endsWith("/")) {
-            url = url.substring(0, url.length() - 1);
-        }
-        logger.info("使用Dify API Base URL (流式): {}", url);
-        
-        // 对于流式响应，设置较长的响应超时时间（至少10分钟）
-        long streamResponseTimeout = Math.max(difyConfig.getTimeout(), 600000L); // 至少10分钟
-        
-        // 配置HTTP客户端（设置连接超时和响应超时）
-        HttpClient httpClient = HttpClient.create()
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, difyConfig.getConnectTimeout())
-                .responseTimeout(Duration.ofMillis(streamResponseTimeout));
-        
-        logger.info("流式WebClient响应超时设置为: {} 毫秒 ({} 分钟)", streamResponseTimeout, streamResponseTimeout / 60000);
-        
-        return WebClient.builder()
-                .baseUrl(url)
-                .clientConnector(new org.springframework.http.client.reactive.ReactorClientHttpConnector(httpClient))
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
-                .build();
+        logger.info("使用Dify API Base URL（流式）: {}", url);
+        return webClientConfig.getStreamingWebClient(url);
     }
     
     /**
@@ -113,7 +79,7 @@ public class DifyApiClient {
     private Mono<DifyResponse> executeChatRequest(String apiKey, String baseUrl, String query, 
                                                    String conversationId, String userId, 
                                                    Map<String, Object> inputs, List<Map<String, Object>> files, boolean allowRetry) {
-        WebClient webClient = createWebClient(baseUrl);
+        WebClient webClient = getWebClient(baseUrl);
         
         Map<String, Object> requestBody = new java.util.HashMap<>();
         requestBody.put("query", query);
@@ -214,7 +180,7 @@ public class DifyApiClient {
     private Flux<DifyResponse> executeChatStreamRequest(String apiKey, String baseUrl, String query, 
                                                          String conversationId, String userId, 
                                                          Map<String, Object> inputs, List<Map<String, Object>> files, boolean allowRetry) {
-        WebClient webClient = createStreamWebClient(baseUrl);
+        WebClient webClient = getStreamingWebClient(baseUrl);
         
         Map<String, Object> requestBody = new java.util.HashMap<>();
         requestBody.put("query", query);
@@ -416,7 +382,7 @@ public class DifyApiClient {
             throw new RuntimeException("API Key不能为空");
         }
         
-        WebClient webClient = createWebClient(baseUrl);
+        WebClient webClient = getWebClient(baseUrl);
         
         Map<String, Object> requestBody = new java.util.HashMap<>();
         // user 是必需参数
@@ -601,7 +567,7 @@ public class DifyApiClient {
             throw new RuntimeException("API Key不能为空");
         }
         
-        WebClient webClient = createStreamWebClient(baseUrl);
+        WebClient webClient = getStreamingWebClient(baseUrl);
         
         Map<String, Object> requestBody = new java.util.HashMap<>();
         // user 是必需参数
@@ -790,7 +756,7 @@ public class DifyApiClient {
             return Mono.error(new RuntimeException("文件不能为空"));
         }
         
-        WebClient webClient = createWebClient(baseUrl);
+        WebClient webClient = getWebClient(baseUrl);
         
         // 创建 MultipartBodyBuilder 来构建 multipart/form-data 请求
         org.springframework.util.LinkedMultiValueMap<String, Object> parts = 

@@ -83,6 +83,40 @@ public class ChatMessage implements Serializable {
     @Column(name = "total_tokens")
     private Long totalTokens;
 
+    /**
+     * 是否已删除（软删除标记）
+     */
+    @Schema(description = "是否已删除")
+    @Column(name = "deleted")
+    private Integer deleted;
+
+    // ========== 数据库索引 ==========
+
+    /**
+     * 索引：会话ID - 用于查询某个会话的所有消息
+     */
+    @Index(name = "idx_conversation_id", columnList = "conversation_id")
+    
+    /**
+     * 索引：会话ID + 消息顺序 - 用于按顺序查询会话消息
+     */
+    @Index(name = "idx_conversation_sequence", columnList = {"conversation_id", "sequence"})
+    
+    /**
+     * 索引：创建时间 - 用于时间范围查询和统计
+     */
+    @Index(name = "idx_create_time", columnList = "create_time")
+    
+    /**
+     * 索引：会话ID + 创建时间 - 用于复杂查询优化
+     */
+    @Index(name = "idx_conversation_create_time", columnList = {"conversation_id", "create_time"})
+    
+    /**
+     * 索引：模型ID + 创建时间 - 用于模型使用统计
+     */
+    @Index(name = "idx_model_create_time", columnList = {"model_id", "create_time"})
+
     public Long getId() {
         return id;
     }
@@ -161,5 +195,13 @@ public class ChatMessage implements Serializable {
 
     public void setTotalTokens(Long totalTokens) {
         this.totalTokens = totalTokens;
+    }
+
+    public Integer getDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(Integer deleted) {
+        this.deleted = deleted;
     }
 }

@@ -62,6 +62,33 @@ public class ChatConversation extends BaseEntity {
     @Column(name = "model_id")
     private Long modelId;
 
+    // ========== 数据库索引 ==========
+
+    /**
+     * 索引：用户ID - 用于查询用户的所有会话
+     */
+    @Index(name = "idx_user_id", columnList = "user_id")
+    
+    /**
+     * 索引：应用ID - 用于查询某个应用的所有会话
+     */
+    @Index(name = "idx_app_id", columnList = "app_id")
+    
+    /**
+     * 索引：用户ID + 创建时间 - 用于查询用户会话列表（按时间排序）
+     */
+    @Index(name = "idx_user_create_time", columnList = {"user_id", "create_time"})
+    
+    /**
+     * 索引：用户ID + 类型 - 用于按类型筛选用户会话
+     */
+    @Index(name = "idx_user_type", columnList = {"user_id", "type"})
+    
+    /**
+     * 索引：知识库ID - 用于查询某个知识库的所有会话
+     */
+    @Index(name = "idx_knowledge_base_id", columnList = "knowledge_base_id")
+
     public Long getId() {
         return id;
     }
