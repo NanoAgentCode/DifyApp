@@ -1,11 +1,9 @@
 package com.github.app.dify.knowledgebase.util;
 
-import com.github.app.dify.common.util.DateTimeUtil;
+import com.github.app.dify.common.util.EntityLifecycleUtil;
 import com.github.app.dify.knowledgebase.domain.KnowledgeBase;
 import com.github.app.dify.knowledgebase.domain.KnowledgeBaseDocument;
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
-
-import java.util.Date;
 
 /**
  * 知识库日期时间工具类
@@ -20,9 +18,7 @@ public class KnowledgeBaseDateTimeUtil {
      * @param knowledgeBase 知识库实体
      */
     public static void setCreateAndUpdateTime(KnowledgeBase knowledgeBase) {
-        Date now = DateTimeUtil.now();
-        knowledgeBase.setCreateTime(now);
-        knowledgeBase.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(knowledgeBase);
     }
     
     /**
@@ -32,7 +28,7 @@ public class KnowledgeBaseDateTimeUtil {
      * @param knowledgeBase 知识库实体
      */
     public static void setUpdateTime(KnowledgeBase knowledgeBase) {
-        knowledgeBase.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(knowledgeBase);
     }
     
     /**
@@ -42,9 +38,7 @@ public class KnowledgeBaseDateTimeUtil {
      * @param document 知识库文档实体
      */
     public static void setCreateAndUpdateTime(KnowledgeBaseDocument document) {
-        Date now = DateTimeUtil.now();
-        document.setCreateTime(now);
-        document.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(document);
     }
     
     /**
@@ -54,7 +48,7 @@ public class KnowledgeBaseDateTimeUtil {
      * @param document 知识库文档实体
      */
     public static void setUpdateTime(KnowledgeBaseDocument document) {
-        document.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(document);
     }
     
     /**
@@ -64,9 +58,7 @@ public class KnowledgeBaseDateTimeUtil {
      * @param vectorDatabase 向量数据库实体
      */
     public static void setCreateAndUpdateTime(VectorDatabase vectorDatabase) {
-        Date now = DateTimeUtil.now();
-        vectorDatabase.setCreateTime(now);
-        vectorDatabase.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(vectorDatabase);
     }
     
     /**
@@ -76,7 +68,6 @@ public class KnowledgeBaseDateTimeUtil {
      * @param vectorDatabase 向量数据库实体
      */
     public static void setUpdateTime(VectorDatabase vectorDatabase) {
-        vectorDatabase.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(vectorDatabase);
     }
 }
-

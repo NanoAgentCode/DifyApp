@@ -1,10 +1,8 @@
 package com.github.app.dify.model.util;
 
-import com.github.app.dify.common.util.DateTimeUtil;
+import com.github.app.dify.common.util.EntityLifecycleUtil;
 import com.github.app.dify.knowledgebase.domain.EmbeddingModel;
 import com.github.app.dify.knowledgebase.domain.QAModel;
-
-import java.util.Date;
 
 /**
  * 模型日期时间工具类
@@ -19,9 +17,7 @@ public class ModelDateTimeUtil {
      * @param qaModel 问答模型实体
      */
     public static void setCreateAndUpdateTime(QAModel qaModel) {
-        Date now = DateTimeUtil.now();
-        qaModel.setCreateTime(now);
-        qaModel.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(qaModel);
     }
     
     /**
@@ -31,7 +27,7 @@ public class ModelDateTimeUtil {
      * @param qaModel 问答模型实体
      */
     public static void setUpdateTime(QAModel qaModel) {
-        qaModel.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(qaModel);
     }
     
     /**
@@ -41,9 +37,7 @@ public class ModelDateTimeUtil {
      * @param embeddingModel 向量化模型实体
      */
     public static void setCreateAndUpdateTime(EmbeddingModel embeddingModel) {
-        Date now = DateTimeUtil.now();
-        embeddingModel.setCreateTime(now);
-        embeddingModel.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(embeddingModel);
     }
     
     /**
@@ -53,7 +47,6 @@ public class ModelDateTimeUtil {
      * @param embeddingModel 向量化模型实体
      */
     public static void setUpdateTime(EmbeddingModel embeddingModel) {
-        embeddingModel.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(embeddingModel);
     }
 }
-

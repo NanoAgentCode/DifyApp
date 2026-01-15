@@ -1,5 +1,6 @@
 package com.github.app.dify.datasource.util;
 
+import com.github.app.dify.common.util.EntityLifecycleUtil;
 import com.github.app.dify.datasource.domain.DataSource;
 import org.springframework.data.repository.CrudRepository;
 
@@ -16,9 +17,7 @@ public class DataSourceSoftDeleteUtil {
      * @param repository 数据源仓库
      */
     public static void softDelete(DataSource dataSource, CrudRepository<DataSource, Long> repository) {
-        dataSource.setDeleted(1);
-        DataSourceDateTimeUtil.setUpdateTime(dataSource);
-        repository.save(dataSource);
+        EntityLifecycleUtil.softDelete(dataSource, repository);
     }
     
     /**
@@ -28,9 +27,7 @@ public class DataSourceSoftDeleteUtil {
      * @param repository 数据源仓库
      */
     public static void restore(DataSource dataSource, CrudRepository<DataSource, Long> repository) {
-        dataSource.setDeleted(0);
-        DataSourceDateTimeUtil.setUpdateTime(dataSource);
-        repository.save(dataSource);
+        EntityLifecycleUtil.restore(dataSource, repository);
     }
     
     /**
@@ -40,7 +37,6 @@ public class DataSourceSoftDeleteUtil {
      * @return true 如果已删除，false 如果未删除
      */
     public static boolean isDeleted(DataSource dataSource) {
-        return dataSource.getDeleted() != null && dataSource.getDeleted() == 1;
+        return EntityLifecycleUtil.isDeleted(dataSource);
     }
 }
-

@@ -1,9 +1,7 @@
 package com.github.app.dify.datasource.util;
 
-import com.github.app.dify.common.util.DateTimeUtil;
+import com.github.app.dify.common.util.EntityLifecycleUtil;
 import com.github.app.dify.datasource.domain.DataSource;
-
-import java.util.Date;
 
 /**
  * 数据源日期时间工具类
@@ -18,9 +16,7 @@ public class DataSourceDateTimeUtil {
      * @param dataSource 数据源实体
      */
     public static void setCreateAndUpdateTime(DataSource dataSource) {
-        Date now = DateTimeUtil.now();
-        dataSource.setCreateTime(now);
-        dataSource.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(dataSource);
     }
     
     /**
@@ -30,6 +26,6 @@ public class DataSourceDateTimeUtil {
      * @param dataSource 数据源实体
      */
     public static void setUpdateTime(DataSource dataSource) {
-        dataSource.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(dataSource);
     }
 }

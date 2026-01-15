@@ -1,22 +1,17 @@
 package com.github.app.dify.knowledgebase.util;
 
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import com.github.app.dify.common.util.WebClientFactoryUtil;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
-
-import java.time.Duration;
 
 /**
  * 知识库 WebClient 工具类
  * 提供统一的 WebClient 创建和配置方法
  */
 public class KnowledgeBaseWebClientUtil {
-    
-    private static final int DEFAULT_CONNECT_TIMEOUT_MS = 30000;
-    
+
     // 默认缓冲区大小（10MB）
-    private static final int DEFAULT_MAX_IN_MEMORY_SIZE = 10 * 1024 * 1024;
+    private static final int DEFAULT_MAX_IN_MEMORY_SIZE = WebClientFactoryUtil.DEFAULT_MAX_IN_MEMORY_SIZE;
     
     // 大批量操作缓冲区大小（50MB）
     private static final int LARGE_MAX_IN_MEMORY_SIZE = 50 * 1024 * 1024;
@@ -28,12 +23,7 @@ public class KnowledgeBaseWebClientUtil {
      * @return WebClient.Builder
      */
     public static WebClient.Builder createBuilder(String baseUrl) {
-        return WebClient.builder()
-                .baseUrl(baseUrl)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .codecs(configurer -> configurer
-                        .defaultCodecs()
-                        .maxInMemorySize(DEFAULT_MAX_IN_MEMORY_SIZE));
+        return WebClientFactoryUtil.createBuilder(baseUrl);
     }
     
     /**
@@ -44,11 +34,7 @@ public class KnowledgeBaseWebClientUtil {
      * @return WebClient.Builder
      */
     public static WebClient.Builder createBuilderWithApiKey(String baseUrl, String apiKey) {
-        WebClient.Builder builder = createBuilder(baseUrl);
-        if (apiKey != null && !apiKey.trim().isEmpty()) {
-            builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey);
-        }
-        return builder;
+        return WebClientFactoryUtil.withBearerAuth(createBuilder(baseUrl), apiKey);
     }
     
     /**
@@ -60,11 +46,7 @@ public class KnowledgeBaseWebClientUtil {
      * @return WebClient.Builder
      */
     public static WebClient.Builder createBuilderWithCustomAuth(String baseUrl, String apiKey, String authHeaderName) {
-        WebClient.Builder builder = createBuilder(baseUrl);
-        if (apiKey != null && !apiKey.trim().isEmpty()) {
-            builder.defaultHeader(authHeaderName, apiKey);
-        }
-        return builder;
+        return WebClientFactoryUtil.withHeader(createBuilder(baseUrl), authHeaderName, apiKey);
     }
     
     /**
@@ -74,12 +56,7 @@ public class KnowledgeBaseWebClientUtil {
      * @return WebClient.Builder
      */
     public static WebClient.Builder createBuilderForLargeOperations(String baseUrl) {
-        return WebClient.builder()
-                .baseUrl(baseUrl)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .codecs(configurer -> configurer
-                        .defaultCodecs()
-                        .maxInMemorySize(LARGE_MAX_IN_MEMORY_SIZE));
+        return WebClientFactoryUtil.createBuilder(baseUrl, LARGE_MAX_IN_MEMORY_SIZE);
     }
     
     /**
@@ -89,7 +66,7 @@ public class KnowledgeBaseWebClientUtil {
      * @return HttpClient
      */
     public static HttpClient createHttpClient(int timeoutSeconds) {
-        return createHttpClient(timeoutSeconds, DEFAULT_CONNECT_TIMEOUT_MS);
+        return WebClientFactoryUtil.createHttpClient(timeoutSeconds);
     }
     
     /**
@@ -100,9 +77,7 @@ public class KnowledgeBaseWebClientUtil {
      * @return HttpClient
      */
     public static HttpClient createHttpClient(int timeoutSeconds, int connectTimeoutMs) {
-        return HttpClient.create()
-                .responseTimeout(Duration.ofSeconds(timeoutSeconds))
-                .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMs);
+        return WebClientFactoryUtil.createHttpClient(timeoutSeconds, connectTimeoutMs);
     }
     
     /**
@@ -114,19 +89,10 @@ public class KnowledgeBaseWebClientUtil {
      * @return WebClient.Builder
      */
     public static WebClient.Builder createBuilderWithHttpClient(String baseUrl, String apiKey, HttpClient httpClient) {
-        WebClient.Builder builder = WebClient.builder()
-                .baseUrl(baseUrl)
-                .clientConnector(new org.springframework.http.client.reactive.ReactorClientHttpConnector(httpClient))
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .codecs(configurer -> configurer
-                        .defaultCodecs()
-                        .maxInMemorySize(DEFAULT_MAX_IN_MEMORY_SIZE));
-        
-        if (apiKey != null && !apiKey.trim().isEmpty()) {
-            builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey);
-        }
-        
-        return builder;
+        return WebClientFactoryUtil.withBearerAuth(
+                WebClientFactoryUtil.createBuilder(baseUrl, httpClient, DEFAULT_MAX_IN_MEMORY_SIZE),
+                apiKey
+        );
     }
     
     /**
@@ -138,19 +104,9 @@ public class KnowledgeBaseWebClientUtil {
      * @return WebClient.Builder
      */
     public static WebClient.Builder createBuilderForLargeOperationsWithHttpClient(String baseUrl, String apiKey, HttpClient httpClient) {
-        WebClient.Builder builder = WebClient.builder()
-                .baseUrl(baseUrl)
-                .clientConnector(new org.springframework.http.client.reactive.ReactorClientHttpConnector(httpClient))
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .codecs(configurer -> configurer
-                        .defaultCodecs()
-                        .maxInMemorySize(LARGE_MAX_IN_MEMORY_SIZE));
-        
-        if (apiKey != null && !apiKey.trim().isEmpty()) {
-            builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey);
-        }
-        
-        return builder;
+        return WebClientFactoryUtil.withBearerAuth(
+                WebClientFactoryUtil.createBuilder(baseUrl, httpClient, LARGE_MAX_IN_MEMORY_SIZE),
+                apiKey
+        );
     }
 }
-

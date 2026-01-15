@@ -3,9 +3,7 @@ package com.github.app.dify.chat.util;
 import com.github.app.dify.chat.domain.AiApp;
 import com.github.app.dify.chat.domain.ChatConversation;
 import com.github.app.dify.chat.domain.ChatMessage;
-import com.github.app.dify.common.util.DateTimeUtil;
-
-import java.util.Date;
+import com.github.app.dify.common.util.EntityLifecycleUtil;
 
 /**
  * 聊天日期时间工具类
@@ -20,9 +18,7 @@ public class ChatDateTimeUtil {
      * @param aiApp AI应用实体
      */
     public static void setCreateAndUpdateTime(AiApp aiApp) {
-        Date now = DateTimeUtil.now();
-        aiApp.setCreateTime(now);
-        aiApp.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(aiApp);
     }
     
     /**
@@ -32,7 +28,7 @@ public class ChatDateTimeUtil {
      * @param aiApp AI应用实体
      */
     public static void setUpdateTime(AiApp aiApp) {
-        aiApp.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(aiApp);
     }
     
     /**
@@ -42,9 +38,7 @@ public class ChatDateTimeUtil {
      * @param conversation 会话实体
      */
     public static void setCreateAndUpdateTime(ChatConversation conversation) {
-        Date now = DateTimeUtil.now();
-        conversation.setCreateTime(now);
-        conversation.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(conversation);
     }
     
     /**
@@ -54,7 +48,7 @@ public class ChatDateTimeUtil {
      * @param conversation 会话实体
      */
     public static void setUpdateTime(ChatConversation conversation) {
-        conversation.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(conversation);
     }
     
     /**
@@ -64,7 +58,6 @@ public class ChatDateTimeUtil {
      * @param message 消息实体
      */
     public static void setCreateTime(ChatMessage message) {
-        message.setCreateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setCreateTime(message);
     }
 }
-

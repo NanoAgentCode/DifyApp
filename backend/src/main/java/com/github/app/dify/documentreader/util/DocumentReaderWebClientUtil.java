@@ -1,23 +1,15 @@
 package com.github.app.dify.documentreader.util;
 
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import com.github.app.dify.common.util.WebClientFactoryUtil;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
-
-import java.time.Duration;
 
 /**
  * 文档解读 WebClient 工具类
  * 提供统一的 WebClient 创建和配置方法
  */
 public class DocumentReaderWebClientUtil {
-    
-    private static final int DEFAULT_CONNECT_TIMEOUT_MS = 30000;
-    
-    // 默认缓冲区大小（10MB）
-    private static final int DEFAULT_MAX_IN_MEMORY_SIZE = 10 * 1024 * 1024;
     
     /**
      * 创建默认的 WebClient Builder
@@ -26,12 +18,7 @@ public class DocumentReaderWebClientUtil {
      * @return WebClient.Builder
      */
     public static WebClient.Builder createBuilder(String baseUrl) {
-        return WebClient.builder()
-                .baseUrl(baseUrl)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .codecs(configurer -> configurer
-                        .defaultCodecs()
-                        .maxInMemorySize(DEFAULT_MAX_IN_MEMORY_SIZE));
+        return WebClientFactoryUtil.createBuilder(baseUrl);
     }
     
     /**
@@ -68,7 +55,7 @@ public class DocumentReaderWebClientUtil {
      * @return HttpClient
      */
     public static HttpClient createHttpClient(int timeoutSeconds) {
-        return createHttpClient(timeoutSeconds, DEFAULT_CONNECT_TIMEOUT_MS);
+        return WebClientFactoryUtil.createHttpClient(timeoutSeconds);
     }
     
     /**
@@ -79,9 +66,6 @@ public class DocumentReaderWebClientUtil {
      * @return HttpClient
      */
     public static HttpClient createHttpClient(int timeoutSeconds, int connectTimeoutMs) {
-        return HttpClient.create()
-                .responseTimeout(Duration.ofSeconds(timeoutSeconds))
-                .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMs);
+        return WebClientFactoryUtil.createHttpClient(timeoutSeconds, connectTimeoutMs);
     }
 }
-

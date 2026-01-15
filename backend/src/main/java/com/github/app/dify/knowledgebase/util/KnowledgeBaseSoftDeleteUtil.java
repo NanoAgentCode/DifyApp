@@ -1,5 +1,6 @@
 package com.github.app.dify.knowledgebase.util;
 
+import com.github.app.dify.common.util.EntityLifecycleUtil;
 import com.github.app.dify.knowledgebase.domain.KnowledgeBase;
 import com.github.app.dify.knowledgebase.domain.KnowledgeBaseDocument;
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
@@ -18,9 +19,7 @@ public class KnowledgeBaseSoftDeleteUtil {
      * @param repository 知识库仓库
      */
     public static void softDelete(KnowledgeBase knowledgeBase, CrudRepository<KnowledgeBase, Long> repository) {
-        knowledgeBase.setDeleted(1);
-        KnowledgeBaseDateTimeUtil.setUpdateTime(knowledgeBase);
-        repository.save(knowledgeBase);
+        EntityLifecycleUtil.softDelete(knowledgeBase, repository);
     }
     
     /**
@@ -30,9 +29,7 @@ public class KnowledgeBaseSoftDeleteUtil {
      * @param repository 知识库文档仓库
      */
     public static void softDelete(KnowledgeBaseDocument document, CrudRepository<KnowledgeBaseDocument, Long> repository) {
-        document.setDeleted(1);
-        KnowledgeBaseDateTimeUtil.setUpdateTime(document);
-        repository.save(document);
+        EntityLifecycleUtil.softDelete(document, repository);
     }
     
     /**
@@ -42,9 +39,7 @@ public class KnowledgeBaseSoftDeleteUtil {
      * @param repository 向量数据库仓库
      */
     public static void softDelete(VectorDatabase vectorDatabase, CrudRepository<VectorDatabase, Long> repository) {
-        vectorDatabase.setDeleted(1);
-        KnowledgeBaseDateTimeUtil.setUpdateTime(vectorDatabase);
-        repository.save(vectorDatabase);
+        EntityLifecycleUtil.softDelete(vectorDatabase, repository);
     }
     
     /**
@@ -54,9 +49,7 @@ public class KnowledgeBaseSoftDeleteUtil {
      * @param repository 知识库仓库
      */
     public static void restore(KnowledgeBase knowledgeBase, CrudRepository<KnowledgeBase, Long> repository) {
-        knowledgeBase.setDeleted(0);
-        KnowledgeBaseDateTimeUtil.setUpdateTime(knowledgeBase);
-        repository.save(knowledgeBase);
+        EntityLifecycleUtil.restore(knowledgeBase, repository);
     }
     
     /**
@@ -66,7 +59,7 @@ public class KnowledgeBaseSoftDeleteUtil {
      * @return true 如果已删除，false 如果未删除
      */
     public static boolean isDeleted(KnowledgeBase knowledgeBase) {
-        return knowledgeBase.getDeleted() != null && knowledgeBase.getDeleted() == 1;
+        return EntityLifecycleUtil.isDeleted(knowledgeBase);
     }
     
     /**
@@ -76,7 +69,7 @@ public class KnowledgeBaseSoftDeleteUtil {
      * @return true 如果已删除，false 如果未删除
      */
     public static boolean isDeleted(KnowledgeBaseDocument document) {
-        return document.getDeleted() != null && document.getDeleted() == 1;
+        return EntityLifecycleUtil.isDeleted(document);
     }
     
     /**
@@ -86,7 +79,6 @@ public class KnowledgeBaseSoftDeleteUtil {
      * @return true 如果已删除，false 如果未删除
      */
     public static boolean isDeleted(VectorDatabase vectorDatabase) {
-        return vectorDatabase.getDeleted() != null && vectorDatabase.getDeleted() == 1;
+        return EntityLifecycleUtil.isDeleted(vectorDatabase);
     }
 }
-

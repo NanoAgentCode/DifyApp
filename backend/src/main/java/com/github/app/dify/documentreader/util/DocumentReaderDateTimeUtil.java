@@ -1,13 +1,11 @@
 package com.github.app.dify.documentreader.util;
 
-import com.github.app.dify.common.util.DateTimeUtil;
+import com.github.app.dify.common.util.EntityLifecycleUtil;
 import com.github.app.dify.documentreader.domain.DocumentGuide;
 import com.github.app.dify.documentreader.domain.DocumentMindMap;
 import com.github.app.dify.documentreader.domain.DocumentNotes;
 import com.github.app.dify.documentreader.domain.DocumentReader;
 import com.github.app.dify.documentreader.domain.DocumentTranslation;
-
-import java.util.Date;
 
 /**
  * 文档解读日期时间工具类
@@ -22,9 +20,7 @@ public class DocumentReaderDateTimeUtil {
      * @param document 文档实体
      */
     public static void setCreateAndUpdateTime(DocumentReader document) {
-        Date now = DateTimeUtil.now();
-        document.setCreateTime(now);
-        document.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(document);
     }
     
     /**
@@ -34,7 +30,7 @@ public class DocumentReaderDateTimeUtil {
      * @param document 文档实体
      */
     public static void setUpdateTime(DocumentReader document) {
-        document.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(document);
     }
     
     /**
@@ -43,9 +39,7 @@ public class DocumentReaderDateTimeUtil {
      * @param guide 文档导读实体
      */
     public static void setCreateAndUpdateTime(DocumentGuide guide) {
-        Date now = DateTimeUtil.now();
-        guide.setCreateTime(now);
-        guide.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(guide);
     }
     
     /**
@@ -54,7 +48,7 @@ public class DocumentReaderDateTimeUtil {
      * @param guide 文档导读实体
      */
     public static void setUpdateTime(DocumentGuide guide) {
-        guide.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(guide);
     }
     
     /**
@@ -63,9 +57,7 @@ public class DocumentReaderDateTimeUtil {
      * @param translation 文档翻译实体
      */
     public static void setCreateAndUpdateTime(DocumentTranslation translation) {
-        Date now = DateTimeUtil.now();
-        translation.setCreateTime(now);
-        translation.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(translation);
     }
     
     /**
@@ -74,7 +66,7 @@ public class DocumentReaderDateTimeUtil {
      * @param translation 文档翻译实体
      */
     public static void setUpdateTime(DocumentTranslation translation) {
-        translation.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(translation);
     }
     
     /**
@@ -83,9 +75,7 @@ public class DocumentReaderDateTimeUtil {
      * @param mindMap 思维导图实体
      */
     public static void setCreateAndUpdateTime(DocumentMindMap mindMap) {
-        Date now = DateTimeUtil.now();
-        mindMap.setCreateTime(now);
-        mindMap.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(mindMap);
     }
     
     /**
@@ -94,7 +84,7 @@ public class DocumentReaderDateTimeUtil {
      * @param mindMap 思维导图实体
      */
     public static void setUpdateTime(DocumentMindMap mindMap) {
-        mindMap.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(mindMap);
     }
     
     /**
@@ -103,9 +93,7 @@ public class DocumentReaderDateTimeUtil {
      * @param notes 文档笔记实体
      */
     public static void setCreateAndUpdateTime(DocumentNotes notes) {
-        Date now = DateTimeUtil.now();
-        notes.setCreateTime(now);
-        notes.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(notes);
     }
     
     /**
@@ -114,7 +102,6 @@ public class DocumentReaderDateTimeUtil {
      * @param notes 文档笔记实体
      */
     public static void setUpdateTime(DocumentNotes notes) {
-        notes.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(notes);
     }
 }
-

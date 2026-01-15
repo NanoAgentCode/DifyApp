@@ -1,11 +1,9 @@
 package com.github.app.dify.permission.util;
 
-import com.github.app.dify.common.util.DateTimeUtil;
+import com.github.app.dify.common.util.EntityLifecycleUtil;
 import com.github.app.dify.permission.domain.UserAppVisibility;
 import com.github.app.dify.permission.domain.UserDataSourceVisibility;
 import com.github.app.dify.permission.domain.UserKnowledgeBaseVisibility;
-
-import java.util.Date;
 
 /**
  * 权限日期时间工具类
@@ -20,9 +18,7 @@ public class PermissionDateTimeUtil {
      * @param visibility 用户知识库可见性实体
      */
     public static void setCreateAndUpdateTime(UserKnowledgeBaseVisibility visibility) {
-        Date now = DateTimeUtil.now();
-        visibility.setCreateTime(now);
-        visibility.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(visibility);
     }
     
     /**
@@ -32,7 +28,7 @@ public class PermissionDateTimeUtil {
      * @param visibility 用户知识库可见性实体
      */
     public static void setUpdateTime(UserKnowledgeBaseVisibility visibility) {
-        visibility.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(visibility);
     }
     
     /**
@@ -42,9 +38,7 @@ public class PermissionDateTimeUtil {
      * @param visibility 用户数据源可见性实体
      */
     public static void setCreateAndUpdateTime(UserDataSourceVisibility visibility) {
-        Date now = DateTimeUtil.now();
-        visibility.setCreateTime(now);
-        visibility.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(visibility);
     }
     
     /**
@@ -54,7 +48,7 @@ public class PermissionDateTimeUtil {
      * @param visibility 用户数据源可见性实体
      */
     public static void setUpdateTime(UserDataSourceVisibility visibility) {
-        visibility.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(visibility);
     }
     
     /**
@@ -64,9 +58,7 @@ public class PermissionDateTimeUtil {
      * @param visibility 用户应用可见性实体
      */
     public static void setCreateAndUpdateTime(UserAppVisibility visibility) {
-        Date now = DateTimeUtil.now();
-        visibility.setCreateTime(now);
-        visibility.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(visibility);
     }
     
     /**
@@ -76,7 +68,7 @@ public class PermissionDateTimeUtil {
      * @param visibility 用户应用可见性实体
      */
     public static void setUpdateTime(UserAppVisibility visibility) {
-        visibility.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(visibility);
     }
 }
 

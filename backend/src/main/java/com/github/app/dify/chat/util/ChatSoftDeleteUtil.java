@@ -2,6 +2,7 @@ package com.github.app.dify.chat.util;
 
 import com.github.app.dify.chat.domain.AiApp;
 import com.github.app.dify.chat.domain.ChatConversation;
+import com.github.app.dify.common.util.EntityLifecycleUtil;
 import org.springframework.data.repository.CrudRepository;
 
 /**
@@ -17,9 +18,7 @@ public class ChatSoftDeleteUtil {
      * @param repository AI应用仓库
      */
     public static void softDelete(AiApp aiApp, CrudRepository<AiApp, Long> repository) {
-        aiApp.setDeleted(1);
-        ChatDateTimeUtil.setUpdateTime(aiApp);
-        repository.save(aiApp);
+        EntityLifecycleUtil.softDelete(aiApp, repository);
     }
     
     /**
@@ -29,9 +28,7 @@ public class ChatSoftDeleteUtil {
      * @param repository 会话仓库
      */
     public static void softDelete(ChatConversation conversation, CrudRepository<ChatConversation, Long> repository) {
-        conversation.setDeleted(1);
-        ChatDateTimeUtil.setUpdateTime(conversation);
-        repository.save(conversation);
+        EntityLifecycleUtil.softDelete(conversation, repository);
     }
     
     /**
@@ -41,9 +38,7 @@ public class ChatSoftDeleteUtil {
      * @param repository AI应用仓库
      */
     public static void restore(AiApp aiApp, CrudRepository<AiApp, Long> repository) {
-        aiApp.setDeleted(0);
-        ChatDateTimeUtil.setUpdateTime(aiApp);
-        repository.save(aiApp);
+        EntityLifecycleUtil.restore(aiApp, repository);
     }
     
     /**
@@ -53,7 +48,7 @@ public class ChatSoftDeleteUtil {
      * @return true 如果已删除，false 如果未删除
      */
     public static boolean isDeleted(AiApp aiApp) {
-        return aiApp.getDeleted() != null && aiApp.getDeleted() == 1;
+        return EntityLifecycleUtil.isDeleted(aiApp);
     }
     
     /**
@@ -63,7 +58,6 @@ public class ChatSoftDeleteUtil {
      * @return true 如果已删除，false 如果未删除
      */
     public static boolean isDeleted(ChatConversation conversation) {
-        return conversation.getDeleted() != null && conversation.getDeleted() == 1;
+        return EntityLifecycleUtil.isDeleted(conversation);
     }
 }
-

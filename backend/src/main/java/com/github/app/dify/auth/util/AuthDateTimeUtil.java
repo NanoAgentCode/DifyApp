@@ -1,9 +1,7 @@
 package com.github.app.dify.auth.util;
 
 import com.github.app.dify.auth.domain.User;
-import com.github.app.dify.common.util.DateTimeUtil;
-
-import java.util.Date;
+import com.github.app.dify.common.util.EntityLifecycleUtil;
 
 /**
  * 认证日期时间工具类
@@ -18,9 +16,7 @@ public class AuthDateTimeUtil {
      * @param user 用户实体
      */
     public static void setCreateAndUpdateTime(User user) {
-        Date now = DateTimeUtil.now();
-        user.setCreateTime(now);
-        user.setUpdateTime(now);
+        EntityLifecycleUtil.setCreateAndUpdateTime(user);
     }
     
     /**
@@ -30,7 +26,6 @@ public class AuthDateTimeUtil {
      * @param user 用户实体
      */
     public static void setUpdateTime(User user) {
-        user.setUpdateTime(DateTimeUtil.now());
+        EntityLifecycleUtil.setUpdateTime(user);
     }
 }
-
