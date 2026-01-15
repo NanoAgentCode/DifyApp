@@ -1,6 +1,6 @@
 package com.github.app.dify.chat.domain;
 
-import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
+import com.github.app.dify.common.domain.BaseEntity;
 import jakarta.persistence.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 /**
@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 @Entity
 @Table(name = "chat_conversation")
-public class ChatConversation extends BaseSoftDeleteEntity {
+public class ChatConversation extends BaseEntity {
 
     /**
      * 主键

@@ -1,6 +1,6 @@
 package com.github.app.dify.system.domain;
 
-import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
+import com.github.app.dify.common.domain.BaseEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -13,7 +13,7 @@ import org.hibernate.validator.constraints.Length;
  */
 @Entity
 @Table(name = "PROMPT")
-public class Prompt extends BaseSoftDeleteEntity  {
+public class Prompt extends BaseEntity  {
 
     /**
      * 提示词编号

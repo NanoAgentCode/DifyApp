@@ -1,6 +1,6 @@
 package com.github.app.dify.knowledgebase.domain;
 
-import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
+import com.github.app.dify.common.domain.BaseEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -13,7 +13,7 @@ import org.hibernate.validator.constraints.Length;
  */
 @Entity
 @Table(name = "QA_MODEL")
-public class QAModel extends BaseSoftDeleteEntity {
+public class QAModel extends BaseEntity {
 
     /**
      * 模型编号

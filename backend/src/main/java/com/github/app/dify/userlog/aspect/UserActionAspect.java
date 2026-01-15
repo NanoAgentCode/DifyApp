@@ -5,6 +5,7 @@ import com.github.app.dify.auth.util.JwtUtil;
 import com.github.app.dify.userlog.annotation.UserAction;
 import com.github.app.dify.userlog.domain.UserActionLog;
 import com.github.app.dify.userlog.service.UserActionLogService;
+import com.github.app.dify.userlog.util.UserLogDateTimeUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -19,7 +20,6 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.lang.reflect.Method;
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -70,7 +70,7 @@ public class UserActionAspect {
             log.setModule(userAction.module());
             log.setActionType(userAction.actionType());
             log.setDescription(userAction.description());
-            log.setCreateTime(LocalDateTime.now());
+            UserLogDateTimeUtil.setCreateTime(log);
 
             // 填充请求信息（不需要用户信息）
             if (request != null) {

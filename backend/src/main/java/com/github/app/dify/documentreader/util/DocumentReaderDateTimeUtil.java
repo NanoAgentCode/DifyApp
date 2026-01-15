@@ -104,4 +104,40 @@ public class DocumentReaderDateTimeUtil {
     public static void setUpdateTime(DocumentNotes notes) {
         EntityLifecycleUtil.setUpdateTime(notes);
     }
+    
+    /**
+     * 设置文档导读的创建时间
+     * 
+     * @param guide 文档导读实体
+     */
+    public static void setCreateTime(DocumentGuide guide) {
+        EntityLifecycleUtil.setCreateTime(guide);
+    }
+    
+    /**
+     * 设置文档翻译的创建时间
+     * 
+     * @param translation 文档翻译实体
+     */
+    public static void setCreateTime(DocumentTranslation translation) {
+        EntityLifecycleUtil.setCreateTime(translation);
+    }
+    
+    /**
+     * 设置思维导图的创建时间
+     * 
+     * @param mindMap 思维导图实体
+     */
+    public static void setCreateTime(DocumentMindMap mindMap) {
+        EntityLifecycleUtil.setCreateTime(mindMap);
+    }
+    
+    /**
+     * 设置文档笔记的创建时间
+     * 
+     * @param notes 文档笔记实体
+     */
+    public static void setCreateTime(DocumentNotes notes) {
+        EntityLifecycleUtil.setCreateTime(notes);
+    }
 }

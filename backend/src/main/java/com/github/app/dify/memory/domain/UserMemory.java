@@ -1,6 +1,6 @@
 package com.github.app.dify.memory.domain;
 
-import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
+import com.github.app.dify.common.domain.BaseEntity;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 
@@ -9,7 +9,7 @@ import jakarta.persistence.*;
         name = "USER_MEMORY",
         uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "scope_type", "scope_id", "memory_type", "memory_key"})
 )
-public class UserMemory extends BaseSoftDeleteEntity {
+public class UserMemory extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

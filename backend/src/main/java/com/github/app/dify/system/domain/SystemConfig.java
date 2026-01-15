@@ -1,6 +1,6 @@
 package com.github.app.dify.system.domain;
 
-import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
+import com.github.app.dify.common.domain.BaseEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -16,7 +16,7 @@ import org.hibernate.validator.constraints.Length;
 @Table(name = "SYSTEM_CONFIG", uniqueConstraints = {
     @UniqueConstraint(columnNames = {"config_key"})
 })
-public class SystemConfig extends BaseSoftDeleteEntity  {
+public class SystemConfig extends BaseEntity  {
 
     /**
      * 配置编号

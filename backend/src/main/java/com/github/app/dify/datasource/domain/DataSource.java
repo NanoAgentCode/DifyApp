@@ -1,6 +1,6 @@
 package com.github.app.dify.datasource.domain;
 
-import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
+import com.github.app.dify.common.domain.BaseEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -12,7 +12,7 @@ import org.hibernate.validator.constraints.Length;
  */
 @Entity
 @Table(name = "DATA_SOURCE")
-public class DataSource extends BaseSoftDeleteEntity {
+public class DataSource extends BaseEntity {
 
     /**
      * 数据源编号

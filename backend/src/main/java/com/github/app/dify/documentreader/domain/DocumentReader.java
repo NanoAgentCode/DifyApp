@@ -1,6 +1,6 @@
 package com.github.app.dify.documentreader.domain;
 
-import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
+import com.github.app.dify.common.domain.BaseEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Size;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -11,7 +11,7 @@ import org.hibernate.validator.constraints.Length;
  */
 @Entity
 @Table(name = "DOCUMENT_READER")
-public class DocumentReader extends BaseSoftDeleteEntity {
+public class DocumentReader extends BaseEntity {
 
     /**
      * 文档编号

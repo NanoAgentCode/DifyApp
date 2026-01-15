@@ -1,6 +1,6 @@
 package com.github.app.dify.auth.domain;
 
-import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
+import com.github.app.dify.common.domain.BaseEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -17,7 +17,7 @@ import org.hibernate.validator.constraints.Length;
 @Getter
 @Entity
 @Table(name = "SYS_USER")
-public class User extends BaseSoftDeleteEntity {
+public class User extends BaseEntity {
 
     /**
      * 用户编号

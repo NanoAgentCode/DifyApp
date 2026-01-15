@@ -70,5 +70,35 @@ public class PermissionDateTimeUtil {
     public static void setUpdateTime(UserAppVisibility visibility) {
         EntityLifecycleUtil.setUpdateTime(visibility);
     }
+    
+    /**
+     * 设置用户知识库可见性的创建时间
+     * 适用于新建用户知识库可见性
+     * 
+     * @param visibility 用户知识库可见性实体
+     */
+    public static void setCreateTime(UserKnowledgeBaseVisibility visibility) {
+        EntityLifecycleUtil.setCreateTime(visibility);
+    }
+    
+    /**
+     * 设置用户数据源可见性的创建时间
+     * 适用于新建用户数据源可见性
+     * 
+     * @param visibility 用户数据源可见性实体
+     */
+    public static void setCreateTime(UserDataSourceVisibility visibility) {
+        EntityLifecycleUtil.setCreateTime(visibility);
+    }
+    
+    /**
+     * 设置用户应用可见性的创建时间
+     * 适用于新建用户应用可见性
+     * 
+     * @param visibility 用户应用可见性实体
+     */
+    public static void setCreateTime(UserAppVisibility visibility) {
+        EntityLifecycleUtil.setCreateTime(visibility);
+    }
 }
 

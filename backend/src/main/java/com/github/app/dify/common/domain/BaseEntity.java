@@ -18,6 +18,10 @@ public class BaseEntity implements Serializable {
     @Column(name = "update_time")
     private Date updateTime;
 
+    @Schema(description = "是否删除：0-未删除，1-已删除")
+    @Column(name = "deleted")
+    private Integer deleted;
+
     public Date getCreateTime() {
         return createTime;
     }
@@ -32,6 +36,14 @@ public class BaseEntity implements Serializable {
 
     public void setUpdateTime(Date updateTime) {
         this.updateTime = updateTime;
+    }
+
+    public Integer getDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(Integer deleted) {
+        this.deleted = deleted;
     }
 }
 
