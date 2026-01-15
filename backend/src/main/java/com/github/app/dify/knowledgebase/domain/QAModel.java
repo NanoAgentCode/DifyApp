@@ -4,7 +4,7 @@ import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import java.io.Serializable;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.validator.constraints.Length;
 /**
@@ -13,7 +13,7 @@ import org.hibernate.validator.constraints.Length;
  */
 @Entity
 @Table(name = "QA_MODEL")
-public class QAModel extends BaseSoftDeleteEntity implements Serializable {
+public class QAModel extends BaseSoftDeleteEntity {
 
     /**
      * 模型编号

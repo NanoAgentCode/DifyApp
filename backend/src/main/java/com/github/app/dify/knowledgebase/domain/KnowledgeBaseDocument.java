@@ -4,7 +4,6 @@ import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.io.Serializable;
 import java.util.Date;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.validator.constraints.Length;
@@ -14,7 +13,7 @@ import org.hibernate.validator.constraints.Length;
  */
 @Entity
 @Table(name = "KNOWLEDGE_BASE_DOCUMENT")
-public class KnowledgeBaseDocument extends BaseSoftDeleteEntity implements Serializable {
+public class KnowledgeBaseDocument extends BaseSoftDeleteEntity {
 
     /**
      * 文档编号

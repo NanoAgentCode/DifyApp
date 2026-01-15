@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.NotNull;
-import java.io.Serializable;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.validator.constraints.Length;
 /**
@@ -14,7 +13,7 @@ import org.hibernate.validator.constraints.Length;
 */
 @Entity
 @Table(name = "AI_APP_USER")
-public class AiAppUser extends BaseSoftDeleteEntity implements Serializable {
+public class AiAppUser extends BaseSoftDeleteEntity {
 
     /**
     * 关联编号

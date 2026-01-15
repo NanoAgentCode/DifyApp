@@ -4,7 +4,7 @@ import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import java.io.Serializable;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
@@ -17,7 +17,7 @@ import org.hibernate.validator.constraints.Length;
 @Getter
 @Entity
 @Table(name = "SYS_USER")
-public class User extends BaseSoftDeleteEntity implements Serializable {
+public class User extends BaseSoftDeleteEntity {
 
     /**
      * 用户编号

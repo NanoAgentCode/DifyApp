@@ -4,7 +4,7 @@ import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import java.io.Serializable;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.validator.constraints.Length;
 
@@ -16,7 +16,7 @@ import org.hibernate.validator.constraints.Length;
 @Table(name = "SYSTEM_CONFIG", uniqueConstraints = {
     @UniqueConstraint(columnNames = {"config_key"})
 })
-public class SystemConfig extends BaseSoftDeleteEntity implements Serializable {
+public class SystemConfig extends BaseSoftDeleteEntity  {
 
     /**
      * 配置编号

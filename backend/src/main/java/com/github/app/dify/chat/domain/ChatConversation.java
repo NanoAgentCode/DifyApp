@@ -2,7 +2,6 @@ package com.github.app.dify.chat.domain;
 
 import com.github.app.dify.common.domain.BaseSoftDeleteEntity;
 import jakarta.persistence.*;
-import java.io.Serializable;
 import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * 会话表（一个会话包含多轮对话）
@@ -10,7 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 @Entity
 @Table(name = "chat_conversation")
-public class ChatConversation extends BaseSoftDeleteEntity implements Serializable {
+public class ChatConversation extends BaseSoftDeleteEntity {
 
     /**
      * 主键
