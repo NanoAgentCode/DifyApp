@@ -1,5 +1,8 @@
 package com.github.app.dify.knowledgebase.service.impl;
 
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
+import com.github.app.dify.common.exception.NotFoundException;
 import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.knowledgebase.domain.KnowledgeBase;
 import com.github.app.dify.knowledgebase.domain.KnowledgeBaseDocument;
@@ -69,13 +72,13 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
         Optional<KnowledgeBase> kbOptional = knowledgeBaseRepository.findById(knowledgeBaseId);
         if (!kbOptional.isPresent()) {
             logger.error("知识库不存在 - 知识库ID: {}", knowledgeBaseId);
-            throw new RuntimeException("知识库不存在: " + knowledgeBaseId);
+            throw new NotFoundException("知识库不存在");
         }
         
         KnowledgeBase knowledgeBase = kbOptional.get();
         if (knowledgeBase.getDeleted() != null && knowledgeBase.getDeleted() == 1) {
             logger.error("知识库已删除 - 知识库ID: {}", knowledgeBaseId);
-            throw new RuntimeException("知识库已删除: " + knowledgeBaseId);
+            throw new NotFoundException("知识库已删除");
         }
         logger.debug("知识库验证通过 - 知识库ID: {}, 知识库名称: {}", knowledgeBaseId, knowledgeBase.getName());
         
@@ -102,7 +105,7 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
         } catch (Exception e) {
             logger.error("文件上传到MinIO失败 - 知识库ID: {}, 文件路径: {}, 错误信息: {}", 
                     knowledgeBaseId, filePath, e.getMessage(), e);
-            throw new RuntimeException("文件上传失败: " + e.getMessage(), e);
+            throw new BusinessException("文件上传失败", ErrorCode.FILE_UPLOAD_FAILED, e);
         }
         
         // 保存文档元数据
@@ -190,19 +193,19 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
     public void deleteDocument(Long knowledgeBaseId, Long documentId) {
         Optional<KnowledgeBaseDocument> optional = documentRepository.findById(documentId);
         if (!optional.isPresent()) {
-            throw new RuntimeException("文档不存在: " + documentId);
+            throw new NotFoundException("文档不存在");
         }
         
         KnowledgeBaseDocument document = optional.get();
         
         // 验证文档属于指定的知识库
         if (!document.getKnowledgeBaseId().equals(knowledgeBaseId)) {
-            throw new RuntimeException("文档不属于指定的知识库");
+            throw new BusinessException("文档不属于指定的知识库", ErrorCode.BAD_REQUEST);
         }
         
         // 检查是否已删除
         if (document.getDeleted() != null && document.getDeleted() == 1) {
-            throw new RuntimeException("文档已删除: " + documentId);
+            throw new NotFoundException("文档已删除");
         }
         
         // 从MinIO删除文件
@@ -236,19 +239,19 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
     public KnowledgeBaseDocumentResp getDocumentById(Long knowledgeBaseId, Long documentId) {
         Optional<KnowledgeBaseDocument> optional = documentRepository.findById(documentId);
         if (!optional.isPresent()) {
-            throw new RuntimeException("文档不存在: " + documentId);
+            throw new NotFoundException("文档不存在");
         }
         
         KnowledgeBaseDocument document = optional.get();
         
         // 验证文档属于指定的知识库
         if (!document.getKnowledgeBaseId().equals(knowledgeBaseId)) {
-            throw new RuntimeException("文档不属于指定的知识库");
+            throw new BusinessException("文档不属于指定的知识库", ErrorCode.BAD_REQUEST);
         }
         
         // 检查是否已删除
         if (document.getDeleted() != null && document.getDeleted() == 1) {
-            throw new RuntimeException("文档已删除: " + documentId);
+            throw new NotFoundException("文档已删除");
         }
         
         return KnowledgeBaseConverterUtil.convertToResp(document);
@@ -315,19 +318,19 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
     public java.io.InputStream downloadDocument(Long knowledgeBaseId, Long documentId) {
         Optional<KnowledgeBaseDocument> optional = documentRepository.findById(documentId);
         if (!optional.isPresent()) {
-            throw new RuntimeException("文档不存在: " + documentId);
+            throw new NotFoundException("文档不存在");
         }
         
         KnowledgeBaseDocument document = optional.get();
         
         // 验证文档属于指定的知识库
         if (!document.getKnowledgeBaseId().equals(knowledgeBaseId)) {
-            throw new RuntimeException("文档不属于指定的知识库");
+            throw new BusinessException("文档不属于指定的知识库", ErrorCode.BAD_REQUEST);
         }
         
         // 检查是否已删除
         if (document.getDeleted() != null && document.getDeleted() == 1) {
-            throw new RuntimeException("文档已删除: " + documentId);
+            throw new NotFoundException("文档已删除");
         }
         
         return fileStorageService.downloadFile(document.getFilePath());
@@ -338,19 +341,19 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
      */
     private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new RuntimeException("文件不能为空");
+            throw new BusinessException("文件不能为空", ErrorCode.FILE_UPLOAD_FAILED);
         }
         
         // 验证文件大小（100MB）
         long maxSize = 100 * 1024 * 1024; // 100MB
         if (file.getSize() > maxSize) {
-            throw new RuntimeException("文件大小不能超过100MB");
+            throw new BusinessException("文件大小不能超过100MB", ErrorCode.FILE_TOO_LARGE);
         }
         
         // 验证文件类型
         String fileName = file.getOriginalFilename();
         if (fileName == null || fileName.isEmpty()) {
-            throw new RuntimeException("文件名不能为空");
+            throw new BusinessException("文件名不能为空", ErrorCode.FILE_UPLOAD_FAILED);
         }
         
         String fileExtension = getFileExtension(fileName).toLowerCase();
@@ -363,7 +366,7 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
         }
         
         if (!allowed) {
-            throw new RuntimeException("不支持的文件类型: " + fileExtension);
+            throw new BusinessException("不支持的文件类型: " + fileExtension, ErrorCode.FILE_TYPE_NOT_SUPPORTED);
         }
     }
     

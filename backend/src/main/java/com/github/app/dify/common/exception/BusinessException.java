@@ -8,7 +8,7 @@ public class BusinessException extends RuntimeException {
     
     public BusinessException(String message) {
         super(message);
-        this.code = 400;
+        this.code = ErrorCode.BAD_REQUEST;
     }
     
     public BusinessException(String message, Integer code) {
@@ -18,7 +18,7 @@ public class BusinessException extends RuntimeException {
     
     public BusinessException(String message, Throwable cause) {
         super(message, cause);
-        this.code = 400;
+        this.code = ErrorCode.BAD_REQUEST;
     }
     
     public BusinessException(String message, Integer code, Throwable cause) {

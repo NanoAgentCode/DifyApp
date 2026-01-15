@@ -1,5 +1,8 @@
 package com.github.app.dify.model.service.impl;
 
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
+import com.github.app.dify.common.exception.NotFoundException;
 import com.github.app.dify.knowledgebase.domain.EmbeddingModel;
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.knowledgebase.repository.EmbeddingModelRepository;
@@ -100,7 +103,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             return enabledModels.get(0);
         }
         
-        throw new RuntimeException("没有可用的向量化模型，请在管理端配置向量化模型");
+        throw new BusinessException("没有可用的向量化模型，请在管理端配置向量化模型", ErrorCode.MODEL_NOT_FOUND);
     }
     
     @Override
@@ -108,16 +111,16 @@ public class ModelConfigServiceImpl implements ModelConfigService {
     public QAModel getQAModelById(Long modelId) {
         Optional<QAModel> optional = qaModelRepository.findById(modelId);
         if (!optional.isPresent()) {
-            throw new RuntimeException("问答模型不存在: " + modelId);
+            throw new NotFoundException("问答模型不存在");
         }
         
         QAModel model = optional.get();
         if (model.getDeleted() != null && model.getDeleted() == 1) {
-            throw new RuntimeException("问答模型已删除: " + modelId);
+            throw new NotFoundException("问答模型已删除");
         }
         
         if (model.getEnabled() == null || !model.getEnabled()) {
-            throw new RuntimeException("问答模型未启用: " + modelId);
+            throw new BusinessException("问答模型未启用", ErrorCode.MODEL_NOT_FOUND);
         }
         
         return model;
@@ -149,7 +152,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             return bothModels.get(0);
         }
         
-        throw new RuntimeException("没有可用的RAG问答模型，请在管理端大模型管理页面配置问答模型（使用场景选择'知识库问答'或'两者'）");
+        throw new BusinessException("没有可用的RAG问答模型，请在管理端大模型管理页面配置问答模型（使用场景选择'知识库问答'或'两者'）", ErrorCode.MODEL_NOT_FOUND);
     }
     
     @Override
@@ -173,7 +176,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             toggleEnabled(request.getModelId(), type, request.getEnabled());
             return null;
         } else {
-            throw new RuntimeException("不支持的操作类型: " + action);
+            throw new BusinessException("不支持的操作类型", ErrorCode.BAD_REQUEST);
         }
     }
     
@@ -182,10 +185,10 @@ public class ModelConfigServiceImpl implements ModelConfigService {
         // 这里可以调用实际的模型API进行测试
         // 暂时只做基本验证
         if (request.getApiUrl() == null || request.getApiUrl().trim().isEmpty()) {
-            throw new RuntimeException("API 地址不能为空");
+            throw new BusinessException("API 地址不能为空", ErrorCode.API_CONFIG_ERROR);
         }
         if (request.getModel() == null || request.getModel().trim().isEmpty()) {
-            throw new RuntimeException("模型标识不能为空");
+            throw new BusinessException("模型标识不能为空", ErrorCode.API_CONFIG_ERROR);
         }
         
         // 实现实际的连接测试逻辑
@@ -244,7 +247,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             
             logger.error("模型连接测试失败 - type={}, provider={}, apiUrl={}, model={}, 错误: {}", 
                     request.getType(), request.getProvider(), request.getApiUrl(), request.getModel(), errorMessage);
-            throw new RuntimeException(errorMessage != null ? errorMessage : "模型连接测试失败: " + e.getMessage(), e);
+            throw new BusinessException(errorMessage != null ? errorMessage : "模型连接测试失败", ErrorCode.API_CALL_FAILED, e);
         }
     }
     
@@ -303,7 +306,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             embeddingModel = embeddingModelRepository.save(embeddingModel);
             return ModelConverterUtil.convertToEmbeddingModelResp(embeddingModel);
         } else {
-            throw new RuntimeException("不支持的模型类型: " + type);
+            throw new BusinessException("不支持的模型类型", ErrorCode.BAD_REQUEST);
         }
     }
     
@@ -317,7 +320,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             // 更新问答模型
             Optional<QAModel> optional = qaModelRepository.findById(modelInfo.getId());
             if (!optional.isPresent()) {
-                throw new RuntimeException("问答模型不存在: " + modelInfo.getId());
+                throw new NotFoundException("问答模型不存在");
             }
             
             QAModel qaModel = optional.get();
@@ -356,7 +359,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             // 更新向量化模型
             Optional<EmbeddingModel> optional = embeddingModelRepository.findById(modelInfo.getId());
             if (!optional.isPresent()) {
-                throw new RuntimeException("向量化模型不存在: " + modelInfo.getId());
+                throw new NotFoundException("向量化模型不存在");
             }
             
             EmbeddingModel embeddingModel = optional.get();
@@ -380,7 +383,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             embeddingModel = embeddingModelRepository.save(embeddingModel);
             return ModelConverterUtil.convertToEmbeddingModelResp(embeddingModel);
         } else {
-            throw new RuntimeException("不支持的模型类型: " + type);
+            throw new BusinessException("不支持的模型类型", ErrorCode.BAD_REQUEST);
         }
     }
     
@@ -391,12 +394,12 @@ public class ModelConfigServiceImpl implements ModelConfigService {
         if ("qa".equals(type) || type == null) {
             Optional<QAModel> optional = qaModelRepository.findById(modelId);
             if (!optional.isPresent()) {
-                throw new RuntimeException("问答模型不存在: " + modelId);
+                throw new NotFoundException("问答模型不存在");
             }
             
             QAModel qaModel = optional.get();
             if (qaModel.getIsDefault() != null && qaModel.getIsDefault()) {
-                throw new RuntimeException("不能删除默认模型");
+                throw new BusinessException("不能删除默认模型", ErrorCode.BAD_REQUEST);
             }
             
             qaModel.setDeleted(1);
@@ -405,19 +408,19 @@ public class ModelConfigServiceImpl implements ModelConfigService {
         } else if ("embedding".equals(type)) {
             Optional<EmbeddingModel> optional = embeddingModelRepository.findById(modelId);
             if (!optional.isPresent()) {
-                throw new RuntimeException("向量化模型不存在: " + modelId);
+                throw new NotFoundException("向量化模型不存在");
             }
             
             EmbeddingModel embeddingModel = optional.get();
             if (embeddingModel.getIsDefault() != null && embeddingModel.getIsDefault()) {
-                throw new RuntimeException("不能删除默认模型");
+                throw new BusinessException("不能删除默认模型", ErrorCode.BAD_REQUEST);
             }
             
             embeddingModel.setDeleted(1);
             ModelDateTimeUtil.setUpdateTime(embeddingModel);
             embeddingModelRepository.save(embeddingModel);
         } else {
-            throw new RuntimeException("不支持的模型类型: " + type);
+            throw new BusinessException("不支持的模型类型", ErrorCode.BAD_REQUEST);
         }
     }
     
@@ -429,7 +432,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             // 设置问答模型为默认
             Optional<QAModel> optional = qaModelRepository.findById(modelId);
             if (!optional.isPresent()) {
-                throw new RuntimeException("问答模型不存在: " + modelId);
+                throw new NotFoundException("问答模型不存在");
             }
             
             QAModel qaModel = optional.get();
@@ -464,7 +467,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             // 设置向量化模型为默认
             Optional<EmbeddingModel> optional = embeddingModelRepository.findById(modelId);
             if (!optional.isPresent()) {
-                throw new RuntimeException("向量化模型不存在: " + modelId);
+                throw new NotFoundException("向量化模型不存在");
             }
             
             EmbeddingModel embeddingModel = optional.get();
@@ -485,7 +488,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             ModelDateTimeUtil.setUpdateTime(embeddingModel);
             embeddingModelRepository.save(embeddingModel);
         } else {
-            throw new RuntimeException("不支持的模型类型: " + type);
+            throw new BusinessException("不支持的模型类型", ErrorCode.BAD_REQUEST);
         }
     }
     
@@ -496,7 +499,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
         if ("qa".equals(type) || type == null) {
             Optional<QAModel> optional = qaModelRepository.findById(modelId);
             if (!optional.isPresent()) {
-                throw new RuntimeException("问答模型不存在: " + modelId);
+                throw new NotFoundException("问答模型不存在");
             }
             
             QAModel qaModel = optional.get();
@@ -527,7 +530,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
         } else if ("embedding".equals(type)) {
             Optional<EmbeddingModel> optional = embeddingModelRepository.findById(modelId);
             if (!optional.isPresent()) {
-                throw new RuntimeException("向量化模型不存在: " + modelId);
+                throw new NotFoundException("向量化模型不存在");
             }
             
             EmbeddingModel embeddingModel = optional.get();
@@ -554,7 +557,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             ModelDateTimeUtil.setUpdateTime(embeddingModel);
             embeddingModelRepository.save(embeddingModel);
         } else {
-            throw new RuntimeException("不支持的模型类型: " + type);
+            throw new BusinessException("不支持的模型类型", ErrorCode.BAD_REQUEST);
         }
     }
     
@@ -653,7 +656,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             
             // 验证响应是否有效
             if (response == null || response.trim().isEmpty()) {
-                throw new RuntimeException("API返回空响应");
+                throw new BusinessException("API返回空响应", ErrorCode.API_CALL_FAILED);
             }
             
             logger.debug("测试 embedding 连接成功，响应: {}", response.length() > 200 ? response.substring(0, 200) + "..." : response);
@@ -663,7 +666,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             String errorMessage = ErrorUtil.extractErrorMessage(errorBody, e.getStatusCode());
             
             logger.error("Embedding API返回错误响应，状态码: {}, 错误消息: {}", e.getStatusCode(), errorMessage);
-            throw new RuntimeException(errorMessage, e);
+            throw new BusinessException(errorMessage, ErrorCode.API_CALL_FAILED, e);
         }
     }
     
@@ -725,7 +728,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             
             // 验证响应是否有效
             if (response == null || response.trim().isEmpty()) {
-                throw new RuntimeException("API返回空响应");
+                throw new BusinessException("API返回空响应", ErrorCode.API_CALL_FAILED);
             }
             
             logger.debug("测试连接成功，响应: {}", response.length() > 200 ? response.substring(0, 200) + "..." : response);
@@ -735,7 +738,7 @@ public class ModelConfigServiceImpl implements ModelConfigService {
             String errorMessage = ErrorUtil.extractErrorMessage(errorBody, e.getStatusCode());
             
             logger.error("API返回错误响应，状态码: {}, 错误消息: {}", e.getStatusCode(), errorMessage);
-            throw new RuntimeException(errorMessage, e);
+            throw new BusinessException(errorMessage, ErrorCode.API_CALL_FAILED, e);
         }
     }
     
@@ -760,4 +763,3 @@ public class ModelConfigServiceImpl implements ModelConfigService {
                 .block();
     }
 }
-

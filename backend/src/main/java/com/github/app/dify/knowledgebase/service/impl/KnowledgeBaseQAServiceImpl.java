@@ -1,4 +1,7 @@
 package com.github.app.dify.knowledgebase.service.impl;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
+import com.github.app.dify.common.exception.UnauthorizedException;
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.permission.service.UserKnowledgeBaseVisibilityService;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
@@ -224,7 +227,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             
         } catch (Exception e) {
             logger.error("知识库问答失败 - 知识库ID: {}", knowledgeBaseId, e);
-            throw new RuntimeException("知识库问答失败: " + e.getMessage(), e);
+            throw new BusinessException("知识库问答失败", ErrorCode.OPERATION_FAILED, e);
         }
     }
     
@@ -284,7 +287,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             
         } catch (Exception e) {
             logger.error("知识库问答失败（流式） - 知识库ID: {}", knowledgeBaseId, e);
-            return Flux.error(new RuntimeException("知识库问答失败: " + e.getMessage(), e));
+            return Flux.error(new BusinessException("知识库问答失败", ErrorCode.OPERATION_FAILED, e));
         }
     }
     
@@ -506,7 +509,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
         
         if (qaModel == null) {
             logger.error("无法获取问答模型，无法继续生成答案");
-            return Flux.error(new RuntimeException("无法获取问答模型"));
+            return Flux.error(new BusinessException("无法获取问答模型", ErrorCode.MODEL_NOT_FOUND));
         }
         
         // 创建流式模型实例
@@ -635,11 +638,11 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
      * @param knowledgeBaseId 知识库ID
      * @param userId 用户ID
      * @param userRole 用户角色（1-管理员，0-普通用户），如果为null则按普通用户处理
-     * @throws RuntimeException 如果用户没有权限访问该知识库
+     * @throws BusinessException 如果用户没有权限访问该知识库
      */
     private void validateKnowledgeBaseAccess(Long knowledgeBaseId, Long userId, Integer userRole) {
         if (userId == null) {
-            throw new RuntimeException("用户未登录，无法访问知识库");
+            throw new UnauthorizedException("用户未登录，无法访问知识库");
         }
         
         // 获取知识库信息
@@ -648,19 +651,19 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             kb = knowledgeBaseService.getKnowledgeBaseById(knowledgeBaseId);
         } catch (Exception e) {
             logger.error("获取知识库信息失败 - 知识库ID: {}", knowledgeBaseId, e);
-            throw new RuntimeException("知识库不存在或已删除");
+            throw new BusinessException("知识库不存在或已删除", ErrorCode.RESOURCE_NOT_FOUND);
         }
         
         // 检查知识库是否启用
         if (kb.getStatus() == null || kb.getStatus() != 1) {
-            throw new RuntimeException("知识库已被禁用，无法进行问答");
+            throw new BusinessException("知识库已被禁用，无法进行问答", ErrorCode.BAD_REQUEST);
         }
         
         // 权限检查：管理员可以看到所有知识库（但仍需检查用户可见性设置）
         if (userRole != null && userRole == 1) {
             // 管理员还需要检查用户可见性设置（如果设置了的话）
             if (!userKnowledgeBaseVisibilityService.hasAccess(userId, knowledgeBaseId)) {
-                throw new RuntimeException("您没有权限访问该知识库");
+                throw new BusinessException("您没有权限访问该知识库", ErrorCode.FORBIDDEN);
             }
             logger.debug("管理员权限验证通过 - 用户ID: {}, 知识库ID: {}", userId, knowledgeBaseId);
             return;
@@ -676,13 +679,13 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
         if (isPublic || isOwner) {
             // 还需要检查用户可见性设置（如果设置了的话）
             if (!userKnowledgeBaseVisibilityService.hasAccess(userId, knowledgeBaseId)) {
-                throw new RuntimeException("您没有权限访问该知识库");
+                throw new BusinessException("您没有权限访问该知识库", ErrorCode.FORBIDDEN);
             }
             logger.debug("普通用户权限验证通过 - 用户ID: {}, 知识库ID: {}, 是否公开: {}, 是否创建者: {}", 
                     userId, knowledgeBaseId, isPublic, isOwner);
         } else {
             // 私有知识库且不是创建者，直接拒绝
-            throw new RuntimeException("您没有权限访问该私有知识库");
+            throw new BusinessException("您没有权限访问该私有知识库", ErrorCode.FORBIDDEN);
         }
     }
     

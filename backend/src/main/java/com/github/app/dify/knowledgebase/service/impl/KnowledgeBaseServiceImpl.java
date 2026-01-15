@@ -1,5 +1,8 @@
 package com.github.app.dify.knowledgebase.service.impl;
 
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
+import com.github.app.dify.common.exception.NotFoundException;
 import com.github.app.dify.knowledgebase.domain.KnowledgeBase;
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
 import com.github.app.dify.knowledgebase.repository.KnowledgeBaseDocumentRepository;
@@ -73,7 +76,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         if (force == null || !force) {
             List<KnowledgeBase> existingKbs = knowledgeBaseRepository.findByNameAndNotDeleted(req.getName());
             if (!existingKbs.isEmpty()) {
-                throw new RuntimeException("DUPLICATE_NAME:已存在名称为 \"" + req.getName() + "\" 的知识库，是否继续创建？");
+                throw new BusinessException("已存在名称为 \"" + req.getName() + "\" 的知识库，是否继续创建？", ErrorCode.RESOURCE_ALREADY_EXISTS);
             }
         }
         
@@ -145,7 +148,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             logger.error("知识库ID为0，与文档解读冲突 - 知识库名称: {}", knowledgeBase.getName());
             // 删除刚创建的知识库
             knowledgeBaseRepository.delete(knowledgeBase);
-            throw new RuntimeException("知识库创建失败：ID为0，0保留给文档解读使用。请检查数据库序列配置。");
+            throw new BusinessException("知识库创建失败：ID为0，0保留给文档解读使用。请检查数据库序列配置。", ErrorCode.BAD_REQUEST);
         }
         
         logger.info("知识库创建成功 - ID: {}", knowledgeBase.getId());
@@ -163,14 +166,14 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         
         Optional<KnowledgeBase> optional = knowledgeBaseRepository.findById(id);
         if (!optional.isPresent()) {
-            throw new RuntimeException("知识库不存在: " + id);
+            throw new NotFoundException("知识库不存在");
         }
         
         KnowledgeBase knowledgeBase = optional.get();
         
         // 检查是否已删除
         if (knowledgeBase.getDeleted() != null && knowledgeBase.getDeleted() == 1) {
-            throw new RuntimeException("知识库已删除: " + id);
+            throw new NotFoundException("知识库已删除");
         }
         
         // 更新字段
@@ -227,14 +230,14 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     public KnowledgeBaseResp getKnowledgeBaseById(Long id) {
         Optional<KnowledgeBase> optional = knowledgeBaseRepository.findById(id);
         if (!optional.isPresent()) {
-            throw new RuntimeException("知识库不存在: " + id);
+            throw new NotFoundException("知识库不存在");
         }
         
         KnowledgeBase knowledgeBase = optional.get();
         
         // 检查是否已删除
         if (knowledgeBase.getDeleted() != null && knowledgeBase.getDeleted() == 1) {
-            throw new RuntimeException("知识库已删除: " + id);
+            throw new NotFoundException("知识库已删除");
         }
         
         return KnowledgeBaseConverterUtil.convertToResp(knowledgeBase, documentRepository);
@@ -245,7 +248,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     public void deleteKnowledgeBase(Long id) {
         Optional<KnowledgeBase> optional = knowledgeBaseRepository.findById(id);
         if (!optional.isPresent()) {
-            throw new RuntimeException("知识库不存在: " + id);
+            throw new NotFoundException("知识库不存在");
         }
         
         KnowledgeBase knowledgeBase = optional.get();
@@ -445,26 +448,26 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         // 1. 验证知识库是否存在
         Optional<KnowledgeBase> optional = knowledgeBaseRepository.findById(knowledgeBaseId);
         if (!optional.isPresent()) {
-            throw new RuntimeException("知识库不存在: " + knowledgeBaseId);
+            throw new NotFoundException("知识库不存在");
         }
         
         KnowledgeBase knowledgeBase = optional.get();
         
         // 检查是否已删除
         if (knowledgeBase.getDeleted() != null && knowledgeBase.getDeleted() == 1) {
-            throw new RuntimeException("知识库已删除: " + knowledgeBaseId);
+            throw new NotFoundException("知识库已删除");
         }
         
         // 2. 检查是否有文档
         Long documentCount = documentRepository.countByKnowledgeBaseId(knowledgeBaseId);
         if (documentCount == null || documentCount == 0) {
-            throw new RuntimeException("知识库中没有文档，无法生成摘要。请先上传文档。");
+            throw new BusinessException("知识库中没有文档，无法生成摘要。请先上传文档。", ErrorCode.BAD_REQUEST);
         }
         
         // 3. 检查是否有已成功向量化的文档
         Long successDocumentCount = documentRepository.countSuccessDocumentsByKnowledgeBaseId(knowledgeBaseId);
         if (successDocumentCount == null || successDocumentCount == 0) {
-            throw new RuntimeException("知识库中没有已成功向量化的文档，无法生成摘要。请等待文档向量化完成后再试。");
+            throw new BusinessException("知识库中没有已成功向量化的文档，无法生成摘要。请等待文档向量化完成后再试。", ErrorCode.BAD_REQUEST);
         }
         
         // 4. 从向量数据库中检索代表性文档片段
@@ -511,7 +514,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         }
         
         if (allResults.isEmpty()) {
-            throw new RuntimeException("无法从知识库中检索到文档内容，请确保文档已成功向量化");
+            throw new BusinessException("无法从知识库中检索到文档内容，请确保文档已成功向量化", ErrorCode.OPERATION_FAILED);
         }
         
         // 5. 去重并合并文档片段（按相似度排序，取前20个）
@@ -556,7 +559,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         }
         
         if (qaModel == null) {
-            throw new RuntimeException("未找到可用的问答模型，请先配置模型");
+            throw new NotFoundException("未找到可用的问答模型，请先配置模型");
         }
         
         // 8. 创建 LLM 模型
@@ -599,7 +602,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             return summary;
         } catch (Exception e) {
             logger.error("生成知识库摘要失败 - 知识库ID: {}", knowledgeBaseId, e);
-            throw new RuntimeException("生成摘要失败: " + e.getMessage(), e);
+            throw new BusinessException("生成摘要失败", ErrorCode.OPERATION_FAILED, e);
         }
     }
 }
