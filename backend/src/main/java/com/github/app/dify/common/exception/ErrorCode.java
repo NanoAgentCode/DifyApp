@@ -34,6 +34,11 @@ public class ErrorCode {
     public static final int NOT_FOUND = 404;
     
     /**
+     * 请求方法不允许
+     */
+    public static final int METHOD_NOT_ALLOWED = 405;
+    
+    /**
      * 请求超时
      */
     public static final int REQUEST_TIMEOUT = 408;

@@ -13,7 +13,6 @@ import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -30,9 +29,9 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.validation.ConstraintViolation;
-import javax.validation.ConstraintViolationException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -191,16 +190,6 @@ public class GlobalExceptionHandler {
         String message = "参数类型不匹配: " + e.getName() + " 应该是 " + 
                 (e.getRequiredType() != null ? e.getRequiredType().getSimpleName() : "未知类型");
         return ResponseEntity.badRequest().body(ApiResponse.error(message, ErrorCode.BAD_REQUEST));
-    }
-    
-    /**
-     * 处理Spring Security访问拒绝异常
-     */
-    @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiResponse<Object>> handleAccessDeniedException(AccessDeniedException e) {
-        logger.warn("访问被拒绝: {}", e.getMessage());
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(ApiResponse.error("无权限访问此资源", ErrorCode.FORBIDDEN));
     }
     
     /**
