@@ -1,6 +1,8 @@
 package com.github.app.dify.system.config;
 
 import io.minio.MinioClient;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -46,7 +48,7 @@ public class MinioConfig {
             return client;
         } catch (Exception e) {
             logger.error("MinIO客户端初始化失败", e);
-            throw new RuntimeException("MinIO客户端初始化失败: " + e.getMessage(), e);
+            throw new BusinessException("MinIO客户端初始化失败", ErrorCode.CONFIG_ERROR, e);
         }
     }
     

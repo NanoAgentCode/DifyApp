@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.system.config.ProviderType;
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.chat.req.ChatRequest;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -145,7 +147,7 @@ public class ModelLanguageModelFactory {
                     
                 } catch (Exception e) {
                     logger.error("调用LLM API失败", e);
-                    throw new RuntimeException("调用LLM API失败: " + e.getMessage(), e);
+                    throw new BusinessException("调用LLM API失败", ErrorCode.API_CALL_FAILED, e);
                 }
             }
             
@@ -206,7 +208,7 @@ public class ModelLanguageModelFactory {
                                 logger.error("LLM API 返回错误状态: {}", response.statusCode());
                                 return response.bodyToMono(String.class)
                                         .doOnNext(body -> logger.error("错误响应体: {}", body.length() > 500 ? body.substring(0, 500) + "..." : body))
-                                        .then(Mono.error(new RuntimeException("LLM API 错误: " + response.statusCode())));
+                                        .then(Mono.error(new BusinessException("LLM API错误", ErrorCode.API_CALL_FAILED)));
                             })
                             .bodyToFlux(DataBuffer.class)
                             .timeout(Duration.ofSeconds(300))
@@ -292,7 +294,7 @@ public class ModelLanguageModelFactory {
                     
                 } catch (Exception e) {
                     logger.error("调用流式LLM API失败", e);
-                    return Flux.error(new RuntimeException("调用流式LLM API失败: " + e.getMessage(), e));
+                    return Flux.error(new BusinessException("调用流式LLM API失败", ErrorCode.API_CALL_FAILED, e));
                 }
             }
             

@@ -6,6 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatusCode;
 
+import java.util.regex.Pattern;
+
 /**
  * 通用错误处理工具类
  * 提供与业务无关的错误消息提取方法
@@ -14,6 +16,10 @@ public class ErrorUtil {
     
     private static final Logger logger = LoggerFactory.getLogger(ErrorUtil.class);
     private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static final Pattern TECHNICAL_DETAILS = Pattern.compile(
+            "(?i)\\b(exception|stacktrace|caused by|at\\s+\\S+\\(|org\\.|java\\.|jdbc:|sqlstate|hibernate|springframework)\\b"
+    );
     
     /**
      * 从错误响应中提取友好的错误消息
@@ -108,5 +114,18 @@ public class ErrorUtil {
             return errorBody;
         }
     }
-}
 
+    public static String toUserMessage(String originalMessage, String defaultMessage) {
+        if (defaultMessage == null || defaultMessage.trim().isEmpty()) {
+            defaultMessage = "操作失败，请稍后重试";
+        }
+        if (originalMessage == null || originalMessage.trim().isEmpty()) {
+            return defaultMessage;
+        }
+        String message = originalMessage.trim();
+        if (TECHNICAL_DETAILS.matcher(message).find()) {
+            return defaultMessage;
+        }
+        return message;
+    }
+}

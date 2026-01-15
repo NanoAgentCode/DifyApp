@@ -6,6 +6,8 @@ import com.github.app.dify.documentreader.service.DocumentReaderRetrievalService
 import com.github.app.dify.knowledgebase.langchain4j.CustomEmbeddingModel;
 import com.github.app.dify.knowledgebase.langchain4j.VectorStoreFactory;
 import com.github.app.dify.knowledgebase.service.EmbeddingService;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.system.config.RagConfig;
 import com.github.app.dify.system.config.DocumentReaderConfig;
 import dev.langchain4j.data.embedding.Embedding;
@@ -78,12 +80,12 @@ public class DocumentReaderRetrievalServiceImpl implements DocumentReaderRetriev
         // 验证文档是否存在且已向量化
         Optional<DocumentReader> docOptional = documentRepository.findByIdAndDeleted(documentId, 0);
         if (!docOptional.isPresent()) {
-            throw new RuntimeException("文档不存在: " + documentId);
+            throw new BusinessException("文档不存在", ErrorCode.DOCUMENT_NOT_FOUND);
         }
         
         DocumentReader document = docOptional.get();
         if (document.getVectorizedStatus() == null || document.getVectorizedStatus() != 2) {
-            throw new RuntimeException("文档尚未完成向量化，无法进行检索。文档ID: " + documentId + ", 向量化状态: " + document.getVectorizedStatus());
+            throw new BusinessException("文档尚未完成向量化，无法进行检索", ErrorCode.DOCUMENT_NOT_VECTORIZED);
         }
         
         try {
@@ -218,10 +220,10 @@ public class DocumentReaderRetrievalServiceImpl implements DocumentReaderRetriev
                 return new ArrayList<>();
             }
             logger.error("文档检索失败 - 文档ID: {}, 查询: {}", documentId, query, e);
-            throw new RuntimeException("文档检索失败: " + e.getMessage(), e);
+            throw new BusinessException("文档检索失败", ErrorCode.VECTOR_SEARCH_ERROR, e);
         } catch (Exception e) {
             logger.error("文档检索失败 - 文档ID: {}, 查询: {}", documentId, query, e);
-            throw new RuntimeException("文档检索失败: " + e.getMessage(), e);
+            throw new BusinessException("文档检索失败", ErrorCode.VECTOR_SEARCH_ERROR, e);
         }
     }
     
@@ -236,4 +238,3 @@ public class DocumentReaderRetrievalServiceImpl implements DocumentReaderRetriev
         return array;
     }
 }
-

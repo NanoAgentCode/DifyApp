@@ -485,7 +485,7 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
                                     tableName, existingSize, existingSize,
                                     tableName, tableName, vectorSize);
                                 logger.error(errorMsg);
-                                throw new BusinessException(errorMsg, ErrorCode.INVALID_PARAMETER);
+                                throw new BusinessException(errorMsg, ErrorCode.CONFIG_ERROR);
                             }
                         }
                     }

@@ -1,5 +1,7 @@
 package com.github.app.dify.system.config;
 
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,7 +52,7 @@ public class DatabaseConfig implements CommandLineRunner {
             connection.close();
         } catch (Exception e) {
             logger.error("数据库连接失败！", e);
-            throw new RuntimeException("无法连接到数据库: " + e.getMessage(), e);
+            throw new BusinessException("无法连接到数据库", ErrorCode.CONFIG_ERROR, e);
         }
     }
 }

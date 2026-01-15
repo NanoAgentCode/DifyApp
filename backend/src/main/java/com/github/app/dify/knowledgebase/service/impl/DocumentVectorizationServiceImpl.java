@@ -7,6 +7,8 @@ import com.github.app.dify.knowledgebase.repository.KnowledgeBaseDocumentReposit
 import com.github.app.dify.knowledgebase.service.DocumentVectorizationService;
 import com.github.app.dify.knowledgebase.service.FileStorageService;
 import com.github.app.dify.knowledgebase.service.VectorStoreService;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingStore;
@@ -122,7 +124,7 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
                         splitDuration, knowledgeBaseId, documentId);
             } catch (Exception e) {
                 logger.error("文档分割失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId, e);
-                throw new RuntimeException("文档分割失败: " + e.getMessage(), e);
+                throw new BusinessException("文档分割失败", ErrorCode.DATA_VALIDATION_FAILED, e);
             }
             
             if (segments.isEmpty()) {
@@ -160,7 +162,7 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
                         embeddings.size(), knowledgeBaseId, documentId);
             } catch (Exception e) {
                 logger.error("向量化API调用失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId, e);
-                throw new RuntimeException("向量化API调用失败: " + e.getMessage(), e);
+                throw new BusinessException("向量化失败", ErrorCode.API_CALL_FAILED, e);
             }
             
             // 7. 批量存储到EmbeddingStore
@@ -171,7 +173,7 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
                 logger.info("向量存储完成 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
             } catch (Exception e) {
                 logger.error("存储向量到Qdrant失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId, e);
-                throw new RuntimeException("存储向量失败: " + e.getMessage(), e);
+                throw new BusinessException("存储向量失败", ErrorCode.DATABASE_ERROR, e);
             }
             
             // 更新状态为成功（2）
@@ -234,7 +236,7 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
         Optional<KnowledgeBaseDocument> optional = documentRepository.findById(documentId);
         if (optional.isEmpty()) {
             logger.error("文档不存在，无法重新向量化 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
-            throw new RuntimeException("文档不存在: " + documentId);
+            throw new BusinessException("文档不存在", ErrorCode.DOCUMENT_NOT_FOUND);
         }
         
         KnowledgeBaseDocument document = optional.get();
@@ -245,7 +247,7 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
         if (!document.getKnowledgeBaseId().equals(knowledgeBaseId)) {
             logger.error("文档不属于指定的知识库 - 知识库ID: {}, 文档ID: {}, 文档所属知识库ID: {}", 
                     knowledgeBaseId, documentId, document.getKnowledgeBaseId());
-            throw new RuntimeException("文档不属于指定的知识库");
+            throw new BusinessException("文档不属于指定的知识库", ErrorCode.FORBIDDEN);
         }
         
         try {
@@ -269,7 +271,7 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
             if (fileStorageService == null) {
                 logger.error("FileStorageService未配置，无法下载文件 - 知识库ID: {}, 文档ID: {}", 
                         knowledgeBaseId, documentId);
-                throw new RuntimeException("FileStorageService未配置");
+                throw new BusinessException("文件存储服务未配置", ErrorCode.CONFIG_ERROR);
             }
             
             logger.info("开始从MinIO下载文件 - 知识库ID: {}, 文档ID: {}, 文件路径: {}", 
@@ -330,7 +332,7 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
                 logger.error("更新向量化失败状态时出错 - 知识库ID: {}, 文档ID: {}", 
                         knowledgeBaseId, documentId, updateException);
             }
-            throw new RuntimeException("重新向量化失败: " + e.getMessage(), e);
+            throw new BusinessException("重新向量化失败", ErrorCode.API_CALL_FAILED, e);
         }
     }
     
@@ -431,7 +433,7 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
             logger.info("删除文档向量成功 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
         } catch (Exception e) {
             logger.error("删除文档向量失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId, e);
-            throw new RuntimeException("删除文档向量失败: " + e.getMessage(), e);
+            throw new BusinessException("删除文档向量失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
 }

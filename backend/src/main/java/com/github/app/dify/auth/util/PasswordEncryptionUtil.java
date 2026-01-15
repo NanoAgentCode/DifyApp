@@ -1,5 +1,7 @@
 package com.github.app.dify.auth.util;
 
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -54,7 +56,7 @@ public class PasswordEncryptionUtil {
             return Base64.getEncoder().encodeToString(encryptedBytes);
         } catch (Exception e) {
             logger.error("加密密码失败", e);
-            throw new RuntimeException("加密密码失败: " + e.getMessage(), e);
+            throw new BusinessException("加密密码失败", ErrorCode.CONFIG_ERROR, e);
         }
     }
     
@@ -78,7 +80,7 @@ public class PasswordEncryptionUtil {
             return new String(decryptedBytes, StandardCharsets.UTF_8);
         } catch (Exception e) {
             logger.error("解密密码失败", e);
-            throw new RuntimeException("解密密码失败: " + e.getMessage(), e);
+            throw new BusinessException("解密密码失败", ErrorCode.CONFIG_ERROR, e);
         }
     }
     

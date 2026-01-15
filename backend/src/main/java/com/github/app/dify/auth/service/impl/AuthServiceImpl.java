@@ -11,6 +11,8 @@ import com.github.app.dify.auth.service.AuthService;
 import com.github.app.dify.auth.util.JwtUtil;
 import com.github.app.dify.auth.util.AuthConverterUtil;
 import com.github.app.dify.auth.util.AuthDateTimeUtil;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.resp.PageResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,7 +50,7 @@ public class AuthServiceImpl implements AuthService {
     public RegisterResponse register(RegisterRequest request) {
         // 检查用户名是否已存在
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("用户名已存在: " + request.getUsername());
+            throw new BusinessException("用户名已存在", ErrorCode.USER_ALREADY_EXISTS);
         }
         
         // 创建新用户
@@ -82,28 +84,28 @@ public class AuthServiceImpl implements AuthService {
         // 查找用户
         Optional<User> optional = userRepository.findByUsername(request.getUsername());
         if (optional.isEmpty()) {
-            throw new RuntimeException("用户名或密码错误");
+            throw new BusinessException("用户名或密码错误", ErrorCode.LOGIN_FAILED);
         }
         
         User user = optional.get();
         
         // 检查用户是否已删除
         if (user.getDeleted() != null && user.getDeleted() == 1) {
-            throw new RuntimeException("用户已被删除");
+            throw new BusinessException("用户名或密码错误", ErrorCode.LOGIN_FAILED);
         }
         
         // 验证密码
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("用户名或密码错误");
+            throw new BusinessException("用户名或密码错误", ErrorCode.LOGIN_FAILED);
         }
         
         // 检查用户状态
         if (user.getStatus() == null || user.getStatus() == 0) {
-            throw new RuntimeException("账号待审核，请联系管理员");
+            throw new BusinessException("账号待审核，请联系管理员", ErrorCode.FORBIDDEN);
         }
         
         if (user.getStatus() == 2) {
-            throw new RuntimeException("账号已被禁用，请联系管理员");
+            throw new BusinessException("账号已被禁用，请联系管理员", ErrorCode.FORBIDDEN);
         }
         
         // 生成JWT Token
@@ -131,7 +133,7 @@ public class AuthServiceImpl implements AuthService {
     public void approveUser(Long userId) {
         Optional<User> optional = userRepository.findById(userId);
         if (optional.isEmpty()) {
-            throw new RuntimeException("用户不存在: " + userId);
+            throw new BusinessException("用户不存在", ErrorCode.USER_NOT_FOUND);
         }
         
         User user = optional.get();
@@ -152,14 +154,14 @@ public class AuthServiceImpl implements AuthService {
     public void disableUser(Long userId) {
         Optional<User> optional = userRepository.findById(userId);
         if (optional.isEmpty()) {
-            throw new RuntimeException("用户不存在: " + userId);
+            throw new BusinessException("用户不存在", ErrorCode.USER_NOT_FOUND);
         }
         
         User user = optional.get();
         
         // 检查是否为管理员，管理员不能被禁用
         if (user.getRole() != null && user.getRole() == 1) {
-            throw new RuntimeException("管理员账号不能被禁用");
+            throw new BusinessException("管理员账号不能被禁用", ErrorCode.FORBIDDEN);
         }
         
         user.setStatus(2); // 已禁用
@@ -177,7 +179,7 @@ public class AuthServiceImpl implements AuthService {
     public User getUserById(Long userId) {
         Optional<User> optional = userRepository.findById(userId);
         if (optional.isEmpty()) {
-            throw new RuntimeException("用户不存在: " + userId);
+            throw new BusinessException("用户不存在", ErrorCode.USER_NOT_FOUND);
         }
         return optional.get();
     }
@@ -190,7 +192,7 @@ public class AuthServiceImpl implements AuthService {
     public User getUserByUsername(String username) {
         Optional<User> optional = userRepository.findByUsername(username);
         if (optional.isEmpty()) {
-            throw new RuntimeException("用户不存在: " + username);
+            throw new BusinessException("用户不存在", ErrorCode.USER_NOT_FOUND);
         }
         return optional.get();
     }
@@ -284,19 +286,19 @@ public class AuthServiceImpl implements AuthService {
     public void changePassword(Long userId, String oldPassword, String newPassword) {
         Optional<User> optional = userRepository.findById(userId);
         if (optional.isEmpty()) {
-            throw new RuntimeException("用户不存在: " + userId);
+            throw new BusinessException("用户不存在", ErrorCode.USER_NOT_FOUND);
         }
         
         User user = optional.get();
         
         // 验证原密码
         if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
-            throw new RuntimeException("原密码错误");
+            throw new BusinessException("原密码错误", ErrorCode.OLD_PASSWORD_ERROR);
         }
         
         // 检查新密码不能与原密码相同
         if (passwordEncoder.matches(newPassword, user.getPassword())) {
-            throw new RuntimeException("新密码不能与原密码相同");
+            throw new BusinessException("新密码不能与原密码相同", ErrorCode.PASSWORD_SAME_AS_OLD);
         }
         
         // 更新密码
@@ -318,7 +320,7 @@ public class AuthServiceImpl implements AuthService {
     public void resetPassword(Long userId, String newPassword) {
         Optional<User> optional = userRepository.findById(userId);
         if (optional.isEmpty()) {
-            throw new RuntimeException("用户不存在: " + userId);
+            throw new BusinessException("用户不存在", ErrorCode.USER_NOT_FOUND);
         }
         
         User user = optional.get();
@@ -343,19 +345,19 @@ public class AuthServiceImpl implements AuthService {
     public void updateUserRole(Long userId, Integer role) {
         Optional<User> optional = userRepository.findById(userId);
         if (optional.isEmpty()) {
-            throw new RuntimeException("用户不存在: " + userId);
+            throw new BusinessException("用户不存在", ErrorCode.USER_NOT_FOUND);
         }
         
         User user = optional.get();
         
         // 检查是否是超级管理员
         if (isSuperAdmin(user)) {
-            throw new RuntimeException("超级管理员的角色不能被修改");
+            throw new BusinessException("超级管理员的角色不能被修改", ErrorCode.FORBIDDEN);
         }
         
         // 验证角色值
         if (role == null || (role != 1 && role != 2)) {
-            throw new RuntimeException("无效的角色值: " + role);
+            throw new BusinessException("无效的角色值", ErrorCode.BAD_REQUEST);
         }
         
         // 更新角色

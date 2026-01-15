@@ -2,6 +2,8 @@ package com.github.app.dify.chat.service.impl;
 
 import com.github.app.dify.chat.service.OcrService;
 import com.github.app.dify.system.config.OcrConfig;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -104,16 +106,16 @@ public class OcrServiceImpl implements OcrService {
                 } else {
                     String error = (String) result.get("error");
                     logger.error("OCR识别失败: {}", error);
-                    throw new RuntimeException("OCR识别失败: " + (error != null ? error : "未知错误"));
+                    throw new BusinessException("OCR识别失败", ErrorCode.OCR_FAILED);
                 }
             } else {
                 logger.error("OCR服务返回错误状态: {}", response.getStatusCode());
-                throw new RuntimeException("OCR服务返回错误状态: " + response.getStatusCode());
+                throw new BusinessException("OCR服务返回错误状态", ErrorCode.OCR_FAILED);
             }
             
         } catch (RestClientException e) {
             logger.error("调用OCR服务失败", e);
-            throw new RuntimeException("调用OCR服务失败: " + e.getMessage(), e);
+            throw new BusinessException("调用OCR服务失败", ErrorCode.OCR_FAILED, e);
         }
     }
     

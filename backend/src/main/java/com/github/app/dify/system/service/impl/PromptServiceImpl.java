@@ -6,6 +6,8 @@ import com.github.app.dify.system.req.CreatePromptReq;
 import com.github.app.dify.system.req.UpdatePromptReq;
 import com.github.app.dify.system.resp.PromptResp;
 import com.github.app.dify.system.service.PromptService;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,7 +36,7 @@ public class PromptServiceImpl implements PromptService {
         // 检查是否存在相同标题的提示词
         List<Prompt> existing = promptRepository.findByTitleAndNotDeleted(req.getTitle());
         if (!existing.isEmpty()) {
-            throw new RuntimeException("已存在标题为 \"" + req.getTitle() + "\" 的提示词");
+            throw new BusinessException("提示词标题已存在", ErrorCode.RESOURCE_ALREADY_EXISTS);
         }
         
         Prompt prompt = new Prompt();
@@ -55,21 +57,21 @@ public class PromptServiceImpl implements PromptService {
     public PromptResp updatePrompt(Long id, UpdatePromptReq req) {
         Optional<Prompt> optional = promptRepository.findById(id);
         if (!optional.isPresent()) {
-            throw new RuntimeException("提示词不存在: " + id);
+            throw new BusinessException("提示词不存在", ErrorCode.RESOURCE_NOT_FOUND);
         }
         
         Prompt prompt = optional.get();
         
         // 检查是否已删除
         if (prompt.getDeleted() != null && prompt.getDeleted() == 1) {
-            throw new RuntimeException("提示词已被删除");
+            throw new BusinessException("提示词已被删除", ErrorCode.RESOURCE_DELETED);
         }
         
         // 如果更新标题，检查是否与其他提示词重复
         if (req.getTitle() != null && !req.getTitle().equals(prompt.getTitle())) {
             List<Prompt> existing = promptRepository.findByTitleAndNotDeleted(req.getTitle());
             if (!existing.isEmpty() && !existing.get(0).getId().equals(id)) {
-                throw new RuntimeException("已存在标题为 \"" + req.getTitle() + "\" 的提示词");
+                throw new BusinessException("提示词标题已存在", ErrorCode.RESOURCE_ALREADY_EXISTS);
             }
         }
         
@@ -94,7 +96,7 @@ public class PromptServiceImpl implements PromptService {
     public void deletePrompt(Long id) {
         Optional<Prompt> optional = promptRepository.findById(id);
         if (!optional.isPresent()) {
-            throw new RuntimeException("提示词不存在: " + id);
+            throw new BusinessException("提示词不存在", ErrorCode.RESOURCE_NOT_FOUND);
         }
         
         Prompt prompt = optional.get();
@@ -110,14 +112,14 @@ public class PromptServiceImpl implements PromptService {
     public Prompt getPromptEntityById(Long id) {
         Optional<Prompt> optional = promptRepository.findById(id);
         if (!optional.isPresent()) {
-            throw new RuntimeException("提示词不存在: " + id);
+            throw new BusinessException("提示词不存在", ErrorCode.RESOURCE_NOT_FOUND);
         }
         
         Prompt prompt = optional.get();
         
         // 检查是否已删除
         if (prompt.getDeleted() != null && prompt.getDeleted() == 1) {
-            throw new RuntimeException("提示词已被删除");
+            throw new BusinessException("提示词已被删除", ErrorCode.RESOURCE_DELETED);
         }
         
         return prompt;

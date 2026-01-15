@@ -9,6 +9,8 @@ import com.github.app.dify.datasource.service.DataSourceService;
 import com.github.app.dify.datasource.service.DatabaseConnectionService;
 import com.github.app.dify.permission.service.UserDataSourceVisibilityService;
 import com.github.app.dify.auth.util.PasswordEncryptionUtil;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.resp.PageResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +54,8 @@ public class DataSourceServiceImpl implements DataSourceService {
         if (force == null || !force) {
             List<DataSource> existing = dataSourceRepository.findByNameAndNotDeleted(req.getName());
             if (!existing.isEmpty()) {
-                throw new RuntimeException("DUPLICATE_NAME:已存在名称为 \"" + req.getName() + "\" 的数据源，是否继续创建？");
+                throw new BusinessException("DUPLICATE_NAME:已存在名称为 \"" + req.getName() + "\" 的数据源，是否继续创建？",
+                        ErrorCode.RESOURCE_ALREADY_EXISTS);
             }
         }
         
@@ -60,7 +63,7 @@ public class DataSourceServiceImpl implements DataSourceService {
         try {
             com.github.app.dify.datasource.util.DatabaseDriverManager.DatabaseType.fromString(req.getType());
         } catch (IllegalArgumentException e) {
-            throw new RuntimeException("不支持的数据库类型: " + req.getType());
+            throw new BusinessException("不支持的数据库类型", ErrorCode.BAD_REQUEST);
         }
         
         DataSource dataSource = new DataSource();
@@ -110,14 +113,14 @@ public class DataSourceServiceImpl implements DataSourceService {
     public DataSourceResp updateDataSource(Long id, UpdateDataSourceReq req) {
         Optional<DataSource> optional = dataSourceRepository.findById(id);
         if (!optional.isPresent()) {
-            throw new RuntimeException("数据源不存在: " + id);
+            throw new BusinessException("数据源不存在", ErrorCode.RESOURCE_NOT_FOUND);
         }
         
         DataSource dataSource = optional.get();
         
         // 检查是否已删除
         if (dataSource.getDeleted() != null && dataSource.getDeleted() == 1) {
-            throw new RuntimeException("数据源已被删除");
+            throw new BusinessException("数据源已被删除", ErrorCode.RESOURCE_DELETED);
         }
         
         // 更新字段
@@ -170,7 +173,7 @@ public class DataSourceServiceImpl implements DataSourceService {
     public void deleteDataSource(Long id) {
         Optional<DataSource> optional = dataSourceRepository.findById(id);
         if (!optional.isPresent()) {
-            throw new RuntimeException("数据源不存在: " + id);
+            throw new BusinessException("数据源不存在", ErrorCode.RESOURCE_NOT_FOUND);
         }
         
         DataSource dataSource = optional.get();
@@ -186,12 +189,12 @@ public class DataSourceServiceImpl implements DataSourceService {
     public DataSource getDataSourceEntityById(Long id) {
         Optional<DataSource> optional = dataSourceRepository.findById(id);
         if (!optional.isPresent()) {
-            throw new RuntimeException("数据源不存在: " + id);
+            throw new BusinessException("数据源不存在", ErrorCode.RESOURCE_NOT_FOUND);
         }
         
         DataSource dataSource = optional.get();
         if (dataSource.getDeleted() != null && dataSource.getDeleted() == 1) {
-            throw new RuntimeException("数据源已被删除");
+            throw new BusinessException("数据源已被删除", ErrorCode.RESOURCE_DELETED);
         }
         
         return dataSource;
@@ -358,7 +361,7 @@ public class DataSourceServiceImpl implements DataSourceService {
     public boolean testConnection(Long id) {
         Optional<DataSource> optional = dataSourceRepository.findById(id);
         if (!optional.isPresent()) {
-            throw new RuntimeException("数据源不存在: " + id);
+            throw new BusinessException("数据源不存在", ErrorCode.RESOURCE_NOT_FOUND);
         }
         
         DataSource dataSource = optional.get();

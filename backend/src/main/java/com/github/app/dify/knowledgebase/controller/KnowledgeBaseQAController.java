@@ -78,7 +78,7 @@ public class KnowledgeBaseQAController extends BaseController {
                     .onErrorResume(error -> {
                         logger.error("流式问答失败 - 知识库ID: {}", kbId, error);
                         KnowledgeBaseQAResponse errorResponse = new KnowledgeBaseQAResponse();
-                        errorResponse.setAnswer("生成答案时发生错误: " + error.getMessage());
+                        errorResponse.setAnswer("系统繁忙，请稍后重试");
                         errorResponse.setFinished(true);
                         return Flux.just(SSEResponseUtil.buildEvent(errorResponse));
                     });

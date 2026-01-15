@@ -2,6 +2,8 @@ package com.github.app.dify.knowledgebase.langchain4j;
 
 import com.github.app.dify.knowledgebase.langchain4j.store.EmbeddingStoreUtils;
 import com.github.app.dify.knowledgebase.service.EmbeddingService;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -32,7 +34,7 @@ public class CustomEmbeddingModel implements EmbeddingModel {
             return Response.from(embedding);
         } catch (Exception e) {
             logger.error("向量化失败", e);
-            throw new RuntimeException("向量化失败: " + e.getMessage(), e);
+            throw new BusinessException("向量化失败", ErrorCode.API_CALL_FAILED, e);
         }
     }
     
@@ -58,7 +60,7 @@ public class CustomEmbeddingModel implements EmbeddingModel {
             return Response.from(embeddings);
         } catch (Exception e) {
             logger.error("批量向量化失败", e);
-            throw new RuntimeException("批量向量化失败: " + e.getMessage(), e);
+            throw new BusinessException("批量向量化失败", ErrorCode.API_CALL_FAILED, e);
         }
     }
     

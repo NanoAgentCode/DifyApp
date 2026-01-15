@@ -1,6 +1,8 @@
 package com.github.app.dify.knowledgebase.langchain4j;
 
 import com.github.app.dify.knowledgebase.service.DocumentParserService;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import dev.langchain4j.data.document.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,10 +36,10 @@ public class TikaDocumentLoader {
                 // 如果是图片文件，说明OCR识别结果为空
                 if (contentType != null && contentType.startsWith("image/")) {
                     logger.warn("图片文件OCR识别结果为空 - 文件名: {}, 类型: {}", fileName, contentType);
-                    throw new RuntimeException("图片OCR识别结果为空，无法进行向量化。可能原因：1) 图片中没有可识别的文字内容；2) 图片质量较差（模糊、对比度低等）；3) OCR服务异常。请检查图片内容或OCR服务状态。");
+                    throw new BusinessException("图片OCR识别结果为空，无法向量化", ErrorCode.DATA_VALIDATION_FAILED);
                 } else {
                     logger.warn("文档解析结果为空 - 文件名: {}, 类型: {}", fileName, contentType);
-                    throw new RuntimeException("文档解析结果为空，无法进行向量化。请检查文档内容。");
+                    throw new BusinessException("文档解析结果为空，无法向量化", ErrorCode.DATA_VALIDATION_FAILED);
                 }
             }
             
@@ -68,7 +70,7 @@ public class TikaDocumentLoader {
             // 检查文本是否为空
             if (text == null || text.trim().isEmpty()) {
                 logger.warn("文档解析结果为空 - 文件名: {}", fileName);
-                throw new RuntimeException("文档解析结果为空，无法进行向量化。请检查文档内容。");
+                throw new BusinessException("文档解析结果为空，无法向量化", ErrorCode.DATA_VALIDATION_FAILED);
             }
             
             Document document = Document.from(text);

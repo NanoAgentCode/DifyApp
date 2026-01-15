@@ -10,6 +10,8 @@ import com.github.app.dify.chat.req.UpdateAiAppReq;
 import com.github.app.dify.chat.req.WorkFlowRequest;
 import com.github.app.dify.chat.resp.AiAppResp;
 import com.github.app.dify.chat.resp.DifyResponse;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.chat.service.AiAppService;
 import com.github.app.dify.chat.service.DifyApiClient;
@@ -59,7 +61,7 @@ public class AiAppServiceImpl implements AiAppService {
     public AiAppResp createAiApp(CreateAiAppReq req) {
         // 检查API Key是否已存在
         if (aiAppRepository.existsByAppId(req.getAppId())) {
-            throw new RuntimeException("API Key已存在: " + req.getAppId());
+            throw new BusinessException("应用配置已存在", ErrorCode.RESOURCE_ALREADY_EXISTS);
         }
         
         AiApp aiApp = new AiApp();
@@ -125,7 +127,7 @@ public class AiAppServiceImpl implements AiAppService {
     public AiAppResp updateAiApp(Long id, UpdateAiAppReq req) {
         Optional<AiApp> optional = aiAppRepository.findById(id);
         if (optional.isEmpty()) {
-            throw new RuntimeException("应用不存在: " + id);
+            throw new BusinessException("应用不存在", ErrorCode.APP_NOT_FOUND);
         }
         
         AiApp aiApp = optional.get();
@@ -191,7 +193,7 @@ public class AiAppServiceImpl implements AiAppService {
     public AiAppResp getAiAppById(Long id) {
         Optional<AiApp> optional = aiAppRepository.findById(id);
         if (optional.isEmpty()) {
-            throw new RuntimeException("应用不存在: " + id);
+            throw new BusinessException("应用不存在", ErrorCode.APP_NOT_FOUND);
         }
         return convertToResp(optional.get());
     }
@@ -204,7 +206,7 @@ public class AiAppServiceImpl implements AiAppService {
     public AiAppResp getAiAppByApiKey(String apiKey) {
         Optional<AiApp> optional = aiAppRepository.findByAppId(apiKey);
         if (optional.isEmpty()) {
-            throw new RuntimeException("应用不存在: " + apiKey);
+            throw new BusinessException("应用不存在", ErrorCode.APP_NOT_FOUND);
         }
         return convertToResp(optional.get());
     }
@@ -218,7 +220,7 @@ public class AiAppServiceImpl implements AiAppService {
     public void deleteAiApp(Long id) {
         Optional<AiApp> optional = aiAppRepository.findById(id);
         if (optional.isEmpty()) {
-            throw new RuntimeException("应用不存在: " + id);
+            throw new BusinessException("应用不存在", ErrorCode.APP_NOT_FOUND);
         }
         
         AiApp aiApp = optional.get();
@@ -359,14 +361,14 @@ public class AiAppServiceImpl implements AiAppService {
     @Override
     public Mono<DifyResponse> chat(Long appId, ChatFlowRequest request) {
         AiApp app = aiAppRepository.findById(appId)
-                .orElseThrow(() -> new RuntimeException("应用不存在: " + appId));
+                .orElseThrow(() -> new BusinessException("应用不存在", ErrorCode.APP_NOT_FOUND));
         
         if (app.getStatus() == null || app.getStatus() != 1) {
-            throw new RuntimeException("应用已禁用");
+            throw new BusinessException("应用已禁用", ErrorCode.FORBIDDEN);
         }
         
         if (app.getType() == null || app.getType() != 1) {
-            throw new RuntimeException("应用类型不是Chat Flow");
+            throw new BusinessException("应用类型不匹配", ErrorCode.APP_TYPE_MISMATCH);
         }
         
         // 验证并修复API Base URL
@@ -411,19 +413,19 @@ public class AiAppServiceImpl implements AiAppService {
     @Override
     public Flux<DifyResponse> chatStream(Long appId, ChatFlowRequest request) {
         AiApp app = aiAppRepository.findById(appId)
-                .orElseThrow(() -> new RuntimeException("应用不存在: " + appId));
+                .orElseThrow(() -> new BusinessException("应用不存在", ErrorCode.APP_NOT_FOUND));
         
         if (app.getStatus() == null || app.getStatus() != 1) {
-            throw new RuntimeException("应用已禁用");
+            throw new BusinessException("应用已禁用", ErrorCode.FORBIDDEN);
         }
         
         if (app.getType() == null || app.getType() != 1) {
-            throw new RuntimeException("应用类型不是Chat Flow");
+            throw new BusinessException("应用类型不匹配", ErrorCode.APP_TYPE_MISMATCH);
         }
         
         // 检查是否支持流式响应
         if (app.getStreamEnabled() == null || !app.getStreamEnabled()) {
-            throw new RuntimeException("应用不支持流式响应");
+            throw new BusinessException("应用不支持流式响应", ErrorCode.BAD_REQUEST);
         }
         
         // 验证并修复API Base URL
@@ -446,14 +448,14 @@ public class AiAppServiceImpl implements AiAppService {
     @Override
     public Mono<DifyResponse> workflow(Long appId, WorkFlowRequest request) {
         AiApp app = aiAppRepository.findById(appId)
-                .orElseThrow(() -> new RuntimeException("应用不存在: " + appId));
+                .orElseThrow(() -> new BusinessException("应用不存在", ErrorCode.APP_NOT_FOUND));
         
         if (app.getStatus() == null || app.getStatus() != 1) {
-            throw new RuntimeException("应用已禁用");
+            throw new BusinessException("应用已禁用", ErrorCode.FORBIDDEN);
         }
         
         if (app.getType() == null || app.getType() != 2) {
-            throw new RuntimeException("应用类型不是Workflow");
+            throw new BusinessException("应用类型不匹配", ErrorCode.APP_TYPE_MISMATCH);
         }
         
         // 验证并修复API Base URL
@@ -519,19 +521,19 @@ public class AiAppServiceImpl implements AiAppService {
     @Override
     public Flux<DifyResponse> workflowStream(Long appId, WorkFlowRequest request) {
         AiApp app = aiAppRepository.findById(appId)
-                .orElseThrow(() -> new RuntimeException("应用不存在: " + appId));
+                .orElseThrow(() -> new BusinessException("应用不存在", ErrorCode.APP_NOT_FOUND));
         
         if (app.getStatus() == null || app.getStatus() != 1) {
-            throw new RuntimeException("应用已禁用");
+            throw new BusinessException("应用已禁用", ErrorCode.FORBIDDEN);
         }
         
         if (app.getType() == null || app.getType() != 2) {
-            throw new RuntimeException("应用类型不是Workflow");
+            throw new BusinessException("应用类型不匹配", ErrorCode.APP_TYPE_MISMATCH);
         }
         
         // 检查是否支持流式响应
         if (app.getStreamEnabled() == null || !app.getStreamEnabled()) {
-            throw new RuntimeException("应用不支持流式响应");
+            throw new BusinessException("应用不支持流式响应", ErrorCode.BAD_REQUEST);
         }
         
         // 验证并修复API Base URL
@@ -583,7 +585,7 @@ public class AiAppServiceImpl implements AiAppService {
         // 获取应用信息
         Optional<AiApp> optional = aiAppRepository.findById(appId);
         if (optional.isEmpty()) {
-            return Mono.error(new RuntimeException("应用不存在: " + appId));
+            return Mono.error(new BusinessException("应用不存在", ErrorCode.APP_NOT_FOUND));
         }
         
         AiApp aiApp = optional.get();
@@ -591,7 +593,7 @@ public class AiAppServiceImpl implements AiAppService {
         String baseUrl = aiApp.getApiBaseUrl();
         
         if (apiKey == null || apiKey.trim().isEmpty()) {
-            return Mono.error(new RuntimeException("应用的API Key未配置"));
+            return Mono.error(new BusinessException("应用配置错误", ErrorCode.API_CONFIG_ERROR));
         }
         
         // 调用Dify API客户端上传文件

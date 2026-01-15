@@ -10,6 +10,8 @@ import com.github.app.dify.chat.req.ChatHistoryRequest;
 import com.github.app.dify.chat.req.CreateConversationRequest;
 import com.github.app.dify.chat.resp.*;
 import com.github.app.dify.chat.service.ChatHistoryService;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.resp.PageResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -284,7 +286,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         
         if (!conversation.isPresent() || 
             (conversation.get().getDeleted() != null && conversation.get().getDeleted() == 1)) {
-            throw new RuntimeException("会话不存在或已删除");
+            throw new BusinessException("会话不存在或已删除", ErrorCode.CONVERSATION_NOT_FOUND);
         }
         
         return convertToResponse(conversation.get());
@@ -300,7 +302,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
             Optional<ChatConversation> conversation = conversationRepository.findByIdAndUserId(conversationId, userId);
             if (!conversation.isPresent() || 
                 (conversation.get().getDeleted() != null && conversation.get().getDeleted() == 1)) {
-                throw new RuntimeException("会话不存在或已删除");
+                throw new BusinessException("会话不存在或已删除", ErrorCode.CONVERSATION_NOT_FOUND);
             }
         }
         
@@ -325,7 +327,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         
         if (!conversation.isPresent() || 
             (conversation.get().getDeleted() != null && conversation.get().getDeleted() == 1)) {
-            throw new RuntimeException("会话不存在或已删除");
+            throw new BusinessException("会话不存在或已删除", ErrorCode.CONVERSATION_NOT_FOUND);
         }
         
         ChatConversation conv = conversation.get();
@@ -349,7 +351,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         
         if (!conversation.isPresent() || 
             (conversation.get().getDeleted() != null && conversation.get().getDeleted() == 1)) {
-            throw new RuntimeException("会话不存在或已删除");
+            throw new BusinessException("会话不存在或已删除", ErrorCode.CONVERSATION_NOT_FOUND);
         }
         
         ChatConversation conv = conversation.get();

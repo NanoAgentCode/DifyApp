@@ -10,6 +10,8 @@ import com.github.app.dify.auth.resp.UserResp;
 import com.github.app.dify.auth.service.AuthService;
 import com.github.app.dify.auth.util.JwtUtil;
 import com.github.app.dify.common.resp.PageResponse;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.permission.resp.UserAppVisibilityResp;
 import com.github.app.dify.permission.resp.UserDataSourceVisibilityResp;
 import com.github.app.dify.permission.resp.UserKnowledgeBaseVisibilityResp;
@@ -192,7 +194,7 @@ public class AuthController {
             }
             
             if (userId == null) {
-                throw new RuntimeException("无法获取用户信息，请重新登录");
+                throw new BusinessException("未授权，请重新登录", ErrorCode.UNAUTHORIZED);
             }
             
             authService.changePassword(userId, request.getOldPassword(), request.getNewPassword());

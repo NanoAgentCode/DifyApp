@@ -5,6 +5,8 @@ import com.github.app.dify.system.config.ProviderType;
 import com.github.app.dify.knowledgebase.domain.EmbeddingModel;
 import com.github.app.dify.knowledgebase.service.EmbeddingService;
 import com.github.app.dify.model.service.ModelConfigService;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -157,7 +159,7 @@ public class EmbeddingServiceImpl implements EmbeddingService {
                     .block();
             
             if (response == null || response.trim().isEmpty()) {
-                throw new RuntimeException("向量化API返回空响应");
+                throw new BusinessException("向量化失败", ErrorCode.API_CALL_FAILED);
             }
             
             // 解析响应
@@ -167,7 +169,7 @@ public class EmbeddingServiceImpl implements EmbeddingService {
             List<Map<String, Object>> data = (List<Map<String, Object>>) responseMap.get("data");
             
             if (data == null || data.isEmpty()) {
-                throw new RuntimeException("向量化API返回数据为空");
+                throw new BusinessException("向量化失败", ErrorCode.API_CALL_FAILED);
             }
             
             List<List<Float>> embeddings = new ArrayList<>();
@@ -193,7 +195,7 @@ public class EmbeddingServiceImpl implements EmbeddingService {
             
         } catch (Exception e) {
             logger.error("向量化失败 - 模型ID: {}", modelId, e);
-            throw new RuntimeException("向量化失败: " + e.getMessage(), e);
+            throw new BusinessException("向量化失败", ErrorCode.API_CALL_FAILED, e);
         }
     }
     
@@ -232,7 +234,7 @@ public class EmbeddingServiceImpl implements EmbeddingService {
                 }
             } catch (Exception e) {
                 logger.error("批量向量化失败 - 模型ID: {}, 批次: {}-{}", modelId, i, end, e);
-                throw new RuntimeException("批量向量化失败: " + e.getMessage(), e);
+                throw new BusinessException("批量向量化失败", ErrorCode.API_CALL_FAILED, e);
             }
         }
         

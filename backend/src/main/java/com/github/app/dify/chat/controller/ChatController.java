@@ -5,6 +5,8 @@ import com.github.app.dify.chat.req.ChatRequest;
 import com.github.app.dify.chat.resp.ChatResponse;
 import com.github.app.dify.chat.service.ChatService;
 import com.github.app.dify.common.controller.BaseController;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.util.RequestHelper;
 import com.github.app.dify.common.util.SSEResponseUtil;
 import com.github.app.dify.knowledgebase.repository.QAModelRepository;
@@ -66,7 +68,7 @@ public class ChatController extends BaseController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("智能问答失败", e);
-            return ResponseEntity.badRequest().build();
+            throw new BusinessException("智能问答失败，请稍后重试", ErrorCode.SYSTEM_BUSY, e);
         }
     }
     
@@ -100,7 +102,7 @@ public class ChatController extends BaseController {
                     .onErrorResume(error -> {
                         logger.error("流式问答失败", error);
                         ChatResponse errorResponse = new ChatResponse();
-                        errorResponse.setAnswer("生成答案时发生错误: " + error.getMessage());
+                        errorResponse.setAnswer("系统繁忙，请稍后重试");
                         errorResponse.setFinished(true);
                         return Flux.just(SSEResponseUtil.buildEvent(errorResponse));
                     });

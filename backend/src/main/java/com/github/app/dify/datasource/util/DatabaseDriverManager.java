@@ -1,5 +1,7 @@
 package com.github.app.dify.datasource.util;
 
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -76,7 +78,7 @@ public class DatabaseDriverManager {
             logger.debug("数据库驱动加载成功: {}", databaseType.getDriverClass());
         } catch (ClassNotFoundException e) {
             logger.error("数据库驱动加载失败: {}", databaseType.getDriverClass(), e);
-            throw new RuntimeException("数据库驱动加载失败: " + databaseType.getDriverClass(), e);
+            throw new BusinessException("数据库驱动加载失败", ErrorCode.CONFIG_ERROR, e);
         }
     }
     

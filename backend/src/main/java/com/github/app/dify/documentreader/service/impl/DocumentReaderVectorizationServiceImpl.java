@@ -3,6 +3,8 @@ package com.github.app.dify.documentreader.service.impl;
 import com.github.app.dify.documentreader.domain.DocumentReader;
 import com.github.app.dify.documentreader.repository.DocumentReaderRepository;
 import com.github.app.dify.documentreader.service.DocumentReaderVectorizationService;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.knowledgebase.langchain4j.*;
 import com.github.app.dify.knowledgebase.service.FileStorageService;
 import dev.langchain4j.data.document.Document;
@@ -118,7 +120,7 @@ public class DocumentReaderVectorizationServiceImpl implements DocumentReaderVec
                 logger.info("文档分割完成，耗时: {} 毫秒 - 文档ID: {}", splitDuration, documentId);
             } catch (Exception e) {
                 logger.error("文档分割失败 - 文档ID: {}", documentId, e);
-                throw new RuntimeException("文档分割失败: " + e.getMessage(), e);
+                throw new BusinessException("文档分割失败", ErrorCode.DATA_VALIDATION_FAILED, e);
             }
             
             if (segments.isEmpty()) {
@@ -175,7 +177,7 @@ public class DocumentReaderVectorizationServiceImpl implements DocumentReaderVec
                 logger.info("向量化完成，embedding数量: {} - 文档ID: {}", embeddings.size(), documentId);
             } catch (Exception e) {
                 logger.error("向量化API调用失败 - 文档ID: {}", documentId, e);
-                throw new RuntimeException("向量化API调用失败: " + e.getMessage(), e);
+                throw new BusinessException("向量化失败", ErrorCode.API_CALL_FAILED, e);
             }
             
             // 7. 批量存储到EmbeddingStore
@@ -185,7 +187,7 @@ public class DocumentReaderVectorizationServiceImpl implements DocumentReaderVec
                 logger.info("向量存储完成 - 文档ID: {}", documentId);
             } catch (Exception e) {
                 logger.error("存储向量失败 - 文档ID: {}", documentId, e);
-                throw new RuntimeException("存储向量失败: " + e.getMessage(), e);
+                throw new BusinessException("存储向量失败", ErrorCode.DATABASE_ERROR, e);
             }
             
             // 更新状态为成功（2）
@@ -247,7 +249,7 @@ public class DocumentReaderVectorizationServiceImpl implements DocumentReaderVec
         Optional<DocumentReader> optional = documentRepository.findByIdAndDeleted(documentId, 0);
         if (!optional.isPresent()) {
             logger.error("文档不存在，无法重新向量化 - 文档ID: {}", documentId);
-            throw new RuntimeException("文档不存在: " + documentId);
+            throw new BusinessException("文档不存在", ErrorCode.DOCUMENT_NOT_FOUND);
         }
         
         DocumentReader document = optional.get();
@@ -264,7 +266,7 @@ public class DocumentReaderVectorizationServiceImpl implements DocumentReaderVec
             
             // 从MinIO下载文件
             if (fileStorageService == null) {
-                throw new RuntimeException("FileStorageService未配置");
+                throw new BusinessException("文件存储服务未配置", ErrorCode.CONFIG_ERROR);
             }
             
             InputStream inputStream = fileStorageService.downloadFile(document.getFilePath());
@@ -301,7 +303,7 @@ public class DocumentReaderVectorizationServiceImpl implements DocumentReaderVec
             } catch (Exception updateException) {
                 logger.error("更新向量化失败状态时出错 - 文档ID: {}", documentId, updateException);
             }
-            throw new RuntimeException("重新向量化失败: " + e.getMessage(), e);
+            throw new BusinessException("重新向量化失败", ErrorCode.API_CALL_FAILED, e);
         }
     }
     
@@ -320,7 +322,7 @@ public class DocumentReaderVectorizationServiceImpl implements DocumentReaderVec
             logger.info("文档向量删除完成 - 文档ID: {}", documentId);
         } catch (Exception e) {
             logger.error("删除文档向量失败 - 文档ID: {}", documentId, e);
-            throw new RuntimeException("删除文档向量失败: " + e.getMessage(), e);
+            throw new BusinessException("删除文档向量失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
     
@@ -392,4 +394,3 @@ public class DocumentReaderVectorizationServiceImpl implements DocumentReaderVec
         }
     }
 }
-

@@ -281,7 +281,7 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
                     .doOnError(error -> {
                         logger.error("流式生成答案失败 - 文档ID: {}", documentId, error);
                         DocumentQAResponse errorResponse = new DocumentQAResponse();
-                        errorResponse.setAnswer("生成答案时发生错误：" + error.getMessage());
+                        errorResponse.setAnswer("系统繁忙，请稍后重试");
                         errorResponse.setFinished(true);
                         sink.tryEmitNext(errorResponse);
                         sink.tryEmitComplete();
@@ -297,7 +297,7 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
             
         } catch (Exception e) {
             logger.error("文档问答失败（流式） - 文档ID: {}", documentId, e);
-            return Flux.just(createStreamErrorResponse("文档问答失败：" + e.getMessage()));
+            return Flux.just(createStreamErrorResponse("系统繁忙，请稍后重试"));
         }
     }
     

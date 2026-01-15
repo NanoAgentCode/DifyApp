@@ -1,6 +1,8 @@
 package com.github.app.dify.datasource.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.datasource.domain.DataSource;
 import com.github.app.dify.datasource.service.DatabaseConnectionService;
 import com.github.app.dify.datasource.service.DatabaseSchemaService;
@@ -60,7 +62,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
             }
         } catch (Exception e) {
             logger.error("获取表列表失败 - 数据源ID: {}", dataSource.getId(), e);
-            throw new RuntimeException("获取表列表失败: " + e.getMessage(), e);
+            throw new BusinessException("获取表列表失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
     
@@ -104,7 +106,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
             return json;
         } catch (Exception e) {
             logger.error("获取表结构失败 - 数据源ID: {}, 表名: {}", dataSource.getId(), tableName, e);
-            throw new RuntimeException("获取表结构失败: " + e.getMessage(), e);
+            throw new BusinessException("获取表结构失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
     
@@ -192,7 +194,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
             }
         } catch (Exception e) {
             logger.error("获取 Neo4j 节点标签列表失败 - 数据源ID: {}", dataSource.getId(), e);
-            throw new RuntimeException("获取 Neo4j 节点标签列表失败: " + e.getMessage(), e);
+            throw new BusinessException("获取 Neo4j 节点标签列表失败", ErrorCode.DATABASE_ERROR, e);
         }
         return labels;
     }
@@ -364,7 +366,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
             }
         } catch (Exception e) {
             logger.error("获取 Neo4j 节点标签结构失败 - 数据源ID: {}, 节点标签: {}", dataSource.getId(), nodeLabel, e);
-            throw new RuntimeException("获取 Neo4j 节点标签结构失败: " + e.getMessage(), e);
+            throw new BusinessException("获取 Neo4j 节点标签结构失败", ErrorCode.DATABASE_ERROR, e);
         }
         
         schema.put("properties", properties);

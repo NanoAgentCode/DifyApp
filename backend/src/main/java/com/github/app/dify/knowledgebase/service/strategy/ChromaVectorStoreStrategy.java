@@ -346,7 +346,7 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
                                             }
                                             logger.error("向量插入请求失败 - 知识库ID: {}, 文档ID: {}, 集合名: {}, HTTP状态: {}, 错误响应: {}", 
                                                     knowledgeBaseId, documentId, collectionName, clientResponse.statusCode(), errorBody);
-                                            return Mono.<RuntimeException>error(new RuntimeException(errorMsg));
+                                            return Mono.error(new BusinessException(errorMsg, ErrorCode.DATABASE_CONNECTION_ERROR));
                                         });
                                     })
                             .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
@@ -363,19 +363,7 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
                     if (e.getStatusCode().value() == 405) {
                         logger.error("Chroma v2 API 返回 405 Method Not Allowed - 知识库ID: {}, 文档ID: {}, 集合名: {}, 端点: /api/v2/collections/{}/add, 响应: {}", 
                                 knowledgeBaseId, documentId, collectionName, collectionName, e.getResponseBodyAsString());
-                        throw new RuntimeException(String.format(
-                                "Chroma v2 API 返回 405 Method Not Allowed。\n" +
-                                "端点: POST /api/v2/collections/%s/add\n" +
-                                "可能的原因：\n" +
-                                "- 端点路径不正确\n" +
-                                "- 请求格式不正确\n" +
-                                "- 服务器配置问题\n\n" +
-                                "建议：\n" +
-                                "- 检查 Chroma 服务器版本和文档：https://docs.trychroma.com/\n" +
-                                "- 查看服务器日志获取更多信息\n" +
-                                "- 确认 v2 API 的正确端点格式",
-                            collectionName
-                        ), e);
+                        throw new BusinessException("Chroma接口调用失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
                     }
                     // 其他 HTTP 错误，继续抛出
                     lastException = e;
@@ -394,7 +382,7 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
                                 Thread.sleep(waitTime);
                             } catch (InterruptedException ie) {
                                 Thread.currentThread().interrupt();
-                                throw new RuntimeException("重试等待被中断", ie);
+                                throw new BusinessException("重试等待被中断", ErrorCode.SYSTEM_BUSY, ie);
                             }
                             continue; // 继续重试
                         }
@@ -405,7 +393,7 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
             }
             
             // 所有重试都失败
-            throw new RuntimeException("向量插入失败（批次 " + batchNum + "/" + totalBatches + "），已重试 " + maxRetries + " 次", lastException);
+            throw new BusinessException("向量插入失败", ErrorCode.DATABASE_CONNECTION_ERROR, lastException);
             
         } catch (Exception e) {
             logger.error("批次插入失败 - 知识库ID: {}, 文档ID: {}, 批次: {}/{}", 
@@ -458,7 +446,7 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
                                     }
                                     logger.error("Chroma搜索请求失败 - 知识库ID: {}, 集合名: {}, HTTP状态: {}, 错误响应: {}", 
                                             knowledgeBaseId, collectionName, clientResponse.statusCode(), errorBody);
-                                    return Mono.<RuntimeException>error(new RuntimeException(errorMsg));
+                                    return Mono.error(new BusinessException(errorMsg, ErrorCode.DATABASE_CONNECTION_ERROR));
                                 });
                             })
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
@@ -616,7 +604,7 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
                                     }
                                     logger.error("删除向量请求失败 - 知识库ID: {}, 文档ID: {}, 集合名: {}, HTTP状态: {}, 错误响应: {}", 
                                             knowledgeBaseId, documentId, collectionName, clientResponse.statusCode(), errorBody);
-                                    return Mono.<RuntimeException>error(new RuntimeException(errorMsg));
+                                    return Mono.error(new BusinessException(errorMsg, ErrorCode.DATABASE_CONNECTION_ERROR));
                                 });
                             })
                     .bodyToMono(String.class)

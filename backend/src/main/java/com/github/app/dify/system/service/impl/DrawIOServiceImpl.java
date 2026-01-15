@@ -17,6 +17,8 @@ import com.github.app.dify.system.resp.DrawIOHistoryResp;
 import com.github.app.dify.system.service.DrawIOService;
 import com.github.app.dify.model.service.ModelConfigService;
 import com.github.app.dify.system.service.SystemConfigService;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -106,7 +108,7 @@ public class DrawIOServiceImpl implements DrawIOService {
             logger.error("生成图表失败 - 用户ID: {}, 提示: {}", 
                     SensitiveDataUtil.maskUserId(userId), 
                     SensitiveDataUtil.mask(request.getPrompt()), e);
-            throw new RuntimeException("生成图表失败: " + e.getMessage(), e);
+            throw new BusinessException("生成图表失败，请稍后重试", ErrorCode.API_CALL_FAILED, e);
         }
     }
     
@@ -156,7 +158,7 @@ public class DrawIOServiceImpl implements DrawIOService {
             logger.error("修改图表失败 - 用户ID: {}, 修改指令: {}", 
                     SensitiveDataUtil.maskUserId(userId), 
                     SensitiveDataUtil.mask(request.getPrompt()), e);
-            throw new RuntimeException("修改图表失败: " + e.getMessage(), e);
+            throw new BusinessException("修改图表失败，请稍后重试", ErrorCode.API_CALL_FAILED, e);
         }
     }
     
@@ -188,7 +190,7 @@ public class DrawIOServiceImpl implements DrawIOService {
             logger.error("保存图表失败 - 用户ID: {}, 名称: {}", 
                     SensitiveDataUtil.maskUserId(userId), 
                     request.getName(), e);
-            throw new RuntimeException("保存图表失败: " + e.getMessage(), e);
+            throw new BusinessException("保存图表失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
     
@@ -202,7 +204,7 @@ public class DrawIOServiceImpl implements DrawIOService {
         } catch (Exception e) {
             logger.error("获取图表列表失败 - 用户ID: {}", 
                     SensitiveDataUtil.maskUserId(userId), e);
-            throw new RuntimeException("获取图表列表失败: " + e.getMessage(), e);
+            throw new BusinessException("获取图表列表失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
     
@@ -210,14 +212,14 @@ public class DrawIOServiceImpl implements DrawIOService {
     public DrawIODiagramResp getDiagramDetail(Long id, Long userId) {
         try {
             DrawIODiagram diagram = drawIODiagramRepository.findByIdAndUserId(id, userId)
-                    .orElseThrow(() -> new RuntimeException("图表不存在或无权限访问"));
+                    .orElseThrow(() -> new BusinessException("图表不存在或无权限访问", ErrorCode.FORBIDDEN));
             
             return SystemConverterUtil.convertToResp(diagram);
         } catch (Exception e) {
             logger.error("获取图表详情失败 - ID: {}, 用户ID: {}", 
                     id, 
                     SensitiveDataUtil.maskUserId(userId), e);
-            throw new RuntimeException("获取图表详情失败: " + e.getMessage(), e);
+            throw new BusinessException("获取图表详情失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
     
@@ -226,7 +228,7 @@ public class DrawIOServiceImpl implements DrawIOService {
     public void deleteDiagram(Long id, Long userId) {
         try {
             DrawIODiagram diagram = drawIODiagramRepository.findByIdAndUserId(id, userId)
-                    .orElseThrow(() -> new RuntimeException("图表不存在或无权限访问"));
+                    .orElseThrow(() -> new BusinessException("图表不存在或无权限访问", ErrorCode.FORBIDDEN));
             
             diagram.setDeleted(1);
             SystemDateTimeUtil.setUpdateTime(diagram);
@@ -239,7 +241,7 @@ public class DrawIOServiceImpl implements DrawIOService {
             logger.error("删除图表失败 - ID: {}, 用户ID: {}", 
                     id, 
                     SensitiveDataUtil.maskUserId(userId), e);
-            throw new RuntimeException("删除图表失败: " + e.getMessage(), e);
+            throw new BusinessException("删除图表失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
     
@@ -1256,7 +1258,7 @@ public class DrawIOServiceImpl implements DrawIOService {
             logger.error("保存历史记录失败 - 用户ID: {}, 提示词: {}", 
                     SensitiveDataUtil.maskUserId(userId), 
                     SensitiveDataUtil.mask(request.getPrompt()), e);
-            throw new RuntimeException("保存历史记录失败: " + e.getMessage(), e);
+            throw new BusinessException("保存历史记录失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
     
@@ -1271,7 +1273,7 @@ public class DrawIOServiceImpl implements DrawIOService {
         } catch (Exception e) {
             logger.error("获取历史记录列表失败 - 用户ID: {}", 
                     SensitiveDataUtil.maskUserId(userId), e);
-            throw new RuntimeException("获取历史记录列表失败: " + e.getMessage(), e);
+            throw new BusinessException("获取历史记录列表失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
     
@@ -1280,7 +1282,7 @@ public class DrawIOServiceImpl implements DrawIOService {
     public void deleteHistory(Long id, Long userId) {
         try {
             DrawIOHistory history = drawIOHistoryRepository.findByIdAndUserId(id, userId)
-                    .orElseThrow(() -> new RuntimeException("历史记录不存在或无权限访问"));
+                    .orElseThrow(() -> new BusinessException("历史记录不存在或无权限访问", ErrorCode.FORBIDDEN));
             
             history.setDeleted(1);
             drawIOHistoryRepository.save(history);
@@ -1292,7 +1294,7 @@ public class DrawIOServiceImpl implements DrawIOService {
             logger.error("删除历史记录失败 - ID: {}, 用户ID: {}", 
                     id, 
                     SensitiveDataUtil.maskUserId(userId), e);
-            throw new RuntimeException("删除历史记录失败: " + e.getMessage(), e);
+            throw new BusinessException("删除历史记录失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
     

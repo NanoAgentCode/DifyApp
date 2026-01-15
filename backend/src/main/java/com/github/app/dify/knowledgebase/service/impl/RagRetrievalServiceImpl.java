@@ -5,6 +5,8 @@ import com.github.app.dify.knowledgebase.langchain4j.CustomEmbeddingModel;
 import com.github.app.dify.knowledgebase.langchain4j.VectorStoreFactory;
 import com.github.app.dify.knowledgebase.service.EmbeddingService;
 import com.github.app.dify.knowledgebase.service.RagRetrievalService;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
@@ -179,10 +181,10 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
                 return new ArrayList<>();
             }
             logger.error("RAG检索失败 - 知识库ID: {}, 查询: {}", knowledgeBaseId, query, e);
-            throw new RuntimeException("RAG检索失败: " + e.getMessage(), e);
+            throw new BusinessException("RAG检索失败", ErrorCode.RAG_RETRIEVAL_ERROR, e);
         } catch (Exception e) {
             logger.error("RAG检索失败 - 知识库ID: {}, 查询: {}", knowledgeBaseId, query, e);
-            throw new RuntimeException("RAG检索失败: " + e.getMessage(), e);
+            throw new BusinessException("RAG检索失败", ErrorCode.RAG_RETRIEVAL_ERROR, e);
         }
     }
     

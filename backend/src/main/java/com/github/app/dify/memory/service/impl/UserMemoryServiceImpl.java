@@ -2,6 +2,8 @@ package com.github.app.dify.memory.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.exception.NotFoundException;
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
@@ -287,10 +289,10 @@ public class UserMemoryServiceImpl implements UserMemoryService {
                 try {
                     root = objectMapper.readTree(maybe);
                 } catch (Exception ex) {
-                    throw new RuntimeException("JSON解析失败: " + maybe, ex);
+                    throw new BusinessException("JSON解析失败", ErrorCode.DATA_VALIDATION_FAILED, ex);
                 }
             } else {
-                throw new RuntimeException("JSON解析失败: " + json, e);
+                throw new BusinessException("JSON解析失败", ErrorCode.DATA_VALIDATION_FAILED, e);
             }
         }
         if (root == null || !root.isObject()) {

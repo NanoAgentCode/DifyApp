@@ -176,8 +176,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                                 if (clientResponse.statusCode().value() == 404) {
                                     return Mono.empty();
                                 }
-                                return Mono.error(new RuntimeException(
-                                        "检查类存在性失败: HTTP " + clientResponse.statusCode()));
+                                return Mono.error(new BusinessException("检查类存在性失败", ErrorCode.DATABASE_CONNECTION_ERROR));
                             })
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                     .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
@@ -262,7 +261,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                                     }
                                     logger.error("创建类请求失败 - 类名: {}, HTTP状态: {}, 错误响应: {}", 
                                             className, clientResponse.statusCode(), errorBody);
-                                    return Mono.<RuntimeException>error(new RuntimeException(errorMsg));
+                                    return Mono.error(new BusinessException(errorMsg, ErrorCode.DATABASE_CONNECTION_ERROR));
                                 });
                             })
                     .bodyToMono(String.class)
@@ -360,7 +359,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                                             }
                                             logger.error("向量插入请求失败 - 知识库ID: {}, 文档ID: {}, 类名: {}, HTTP状态: {}, 错误响应: {}", 
                                                     knowledgeBaseId, documentId, className, clientResponse.statusCode(), errorBody);
-                                            return Mono.<RuntimeException>error(new RuntimeException(errorMsg));
+                                            return Mono.error(new BusinessException(errorMsg, ErrorCode.DATABASE_CONNECTION_ERROR));
                                         });
                                     })
                             .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
@@ -479,7 +478,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                                     }
                                     logger.error("Weaviate搜索请求失败 - 知识库ID: {}, 类名: {}, HTTP状态: {}, 错误响应: {}", 
                                             knowledgeBaseId, className, clientResponse.statusCode(), errorBody);
-                                    return Mono.<RuntimeException>error(new RuntimeException(errorMsg));
+                                    return Mono.error(new BusinessException(errorMsg, ErrorCode.DATABASE_CONNECTION_ERROR));
                                 });
                             })
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
@@ -668,7 +667,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                                                 }
                                                 logger.error("删除向量请求失败 - 知识库ID: {}, 文档ID: {}, 对象ID: {}, HTTP状态: {}, 错误响应: {}", 
                                                         knowledgeBaseId, documentId, objectId, clientResponse.statusCode(), errorBody);
-                                                return Mono.<RuntimeException>error(new RuntimeException(errorMsg));
+                                                return Mono.error(new BusinessException(errorMsg, ErrorCode.DATABASE_CONNECTION_ERROR));
                                             });
                                         })
                                 .bodyToMono(String.class)
@@ -715,7 +714,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                                             }
                                             logger.error("批量删除向量请求失败 - 知识库ID: {}, 文档ID: {}, HTTP状态: {}, 错误响应: {}", 
                                                     knowledgeBaseId, documentId, clientResponse.statusCode(), errorBody);
-                                            return Mono.<RuntimeException>error(new RuntimeException(errorMsg));
+                                            return Mono.error(new BusinessException(errorMsg, ErrorCode.DATABASE_CONNECTION_ERROR));
                                         });
                                     })
                             .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
@@ -756,8 +755,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                                                 if (clientResponse.statusCode().value() == 404) {
                                                     return Mono.empty();
                                                 }
-                                                return Mono.error(new RuntimeException(
-                                                        "删除对象失败: HTTP " + clientResponse.statusCode()));
+                                                return Mono.error(new BusinessException("删除对象失败", ErrorCode.DATABASE_CONNECTION_ERROR));
                                             })
                                     .bodyToMono(String.class)
                                     .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))

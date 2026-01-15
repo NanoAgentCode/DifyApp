@@ -2,6 +2,8 @@ package com.github.app.dify.knowledgebase.service.impl;
 
 import com.github.app.dify.chat.service.OcrService;
 import com.github.app.dify.knowledgebase.service.DocumentParserService;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import org.apache.poi.hwpf.HWPFDocument;
 import org.apache.poi.hwpf.usermodel.Picture;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -144,7 +146,7 @@ public class DocumentParserServiceImpl implements DocumentParserService {
             return content != null ? content.trim() : "";
         } catch (IOException | TikaException e) {
             logger.error("文档解析失败 - 文件名: {}", file.getOriginalFilename(), e);
-            throw new RuntimeException("文档解析失败: " + e.getMessage(), e);
+            throw new BusinessException("文档解析失败", ErrorCode.DOCUMENT_PARSE_FAILED, e);
         }
     }
     
@@ -174,7 +176,7 @@ public class DocumentParserServiceImpl implements DocumentParserService {
             return content != null ? content.trim() : "";
         } catch (IOException | TikaException e) {
             logger.error("文档解析失败 - 文件名: {}", fileName, e);
-            throw new RuntimeException("文档解析失败: " + e.getMessage(), e);
+            throw new BusinessException("文档解析失败", ErrorCode.DOCUMENT_PARSE_FAILED, e);
         }
     }
     

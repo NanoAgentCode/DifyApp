@@ -792,7 +792,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 // 提取文档内容
                 String documentContent = extractDocumentText(document);
                 if (documentContent == null || documentContent.trim().isEmpty()) {
-                    throw new RuntimeException("文档内容为空，无法翻译");
+                    throw new BusinessException("文档内容为空，无法翻译", ErrorCode.BAD_REQUEST);
                 }
                 
                 // 去除页眉页脚
@@ -958,7 +958,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
             // 读取文档内容
             String documentContent = extractDocumentText(document);
             if (documentContent == null || documentContent.trim().isEmpty()) {
-                throw new RuntimeException("文档内容为空，无法生成思维导图");
+                throw new BusinessException("文档内容为空，无法生成思维导图", ErrorCode.BAD_REQUEST);
             }
             
             // 获取模型配置：优先使用参数，其次使用文档解读配置，最后使用默认RAG模型

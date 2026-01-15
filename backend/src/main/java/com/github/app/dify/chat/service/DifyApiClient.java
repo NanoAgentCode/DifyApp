@@ -3,6 +3,8 @@ package com.github.app.dify.chat.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.system.config.DifyConfig;
 import com.github.app.dify.chat.resp.DifyResponse;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.config.WebClientConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,7 +68,7 @@ public class DifyApiClient {
     public Mono<DifyResponse> chat(String apiKey, String baseUrl, String query, String conversationId, 
                                     String userId, Map<String, Object> inputs, List<Map<String, Object>> files) {
         if (apiKey == null || apiKey.trim().isEmpty()) {
-            throw new RuntimeException("API Key不能为空");
+            throw new BusinessException("API Key不能为空", ErrorCode.API_CONFIG_ERROR);
         }
         
         // 内部方法：执行实际的请求
@@ -123,7 +125,7 @@ public class DifyApiClient {
                         return objectMapper.readValue(response, DifyResponse.class);
                     } catch (Exception e) {
                         logger.error("解析Dify响应失败", e);
-                        throw new RuntimeException("解析Dify响应失败: " + e.getMessage(), e);
+                        throw new BusinessException("解析响应失败", ErrorCode.API_CALL_FAILED, e);
                     }
                 })
                 .doOnError(error -> {
@@ -167,7 +169,7 @@ public class DifyApiClient {
     public Flux<DifyResponse> chatStream(String apiKey, String baseUrl, String query, String conversationId,
                                           String userId, Map<String, Object> inputs, List<Map<String, Object>> files) {
         if (apiKey == null || apiKey.trim().isEmpty()) {
-            throw new RuntimeException("API Key不能为空");
+            throw new BusinessException("API Key不能为空", ErrorCode.API_CONFIG_ERROR);
         }
         
         // 内部方法：执行实际的流式请求
@@ -379,7 +381,7 @@ public class DifyApiClient {
     public Mono<DifyResponse> workflow(String apiKey, String baseUrl, String userId, Map<String, Object> inputs, 
                                        List<Map<String, Object>> files, String traceId) {
         if (apiKey == null || apiKey.trim().isEmpty()) {
-            throw new RuntimeException("API Key不能为空");
+            throw new BusinessException("API Key不能为空", ErrorCode.API_CONFIG_ERROR);
         }
         
         WebClient webClient = getWebClient(baseUrl);
@@ -389,7 +391,7 @@ public class DifyApiClient {
         if (userId != null && !userId.trim().isEmpty()) {
             requestBody.put("user", userId);
         } else {
-            throw new RuntimeException("用户ID不能为空");
+            throw new BusinessException("用户ID不能为空", ErrorCode.BAD_REQUEST);
         }
         
         // 构建 inputs，将文件信息添加到 inputs 中
@@ -448,7 +450,7 @@ public class DifyApiClient {
                         return objectMapper.readValue(response, DifyResponse.class);
                     } catch (Exception e) {
                         logger.error("解析Dify响应失败", e);
-                        throw new RuntimeException("解析Dify响应失败: " + e.getMessage(), e);
+                        throw new BusinessException("解析响应失败", ErrorCode.API_CALL_FAILED, e);
                     }
                 })
                 .doOnError(error -> {
@@ -506,7 +508,7 @@ public class DifyApiClient {
                                         "   b) 或者在本系统中更新应用的API Key为Workflow应用的API Key",
                                         apiKey.substring(0, Math.min(20, apiKey.length()))
                                     );
-                                    return new RuntimeException(errorMessage, badRequestEx);
+                                    return new BusinessException(errorMessage, ErrorCode.BAD_REQUEST, badRequestEx);
                                 }
                                 // 检查是否是参数缺失错误
                                 if (responseBody.contains("is required in input form")) {
@@ -514,7 +516,7 @@ public class DifyApiClient {
                                     String missingParam = extractMissingParam(responseBody);
                                     String errorMessage = String.format("Workflow 缺少必需的输入参数: %s。请检查应用配置中的 inputs 字段，确保包含所有必需的参数。", missingParam);
                                     logger.warn("Workflow 参数缺失: {}, 当前输入参数: {}", missingParam, requestBody.get("inputs"));
-                                    return new RuntimeException(errorMessage, badRequestEx);
+                                    return new BusinessException(errorMessage, ErrorCode.BAD_REQUEST, badRequestEx);
                                 }
                             }
                         } catch (Exception e) {
@@ -564,7 +566,7 @@ public class DifyApiClient {
     public Flux<DifyResponse> workflowStream(String apiKey, String baseUrl, String userId, Map<String, Object> inputs,
                                              List<Map<String, Object>> files, String traceId) {
         if (apiKey == null || apiKey.trim().isEmpty()) {
-            throw new RuntimeException("API Key不能为空");
+            throw new BusinessException("API Key不能为空", ErrorCode.API_CONFIG_ERROR);
         }
         
         WebClient webClient = getStreamingWebClient(baseUrl);
@@ -574,7 +576,7 @@ public class DifyApiClient {
         if (userId != null && !userId.trim().isEmpty()) {
             requestBody.put("user", userId);
         } else {
-            throw new RuntimeException("用户ID不能为空");
+            throw new BusinessException("用户ID不能为空", ErrorCode.BAD_REQUEST);
         }
         
         // 构建 inputs，将文件信息添加到 inputs 中
@@ -732,7 +734,7 @@ public class DifyApiClient {
                                 String missingParam = extractMissingParam(responseBody);
                                 String errorMessage = String.format("Workflow 缺少必需的输入参数: %s。请检查应用配置中的 inputs 字段，确保包含所有必需的参数。", missingParam);
                                 logger.warn("Workflow 参数缺失: {}, 当前输入参数: {}", missingParam, requestBody.get("inputs"));
-                                return Flux.error(new RuntimeException(errorMessage, badRequestEx));
+                                return Flux.error(new BusinessException(errorMessage, ErrorCode.BAD_REQUEST, badRequestEx));
                             }
                         } catch (Exception e) {
                             logger.warn("无法解析错误响应体", e);
@@ -749,11 +751,11 @@ public class DifyApiClient {
                                                  org.springframework.web.multipart.MultipartFile file, 
                                                  String userId) {
         if (apiKey == null || apiKey.trim().isEmpty()) {
-            return Mono.error(new RuntimeException("API Key不能为空"));
+            return Mono.error(new BusinessException("API Key不能为空", ErrorCode.API_CONFIG_ERROR));
         }
         
         if (file == null || file.isEmpty()) {
-            return Mono.error(new RuntimeException("文件不能为空"));
+            return Mono.error(new BusinessException("文件不能为空", ErrorCode.BAD_REQUEST));
         }
         
         WebClient webClient = getWebClient(baseUrl);
@@ -773,7 +775,7 @@ public class DifyApiClient {
                 };
             parts.add("file", fileResource);
         } catch (Exception e) {
-            return Mono.error(new RuntimeException("读取文件失败: " + e.getMessage(), e));
+            return Mono.error(new BusinessException("读取文件失败", ErrorCode.FILE_UPLOAD_FAILED, e));
         }
         
         // 添加 user 参数（可选）
@@ -805,7 +807,7 @@ public class DifyApiClient {
                         return result;
                     } catch (Exception e) {
                         logger.error("解析文件上传响应失败", e);
-                        throw new RuntimeException("解析文件上传响应失败: " + e.getMessage(), e);
+                        throw new BusinessException("解析文件上传响应失败", ErrorCode.API_CALL_FAILED, e);
                     }
                 })
                 .doOnError(error -> {

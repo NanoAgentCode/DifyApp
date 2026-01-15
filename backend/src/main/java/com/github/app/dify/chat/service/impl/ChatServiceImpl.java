@@ -11,6 +11,8 @@ import com.github.app.dify.chat.req.ChatRequest;
 import com.github.app.dify.chat.resp.ChatResponse;
 import com.github.app.dify.chat.service.ChatHistoryService;
 import com.github.app.dify.chat.service.ChatService;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.knowledgebase.service.ContextCompressionService;
 import com.github.app.dify.memory.service.UserMemoryService;
 import dev.langchain4j.data.message.AiMessage;
@@ -193,7 +195,7 @@ public class ChatServiceImpl implements ChatService {
             
         } catch (Exception e) {
             logger.error("智能问答失败", e);
-            throw new RuntimeException("智能问答失败: " + e.getMessage(), e);
+            throw new BusinessException("智能问答失败，请稍后重试", ErrorCode.SYSTEM_BUSY, e);
         }
     }
     
@@ -420,14 +422,14 @@ public class ChatServiceImpl implements ChatService {
                     .onErrorResume(error -> {
                         logger.error("流式问答失败", error);
                         ChatResponse errorResponse = new ChatResponse();
-                        errorResponse.setAnswer("生成答案时发生错误: " + error.getMessage());
+                        errorResponse.setAnswer("系统繁忙，请稍后重试");
                         errorResponse.setFinished(true);
                         return Flux.just(errorResponse);
                     });
             
         } catch (Exception e) {
             logger.error("智能问答失败（流式）", e);
-            return Flux.error(new RuntimeException("智能问答失败: " + e.getMessage(), e));
+            return Flux.error(new BusinessException("智能问答失败，请稍后重试", ErrorCode.SYSTEM_BUSY, e));
         }
     }
     

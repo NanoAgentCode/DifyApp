@@ -7,6 +7,8 @@ import com.github.app.dify.datasource.domain.DataSource;
 import com.github.app.dify.datasource.service.DatabaseConnectionService;
 import com.github.app.dify.datasource.util.DatabaseDriverManager;
 import com.github.app.dify.auth.util.PasswordEncryptionUtil;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
@@ -246,7 +248,7 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
                 return new ElasticsearchClient(transport);
             } catch (Exception e) {
                 logger.error("创建 Elasticsearch 客户端失败", e);
-                throw new RuntimeException("创建 Elasticsearch 客户端失败: " + e.getMessage(), e);
+                throw new BusinessException("创建 Elasticsearch 客户端失败", ErrorCode.ELASTICSEARCH_CONNECTION_ERROR, e);
             }
         });
     }
@@ -594,7 +596,7 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
             return new ElasticsearchClient(transport);
         } catch (Exception e) {
             logger.error("创建 Elasticsearch 测试客户端失败", e);
-            throw new RuntimeException("创建 Elasticsearch 测试客户端失败: " + e.getMessage(), e);
+            throw new BusinessException("创建 Elasticsearch 测试客户端失败", ErrorCode.ELASTICSEARCH_CONNECTION_ERROR, e);
         }
     }
     

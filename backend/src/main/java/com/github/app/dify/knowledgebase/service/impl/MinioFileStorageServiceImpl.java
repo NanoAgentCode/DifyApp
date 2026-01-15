@@ -2,6 +2,8 @@ package com.github.app.dify.knowledgebase.service.impl;
 
 import com.github.app.dify.system.config.MinioConfig;
 import com.github.app.dify.knowledgebase.service.FileStorageService;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
@@ -44,7 +46,7 @@ public class MinioFileStorageServiceImpl implements FileStorageService {
             return fileUrl;
         } catch (Exception e) {
             logger.error("文件上传失败: {}", filePath, e);
-            throw new RuntimeException("文件上传失败: " + e.getMessage(), e);
+            throw new BusinessException("文件上传失败", ErrorCode.FILE_UPLOAD_FAILED, e);
         }
     }
     
@@ -60,7 +62,7 @@ public class MinioFileStorageServiceImpl implements FileStorageService {
             logger.info("文件删除成功: {}", filePath);
         } catch (Exception e) {
             logger.error("文件删除失败: {}", filePath, e);
-            throw new RuntimeException("文件删除失败: " + e.getMessage(), e);
+            throw new BusinessException("文件删除失败", ErrorCode.FILE_DELETE_FAILED, e);
         }
     }
     
@@ -85,7 +87,7 @@ public class MinioFileStorageServiceImpl implements FileStorageService {
             );
         } catch (Exception e) {
             logger.error("文件下载失败: {}", filePath, e);
-            throw new RuntimeException("文件下载失败: " + e.getMessage(), e);
+            throw new BusinessException("文件下载失败", ErrorCode.FILE_DOWNLOAD_FAILED, e);
         }
     }
     

@@ -3,6 +3,8 @@ package com.github.app.dify.knowledgebase.service.impl;
 import com.github.app.dify.system.config.FaissConfig;
 import com.github.app.dify.system.config.MilvusConfig;
 import com.github.app.dify.system.config.QdrantConfig;
+import com.github.app.dify.common.exception.BusinessException;
+import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
 import com.github.app.dify.knowledgebase.repository.VectorDatabaseRepository;
 import com.github.app.dify.knowledgebase.req.TestVectorDatabaseConnectionRequest;
@@ -111,7 +113,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
             toggleEnabled(request.getConfigId(), request.getEnabled());
             return null;
         } else {
-            throw new RuntimeException("不支持的操作类型: " + action);
+            throw new BusinessException("不支持的操作类型", ErrorCode.BAD_REQUEST);
         }
     }
     
@@ -139,11 +141,11 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
             } else if ("pgvector".equalsIgnoreCase(type)) {
                 testPgVectorConnection(url, apiKey, extraConfig, timeout);
             } else {
-                throw new RuntimeException("不支持的数据库类型: " + type);
+                throw new BusinessException("不支持的数据库类型", ErrorCode.BAD_REQUEST);
             }
         } catch (Exception e) {
             logger.error("测试向量数据库连接失败 - 类型: {}, URL: {}", type, url, e);
-            throw new RuntimeException("测试连接失败: " + e.getMessage());
+            throw new BusinessException("测试连接失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
         }
     }
     
@@ -153,7 +155,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
     private VectorDatabaseResp addConfig(VectorDatabaseRequest request) {
         VectorDatabaseRequest.DatabaseInfo info = request.getDatabase();
         if (info == null) {
-            throw new RuntimeException("配置信息不能为空");
+            throw new BusinessException("配置信息不能为空", ErrorCode.BAD_REQUEST);
         }
         
         VectorDatabase config = new VectorDatabase();
@@ -198,17 +200,17 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
     private VectorDatabaseResp updateConfigInternal(VectorDatabaseRequest request) {
         VectorDatabaseRequest.DatabaseInfo info = request.getDatabase();
         if (info == null || info.getId() == null) {
-            throw new RuntimeException("配置ID不能为空");
+            throw new BusinessException("配置ID不能为空", ErrorCode.BAD_REQUEST);
         }
         
         Optional<VectorDatabase> optional = vectorDatabaseRepository.findById(info.getId());
         if (!optional.isPresent()) {
-            throw new RuntimeException("配置不存在: " + info.getId());
+            throw new BusinessException("配置不存在", ErrorCode.RESOURCE_NOT_FOUND);
         }
         
         VectorDatabase config = optional.get();
         if (config.getDeleted() != null && config.getDeleted() == 1) {
-            throw new RuntimeException("配置已删除");
+            throw new BusinessException("配置已删除", ErrorCode.RESOURCE_DELETED);
         }
         
         // 更新字段
@@ -253,7 +255,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
     private void deleteConfig(Long configId) {
         Optional<VectorDatabase> optional = vectorDatabaseRepository.findById(configId);
         if (!optional.isPresent()) {
-            throw new RuntimeException("配置不存在: " + configId);
+            throw new BusinessException("配置不存在", ErrorCode.RESOURCE_NOT_FOUND);
         }
         
         VectorDatabase config = optional.get();
@@ -268,16 +270,16 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
     private void setDefaultConfig(Long configId) {
         Optional<VectorDatabase> optional = vectorDatabaseRepository.findById(configId);
         if (!optional.isPresent()) {
-            throw new RuntimeException("配置不存在: " + configId);
+            throw new BusinessException("配置不存在", ErrorCode.RESOURCE_NOT_FOUND);
         }
         
         VectorDatabase config = optional.get();
         if (config.getDeleted() != null && config.getDeleted() == 1) {
-            throw new RuntimeException("配置已删除");
+            throw new BusinessException("配置已删除", ErrorCode.RESOURCE_DELETED);
         }
         
         if (!config.getEnabled()) {
-            throw new RuntimeException("只有启用的配置才能设置为默认");
+            throw new BusinessException("只有启用的配置才能设置为默认", ErrorCode.BAD_REQUEST);
         }
         
         // 取消所有其他配置的默认状态（全局单选，只能有一个默认配置）
@@ -308,12 +310,12 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
     private void toggleEnabled(Long configId, Boolean enabled) {
         Optional<VectorDatabase> optional = vectorDatabaseRepository.findById(configId);
         if (!optional.isPresent()) {
-            throw new RuntimeException("配置不存在: " + configId);
+            throw new BusinessException("配置不存在", ErrorCode.RESOURCE_NOT_FOUND);
         }
         
         VectorDatabase config = optional.get();
         if (config.getDeleted() != null && config.getDeleted() == 1) {
-            throw new RuntimeException("配置已删除");
+            throw new BusinessException("配置已删除", ErrorCode.RESOURCE_DELETED);
         }
         
         config.setEnabled(enabled);
@@ -371,7 +373,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
                 .block();
         
         if (healthResponse == null || healthResponse.trim().isEmpty()) {
-            throw new RuntimeException("Qdrant健康检查返回空响应");
+            throw new BusinessException("Qdrant健康检查失败", ErrorCode.DATABASE_CONNECTION_ERROR);
         }
     }
     
@@ -381,14 +383,14 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
     private void testMilvusConnection(String url, String apiKey, int timeout) {
         // 验证 URL 格式（Milvus 使用 gRPC）
         if (url == null || url.trim().isEmpty()) {
-            throw new RuntimeException("Milvus URL 不能为空，请配置有效的 HTTP URL（例如：http://localhost:19530）");
+            throw new BusinessException("Milvus URL 不能为空", ErrorCode.BAD_REQUEST);
         }
         
         String trimmedUrl = url.trim();
         if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
-            throw new RuntimeException(
-                String.format("Milvus URL 必须是有效的 HTTP/HTTPS 地址，当前配置为: %s。请配置为 HTTP URL（例如：http://localhost:19530）", 
-                    trimmedUrl));
+            throw new BusinessException(
+                    String.format("Milvus URL 必须是有效的 HTTP/HTTPS 地址，当前配置为: %s", trimmedUrl),
+                    ErrorCode.BAD_REQUEST);
         }
         
         WebClient webClient = KnowledgeBaseWebClientUtil.createBuilderWithApiKey(trimmedUrl, apiKey).build();
@@ -474,21 +476,14 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
         if (lastException != null) {
             if (lastException instanceof WebClientResponseException) {
                 WebClientResponseException webEx = (WebClientResponseException) lastException;
-                throw new RuntimeException(
-                    String.format("Milvus连接失败: %d %s。已尝试端点: %s (19530端口) 和 /healthz (9091端口)。请检查Milvus服务是否正在运行，URL是否正确。", 
-                        webEx.getStatusCode().value(), 
-                        webEx.getStatusText(),
-                        String.join(", ", healthEndpoints)));
+                throw new BusinessException(
+                        String.format("Milvus连接失败: %d %s", webEx.getStatusCode().value(), webEx.getStatusText()),
+                        ErrorCode.DATABASE_CONNECTION_ERROR);
             } else {
-                throw new RuntimeException(
-                    String.format("Milvus连接失败: %s。已尝试端点: %s (19530端口) 和 /healthz (9091端口)。请检查Milvus服务是否正在运行，URL是否正确。", 
-                        lastException.getMessage(),
-                        String.join(", ", healthEndpoints)));
+                throw new BusinessException("Milvus连接失败", ErrorCode.DATABASE_CONNECTION_ERROR, lastException);
             }
         } else {
-            throw new RuntimeException(
-                String.format("Milvus健康检查返回空响应。已尝试端点: %s (19530端口) 和 /healthz (9091端口)。请检查Milvus服务是否正在运行。", 
-                    String.join(", ", healthEndpoints)));
+            throw new BusinessException("Milvus连接失败", ErrorCode.DATABASE_CONNECTION_ERROR);
         }
     }
     
@@ -516,8 +511,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
                                     if (clientResponse.statusCode().value() == 410) {
                                         return Mono.empty();
                                     }
-                                    return Mono.error(new RuntimeException(
-                                            "Chroma连接失败: HTTP " + clientResponse.statusCode()));
+                                    return Mono.error(new BusinessException("Chroma连接失败", ErrorCode.DATABASE_CONNECTION_ERROR));
                                 })
                         .bodyToMono(String.class)
                         .timeout(Duration.ofMillis(timeout))
@@ -560,21 +554,14 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
         if (lastException != null) {
             if (lastException instanceof WebClientResponseException) {
                 WebClientResponseException webEx = (WebClientResponseException) lastException;
-                throw new RuntimeException(
-                    String.format("Chroma连接失败: %d %s。已尝试端点: %s。请检查Chroma服务是否正在运行，URL是否正确。", 
-                        webEx.getStatusCode().value(), 
-                        webEx.getStatusText(),
-                        String.join(", ", healthEndpoints)));
+                throw new BusinessException(
+                        String.format("Chroma连接失败: %d %s", webEx.getStatusCode().value(), webEx.getStatusText()),
+                        ErrorCode.DATABASE_CONNECTION_ERROR);
             } else {
-                throw new RuntimeException(
-                    String.format("Chroma连接失败: %s。已尝试端点: %s。请检查Chroma服务是否正在运行，URL是否正确。", 
-                        lastException.getMessage(),
-                        String.join(", ", healthEndpoints)));
+                throw new BusinessException("Chroma连接失败", ErrorCode.DATABASE_CONNECTION_ERROR, lastException);
             }
         } else {
-            throw new RuntimeException(
-                String.format("Chroma健康检查返回空响应。已尝试端点: %s。请检查Chroma服务是否正在运行。", 
-                    String.join(", ", healthEndpoints)));
+            throw new BusinessException("Chroma连接失败", ErrorCode.DATABASE_CONNECTION_ERROR);
         }
     }
     
@@ -587,14 +574,14 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
             // 尝试创建目录
             boolean created = dir.mkdirs();
             if (!created) {
-                throw new RuntimeException("FAISS路径不存在且无法创建: " + path);
+                throw new BusinessException("FAISS路径不存在且无法创建", ErrorCode.CONFIG_ERROR);
             }
         }
         if (!dir.isDirectory()) {
-            throw new RuntimeException("FAISS路径不是目录: " + path);
+            throw new BusinessException("FAISS路径不是目录", ErrorCode.CONFIG_ERROR);
         }
         if (!dir.canWrite()) {
-            throw new RuntimeException("FAISS路径不可写: " + path);
+            throw new BusinessException("FAISS路径不可写", ErrorCode.CONFIG_ERROR);
         }
     }
     
@@ -670,21 +657,14 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
         if (lastException != null) {
             if (lastException instanceof WebClientResponseException) {
                 WebClientResponseException webEx = (WebClientResponseException) lastException;
-                throw new RuntimeException(
-                    String.format("Weaviate连接失败: %d %s。已尝试端点: %s。请检查Weaviate服务是否正在运行，URL是否正确。", 
-                        webEx.getStatusCode().value(), 
-                        webEx.getStatusText(),
-                        String.join(", ", healthEndpoints)));
+                throw new BusinessException(
+                        String.format("Weaviate连接失败: %d %s", webEx.getStatusCode().value(), webEx.getStatusText()),
+                        ErrorCode.DATABASE_CONNECTION_ERROR);
             } else {
-                throw new RuntimeException(
-                    String.format("Weaviate连接失败: %s。已尝试端点: %s。请检查Weaviate服务是否正在运行，URL是否正确。", 
-                        lastException.getMessage(),
-                        String.join(", ", healthEndpoints)));
+                throw new BusinessException("Weaviate连接失败", ErrorCode.DATABASE_CONNECTION_ERROR, lastException);
             }
         } else {
-            throw new RuntimeException(
-                String.format("Weaviate健康检查返回空响应。已尝试端点: %s。请检查Weaviate服务是否正在运行。", 
-                    String.join(", ", healthEndpoints)));
+            throw new BusinessException("Weaviate连接失败", ErrorCode.DATABASE_CONNECTION_ERROR);
         }
     }
     
@@ -810,17 +790,12 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
                         String.join(", ", healthEndpoints));
                 }
                 
-                throw new RuntimeException(errorMessage);
+                throw new BusinessException("Elasticsearch连接失败", ErrorCode.ELASTICSEARCH_CONNECTION_ERROR);
             } else {
-                throw new RuntimeException(
-                    String.format("Elasticsearch连接失败: %s。已尝试端点: %s。请检查Elasticsearch服务是否正在运行，URL是否正确。", 
-                        lastException.getMessage(),
-                        String.join(", ", healthEndpoints)));
+                throw new BusinessException("Elasticsearch连接失败", ErrorCode.ELASTICSEARCH_CONNECTION_ERROR, lastException);
             }
         } else {
-            throw new RuntimeException(
-                String.format("Elasticsearch健康检查返回空响应。已尝试端点: %s。请检查Elasticsearch服务是否正在运行。", 
-                    String.join(", ", healthEndpoints)));
+            throw new BusinessException("Elasticsearch连接失败", ErrorCode.ELASTICSEARCH_CONNECTION_ERROR);
         }
     }
     
@@ -845,16 +820,14 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
         
         // 验证URL格式
         if (url == null || url.trim().isEmpty()) {
-            throw new RuntimeException("PgVector URL 不能为空，请配置有效的 JDBC URL（例如：jdbc:postgresql://localhost:5432/vectordb）");
+            throw new BusinessException("PgVector URL 不能为空", ErrorCode.BAD_REQUEST);
         }
         
         String jdbcUrl = url.trim();
         if (!jdbcUrl.startsWith("jdbc:postgresql://")) {
             // 如果不是完整的JDBC URL，尝试自动转换
             if (jdbcUrl.startsWith("http://") || jdbcUrl.startsWith("https://")) {
-                throw new RuntimeException(
-                    String.format("PgVector URL 必须是 JDBC 格式，当前配置为: %s。请配置为 JDBC URL（例如：jdbc:postgresql://localhost:5432/vectordb）", 
-                        jdbcUrl));
+                throw new BusinessException("PgVector URL 必须是 JDBC 格式", ErrorCode.BAD_REQUEST);
             } else if (jdbcUrl.contains("://")) {
                 // 可能是 postgresql://host:port/db 格式，转换为 jdbc:postgresql://host:port/db
                 jdbcUrl = jdbcUrl.replaceFirst("^postgresql://", "jdbc:postgresql://");
@@ -866,7 +839,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
         
         // 验证用户名和密码
         if (username == null || username.trim().isEmpty()) {
-            throw new RuntimeException("PgVector 需要用户名，请在 extraConfig 中配置 {\"username\":\"your_username\",\"password\":\"your_password\"}");
+            throw new BusinessException("PgVector 需要用户名", ErrorCode.BAD_REQUEST);
         }
         
         // 测试数据库连接
@@ -894,29 +867,23 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
                 if (rs.next() && rs.getBoolean(1)) {
                     logger.debug("PgVector连接测试成功，pgvector扩展已安装");
                 } else {
-                    throw new RuntimeException(
-                        "PostgreSQL连接成功，但pgvector扩展未安装。请执行以下SQL安装扩展：\n" +
-                        "CREATE EXTENSION IF NOT EXISTS vector;");
+                    throw new BusinessException("pgvector扩展未安装", ErrorCode.CONFIG_ERROR);
                 }
             }
             
         } catch (java.sql.SQLException e) {
             String errorMessage = e.getMessage();
             if (errorMessage.contains("password authentication failed")) {
-                throw new RuntimeException(
-                    "PgVector连接失败: 用户名或密码错误。请检查extraConfig中的用户名和密码配置。");
+                throw new BusinessException("PgVector连接失败：用户名或密码错误", ErrorCode.DATABASE_CONNECTION_ERROR);
             } else if (errorMessage.contains("Connection refused") || errorMessage.contains("timeout")) {
-                throw new RuntimeException(
-                    String.format("PgVector连接失败: 无法连接到PostgreSQL服务器。请检查URL是否正确，服务器是否正在运行。URL: %s", jdbcUrl));
+                throw new BusinessException("PgVector连接失败：无法连接到PostgreSQL服务器", ErrorCode.DATABASE_CONNECTION_ERROR);
             } else if (errorMessage.contains("database") && errorMessage.contains("does not exist")) {
-                throw new RuntimeException(
-                    "PgVector连接失败: 指定的数据库不存在。请检查URL中的数据库名称是否正确。");
+                throw new BusinessException("PgVector连接失败：指定的数据库不存在", ErrorCode.DATABASE_CONNECTION_ERROR);
             } else {
-                throw new RuntimeException(
-                    String.format("PgVector连接失败: %s。请检查URL、用户名和密码是否正确。", errorMessage));
+                throw new BusinessException("PgVector连接失败", ErrorCode.DATABASE_CONNECTION_ERROR);
             }
         } catch (ClassNotFoundException e) {
-            throw new RuntimeException("PostgreSQL驱动未找到，请确保已添加postgresql依赖");
+            throw new BusinessException("PostgreSQL驱动未找到", ErrorCode.CONFIG_ERROR, e);
         } finally {
             if (conn != null) {
                 try {

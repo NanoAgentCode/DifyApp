@@ -72,7 +72,7 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
                 if (index.getVectorSize() != vectorSize) {
                     throw new BusinessException(
                             String.format("向量维度不匹配 - 知识库ID: %d, 期望: %d, 实际: %d", 
-                                    knowledgeBaseId, vectorSize, index.getVectorSize()), ErrorCode.INVALID_PARAMETER);
+                                    knowledgeBaseId, vectorSize, index.getVectorSize()), ErrorCode.CONFIG_ERROR);
                 }
             }
         } finally {
@@ -276,7 +276,7 @@ public class FaissVectorStoreStrategy implements VectorStoreStrategy {
      */
     private double cosineSimilarity(List<Float> a, List<Float> b) {
         if (a.size() != b.size()) {
-            throw new BusinessException("向量维度必须相同", ErrorCode.INVALID_PARAMETER);
+            throw new BusinessException("向量维度必须相同", ErrorCode.VALIDATION_ERROR);
         }
         
         double dotProduct = 0.0;

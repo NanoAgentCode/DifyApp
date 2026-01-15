@@ -356,7 +356,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
                                     }
                                     logger.error("向量插入请求失败 - 知识库ID: {}, 文档ID: {}, 集合名: {}, HTTP状态: {}, 错误响应: {}", 
                                             knowledgeBaseId, documentId, collectionName, clientResponse.statusCode(), errorBody);
-                                    return Mono.<RuntimeException>error(new RuntimeException(errorMsg));
+                                    return Mono.error(new BusinessException(errorMsg, ErrorCode.DATABASE_CONNECTION_ERROR));
                                 });
                             })
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
@@ -465,7 +465,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
                                     }
                                     logger.error("Qdrant搜索请求失败 - 知识库ID: {}, 集合名: {}, HTTP状态: {}, 错误响应: {}", 
                                             knowledgeBaseId, collectionName, clientResponse.statusCode(), errorBody);
-                                    return Mono.<RuntimeException>error(new RuntimeException(errorMsg));
+                                    return Mono.error(new BusinessException(errorMsg, ErrorCode.DATABASE_CONNECTION_ERROR));
                                 });
                             })
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
@@ -551,8 +551,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
                                 if (clientResponse.statusCode().value() == 404) {
                                     return Mono.empty();
                                 }
-                                return Mono.error(new RuntimeException(
-                                        "获取集合信息失败: HTTP " + clientResponse.statusCode()));
+                                return Mono.error(new BusinessException("创建集合失败", ErrorCode.DATABASE_CONNECTION_ERROR));
                             })
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                     .timeout(Duration.ofMillis(timeout))
@@ -598,8 +597,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
                                 if (clientResponse.statusCode().value() == 404) {
                                     return Mono.empty();
                                 }
-                                return Mono.error(new RuntimeException(
-                                        "检查集合存在性失败: HTTP " + clientResponse.statusCode()));
+                                return Mono.error(new BusinessException("检查集合存在性失败", ErrorCode.DATABASE_CONNECTION_ERROR));
                             })
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
                     .timeout(Duration.ofMillis(timeout))
@@ -691,7 +689,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
                                         return Mono.empty(); // 返回空，不抛出异常
                                     }
                                     
-                                    return Mono.<RuntimeException>error(new RuntimeException(errorMsg));
+                                    return Mono.error(new BusinessException(errorMsg, ErrorCode.DATABASE_CONNECTION_ERROR));
                                 });
                             })
                     .bodyToMono(String.class)
