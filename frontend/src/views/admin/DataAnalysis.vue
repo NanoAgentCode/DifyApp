@@ -83,10 +83,10 @@
 
     <el-dialog
       v-model="settingsDialogVisible"
-      title="同步设置"
-      width="700px"
-      :close-on-click-modal="false"
-      class="settings-dialog"
+    title="同步设置"
+    width="600px"
+    :close-on-click-modal="false"
+    class="settings-dialog"
     >
       <div class="settings-content">
         <div class="settings-section">
@@ -94,14 +94,14 @@
             <el-icon><Setting /></el-icon>
             <span>基本配置</span>
           </div>
-          <el-form label-width="160px" class="settings-form">
+          <el-form label-width="120px" class="settings-form">
             <el-form-item label="Neo4j 数据源">
               <el-select
                 v-model="settingsForm.neo4jDataSourceId"
                 placeholder="请选择数据源（type=neo4j）"
                 filterable
                 clearable
-                style="width: 100%"
+                style="width: 85%"
               >
                 <el-option
                   v-for="ds in neo4jDataSources"
@@ -111,16 +111,22 @@
                 />
               </el-select>
             </el-form-item>
+            <div class="form-row" style="margin-top: 18px;">
+              <el-form-item label="定时同步" class="form-item-half">
+                <div class="form-control-wrapper">
+                  <el-tooltip content="将按照设定的间隔自动同步数据" placement="top">
+                    <el-switch v-model="settingsForm.enabled" />
+                  </el-tooltip>
+                </div>
+              </el-form-item>
 
-            <el-form-item label="启用定时同步">
-              <el-switch v-model="settingsForm.enabled" />
-              <span class="form-tip">开启后将按照设定的间隔自动同步数据</span>
-            </el-form-item>
-
-            <el-form-item label="同步间隔">
-              <el-input-number v-model="settingsForm.intervalMinutes" :min="1" :max="1440" controls-position="right" />
-              <span class="form-unit">分钟</span>
-            </el-form-item>
+              <el-form-item label="同步间隔" class="form-item-half">
+                <div class="form-control-wrapper">
+                  <el-input-number v-model="settingsForm.intervalMinutes" :min="1" :max="1440" :controlsPosition="'left'" style="width: 120px;" />
+                  <span class="form-unit">分钟</span>
+                </div>
+              </el-form-item>
+            </div>
           </el-form>
         </div>
 
@@ -677,29 +683,63 @@ onUnmounted(() => {
 .settings-content {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
 }
 
 .settings-section {
   background: #f9fafb;
   border-radius: 8px;
-  padding: 20px;
+  padding: 12px;
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.form-row :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.form-row :deep(.el-form-item__label) {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.form-item-half {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.form-control-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-control-wrapper .el-switch {
+  margin-right: 0;
 }
 
 .section-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: #303133;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
   border-bottom: 2px solid #e5e7eb;
 }
 
 .section-title .el-icon {
-  font-size: 18px;
+  font-size: 16px;
   color: #409eff;
 }
 
@@ -708,28 +748,30 @@ onUnmounted(() => {
 }
 
 .settings-form :deep(.el-form-item) {
-  margin-bottom: 20px;
+  margin-bottom: 8px;
 }
+
+.settings-form :deep(.el-form-item__label) {
+  padding-bottom: 0;
+}
+
+
 
 .settings-form :deep(.el-form-item__label) {
   font-weight: 500;
   color: #606266;
 }
 
-.form-tip {
-  margin-left: 12px;
-  font-size: 12px;
-  color: #909399;
-}
+
 
 .form-unit {
-  margin-left: 8px;
   font-size: 14px;
   color: #606266;
+  margin: 0;
 }
 
 .section-divider {
-  margin: 0;
+  margin: 8px 0;
   border-color: #e5e7eb;
 }
 
