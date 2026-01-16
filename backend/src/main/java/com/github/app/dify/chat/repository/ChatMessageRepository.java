@@ -52,4 +52,35 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
            "WHERE m.conversationId IN :conversationIds " +
            "GROUP BY m.conversationId")
     List<Object[]> countByConversationIdsGroupBy(@Param("conversationIds") List<Long> conversationIds);
+    
+    /**
+     * 统计热门问题（使用数据库聚合，避免加载所有数据到内存）
+     * 性能优化：在数据库层面进行聚合，而不是加载所有消息后在内存中统计
+     */
+    @Query("SELECT m.content, COUNT(m) FROM ChatMessage m " +
+           "WHERE m.role = 'user' " +
+           "AND m.createTime >= :startDate " +
+           "GROUP BY m.content " +
+           "ORDER BY COUNT(m) DESC " +
+           "LIMIT :limit")
+    List<Object[]> findPopularQuestions(@Param("startDate") java.util.Date startDate, 
+                                       @Param("limit") Integer limit);
+    
+    /**
+     * 查询会话的用户消息计数（使用组合索引优化）
+     * 优化点：使用 (conversation_id, role) 组合索引
+     */
+    @Query("SELECT COUNT(m) FROM ChatMessage m " +
+           "WHERE m.conversationId = :conversationId AND m.role = :role")
+    Long countByConversationIdAndRole(@Param("conversationId") Long conversationId, 
+                                     @Param("role") String role);
+    
+    /**
+     * 批量查询会话的用户消息计数（性能优化）
+     * 优化点：一次性查询多个会话的消息数，避免N+1查询
+     */
+    @Query("SELECT m.conversationId, COUNT(m) FROM ChatMessage m " +
+           "WHERE m.conversationId IN :conversationIds AND m.role = 'user' " +
+           "GROUP BY m.conversationId")
+    List<Object[]> countUserMessagesByConversationIds(@Param("conversationIds") List<Long> conversationIds);
 }
