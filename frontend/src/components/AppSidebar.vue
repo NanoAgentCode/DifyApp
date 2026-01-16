@@ -64,6 +64,12 @@
             <span>数据统计</span>
           </el-menu-item>
         </el-tooltip>
+        <el-tooltip v-if="isAdmin" content="数据分析" placement="right" :show-after="200">
+          <el-menu-item index="/admin/data-analysis">
+            <el-icon><Share /></el-icon>
+            <span>数据分析</span>
+          </el-menu-item>
+        </el-tooltip>
         <el-tooltip v-if="isAdmin" content="行为日志" placement="right" :show-after="200">
           <el-menu-item index="/admin/user-action-logs">
             <el-icon><Document /></el-icon>
@@ -81,6 +87,7 @@ import { useRoute } from 'vue-router'
 import { 
   ChatLineRound, 
   DataAnalysis, 
+  Share,
   Setting,
   User,
   Tools,

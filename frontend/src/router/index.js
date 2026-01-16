@@ -129,6 +129,12 @@ const routes = [
                 meta: {title: '数据统计', requiresAuth: true, requiresAdmin: true}
             },
             {
+                path: 'data-analysis',
+                name: 'DataAnalysis',
+                component: () => import('@/views/admin/DataAnalysis.vue'),
+                meta: {title: '数据分析', requiresAuth: true, requiresAdmin: true}
+            },
+            {
                 path: 'user-action-logs',
                 name: 'UserActionLog',
                 component: () => import('@/views/admin/UserActionLog.vue'),

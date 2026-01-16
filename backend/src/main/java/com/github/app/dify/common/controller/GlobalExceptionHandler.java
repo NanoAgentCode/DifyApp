@@ -9,7 +9,7 @@ import com.github.app.dify.common.resp.ApiResponse;
 import com.github.app.dify.common.util.ErrorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -23,13 +23,11 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.context.request.WebRequest;
+
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.NoHandlerFoundException;
-
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import java.util.HashMap;
@@ -44,43 +42,6 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
     
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
-    
-    private static final String REQUEST_ID_KEY = "requestId";
-    private static final String URI_KEY = "uri";
-    private static final String METHOD_KEY = "method";
-    private static final String USER_ID_KEY = "userId";
-    
-    /**
-     * 构建日志上下文信息
-     */
-    private String buildLogContext(HttpServletRequest request) {
-        String requestId = MDC.get(REQUEST_ID_KEY);
-        return String.format("[RequestID=%s] [Method=%s] [URI=%s] [UserID=%s]",
-                requestId != null ? requestId : "N/A",
-                request != null ? request.getMethod() : "N/A",
-                request != null ? request.getRequestURI() : "N/A",
-                MDC.get(USER_ID_KEY) != null ? MDC.get(USER_ID_KEY) : "N/A");
-    }
-    
-    /**
-     * 记录异常日志
-     */
-    private void logException(HttpServletRequest request, String level, String message, Throwable e) {
-        String context = buildLogContext(request);
-        String logMessage = context + " - " + message;
-        
-        switch (level.toLowerCase()) {
-            case "error":
-                logger.error(logMessage, e);
-                break;
-            case "warn":
-                logger.warn(logMessage, e);
-                break;
-            default:
-                logger.info(logMessage, e);
-                break;
-        }
-    }
     
     /**
      * 处理业务异常

@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchRe
 import org.springframework.boot.autoconfigure.data.elasticsearch.ReactiveElasticsearchRepositoriesAutoConfiguration;
 import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * DifyApp 主应用类
@@ -29,6 +30,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
     ReactiveElasticsearchRepositoriesAutoConfiguration.class
 })
 @EnableAsync
+@EnableScheduling
 // Spring Boot 默认会扫描主应用类所在包及其所有子包
 // 由于主应用类在 com.github.app.dify 包下，会自动扫描所有子模块
 // 如果需要显式指定，可以只指定根包：

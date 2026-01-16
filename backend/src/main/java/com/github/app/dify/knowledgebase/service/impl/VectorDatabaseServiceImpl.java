@@ -765,31 +765,7 @@ public class VectorDatabaseServiceImpl implements VectorDatabaseService {
         
         // 所有端点都失败
         if (lastException != null) {
-            if (lastException instanceof WebClientResponseException) {
-                WebClientResponseException webEx = (WebClientResponseException) lastException;
-                int statusCode = webEx.getStatusCode().value();
-                String errorMessage;
-                
-                if (statusCode == 401) {
-                    // 401 Unauthorized - 认证失败
-                    errorMessage = String.format(
-                        "Elasticsearch连接失败: %d %s。已尝试端点: %s。\n" +
-                        "认证失败，请检查：\n" +
-                        "1. 如果Elasticsearch启用了安全功能（xpack.security.enabled=true），请提供用户名和密码（在extraConfig中）或API Key\n" +
-                        "2. 用户名和密码格式：在extraConfig中提供JSON格式 {\"username\":\"your_username\",\"password\":\"your_password\"}\n" +
-                        "3. 如果Elasticsearch未启用安全功能，请检查docker-compose.yml中的xpack.security.enabled设置\n" +
-                        "4. 请确认URL、用户名、密码或API Key是否正确",
-                        statusCode, 
-                        webEx.getStatusText(),
-                        String.join(", ", healthEndpoints));
-                } else {
-                    errorMessage = String.format(
-                        "Elasticsearch连接失败: %d %s。已尝试端点: %s。请检查Elasticsearch服务是否正在运行，URL是否正确。", 
-                        statusCode, 
-                        webEx.getStatusText(),
-                        String.join(", ", healthEndpoints));
-                }
-                
+            if (lastException instanceof WebClientResponseException) {    
                 throw new BusinessException("Elasticsearch连接失败", ErrorCode.ELASTICSEARCH_CONNECTION_ERROR);
             } else {
                 throw new BusinessException("Elasticsearch连接失败", ErrorCode.ELASTICSEARCH_CONNECTION_ERROR, lastException);
