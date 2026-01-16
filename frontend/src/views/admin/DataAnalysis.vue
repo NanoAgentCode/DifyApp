@@ -397,7 +397,7 @@ const graphOption = computed(() => {
         type: 'graph',
         layout: 'force',
         roam: true,
-        focusNodeAdjacency: true,
+        emphasis: { focus: 'adjacency' },
         categories,
         data: seriesNodes,
         links: seriesLinks,

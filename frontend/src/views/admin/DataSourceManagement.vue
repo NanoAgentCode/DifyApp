@@ -418,9 +418,9 @@ const getTypeTag = (type) => {
     oracle: 'warning',
     mongodb: 'info',
     neo4j: 'danger',
-    elasticsearch: ''
+    elasticsearch: 'info'
   }
-  return tagMap[type] || ''
+  return tagMap[type] || 'info'
 }
 </script>
 
