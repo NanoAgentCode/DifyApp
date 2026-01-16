@@ -1,31 +1,107 @@
 <template>
   <div class="data-analysis">
-    <el-card>
+    <el-card class="main-card" shadow="never">
       <template #header>
         <div class="card-header">
-          <span>数据分析</span>
+          <div class="header-left">
+            <el-icon class="header-icon"><DataAnalysis /></el-icon>
+            <span class="header-title">数据分析</span>
+          </div>
           <div class="header-actions">
-            <el-button @click="loadStatus" :loading="loadingStatus">
+            <el-button @click="openSettingsDialog" :icon="Setting">
+              同步设置
+            </el-button>
+            <el-button @click="loadStatus" :loading="loadingStatus" :icon="Refresh">
               刷新状态
             </el-button>
-            <el-button type="success" @click="runNow" :loading="runningNow" :disabled="!settingsForm.neo4jDataSourceId">
+            <el-button type="primary" @click="runNow" :loading="runningNow" :disabled="!settingsForm.neo4jDataSourceId" :icon="VideoPlay">
               立即同步
             </el-button>
-            <el-tag v-if="saving" type="info">保存中</el-tag>
+            <el-tag v-if="saving" type="info" effect="plain" size="small">
+              <el-icon class="is-loading"><Loading /></el-icon>
+              保存中
+            </el-tag>
           </div>
         </div>
       </template>
 
-      <el-tabs v-model="activeTab" type="border-card">
-        <el-tab-pane label="同步设置" name="settings">
-          <el-form label-width="140px" class="settings-form">
+      <div class="graph-content">
+
+        <div v-loading="graphLoading" class="graph-container">
+          <v-chart v-if="graphOption && graphData?.nodes?.length" :option="graphOption" autoresize class="graph-chart" />
+          <el-empty v-else description="暂无图数据，请先配置并运行数据同步" :image-size="120">
+            <el-button type="primary" @click="openSettingsDialog" :icon="Setting">
+              前往配置
+            </el-button>
+          </el-empty>
+        </div>
+
+        <!-- 底部控制栏 -->
+        <div class="graph-footer">
+          <div class="footer-left">
+            <span class="toolbar-label">节点数量:</span>
+            <el-input-number v-model="graphLimit" :min="10" :max="2000" controls-position="right" size="small" />
+          </div>
+          <div class="footer-right">
+            <el-button @click="showStats = !showStats" :icon="showStats ? 'ArrowUp' : 'ArrowDown'" size="small">
+              {{ showStats ? '收起' : '展开' }}
+            </el-button>
+            <el-button @click="loadGraph" :loading="graphLoading" :icon="Refresh" size="small">
+              刷新
+            </el-button>
+          </div>
+        </div>
+
+        <div v-if="graphData?.nodeCounts || graphData?.relationshipCounts" class="graph-stats" v-show="showStats">
+          <div v-if="graphData?.nodeCounts" class="stats-section">
+            <div class="stats-title">
+              <el-icon><CircleCheck /></el-icon>
+              <span>节点统计</span>
+            </div>
+            <div class="stats-grid">
+              <div v-for="(v, k) in graphData.nodeCounts" :key="k" class="stat-item">
+                <div class="stat-label">{{ k }}</div>
+                <div class="stat-value">{{ v }}</div>
+              </div>
+            </div>
+          </div>
+          <div v-if="graphData?.relationshipCounts" class="stats-section">
+            <div class="stats-title">
+              <el-icon><Link /></el-icon>
+              <span>关系统计</span>
+            </div>
+            <div class="stats-grid">
+              <div v-for="(v, k) in graphData.relationshipCounts" :key="k" class="stat-item">
+                <div class="stat-label">{{ k }}</div>
+                <div class="stat-value">{{ v }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </el-card>
+
+    <el-dialog
+      v-model="settingsDialogVisible"
+      title="同步设置"
+      width="700px"
+      :close-on-click-modal="false"
+      class="settings-dialog"
+    >
+      <div class="settings-content">
+        <div class="settings-section">
+          <div class="section-title">
+            <el-icon><Setting /></el-icon>
+            <span>基本配置</span>
+          </div>
+          <el-form label-width="160px" class="settings-form">
             <el-form-item label="Neo4j 数据源">
               <el-select
                 v-model="settingsForm.neo4jDataSourceId"
                 placeholder="请选择数据源（type=neo4j）"
                 filterable
                 clearable
-                style="width: 420px"
+                style="width: 100%"
               >
                 <el-option
                   v-for="ds in neo4jDataSources"
@@ -38,25 +114,35 @@
 
             <el-form-item label="启用定时同步">
               <el-switch v-model="settingsForm.enabled" />
+              <span class="form-tip">开启后将按照设定的间隔自动同步数据</span>
             </el-form-item>
 
-            <el-form-item label="同步间隔（分钟）">
-              <el-input-number v-model="settingsForm.intervalMinutes" :min="1" :max="1440" />
+            <el-form-item label="同步间隔">
+              <el-input-number v-model="settingsForm.intervalMinutes" :min="1" :max="1440" controls-position="right" />
+              <span class="form-unit">分钟</span>
             </el-form-item>
           </el-form>
+        </div>
 
-          <el-divider />
+        <el-divider class="section-divider" />
 
+        <div class="settings-section">
+          <div class="section-title">
+            <el-icon><Monitor /></el-icon>
+            <span>同步状态</span>
+          </div>
           <div v-loading="loadingStatus" class="status-panel">
-            <el-descriptions title="同步状态" :column="2" border>
-              <el-descriptions-item label="是否运行中">
-                <el-tag :type="status?.running ? 'warning' : 'info'">
+            <el-descriptions :column="2" border class="status-descriptions">
+              <el-descriptions-item label="运行状态">
+                <el-tag :type="status?.running ? 'warning' : 'info'" effect="plain">
+                  <el-icon v-if="status?.running"><VideoPlay /></el-icon>
+                  <el-icon v-else><VideoPause /></el-icon>
                   {{ status?.running ? '运行中' : '未运行' }}
                 </el-tag>
               </el-descriptions-item>
               <el-descriptions-item label="最近状态">
-                <el-tag :type="statusTagType(status?.lastStatus)">
-                  {{ status?.lastStatus || 'never' }}
+                <el-tag :type="statusTagType(status?.lastStatus)" effect="plain">
+                  {{ status?.lastStatus || '从未运行' }}
                 </el-tag>
               </el-descriptions-item>
               <el-descriptions-item label="最近开始时间">
@@ -68,50 +154,42 @@
               <el-descriptions-item label="最近耗时">
                 {{ formatDuration(status?.lastDurationMs) }}
               </el-descriptions-item>
-              <el-descriptions-item label="最近消息">
-                {{ status?.lastMessage || '-' }}
+              <el-descriptions-item label="执行消息">
+                <span class="message-text">{{ status?.lastMessage || '-' }}</span>
               </el-descriptions-item>
             </el-descriptions>
 
-            <el-descriptions v-if="status?.metrics" title="同步指标" :column="2" border class="metrics">
+            <el-descriptions v-if="status?.metrics" :column="3" border class="metrics-descriptions">
+              <template #title>
+                <div class="metrics-title">
+                  <el-icon><DataLine /></el-icon>
+                  <span>同步指标</span>
+                </div>
+              </template>
               <el-descriptions-item v-for="(v, k) in status.metrics" :key="k" :label="k">
-                {{ v }}
+                <span class="metric-value">{{ v }}</span>
               </el-descriptions-item>
             </el-descriptions>
           </div>
-        </el-tab-pane>
+        </div>
+      </div>
 
-        <el-tab-pane label="数据视图" name="graph">
-          <div class="graph-toolbar">
-            <el-input-number v-model="graphLimit" :min="10" :max="2000" />
-          </div>
-
-          <div v-loading="graphLoading" class="graph-container">
-            <v-chart v-if="graphOption && graphData?.nodes?.length" :option="graphOption" autoresize class="graph-chart" />
-            <el-empty v-else description="暂无图数据" :image-size="80" />
-          </div>
-
-          <div v-if="graphData?.nodeCounts || graphData?.relationshipCounts" class="graph-stats">
-            <el-descriptions v-if="graphData?.nodeCounts" title="节点统计" :column="2" border>
-              <el-descriptions-item v-for="(v, k) in graphData.nodeCounts" :key="k" :label="k">
-                {{ v }}
-              </el-descriptions-item>
-            </el-descriptions>
-            <el-descriptions v-if="graphData?.relationshipCounts" title="关系统计" :column="2" border class="metrics">
-              <el-descriptions-item v-for="(v, k) in graphData.relationshipCounts" :key="k" :label="k">
-                {{ v }}
-              </el-descriptions-item>
-            </el-descriptions>
-          </div>
-        </el-tab-pane>
-      </el-tabs>
-    </el-card>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="settingsDialogVisible = false">关闭</el-button>
+          <el-button type="primary" @click="handleSettingsSave" :loading="saving">
+            保存并运行
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { ArrowDown, ArrowUp, CircleCheck, DataAnalysis, DataLine, Link, Loading, Monitor, Refresh, Setting, VideoPause, VideoPlay } from '@element-plus/icons-vue'
 import { getDataSourceList } from '@/api/dataSource'
 import { getDataAnalysisGraph, getDataAnalysisSettings, getDataAnalysisStatus, runDataAnalysis, updateDataAnalysisSettings } from '@/api/dataAnalysis'
 import { logger } from '@/utils/logger'
@@ -126,8 +204,7 @@ use([CanvasRenderer, GraphChart, LegendComponent, TooltipComponent])
 const loadingStatus = ref(false)
 const saving = ref(false)
 const runningNow = ref(false)
-
-const activeTab = ref('settings')
+const settingsDialogVisible = ref(false)
 
 const dataSources = ref([])
 const status = ref(null)
@@ -218,6 +295,35 @@ const runNow = async () => {
   }
 }
 
+const openSettingsDialog = () => {
+  settingsDialogVisible.value = true
+  loadStatus()
+}
+
+const handleSettingsSave = async () => {
+  if (!settingsForm.neo4jDataSourceId) {
+    ElMessage.warning('请先选择 Neo4j 数据源')
+    return
+  }
+  saving.value = true
+  try {
+    await updateDataAnalysisSettings({
+      enabled: settingsForm.enabled,
+      neo4jDataSourceId: settingsForm.neo4jDataSourceId,
+      intervalMinutes: settingsForm.intervalMinutes
+    })
+    ElMessage.success('保存成功')
+    await loadStatus()
+    await runNow()
+    settingsDialogVisible.value = false
+  } catch (e) {
+    logger.error('保存配置失败:', e)
+    ElMessage.error('保存失败：' + (e.response?.data?.message || e.message || '未知错误'))
+  } finally {
+    saving.value = false
+  }
+}
+
 const statusTagType = (s) => {
   if (s === 'success') return 'success'
   if (s === 'failed') return 'danger'
@@ -242,35 +348,12 @@ const formatDuration = (ms) => {
 }
 
 let pollTimer = null
-let autoSaveTimer = null
-watch(
-  () => [settingsForm.enabled, settingsForm.neo4jDataSourceId, settingsForm.intervalMinutes],
-  () => {
-    if (isLoadingSettings.value) return
-    if (autoSaveTimer) clearTimeout(autoSaveTimer)
-    autoSaveTimer = setTimeout(async () => {
-      saving.value = true
-      try {
-        await updateDataAnalysisSettings({
-          enabled: settingsForm.enabled,
-          neo4jDataSourceId: settingsForm.neo4jDataSourceId,
-          intervalMinutes: settingsForm.intervalMinutes
-        })
-        await loadStatus()
-      } catch (e) {
-        logger.error('自动保存配置失败:', e)
-        ElMessage.error('自动保存失败：' + (e.response?.data?.message || e.message || '未知错误'))
-      } finally {
-        saving.value = false
-      }
-    }, 500)
-  }
-)
+let graphLoadTimer = null
 
 const graphLoading = ref(false)
 const graphLimit = ref(200)
 const graphData = ref(null)
-let graphLoadTimer = null
+const showStats = ref(true)
 
 const graphOption = computed(() => {
   const nodes = graphData.value?.nodes || []
@@ -359,24 +442,15 @@ watch(() => status.value?.running, () => {
 const scheduleGraphLoad = (delayMs = 300) => {
   if (graphLoadTimer) clearTimeout(graphLoadTimer)
   graphLoadTimer = setTimeout(() => {
-    if (activeTab.value !== 'graph') return
     loadGraph()
   }, delayMs)
 }
 
-watch(activeTab, (tab) => {
-  if (tab === 'graph') {
-    scheduleGraphLoad(0)
-  }
-})
-
 watch(graphLimit, () => {
-  if (activeTab.value !== 'graph') return
   scheduleGraphLoad(300)
 })
 
 watch(() => settingsForm.neo4jDataSourceId, () => {
-  if (activeTab.value !== 'graph') return
   scheduleGraphLoad(0)
 })
 
@@ -384,12 +458,12 @@ onMounted(async () => {
   await loadDataSources()
   await loadSettings()
   await loadStatus()
+  await loadGraph()
   startPollingIfRunning()
 })
 
 onUnmounted(() => {
   stopPolling()
-  if (autoSaveTimer) clearTimeout(autoSaveTimer)
   if (graphLoadTimer) clearTimeout(graphLoadTimer)
 })
 </script>
@@ -397,6 +471,29 @@ onUnmounted(() => {
 <style scoped>
 .data-analysis {
   width: 100%;
+  padding: 0;
+  background: #f5f7fa;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-card {
+  border-radius: 8px;
+  border: none;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-card :deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px;
 }
 
 .card-header {
@@ -405,40 +502,331 @@ onUnmounted(() => {
   justify-content: space-between;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-icon {
+  font-size: 20px;
+  color: #409eff;
+}
+
+.header-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
 .header-actions {
   display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.graph-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.graph-title {
+  display: flex;
+  align-items: center;
   gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 16px;
+}
+
+.graph-title .el-icon {
+  font-size: 20px;
+  color: #409eff;
+}
+
+.graph-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px 20px;
+  margin-top: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.graph-container {
+  flex: 1;
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.graph-chart {
+  height: 100%;
+  width: 100%;
+}
+
+.graph-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 20px;
+  margin-top: 16px;
+  flex-shrink: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  transition: all 0.3s ease;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.graph-stats[style*="display: none"] {
+  opacity: 0;
+  transform: translateY(-10px);
+  max-height: 0;
+  margin-top: 0;
+  gap: 0;
+  padding: 0;
+}
+
+.stats-section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.stats-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.stats-title .el-icon {
+  font-size: 18px;
+  color: #409eff;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.stat-item {
+  background: #f5f7fa;
+  border-radius: 6px;
+  padding: 12px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.stat-item:hover {
+  background: #e8f4ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #909399;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #409eff;
+}
+
+.settings-dialog :deep(.el-dialog__body) {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-section {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.section-title .el-icon {
+  font-size: 18px;
+  color: #409eff;
 }
 
 .settings-form {
-  max-width: 720px;
+  max-width: 100%;
+}
+
+.settings-form :deep(.el-form-item) {
+  margin-bottom: 20px;
+}
+
+.settings-form :deep(.el-form-item__label) {
+  font-weight: 500;
+  color: #606266;
+}
+
+.form-tip {
+  margin-left: 12px;
+  font-size: 12px;
+  color: #909399;
+}
+
+.form-unit {
+  margin-left: 8px;
+  font-size: 14px;
+  color: #606266;
+}
+
+.section-divider {
+  margin: 0;
+  border-color: #e5e7eb;
 }
 
 .status-panel {
   width: 100%;
 }
 
-.metrics {
-  margin-top: 16px;
+.status-descriptions {
+  background: #fff;
 }
 
-.graph-toolbar {
+.status-descriptions :deep(.el-descriptions__label) {
+  font-weight: 500;
+  color: #606266;
+  background: #f5f7fa;
+}
+
+.status-descriptions :deep(.el-descriptions__body) {
+  background: #fff;
+}
+
+.message-text {
+  color: #606266;
+  word-break: break-all;
+}
+
+.metrics-descriptions {
+  margin-top: 16px;
+  background: #fff;
+}
+
+.metrics-title {
   display: flex;
-  gap: 10px;
   align-items: center;
-  margin-bottom: 12px;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
 }
 
-.graph-container {
-  width: 100%;
+.metrics-title .el-icon {
+  font-size: 16px;
+  color: #67c23a;
 }
 
-.graph-chart {
-  height: 560px;
-  width: 100%;
+.metric-value {
+  font-weight: 600;
+  color: #409eff;
 }
 
-.graph-stats {
-  margin-top: 16px;
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+@media (max-width: 1200px) {
+  .graph-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .data-analysis {
+    padding: 0;
+  }
+
+  .main-card {
+    height: 100%;
+    min-height: calc(100vh - 84px);
+  }
+
+  .graph-footer {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .footer-right {
+    justify-content: space-between;
+  }
+
+  .graph-chart {
+    min-height: 400px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+
+  .stat-value {
+    font-size: 20px;
+  }
+
+  .settings-dialog :deep(.el-dialog) {
+    width: 95% !important;
+    margin: 0 auto;
+  }
 }
 </style>
