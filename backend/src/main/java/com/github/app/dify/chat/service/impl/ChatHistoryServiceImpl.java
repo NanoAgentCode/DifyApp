@@ -13,6 +13,8 @@ import com.github.app.dify.chat.service.ChatHistoryService;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.resp.PageResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -35,6 +37,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class ChatHistoryServiceImpl implements ChatHistoryService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(ChatHistoryServiceImpl.class);
     
     @Autowired
     private ChatConversationRepository conversationRepository;

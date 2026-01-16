@@ -1,6 +1,7 @@
 package com.github.app.dify.system.config;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
@@ -29,7 +30,10 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import io.lettuce.core.api.StatefulConnection;
+
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 /**
  * Redis配置类
  */
@@ -153,6 +157,7 @@ public class RedisConfig implements CachingConfigurer {
     /**
      * 缓存管理器配置
      * 如果Redis不可用，将使用NoOpCacheManager（不缓存），确保系统仍能正常工作
+     * 为不同类型的缓存设置不同的过期时间，优化缓存策略
      */
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
@@ -166,20 +171,86 @@ public class RedisConfig implements CachingConfigurer {
                 // 不立即返回NoOpCacheManager，让Spring Cache在运行时处理
             }
             
+            // 创建Jackson序列化器，支持多态类型
+            ObjectMapper objectMapper = new ObjectMapper();
+            objectMapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
+            objectMapper.activateDefaultTyping(
+                LaissezFaireSubTypeValidator.instance,
+                ObjectMapper.DefaultTyping.NON_FINAL,
+                JsonTypeInfo.As.PROPERTY
+            );
+            
             // 使用 GenericJackson2JsonRedisSerializer 以支持类型信息
-            // 这样可以正确反序列化为目标类型，而不是 LinkedHashMap
-            GenericJackson2JsonRedisSerializer jsonRedisSerializer = new GenericJackson2JsonRedisSerializer();
+            GenericJackson2JsonRedisSerializer jsonRedisSerializer = 
+                new GenericJackson2JsonRedisSerializer(objectMapper);
             
             // 配置序列化（解决乱码和类型转换的问题）
-            RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
+            RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                     .entryTtl(Duration.ofHours(1)) // 默认缓存过期时间1小时
                     .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                     .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jsonRedisSerializer))
                     .disableCachingNullValues(); // 不缓存空值
             
-            logger.info("Redis缓存管理器初始化完成");
+            // 为不同类型的缓存配置不同的TTL
+            Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
+
+            // ==================== 用户相关缓存 ====================
+            // 用户信息：24小时（用户信息变化不频繁）
+            cacheConfigurations.put("user", defaultConfig
+                .entryTtl(Duration.ofHours(24)));
+
+            // ==================== 模型相关缓存 ====================
+            // 模型配置：12小时（配置变化中等频率）
+            cacheConfigurations.put("modelConfig", defaultConfig
+                .entryTtl(Duration.ofHours(12)));
+            cacheConfigurations.put("qaModel", defaultConfig
+                .entryTtl(Duration.ofHours(12)));
+            cacheConfigurations.put("embeddingModel", defaultConfig
+                .entryTtl(Duration.ofHours(12)));
+
+            // ==================== 向量化缓存 ====================
+            // 向量化结果：7天（同一查询的embedding可以长期复用）
+            cacheConfigurations.put("embedding", defaultConfig
+                .entryTtl(Duration.ofDays(7)));
+
+            // ==================== RAG检索缓存 ====================
+            // RAG检索结果：1小时（知识库内容可能更新）
+            cacheConfigurations.put("rag", defaultConfig
+                .entryTtl(Duration.ofHours(1)));
+
+            // ==================== 应用缓存 ====================
+            // AI应用配置：12小时（配置变化中等频率）
+            cacheConfigurations.put("aiApp", defaultConfig
+                .entryTtl(Duration.ofHours(12)));
+
+            // ==================== 知识库缓存 ====================
+            // 知识库配置：6小时（知识库可能更新）
+            cacheConfigurations.put("knowledgeBase", defaultConfig
+                .entryTtl(Duration.ofHours(6)));
+
+            // ==================== 向量数据库缓存 ====================
+            // 向量数据库配置：24小时（配置很少变化）
+            cacheConfigurations.put("vectorDatabase", defaultConfig
+                .entryTtl(Duration.ofHours(24)));
+
+            // ==================== 统计缓存 ====================
+            // 统计数据：5分钟（统计数据需要实时性）
+            cacheConfigurations.put("statistics", defaultConfig
+                .entryTtl(Duration.ofMinutes(5)));
+            cacheConfigurations.put("statistics:popular", defaultConfig
+                .entryTtl(Duration.ofMinutes(5)));
+            cacheConfigurations.put("statistics:active", defaultConfig
+                .entryTtl(Duration.ofMinutes(5)));
+
+            // ==================== 系统配置缓存 ====================
+            // 系统配置：24小时（配置很少变化）
+            cacheConfigurations.put("systemConfig", defaultConfig
+                .entryTtl(Duration.ofHours(24)));
+            
+            logger.info("Redis缓存管理器初始化完成，已配置{}个缓存类型的TTL", cacheConfigurations.size() + 1);
             return RedisCacheManager.builder(connectionFactory)
-                    .cacheDefaults(config)
+                    .cacheDefaults(defaultConfig)
+                    .withInitialCacheConfigurations(cacheConfigurations)
                     .transactionAware()
                     .build();
         } catch (Exception e) {
@@ -203,4 +274,3 @@ public class RedisConfig implements CachingConfigurer {
         return new CustomCacheErrorHandler();
     }
 }
-

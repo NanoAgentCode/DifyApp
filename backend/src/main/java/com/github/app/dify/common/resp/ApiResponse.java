@@ -1,10 +1,15 @@
 package com.github.app.dify.common.resp;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * 统一的API响应格式
  * 
  * @param <T> 响应数据类型
  */
+@Setter
+@Getter
 public class ApiResponse<T> {
     private boolean success;
     private String message;
@@ -69,36 +74,5 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> notFound(String message) {
         return new ApiResponse<>(false, message, null, 404);
     }
-    
-    public boolean isSuccess() {
-        return success;
-    }
-    
-    public void setSuccess(boolean success) {
-        this.success = success;
-    }
-    
-    public String getMessage() {
-        return message;
-    }
-    
-    public void setMessage(String message) {
-        this.message = message;
-    }
-    
-    public T getData() {
-        return data;
-    }
-    
-    public void setData(T data) {
-        this.data = data;
-    }
-    
-    public Integer getCode() {
-        return code;
-    }
-    
-    public void setCode(Integer code) {
-        this.code = code;
-    }
+
 }

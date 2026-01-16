@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 缓存监控Controller
@@ -73,7 +74,7 @@ public class CacheMonitorController {
     @DeleteMapping("/clear/{cacheName}")
     public ApiResponse<Long> clearCache(@PathVariable String cacheName) {
         Long count = cacheMonitorService.clearCache(cacheName);
-        return ApiResponse.success(count, "清理成功，删除了 " + count + " 个键");
+        return ApiResponse.success("清理成功，删除了 " + count + " 个键", count);
     }
 
     /**
@@ -82,7 +83,7 @@ public class CacheMonitorController {
     @DeleteMapping("/clear/all")
     public ApiResponse<Long> clearAllCache() {
         Long count = cacheMonitorService.clearAllCache();
-        return ApiResponse.success(count, "清理成功，删除了 " + count + " 个键");
+        return ApiResponse.success("清理成功，删除了 " + count + " 个键", count);
     }
 
     /**
@@ -91,7 +92,7 @@ public class CacheMonitorController {
     @DeleteMapping("/key/{key}")
     public ApiResponse<Boolean> deleteKey(@PathVariable String key) {
         Boolean result = cacheMonitorService.deleteKey(key);
-        return ApiResponse.success(result, result ? "删除成功" : "删除失败");
+        return ApiResponse.success(result ? "删除成功" : "删除失败", result);
     }
 
     /**
@@ -103,7 +104,7 @@ public class CacheMonitorController {
             @RequestParam long timeout,
             @RequestParam(defaultValue = "SECONDS") TimeUnit unit) {
         Boolean result = cacheMonitorService.setKeyTTL(key, timeout, unit);
-        return ApiResponse.success(result, result ? "设置成功" : "设置失败");
+        return ApiResponse.success(result ? "设置成功" : "设置失败", result);
     }
 
     /**
