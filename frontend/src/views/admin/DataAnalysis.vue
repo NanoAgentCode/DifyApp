@@ -321,6 +321,10 @@ const graphOption = computed(() => {
 })
 
 const loadGraph = async () => {
+  if (!settingsForm.neo4jDataSourceId) {
+    graphData.value = null
+    return
+  }
   graphLoading.value = true
   try {
     graphData.value = await getDataAnalysisGraph({ limit: graphLimit.value })

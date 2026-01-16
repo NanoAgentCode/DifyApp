@@ -194,10 +194,7 @@ public class DataAnalysisServiceImpl implements DataAnalysisService {
     @Override
     public void triggerRun(Long userId, String username) {
         DataAnalysisSettingsResp settings = getSettings();
-        Long neo4jDataSourceId = settings.getNeo4jDataSourceId();
-        if (neo4jDataSourceId == null) {
-            throw new BusinessException("未配置Neo4j数据源", ErrorCode.BAD_REQUEST);
-        }
+        getValidatedNeo4jDataSourceOrThrow(settings);
         taskExecutor.execute(() -> runInternal(userId, username, true));
     }
 
@@ -229,11 +226,6 @@ public class DataAnalysisServiceImpl implements DataAnalysisService {
     @Override
     public GraphViewResp getGraphView(Integer limit) {
         DataAnalysisSettingsResp settings = getSettings();
-        Long neo4jDataSourceId = settings.getNeo4jDataSourceId();
-        if (neo4jDataSourceId == null) {
-            throw new BusinessException("未配置Neo4j数据源", ErrorCode.BAD_REQUEST);
-        }
-
         int safeLimit = limit == null ? 200 : limit;
         if (safeLimit <= 0) {
             safeLimit = 200;
@@ -242,13 +234,7 @@ public class DataAnalysisServiceImpl implements DataAnalysisService {
             safeLimit = 2000;
         }
 
-        DataSource neo4jDataSource = dataSourceService.getDataSourceEntityById(neo4jDataSourceId);
-        if (!"neo4j".equalsIgnoreCase(neo4jDataSource.getType())) {
-            throw new BusinessException("配置的数据源不是Neo4j类型", ErrorCode.BAD_REQUEST);
-        }
-        if (neo4jDataSource.getStatus() != null && neo4jDataSource.getStatus() == 0) {
-            throw new BusinessException("配置的Neo4j数据源已禁用", ErrorCode.BAD_REQUEST);
-        }
+        DataSource neo4jDataSource = getValidatedNeo4jDataSourceOrThrow(settings);
 
         Map<String, GraphNodeResp> nodeMap = new LinkedHashMap<>();
         List<GraphLinkResp> links = new ArrayList<>();
@@ -330,6 +316,21 @@ public class DataAnalysisServiceImpl implements DataAnalysisService {
         return resp;
     }
 
+    private DataSource getValidatedNeo4jDataSourceOrThrow(DataAnalysisSettingsResp settings) {
+        Long neo4jDataSourceId = settings.getNeo4jDataSourceId();
+        if (neo4jDataSourceId == null) {
+            throw new BusinessException("未配置Neo4j数据源", ErrorCode.BAD_REQUEST);
+        }
+        DataSource neo4jDataSource = dataSourceService.getDataSourceEntityById(neo4jDataSourceId);
+        if (!"neo4j".equalsIgnoreCase(neo4jDataSource.getType())) {
+            throw new BusinessException("配置的数据源不是Neo4j类型", ErrorCode.BAD_REQUEST);
+        }
+        if (neo4jDataSource.getStatus() != null && neo4jDataSource.getStatus() == 0) {
+            throw new BusinessException("配置的Neo4j数据源已禁用", ErrorCode.BAD_REQUEST);
+        }
+        return neo4jDataSource;
+    }
+
     private void runInternal(Long userId, String username, boolean force) {
         if (!running.compareAndSet(false, true)) {
             return;
@@ -345,19 +346,11 @@ public class DataAnalysisServiceImpl implements DataAnalysisService {
                 return;
             }
 
-            Long neo4jDataSourceId = settings.getNeo4jDataSourceId();
-            if (neo4jDataSourceId == null) {
-                writeRuntimeStatus("failed", "未配置Neo4j数据源", null, null, null, userId, username);
-                return;
-            }
-
-            DataSource neo4jDataSource = dataSourceService.getDataSourceEntityById(neo4jDataSourceId);
-            if (!"neo4j".equalsIgnoreCase(neo4jDataSource.getType())) {
-                writeRuntimeStatus("failed", "配置的数据源不是Neo4j类型", null, null, null, userId, username);
-                return;
-            }
-            if (neo4jDataSource.getStatus() != null && neo4jDataSource.getStatus() == 0) {
-                writeRuntimeStatus("failed", "配置的Neo4j数据源已禁用", null, null, null, userId, username);
+            DataSource neo4jDataSource;
+            try {
+                neo4jDataSource = getValidatedNeo4jDataSourceOrThrow(settings);
+            } catch (BusinessException ex) {
+                writeRuntimeStatus("failed", ex.getMessage(), null, null, null, userId, username);
                 return;
             }
 
