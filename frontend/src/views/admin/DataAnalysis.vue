@@ -122,7 +122,7 @@
 
               <el-form-item label="同步间隔" class="form-item-half">
                 <div class="form-control-wrapper">
-                  <el-input-number v-model="settingsForm.intervalMinutes" :min="1" :max="1440" :controlsPosition="'left'" style="width: 120px;" />
+                  <el-input-number v-model="settingsForm.intervalMinutes" :min="1" :max="1440" controls-position="left" style="width: 120px;" />
                   <span class="form-unit">分钟</span>
                 </div>
               </el-form-item>
