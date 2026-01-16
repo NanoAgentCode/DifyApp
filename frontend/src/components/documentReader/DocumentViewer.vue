@@ -206,18 +206,35 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount, defineAsyncComponent } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Star, Share, Download, Loading, Document, ArrowRight, Minus, Plus, DocumentAdd, Close, ChatLineRound, FullScreen, Search } from '@element-plus/icons-vue'
 import { getDocumentContent } from '@/api/documentReader'
 import { renderMarkdown } from '@/composables/useMarkdown'
-import mammoth from 'mammoth'
-import VuePdfEmbed from 'vue-pdf-embed'
-import * as pdfjsLib from 'pdfjs-dist'
 
-// 配置pdfjs-dist worker
-if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+// 动态导入 PDF 相关库，避免阻塞初始加载
+let VuePdfEmbed = null
+let pdfjsLib = null
+let mammoth = null
+
+// 懒加载 PDF 相关库
+const loadPdfLibraries = async () => {
+  if (!VuePdfEmbed) {
+    const [vuePdfEmbedModule, pdfjsModule, mammothModule] = await Promise.all([
+      import('vue-pdf-embed'),
+      import('pdfjs-dist'),
+      import('mammoth')
+    ])
+    VuePdfEmbed = vuePdfEmbedModule.default
+    pdfjsLib = pdfjsModule
+    mammoth = mammothModule.default
+    
+    // 配置pdfjs-dist worker
+    if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+    }
+  }
+  return { VuePdfEmbed, pdfjsLib, mammoth }
 }
 
 // 抑制PDF.js的字体警告（这些警告不影响PDF显示）
@@ -329,6 +346,11 @@ const loadDocumentContent = async () => {
     const response = await getDocumentContent(props.docId, pageParam)
     
     if (fileType.value === 'pdf') {
+      // 懒加载 PDF 相关库
+      const libs = await loadPdfLibraries()
+      VuePdfEmbed = libs.VuePdfEmbed
+      pdfjsLib = libs.pdfjsLib
+      mammoth = libs.mammoth
       // PDF文件，使用vue-pdf-embed显示
       try {
         // response 是 Blob 对象（因为 responseType: 'blob'）
@@ -1732,4 +1754,3 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 </style>
-

@@ -24,15 +24,41 @@ export default defineConfig({
         manualChunks: (id) => {
           // Vue 相关库
           if (id.includes('node_modules/vue/') || 
-              id.includes('node_modules/@vue/') ||
-              id.includes('node_modules/vue-router/') ||
-              id.includes('node_modules/pinia/')) {
-            return 'vue-vendor'
+              id.includes('node_modules/@vue/')) {
+            return 'vue-core'
           }
           
-          // Element Plus 核心库
+          if (id.includes('node_modules/vue-router/')) {
+            return 'vue-router'
+          }
+          
+          if (id.includes('node_modules/pinia/')) {
+            return 'pinia'
+          }
+          
+          // Element Plus 核心库 - 进一步拆分
           if (id.includes('node_modules/element-plus/') && 
               !id.includes('node_modules/@element-plus/')) {
+            // 将 Element Plus 按功能模块拆分
+            if (id.includes('/es/components/') || id.includes('/lib/components/')) {
+              // 按组件类型分组
+              if (id.includes('form') || id.includes('input') || id.includes('select') || 
+                  id.includes('checkbox') || id.includes('radio') || id.includes('switch')) {
+                return 'element-plus-form'
+              }
+              if (id.includes('table') || id.includes('pagination') || id.includes('tree')) {
+                return 'element-plus-data'
+              }
+              if (id.includes('dialog') || id.includes('message') || id.includes('notification') || 
+                  id.includes('drawer') || id.includes('loading')) {
+                return 'element-plus-feedback'
+              }
+              if (id.includes('menu') || id.includes('breadcrumb') || id.includes('tabs') ||
+                  id.includes('dropdown') || id.includes('scrollbar')) {
+                return 'element-plus-navigation'
+              }
+              return 'element-plus-other'
+            }
             return 'element-plus-core'
           }
           
@@ -59,11 +85,21 @@ export default defineConfig({
             return 'katex'
           }
           
-          // PDF 相关库
-          if (id.includes('node_modules/pdfjs-dist/') || 
-              id.includes('node_modules/vue-pdf-embed/') ||
-              id.includes('node_modules/mammoth/')) {
-            return 'pdf'
+          // PDF 相关库 - 进一步拆分
+          if (id.includes('node_modules/pdfjs-dist/')) {
+            // 将 pdfjs-dist worker 单独打包
+            if (id.includes('pdf.worker')) {
+              return 'pdf-worker'
+            }
+            return 'pdfjs-dist'
+          }
+          
+          if (id.includes('node_modules/vue-pdf-embed/')) {
+            return 'vue-pdf-embed'
+          }
+          
+          if (id.includes('node_modules/mammoth/')) {
+            return 'mammoth'
           }
           
           // 图表库
@@ -79,15 +115,25 @@ export default defineConfig({
           
           // 工具库
           if (id.includes('node_modules/axios/')) {
-            return 'utils'
+            return 'axios'
           }
           
           if (id.includes('node_modules/html2canvas/')) {
-            return 'canvas'
+            return 'html2canvas'
           }
           
-          // 其他 node_modules 包
+          // 其他 node_modules 包 - 进一步拆分
           if (id.includes('node_modules/')) {
+            // 将剩余的 node_modules 按大小和类型分组
+            if (id.includes('@vueuse/')) {
+              return 'vueuse'
+            }
+            if (id.includes('lodash/') || id.includes('lodash-es/')) {
+              return 'lodash'
+            }
+            if (id.includes('dayjs/') || id.includes('date-fns/')) {
+              return 'date'
+            }
             return 'vendor'
           }
         },

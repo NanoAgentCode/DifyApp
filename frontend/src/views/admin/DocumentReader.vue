@@ -64,8 +64,8 @@
 import { ref, computed, onMounted, nextTick, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import DocumentViewer from '@/components/documentReader/DocumentViewer.vue'
-import GuideTab from '@/components/documentReader/GuideTab.vue'
+const DocumentViewer = defineAsyncComponent(() => import('@/components/documentReader/DocumentViewer.vue'))
+const GuideTab = defineAsyncComponent(() => import('@/components/documentReader/GuideTab.vue'))
 import TranslateTab from '@/components/documentReader/TranslateTab.vue'
 import MindMapTab from '@/components/documentReader/MindMapTab.vue'
 import NotesTab from '@/components/documentReader/NotesTab.vue'
