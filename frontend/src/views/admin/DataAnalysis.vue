@@ -83,10 +83,10 @@
 
     <el-dialog
       v-model="settingsDialogVisible"
-    title="同步设置"
-    width="600px"
-    :close-on-click-modal="false"
-    class="settings-dialog"
+      title="同步设置"
+      width="600px"
+      :close-on-click-modal="true"
+      class="settings-dialog"
     >
       <div class="settings-content">
         <div class="settings-section">
@@ -182,7 +182,6 @@
 
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="settingsDialogVisible = false">关闭</el-button>
           <el-button type="primary" @click="handleSettingsSave" :loading="saving">
             保存并运行
           </el-button>
