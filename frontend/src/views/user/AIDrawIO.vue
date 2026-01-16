@@ -196,7 +196,16 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import mermaid from 'mermaid'
+
+// 动态导入 Mermaid，只在访问 AIDrawIO 页面时才加载
+let mermaid = null
+const loadMermaid = async () => {
+  if (!mermaid) {
+    const module = await import('mermaid')
+    mermaid = module.default || module
+  }
+  return mermaid
+}
 import {
   MagicStick,
   Edit,
@@ -394,7 +403,8 @@ const initMermaid = async () => {
   }
 
   try {
-    mermaid.initialize({
+    const mermaidModule = await loadMermaid()
+    mermaidModule.initialize({
       startOnLoad: false,
       theme: 'default',
       securityLevel: 'loose',
@@ -493,7 +503,8 @@ const renderMermaid = async (mermaidCode) => {
     const id = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     mermaidContainer.value.innerHTML = ''
     await nextTick()
-    const { svg } = await mermaid.render(id, codeToRender)
+    const mermaidModule = await loadMermaid()
+    const { svg } = await mermaidModule.render(id, codeToRender)
     mermaidContainer.value.innerHTML = svg
     
     // 对于思维导图，应用额外的样式优化
@@ -1288,4 +1299,3 @@ onMounted(async () => {
   text-align: center;
 }
 </style>
-

@@ -45,7 +45,9 @@
 
         <!-- 问答区域 -->
         <div class="qa-section" :class="{ 'qa-focused': qaFocused }">
-          <DocumentQA
+          <component
+            :is="DocumentQAComponent"
+            v-if="DocumentQAComponent"
             ref="documentQARef"
             :doc-id="docId"
             :model-id="selectedModelId"
@@ -62,7 +64,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import DocumentViewer from '@/components/documentReader/DocumentViewer.vue'
@@ -70,7 +72,11 @@ import GuideTab from '@/components/documentReader/GuideTab.vue'
 import TranslateTab from '@/components/documentReader/TranslateTab.vue'
 import MindMapTab from '@/components/documentReader/MindMapTab.vue'
 import NotesTab from '@/components/documentReader/NotesTab.vue'
-import DocumentQA from '@/components/documentReader/DocumentQA.vue'
+
+// 动态导入 DocumentQA 组件，创建单独的代码块
+const DocumentQAComponent = defineAsyncComponent(() => 
+  import(/* webpackChunkName: "document-qa" */ '@/components/documentReader/DocumentQA.vue')
+)
 import { getDocumentDetail, getDocumentText } from '@/api/documentReader'
 import { getAvailableQAModels } from '@/api/model'
 
@@ -522,4 +528,3 @@ onMounted(() => {
   }
 }
 </style>
-

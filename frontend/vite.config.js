@@ -21,15 +21,75 @@ export default defineConfig({
     // 代码分割优化
     rollupOptions: {
       output: {
-        manualChunks: {
-          // 将 Vue 相关库单独打包
-          'vue-vendor': ['vue', 'vue-router', 'pinia'],
-          // 将 Element Plus 单独打包
-          'element-plus': ['element-plus', '@element-plus/icons-vue'],
-          // 将 Markdown 相关库单独打包
-          'markdown-vendor': ['marked', 'highlight.js', 'katex', 'mermaid'],
-          // 将工具库单独打包
-          'utils': ['axios']
+        manualChunks: (id) => {
+          // Vue 相关库
+          if (id.includes('node_modules/vue/') || 
+              id.includes('node_modules/@vue/') ||
+              id.includes('node_modules/vue-router/') ||
+              id.includes('node_modules/pinia/')) {
+            return 'vue-vendor'
+          }
+          
+          // Element Plus 核心库
+          if (id.includes('node_modules/element-plus/') && 
+              !id.includes('node_modules/@element-plus/')) {
+            return 'element-plus-core'
+          }
+          
+          // Element Plus 图标库单独打包
+          if (id.includes('node_modules/@element-plus/icons-vue/')) {
+            return 'element-plus-icons'
+          }
+          
+          // Mermaid 图表库单独打包
+          if (id.includes('node_modules/mermaid/')) {
+            return 'mermaid'
+          }
+          
+          // Markdown 相关库 - 分别打包
+          if (id.includes('node_modules/marked/') || id.includes('node_modules/marked-highlight/')) {
+            return 'marked'
+          }
+          
+          if (id.includes('node_modules/highlight.js/')) {
+            return 'highlight.js'
+          }
+          
+          if (id.includes('node_modules/katex/')) {
+            return 'katex'
+          }
+          
+          // PDF 相关库
+          if (id.includes('node_modules/pdfjs-dist/') || 
+              id.includes('node_modules/vue-pdf-embed/') ||
+              id.includes('node_modules/mammoth/')) {
+            return 'pdf'
+          }
+          
+          // 图表库
+          if (id.includes('node_modules/echarts/') || 
+              id.includes('node_modules/vue-echarts/')) {
+            return 'echarts'
+          }
+          
+          // 脑图库
+          if (id.includes('node_modules/jsmind/')) {
+            return 'jsmind'
+          }
+          
+          // 工具库
+          if (id.includes('node_modules/axios/')) {
+            return 'utils'
+          }
+          
+          if (id.includes('node_modules/html2canvas/')) {
+            return 'canvas'
+          }
+          
+          // 其他 node_modules 包
+          if (id.includes('node_modules/')) {
+            return 'vendor'
+          }
         },
         // 优化 chunk 文件名
         chunkFileNames: 'assets/js/[name]-[hash].js',
@@ -52,7 +112,7 @@ export default defineConfig({
     // 启用 CSS 代码分割
     cssCodeSplit: true,
     // 设置 chunk 大小警告限制
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 2000,
     // 启用源映射
     sourcemap: false
   },

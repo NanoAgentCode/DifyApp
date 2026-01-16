@@ -280,8 +280,17 @@ import { extractContent, updateConversationId } from '@/composables/useResponseH
 import { getFullAPIUrl } from '@/config/api'
 import AppPageHeader from '@/components/AppPageHeader.vue'
 import { UploadFilled, Document, Picture, Delete, Promotion, FullScreen, Close } from '@element-plus/icons-vue'
-import mammoth from 'mammoth'
 import { buildMappedInputs } from '@/utils/difyInputMapping'
+
+// 动态导入 mammoth，按需加载
+let mammoth = null
+const loadMammoth = async () => {
+  if (!mammoth) {
+    const module = await import('mammoth')
+    mammoth = module.default || module
+  }
+  return mammoth
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -601,7 +610,8 @@ const ensureDocxLoaded = async (url) => {
     const resp = await fetch(url, token ? { headers: { 'Authorization': `Bearer ${token}` } } : undefined)
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     const arrayBuffer = await resp.arrayBuffer()
-    const result = await mammoth.convertToHtml(
+    const mammothModule = await loadMammoth()
+    const result = await mammothModule.convertToHtml(
       { arrayBuffer },
       {
         styleMap: [
@@ -1490,4 +1500,3 @@ onMounted(() => {
   border-color: #67c23a;
 }
 </style>
-
