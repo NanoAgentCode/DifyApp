@@ -2,6 +2,7 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '@/router'
 import { getBaseURL } from '@/config/api'
+import { createRetryInterceptor } from './requestRetry'
 
 const request = axios.create({
   baseURL: getBaseURL(),
@@ -9,9 +10,21 @@ const request = axios.create({
   timeout: 600000
 })
 
-// 请求拦截器
+// 添加请求重试拦截器
+const retryInterceptor = createRetryInterceptor({
+  retries: 2,
+  retryDelay: 1000,
+  onRetry: (retryCount, error) => {
+    console.log(`自动重试请求 (${retryCount}/2):`, error.config?.url)
+  }
+})
+
+// 在请求拦截器中添加重试配置
 request.interceptors.request.use(
   config => {
+    // 应用重试配置
+    retryInterceptor.requestInterceptor(config)
+    
     // 确保Content-Type正确设置
     if (config.method === 'post' || config.method === 'put') {
       if (!config.headers['Content-Type']) {
@@ -30,6 +43,7 @@ request.interceptors.request.use(
   }
 )
 
+
 // 清理认证信息并跳转登录
 const clearAuthAndRedirect = () => {
   localStorage.removeItem('token')
@@ -46,7 +60,13 @@ const clearAuthAndRedirect = () => {
 // 响应拦截器
 request.interceptors.response.use(
   response => response.data,
-  error => {
+  async error => {
+    // 尝试重试机制
+    const retryResult = await retryInterceptor.responseInterceptorError(error)
+    if (retryResult !== undefined) {
+      return retryResult
+    }
+    
     const status = error.response?.status
     const responseData = error.response?.data
     
@@ -113,4 +133,3 @@ request.interceptors.response.use(
 )
 
 export default request
-
