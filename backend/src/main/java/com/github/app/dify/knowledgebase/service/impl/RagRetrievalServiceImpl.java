@@ -14,6 +14,7 @@ import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
+import com.github.app.dify.cache.CacheKeyGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,9 +27,14 @@ import java.util.stream.Collectors;
 
 /**
  * RAG检索服务（使用LangChain4j，带缓存优化）
+ * 
+ * 缓存优化点：
+ * 1. 使用MD5替代hashCode，避免哈希冲突
+ * 2. 统一缓存键格式，便于管理和监控
+ * 3. 缓存时间：1小时（知识库内容可能更新）
  */
 @Service
-@CacheConfig(cacheNames = "ragRetrieval")
+@CacheConfig(cacheNames = "rag")
 public class RagRetrievalServiceImpl implements RagRetrievalService {
     
     private static final Logger logger = LoggerFactory.getLogger(RagRetrievalServiceImpl.class);
@@ -47,32 +53,42 @@ public class RagRetrievalServiceImpl implements RagRetrievalService {
     
     /**
      * 检索相关文档chunks（使用LangChain4j，带缓存）
+     * 缓存键格式：rag:kb:{knowledgeBaseId}:model:default:topK:default:{queryHash}
      */
     @Override
-    @Cacheable(key = "'kb:' + #knowledgeBaseId + ':' + T(String).valueOf(#query.hashCode())")
+    @Cacheable(key = "@cacheKeyGenerator.generateRagRetrievalKey(#knowledgeBaseId, #query, null, null)")
     public List<RetrievalResult> retrieve(Long knowledgeBaseId, String query) {
         return retrieve(knowledgeBaseId, query, null, null);
     }
     
     /**
      * 检索相关文档chunks（使用LangChain4j，指定向量化模型ID，带缓存）
+     * 缓存键格式：rag:kb:{knowledgeBaseId}:model:{modelId}:topK:default:{queryHash}
      */
     @Override
-    @Cacheable(key = "'kb:' + #knowledgeBaseId + ':model:' + (#embeddingModelId != null ? #embeddingModelId : 'default') + ':' + T(String).valueOf(#query.hashCode())")
+    @Cacheable(key = "@cacheKeyGenerator.generateRagRetrievalKey(#knowledgeBaseId, #query, #embeddingModelId, null)")
     public List<RetrievalResult> retrieve(Long knowledgeBaseId, String query, Long embeddingModelId) {
         return retrieve(knowledgeBaseId, query, embeddingModelId, null);
     }
     
     /**
      * 检索相关文档chunks（使用LangChain4j，指定向量化模型ID和topK，带缓存）
+     * 
+     * 缓存键格式：rag:kb:{knowledgeBaseId}:model:{modelId}:topK:{topK}:{queryHash}
+     * 
      * 注意：当topK变化时缓存会失效，因为topK影响返回结果数量
      * @param knowledgeBaseId 知识库ID
      * @param query 查询文本
      * @param embeddingModelId 向量化模型ID（可选，如果为null则使用默认模型）
      * @param topK Top-K检索数量（可选，如果为null则使用全局配置）
+     * 
+     * 优化点：
+     * 1. 使用MD5替代hashCode，避免哈希冲突
+     * 2. 统一缓存键格式，便于管理和监控
+     * 3. 缓存时间：1小时（知识库内容可能更新）
      */
     @Override
-    @Cacheable(key = "'kb:' + #knowledgeBaseId + ':model:' + (#embeddingModelId != null ? #embeddingModelId : 'default') + ':topK:' + (#topK != null ? #topK : 'default') + ':' + T(String).valueOf(#query.hashCode())")
+    @Cacheable(key = "@cacheKeyGenerator.generateRagRetrievalKey(#knowledgeBaseId, #query, #embeddingModelId, #topK)")
     public List<RetrievalResult> retrieve(Long knowledgeBaseId, String query, Long embeddingModelId, Integer topK) {
         if (query == null || query.trim().isEmpty()) {
             throw new IllegalArgumentException("查询问题不能为空");

@@ -10,6 +10,7 @@ import com.github.app.dify.common.exception.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.github.app.dify.cache.CacheKeyGenerator;
 import org.springframework.cache.annotation.CacheConfig;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpHeaders;
@@ -97,11 +98,16 @@ public class EmbeddingServiceImpl implements EmbeddingService {
     
     /**
      * 向量化单个文本（使用指定模型，带缓存）
-     * 缓存键格式: query:{modelId}:{text的hash值}
+     * 缓存键格式: embedding:query:{modelId}:{text的MD5}
      * 缓存时间: 7天（查询的embedding可以复用）
+     * 
+     * 优化点：
+     * 1. 使用MD5替代hashCode，避免哈希冲突
+     * 2. 统一缓存键格式，便于管理和监控
+     * 3. 缓存键长度控制在合理范围内
      */
     @Override
-    @Cacheable(key = "'query:' + (#modelId != null ? #modelId : 'default') + ':' + T(String).valueOf(#text.hashCode())")
+    @Cacheable(key = "@cacheKeyGenerator.generateEmbeddingKey(#modelId, #text)")
     public List<Float> embed(String text, Long modelId) {
         if (text == null || text.trim().isEmpty()) {
             throw new IllegalArgumentException("文本不能为空");
