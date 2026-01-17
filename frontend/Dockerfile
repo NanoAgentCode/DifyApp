@@ -4,6 +4,9 @@ FROM node:20-alpine AS build
 # 设置工作目录
 WORKDIR /app
 
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
 # 复制package文件（用于依赖缓存）
 COPY package*.json ./
 COPY yarn.lock* ./

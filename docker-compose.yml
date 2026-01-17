@@ -6,9 +6,19 @@ services:
       dockerfile: Dockerfile
     container_name: difyapp-backend
     ports:
-      - "9090:9090"
+      - "${BACKEND_PORT:-9090}:9090"
+    env_file:
+      - ./.env
     environment:
-      - TZ=Asia/Shanghai
+      - TZ=${TZ:-Asia/Shanghai}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/postgres}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD:-}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-http://rustfs:9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-rustfsadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-rustfsadmin}
+      - JWT_SECRET=${JWT_SECRET:-}
       # Spring Boot配置可以通过环境变量覆盖
       # 例如：SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/postgres
       # SPRING_DATASOURCE_USERNAME=postgres
@@ -43,9 +53,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:9090}
     container_name: difyapp-frontend
     ports:
-      - "80:80"
+      - "${FRONTEND_PORT:-80}:80"
     depends_on:
       backend:
         condition: service_healthy
@@ -65,10 +77,12 @@ services:
     container_name: difyapp-postgres
     ports:
       - "15432:5432"
+    env_file:
+      - ./.env
     environment:
-      - POSTGRES_PASSWORD=123456
-      - POSTGRES_DB=postgres
-      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
+      - POSTGRES_DB=${POSTGRES_DB:-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -87,9 +101,11 @@ services:
     ports:
       - "9000:9000"  # S3 API端口
       - "9001:9001"  # 控制台端口
+    env_file:
+      - ./.env
     environment:
-      - RUSTFS_ACCESS_KEY=rustfsadmin
-      - RUSTFS_SECRET_KEY=rustfsadmin
+      - RUSTFS_ACCESS_KEY=${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      - RUSTFS_SECRET_KEY=${RUSTFS_SECRET_KEY:-rustfsadmin}
       - RUSTFS_CONSOLE_ENABLE=true
       - RUSTFS_ADDRESS=:9000
     volumes:

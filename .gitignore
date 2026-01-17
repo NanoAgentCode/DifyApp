@@ -60,3 +60,4 @@ rustfs/data/
 /.cursor/commands/ui-ux-pro-max.md
 /.shared/ui-ux-pro-max/data/ux-guidelines.csv
 /.shared/ui-ux-pro-max/data/stacks/vue.csv
+.env

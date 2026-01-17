@@ -6,11 +6,13 @@ services:
     image: ankane/pgvector:latest
     container_name: difyapp-postgres
     ports:
-      - "15432:5432"
+      - "${POSTGRES_EXPOSE_PORT:-15432}:5432"
+    env_file:
+      - ./.env
     environment:
-      - POSTGRES_PASSWORD=123456
-      - POSTGRES_DB=postgres
-      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-123456}
+      - POSTGRES_DB=${POSTGRES_DB:-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -27,11 +29,13 @@ services:
     image: rustfs/rustfs:latest
     container_name: difyapp-rustfs
     ports:
-      - "9000:9000"  # S3 API端口
-      - "9001:9001"  # 控制台端口
+      - "${RUSTFS_API_PORT:-9000}:9000"  # S3 API端口
+      - "${RUSTFS_CONSOLE_PORT:-9001}:9001"  # 控制台端口
+    env_file:
+      - ./.env
     environment:
-      - RUSTFS_ACCESS_KEY=rustfsadmin
-      - RUSTFS_SECRET_KEY=rustfsadmin
+      - RUSTFS_ACCESS_KEY=${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      - RUSTFS_SECRET_KEY=${RUSTFS_SECRET_KEY:-rustfsadmin}
       - RUSTFS_CONSOLE_ENABLE=true
       - RUSTFS_ADDRESS=:9000
     volumes:
@@ -63,7 +67,7 @@ services:
     image: redis:7-alpine
     container_name: difyapp-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
@@ -84,7 +88,7 @@ services:
     image: difyapp/easyocr:latest
     container_name: difyapp-easyocr
     ports:
-      - "8000:8000"  # EasyOCR 原端口
+      - "${EASYOCR_PORT:-8000}:8000"  # EasyOCR 原端口
     environment:
       - PORT=8000
       - HOST=0.0.0.0
@@ -155,8 +159,8 @@ services:
     environment:
       ETCD_ENDPOINTS: milvus-etcd:2379
       MINIO_ADDRESS: rustfs:9000  # 使用全局 RustFS 服务
-      MINIO_ACCESS_KEY_ID: rustfsadmin  # RustFS 访问密钥（Milvus 2.6 使用此环境变量名）
-      MINIO_SECRET_ACCESS_KEY: rustfsadmin  # RustFS 密钥（Milvus 2.6 使用此环境变量名）
+      MINIO_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:-rustfsadmin}  # RustFS 访问密钥（Milvus 2.6 使用此环境变量名）
+      MINIO_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}  # RustFS 密钥（Milvus 2.6 使用此环境变量名）
     volumes:
       - milvus-data:/var/lib/milvus
     ports:
@@ -257,7 +261,7 @@ services:
       # 挂载静态文件目录，持久化生成的文件
       - ./mindmap/static:/app/static
     environment:
-      - TZ=Asia/Shanghai
+      - TZ=${TZ:-Asia/Shanghai}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:6066/"]
