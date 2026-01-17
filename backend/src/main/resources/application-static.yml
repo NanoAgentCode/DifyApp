@@ -16,18 +16,6 @@ spring:
   output:
     ansi:
       enabled: always
-  
-  datasource:
-    hikari:
-      minimum-idle: 10
-      maximum-pool-size: 50
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
-      connection-test-query: SELECT 1
-      leak-detection-threshold: 60000
-      pool-name: DeifyAppHikariPool
-      register-mbeans: true
   jpa:
     open-in-view: false
     properties:
@@ -99,7 +87,7 @@ rag:
 mcp:
   browser-search:
     # 商业搜索API（按优先级自动选择）  # Tavily API密钥（推荐）
-    tavily-api-key: "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"
+    tavily-api-key: ""
     serp-api-key: ""          # SerpAPI密钥
     serp-engine: "google"     # SerpAPI搜索引擎
     bing-api-key: ""          # Bing API密钥
@@ -116,3 +104,12 @@ mcp:
   realtime-info-detector:
     enabled: true
     confidence-threshold: 0.3
+
+server:
+  port: 9090
+
+jwt:
+  expiration: 604800000
+
+minio:
+  bucket-name: knowledge-base

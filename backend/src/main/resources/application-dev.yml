@@ -26,32 +26,13 @@ spring:
       port: 6379
       password: # 可选，如果Redis设置了密码，请在此配置
 
-server:
-  port: 9090
-
 # JWT配置（需要根据环境修改密钥）
 jwt:
   # JWT密钥（生产环境请修改为更安全的密钥，至少32个字符以确保256位安全性）
   secret: dify-app-secret-key-2024-this-is-a-very-long-secret-key-for-security
-  # JWT过期时间（毫秒），默认7天
-  expiration: 604800000
 
 # MinIO配置（需要根据环境修改）
 minio:
   endpoint: http://localhost:9000
   access-key: rustfsadmin
   secret-key: rustfsadmin
-  bucket-name: knowledge-base
-
-# MCP 浏览器搜索服务地址（需要根据环境修改）
-mcp:
-  browser-search:
-    searxng-base-url: http://localhost:10086  # SearX-NG服务地址
-
-# Elasticsearch配置（需要根据环境修改）
-elasticsearch:
-  enabled: true  # 是否启用Elasticsearch，设置为true启用（需要先安装Elasticsearch）
-  host: localhost
-  port: 9200
-  username: elastic # 可选，如果Elasticsearch设置了用户名
-  password: TKyINl*fJ2pKZAtuWhgJ # 可选，如果Elasticsearch设置了密码
