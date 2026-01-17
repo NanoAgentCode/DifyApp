@@ -146,7 +146,7 @@
     </el-card>
 
     <!-- 编辑标题对话框 -->
-    <el-dialog v-model="editTitleDialogVisible" title="编辑会话标题" width="400px" :lock-scroll="true">
+    <el-dialog v-model="editTitleDialogVisible" title="编辑会话标题" width="420px" :lock-scroll="true">
       <el-input v-model="editTitle" placeholder="请输入会话标题" />
       <template #footer>
         <el-button @click="editTitleDialogVisible = false">取消</el-button>
@@ -158,7 +158,7 @@
     <el-dialog 
       v-model="showConversationDetail" 
       :title="conversationDetail.conversation ? conversationDetail.conversation.title : '会话详情'" 
-      width="80%"
+      width="700px"
       :close-on-click-modal="false"
       :lock-scroll="true"
     >

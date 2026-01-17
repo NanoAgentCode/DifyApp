@@ -11,7 +11,7 @@
             <span>知识检索</span>
           </div>
           <div class="header-right">
-            <el-button type="default" @click="goToKnowledgeBaseManagement" class="kb-management-btn">
+            <el-button type="primary" @click="goToKnowledgeBaseManagement" class="kb-management-btn">
               <el-icon><Setting /></el-icon>
               知识库管理
             </el-button>

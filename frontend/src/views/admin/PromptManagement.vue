@@ -64,7 +64,7 @@
     <el-dialog
       v-model="dialogVisible"
       :title="isEdit ? '编辑提示词' : '创建提示词'"
-      width="800px"
+      width="600px"
       :close-on-click-modal="false"
     >
       <el-form :model="formData" :rules="formRules" ref="formRef" label-width="100px">

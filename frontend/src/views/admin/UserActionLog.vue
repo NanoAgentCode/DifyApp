@@ -141,7 +141,7 @@
               {{ formatDate(scope.row.createTime) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="150" align="center" fixed="right">
+          <el-table-column label="操作" width="280" align="center" fixed="right">
             <template #default="scope">
               <el-button
                 type="primary"
@@ -173,7 +173,7 @@
     <el-dialog
       v-model="showDetailDialog"
       title="日志详情"
-      width="800px"
+      width="700px"
       :close-on-click-modal="false"
     >
       <div v-if="currentLog" class="log-detail">

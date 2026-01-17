@@ -55,7 +55,7 @@
           stripe
           fit
         >
-        <el-table-column prop="id" label="ID" width="70" align="center" />
+        <el-table-column prop="id" label="ID" width="80" align="center" />
         <el-table-column prop="username" label="用户名" min-width="120" show-overflow-tooltip />
         <el-table-column prop="role" label="角色" min-width="120" align="center">
           <template #default="scope">
@@ -303,7 +303,7 @@
     <el-dialog
       v-model="showMemoryDialog"
       title="记忆管理"
-      width="900px"
+      width="700px"
       class="memory-dialog"
       destroy-on-close
     >
