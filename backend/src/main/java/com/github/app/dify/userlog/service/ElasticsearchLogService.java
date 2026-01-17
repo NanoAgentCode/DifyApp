@@ -13,12 +13,15 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.indices.CreateIndexRequest;
 import co.elastic.clients.elasticsearch.indices.ExistsRequest;
 import co.elastic.clients.elasticsearch.indices.IndexSettings;
+import com.github.app.dify.datasource.domain.DataSource;
+import com.github.app.dify.datasource.service.DataSourceService;
+import com.github.app.dify.datasource.service.DatabaseConnectionService;
+import com.github.app.dify.system.service.SystemConfigService;
 import com.github.app.dify.userlog.document.UserActionLogDocument;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -26,6 +29,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Elasticsearch日志服务
@@ -36,42 +41,180 @@ public class ElasticsearchLogService {
     private static final Logger logger = LoggerFactory.getLogger(ElasticsearchLogService.class);
     private static final String INDEX_NAME = "user_action_logs";
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static final String CONFIG_KEY_USERLOG_ELASTICSEARCH_DATASOURCE_ID = "userlog.elasticsearchDataSourceId";
+    private static final Pattern FIRST_NUMBER_PATTERN = Pattern.compile("(\\d+)");
 
-    @Autowired(required = false)
-    private ElasticsearchClient userLogElasticsearchClient;
+    @Autowired
+    private SystemConfigService systemConfigService;
 
-    @Value("${elasticsearch.enabled:true}")
-    private boolean elasticsearchEnabled;
+    @Autowired
+    private DataSourceService dataSourceService;
+
+    @Autowired
+    private DatabaseConnectionService databaseConnectionService;
+
+    private final Object clientLock = new Object();
+    private volatile Long activeDataSourceId;
+    private volatile ElasticsearchClient activeClient;
+    private volatile boolean indexInitialized;
 
     /**
      * 初始化：检查并创建索引
      */
     @PostConstruct
     public void init() {
-        if (!elasticsearchEnabled || userLogElasticsearchClient == null) {
-            return;
-        }
-        
         try {
-            // 检查索引是否存在
-            ExistsRequest existsRequest = ExistsRequest.of(e -> e.index(INDEX_NAME));
-            boolean exists = userLogElasticsearchClient.indices().exists(existsRequest).value();
-            
-            if (!exists) {
-                logger.info("索引 {} 不存在，开始自动创建...", INDEX_NAME);
-                createIndex();
-            } else {
-                logger.info("索引 {} 已存在", INDEX_NAME);
+            ElasticsearchClient client = resolveClient();
+            if (client != null) {
+                ensureIndexInitialized(client, activeDataSourceId);
             }
         } catch (Exception e) {
             logger.error("初始化Elasticsearch索引失败", e);
         }
     }
 
+    public boolean isEnabled() {
+        return resolveClient() != null;
+    }
+
+    private ElasticsearchClient resolveClient() {
+        String configValue;
+        try {
+            configValue = systemConfigService.getConfigValue(CONFIG_KEY_USERLOG_ELASTICSEARCH_DATASOURCE_ID);
+        } catch (Exception e) {
+            logger.warn("读取系统配置失败 - 键: {}", CONFIG_KEY_USERLOG_ELASTICSEARCH_DATASOURCE_ID, e);
+            return null;
+        }
+
+        Long dataSourceId = parseLongLoose(configValue);
+        if (dataSourceId == null) {
+            return null;
+        }
+
+        ElasticsearchClient cached = activeClient;
+        Long cachedId = activeDataSourceId;
+        if (cached != null && cachedId != null && cachedId.equals(dataSourceId)) {
+            return cached;
+        }
+
+        synchronized (clientLock) {
+            cached = activeClient;
+            cachedId = activeDataSourceId;
+            if (cached != null && cachedId != null && cachedId.equals(dataSourceId)) {
+                return cached;
+            }
+
+            DataSource dataSource;
+            try {
+                dataSource = dataSourceService.getDataSourceEntityById(dataSourceId);
+            } catch (Exception e) {
+                logger.warn("用户日志ES数据源不存在或不可用 - 数据源ID: {}", dataSourceId, e);
+                activeClient = null;
+                activeDataSourceId = null;
+                indexInitialized = false;
+                return null;
+            }
+
+            if (dataSource.getStatus() != null && dataSource.getStatus() == 0) {
+                logger.warn("用户日志ES数据源已禁用 - 数据源ID: {}", dataSourceId);
+                activeClient = null;
+                activeDataSourceId = null;
+                indexInitialized = false;
+                return null;
+            }
+
+            if (dataSource.getDeleted() != null && dataSource.getDeleted() == 1) {
+                logger.warn("用户日志ES数据源已删除 - 数据源ID: {}", dataSourceId);
+                activeClient = null;
+                activeDataSourceId = null;
+                indexInitialized = false;
+                return null;
+            }
+
+            if (dataSource.getType() == null || !"elasticsearch".equalsIgnoreCase(dataSource.getType())) {
+                logger.warn("用户日志ES数据源类型不匹配 - 数据源ID: {}, type: {}", dataSourceId, dataSource.getType());
+                activeClient = null;
+                activeDataSourceId = null;
+                indexInitialized = false;
+                return null;
+            }
+
+            ElasticsearchClient client;
+            try {
+                client = databaseConnectionService.getElasticsearchClient(dataSource);
+            } catch (Exception e) {
+                logger.error("创建用户日志Elasticsearch客户端失败 - 数据源ID: {}", dataSourceId, e);
+                activeClient = null;
+                activeDataSourceId = null;
+                indexInitialized = false;
+                return null;
+            }
+
+            activeDataSourceId = dataSourceId;
+            activeClient = client;
+            indexInitialized = false;
+            return client;
+        }
+    }
+
+    private Long parseLongLoose(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if (trimmed.length() >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
+            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
+        }
+        try {
+            return Long.parseLong(trimmed);
+        } catch (NumberFormatException ignored) {
+        }
+
+        Matcher matcher = FIRST_NUMBER_PATTERN.matcher(trimmed);
+        if (matcher.find()) {
+            try {
+                return Long.parseLong(matcher.group(1));
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private void ensureIndexInitialized(ElasticsearchClient client, Long dataSourceId) {
+        if (client == null || dataSourceId == null) {
+            return;
+        }
+        if (indexInitialized && dataSourceId.equals(activeDataSourceId)) {
+            return;
+        }
+        synchronized (clientLock) {
+            if (indexInitialized && dataSourceId.equals(activeDataSourceId)) {
+                return;
+            }
+            try {
+                ExistsRequest existsRequest = ExistsRequest.of(e -> e.index(INDEX_NAME));
+                boolean exists = client.indices().exists(existsRequest).value();
+                if (!exists) {
+                    logger.info("索引 {} 不存在，开始自动创建...", INDEX_NAME);
+                    createIndex(client);
+                } else {
+                    logger.info("索引 {} 已存在", INDEX_NAME);
+                }
+                indexInitialized = true;
+            } catch (Exception e) {
+                logger.error("初始化Elasticsearch索引失败 - 数据源ID: {}", dataSourceId, e);
+            }
+        }
+    }
+
     /**
      * 创建索引
      */
-    private void createIndex() {
+    private void createIndex(ElasticsearchClient client) {
         try {
             CreateIndexRequest createIndexRequest = CreateIndexRequest.of(c -> c
                 .index(INDEX_NAME)
@@ -105,7 +248,7 @@ public class ElasticsearchLogService {
                 ))
             );
             
-            userLogElasticsearchClient.indices().create(createIndexRequest);
+            client.indices().create(createIndexRequest);
             logger.info("索引 {} 创建成功", INDEX_NAME);
         } catch (Exception e) {
             logger.error("创建索引失败", e);
@@ -116,12 +259,13 @@ public class ElasticsearchLogService {
      * 保存日志到Elasticsearch
      */
     public void saveLog(UserActionLogDocument document) {
-        if (!elasticsearchEnabled) {
-            logger.debug("Elasticsearch未启用，跳过保存日志");
+        ElasticsearchClient client = resolveClient();
+        if (client == null) {
             return;
         }
 
         try {
+            ensureIndexInitialized(client, activeDataSourceId);
             // 生成唯一ID
             if (document.getId() == null) {
                 document.setId(UUID.randomUUID().toString());
@@ -134,12 +278,7 @@ public class ElasticsearchLogService {
                     .document(document)
             );
 
-            if (userLogElasticsearchClient == null) {
-                logger.warn("Elasticsearch客户端未初始化，跳过保存日志");
-                return;
-            }
-            
-            userLogElasticsearchClient.index(request);
+            client.index(request);
             logger.debug("用户行为日志已保存到Elasticsearch: id={}, userId={}, module={}", 
                     document.getId(), document.getUserId(), document.getModule());
         } catch (Exception e) {
@@ -154,12 +293,13 @@ public class ElasticsearchLogService {
                                    String actionType, String result,
                                    LocalDateTime startTime, LocalDateTime endTime,
                                    int page, int pageSize) {
-        if (!elasticsearchEnabled) {
-            logger.warn("Elasticsearch未启用，无法查询日志");
+        ElasticsearchClient client = resolveClient();
+        if (client == null) {
             return new SearchResult(new ArrayList<>(), 0);
         }
 
         try {
+            ensureIndexInitialized(client, activeDataSourceId);
             // 构建查询条件
             List<Query> mustQueries = new ArrayList<>();
 
@@ -207,12 +347,7 @@ public class ElasticsearchLogService {
             );
 
             // 执行搜索
-            if (userLogElasticsearchClient == null) {
-                logger.warn("Elasticsearch客户端未初始化，无法查询");
-                return new SearchResult(new ArrayList<>(), 0);
-            }
-            
-            SearchResponse<UserActionLogDocument> response = userLogElasticsearchClient.search(
+            SearchResponse<UserActionLogDocument> response = client.search(
                     searchRequest, 
                     UserActionLogDocument.class
             );
@@ -242,12 +377,13 @@ public class ElasticsearchLogService {
      * 获取所有操作类型（用于下拉菜单）
      */
     public List<String> getActionTypes() {
-        if (!elasticsearchEnabled) {
-            logger.warn("Elasticsearch未启用，无法获取操作类型");
+        ElasticsearchClient client = resolveClient();
+        if (client == null) {
             return new ArrayList<>();
         }
 
         try {
+            ensureIndexInitialized(client, activeDataSourceId);
             // 构建terms聚合查询
             SearchRequest searchRequest = SearchRequest.of(s -> s
                 .index(INDEX_NAME)
@@ -260,12 +396,7 @@ public class ElasticsearchLogService {
                 )
             );
 
-            if (userLogElasticsearchClient == null) {
-                logger.warn("Elasticsearch客户端未初始化");
-                return new ArrayList<>();
-            }
-
-            SearchResponse<UserActionLogDocument> response = userLogElasticsearchClient.search(
+            SearchResponse<UserActionLogDocument> response = client.search(
                 searchRequest, 
                 UserActionLogDocument.class
             );
@@ -303,11 +434,12 @@ public class ElasticsearchLogService {
     }
 
     public List<String> getModules() {
-        if (!elasticsearchEnabled) {
-            logger.warn("Elasticsearch未启用，无法获取操作模块");
+        ElasticsearchClient client = resolveClient();
+        if (client == null) {
             return new ArrayList<>();
         }
         try {
+            ensureIndexInitialized(client, activeDataSourceId);
             SearchRequest searchRequest = SearchRequest.of(s -> s
                 .index(INDEX_NAME)
                 .size(0)
@@ -318,11 +450,7 @@ public class ElasticsearchLogService {
                     )
                 )
             );
-            if (userLogElasticsearchClient == null) {
-                logger.warn("Elasticsearch客户端未初始化");
-                return new ArrayList<>();
-            }
-            SearchResponse<UserActionLogDocument> response = userLogElasticsearchClient.search(
+            SearchResponse<UserActionLogDocument> response = client.search(
                 searchRequest,
                 UserActionLogDocument.class
             );

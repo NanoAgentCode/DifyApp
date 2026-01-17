@@ -9,7 +9,6 @@ import com.github.app.dify.userlog.service.UserActionLogService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -28,9 +27,6 @@ public class UserActionLogServiceImpl implements UserActionLogService {
     @Autowired
     private ElasticsearchLogService elasticsearchLogService;
 
-    @Value("${elasticsearch.enabled:false}")
-    private boolean elasticsearchEnabled;
-
     /**
      * 异步保存日志（仅保存到Elasticsearch）
      */
@@ -39,7 +35,7 @@ public class UserActionLogServiceImpl implements UserActionLogService {
     public void saveLog(UserActionLog log) {
         try {
             // 仅保存到Elasticsearch
-            if (elasticsearchEnabled) {
+            if (elasticsearchLogService.isEnabled()) {
                 UserActionLogDocument document = convertToDocument(log);
                 elasticsearchLogService.saveLog(document);
                 logger.debug("用户行为日志已保存到Elasticsearch: userId={}, module={}, actionType={}", 
@@ -57,7 +53,7 @@ public class UserActionLogServiceImpl implements UserActionLogService {
      */
     @Override
     public PageResponse<UserActionLogResp> queryLogs(UserActionLogQueryReq request) {
-        if (!elasticsearchEnabled) {
+        if (!elasticsearchLogService.isEnabled()) {
             logger.warn("Elasticsearch未启用，无法查询日志");
             return new PageResponse<>(new ArrayList<>(), 0L, request.getPage(), request.getPageSize());
         }
@@ -122,7 +118,7 @@ public class UserActionLogServiceImpl implements UserActionLogService {
      */
     @Override
     public java.util.List<String> getActionTypes() {
-        if (!elasticsearchEnabled) {
+        if (!elasticsearchLogService.isEnabled()) {
             logger.warn("Elasticsearch未启用，无法获取操作类型");
             return new ArrayList<>();
         }
@@ -137,7 +133,7 @@ public class UserActionLogServiceImpl implements UserActionLogService {
 
     @Override
     public java.util.List<String> getModules() {
-        if (!elasticsearchEnabled) {
+        if (!elasticsearchLogService.isEnabled()) {
             logger.warn("Elasticsearch未启用，无法获取操作模块");
             return new ArrayList<>();
         }

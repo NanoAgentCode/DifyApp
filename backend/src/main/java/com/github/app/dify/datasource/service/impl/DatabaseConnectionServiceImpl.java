@@ -9,6 +9,8 @@ import com.github.app.dify.datasource.util.DatabaseDriverManager;
 import com.github.app.dify.auth.util.PasswordEncryptionUtil;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
@@ -239,10 +241,12 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
                 
                 RestClient restClient = restClientBuilder.build();
                 
-                // 创建传输层
+                ObjectMapper objectMapper = new ObjectMapper();
+                objectMapper.registerModule(new JavaTimeModule());
+                
                 RestClientTransport transport = new RestClientTransport(
                     restClient,
-                    new JacksonJsonpMapper()
+                    new JacksonJsonpMapper(objectMapper)
                 );
                 
                 return new ElasticsearchClient(transport);
@@ -563,37 +567,40 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
         String host = dataSource.getHost();
         int port = dataSource.getPort() != null ? dataSource.getPort() : 9200;
         
-        try {
-            // 创建 RestClient
-            RestClientBuilder restClientBuilder = RestClient.builder(
-                new HttpHost(host, port, "http")
-            );
-            
-            // 配置认证
-            if (username != null && !username.trim().isEmpty() && password != null && !password.trim().isEmpty()) {
-                final String finalUsername = username;
-                final String finalPassword = password;
+            try {
+                // 创建 RestClient
+                RestClientBuilder restClientBuilder = RestClient.builder(
+                    new HttpHost(host, port, "http")
+                );
                 
-                restClientBuilder.setHttpClientConfigCallback(httpClientBuilder -> {
-                    CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-                    credentialsProvider.setCredentials(
-                        AuthScope.ANY,
-                        new UsernamePasswordCredentials(finalUsername, finalPassword)
-                    );
-                    httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
-                    return httpClientBuilder;
-                });
-            }
-            
-            RestClient restClient = restClientBuilder.build();
-            
-            // 创建传输层
-            RestClientTransport transport = new RestClientTransport(
-                restClient,
-                new JacksonJsonpMapper()
-            );
-            
-            return new ElasticsearchClient(transport);
+                // 配置认证
+                if (username != null && !username.trim().isEmpty() && password != null && !password.trim().isEmpty()) {
+                    final String finalUsername = username;
+                    final String finalPassword = password;
+                    
+                    restClientBuilder.setHttpClientConfigCallback(httpClientBuilder -> {
+                        CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+                        credentialsProvider.setCredentials(
+                            AuthScope.ANY,
+                            new UsernamePasswordCredentials(finalUsername, finalPassword)
+                        );
+                        httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+                        return httpClientBuilder;
+                    });
+                }
+                
+                RestClient restClient = restClientBuilder.build();
+                
+                ObjectMapper objectMapper = new ObjectMapper();
+                objectMapper.registerModule(new JavaTimeModule());
+                
+                // 创建传输层
+                RestClientTransport transport = new RestClientTransport(
+                    restClient,
+                    new JacksonJsonpMapper(objectMapper)
+                );
+                
+                return new ElasticsearchClient(transport);
         } catch (Exception e) {
             logger.error("创建 Elasticsearch 测试客户端失败", e);
             throw new BusinessException("创建 Elasticsearch 测试客户端失败", ErrorCode.ELASTICSEARCH_CONNECTION_ERROR, e);
