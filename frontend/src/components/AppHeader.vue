@@ -11,7 +11,7 @@
         <div class="system-icon">
           <img src="/logo.svg" alt="系统图标" class="system-logo" />
         </div>
-        <h2>NanoAgent智能工作台</h2>
+        <h2>NanoAgent Workbench</h2>
         <el-tooltip :content="isCollapsed ? '展开顶部' : '收起顶部'" placement="bottom">
           <el-button type="text" @click="toggleCollapse" class="collapse-header-button">
             <el-icon><ArrowUp v-if="!isCollapsed" /><ArrowDown v-else /></el-icon>
