@@ -288,6 +288,60 @@
             </el-option>
           </el-select>
         </el-form-item>
+        <!-- 用户行为日志Elasticsearch数据源ID配置特殊处理 -->
+        <el-form-item
+          v-else-if="isUserLogElasticsearchDataSourceIdConfig"
+          label="Elasticsearch数据源"
+          prop="configValue"
+        >
+          <el-select
+            v-model="form.configValue"
+            placeholder="请选择Elasticsearch数据源"
+            style="width: 100%"
+            filterable
+            :loading="loadingElasticsearchDataSources"
+            @focus="loadElasticsearchDataSources"
+          >
+            <el-option
+              v-for="ds in elasticsearchDataSources"
+              :key="ds.id"
+              :label="`${ds.name} (ID: ${ds.id})`"
+              :value="String(ds.id)"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>{{ ds.name }}</span>
+                <span style="color: #909399; font-size: 12px;">ID: {{ ds.id }}</span>
+              </div>
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <!-- 数据分析Neo4j数据源ID配置特殊处理 -->
+        <el-form-item
+          v-else-if="isDataAnalysisNeo4jDataSourceIdConfig"
+          label="Neo4j数据源"
+          prop="configValue"
+        >
+          <el-select
+            v-model="form.configValue"
+            placeholder="请选择Neo4j数据源"
+            style="width: 100%"
+            filterable
+            :loading="loadingNeo4jDataSources"
+            @focus="loadNeo4jDataSources"
+          >
+            <el-option
+              v-for="ds in neo4jDataSources"
+              :key="ds.id"
+              :label="`${ds.name} (ID: ${ds.id})`"
+              :value="String(ds.id)"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>{{ ds.name }}</span>
+                <span style="color: #909399; font-size: 12px;">ID: {{ ds.id }}</span>
+              </div>
+            </el-option>
+          </el-select>
+        </el-form-item>
         <!-- 文档解读思维导图服务URL配置特殊处理 -->
         <el-form-item 
           v-else-if="isDocumentReaderMindMapServiceUrlConfig"
@@ -396,7 +450,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Check, Document, Setting, Grid, Picture, Monitor, Files } from '@element-plus/icons-vue'
+import { Plus, Search, Check, Document, Setting, Grid, Picture, Monitor, Files, DataAnalysis } from '@element-plus/icons-vue'
 import { getAllConfigs, setOrUpdateConfig, deleteConfig } from '@/api/systemConfig'
 import { industrialThemes, getThemeById } from '@/utils/themes'
 import { GLOBAL_THEME_CONFIG_KEY } from '@/utils/globalTheme'
@@ -404,6 +458,7 @@ import { applyGlobalTheme } from '@/utils/globalTheme'
 import { getAvailableQAModels } from '@/api/model'
 import { getVectorDatabaseList } from '@/api/vectorDatabase'
 import { getKnowledgeBaseList } from '@/api/knowledgeBase'
+import { getDataSourceList } from '@/api/dataSource'
 
 // 预定义配置键列表
 const predefinedConfigKeys = [
@@ -434,6 +489,34 @@ const predefinedConfigKeys = [
     description: '全局主题色',
     group: 'system',
     type: 'string'
+  },
+  {
+    key: 'userlog.elasticsearchDataSourceId',
+    label: 'userlog.elasticsearchDataSourceId',
+    description: '用户行为日志Elasticsearch数据源ID',
+    group: 'userActionLog',
+    type: 'number'
+  },
+  {
+    key: 'analysis.neo4j.dataSourceId',
+    label: 'analysis.neo4j.dataSourceId',
+    description: '数据分析Neo4j数据源ID',
+    group: 'dataAnalysis',
+    type: 'number'
+  },
+  {
+    key: 'analysis.etl.enabled',
+    label: 'analysis.etl.enabled',
+    description: '数据分析ETL是否启用',
+    group: 'dataAnalysis',
+    type: 'boolean'
+  },
+  {
+    key: 'analysis.etl.intervalMinutes',
+    label: 'analysis.etl.intervalMinutes',
+    description: '数据分析ETL同步间隔（分钟）',
+    group: 'dataAnalysis',
+    type: 'number'
   },
   {
     key: 'dify.api.defaultBaseUrl',
@@ -507,7 +590,7 @@ const searchKeyword = ref('')
 const showDialog = ref(false)
 const editingConfig = ref(null)
 const formRef = ref(null)
-const expandedGroups = ref(new Set(['help', 'system', 'documentReader'])) // 默认展开主要分组
+const expandedGroups = ref(new Set()) // 默认收起所有分组
 
 const form = ref({
   configKey: '',
@@ -527,6 +610,14 @@ const loadingModels = ref(false)
 // 向量库相关
 const vectorDatabases = ref([])
 const loadingVectorDatabases = ref(false)
+
+// Elasticsearch数据源相关
+const elasticsearchDataSources = ref([])
+const loadingElasticsearchDataSources = ref(false)
+
+// Neo4j数据源相关
+const neo4jDataSources = ref([])
+const loadingNeo4jDataSources = ref(false)
 
 // 知识库相关
 const knowledgeBases = ref([])
@@ -592,6 +683,16 @@ const isDocumentReaderVectorDatabaseIdConfig = computed(() => {
   return form.value.configKey === 'documentReader.vectorDatabaseId'
 })
 
+// 判断是否是用户行为日志Elasticsearch数据源ID配置
+const isUserLogElasticsearchDataSourceIdConfig = computed(() => {
+  return form.value.configKey === 'userlog.elasticsearchDataSourceId'
+})
+
+// 判断是否是数据分析Neo4j数据源ID配置
+const isDataAnalysisNeo4jDataSourceIdConfig = computed(() => {
+  return form.value.configKey === 'analysis.neo4j.dataSourceId'
+})
+
 // 判断是否是文档解读思维导图服务URL配置
 const isDocumentReaderMindMapServiceUrlConfig = computed(() => {
   return form.value.configKey === 'documentReader.mindMapServiceUrl'
@@ -620,7 +721,7 @@ const loadVectorDatabases = async () => {
   if (vectorDatabases.value.length > 0 || loadingVectorDatabases.value) {
     return // 已经加载过或正在加载
   }
-  
+
   loadingVectorDatabases.value = true
   try {
     const response = await getVectorDatabaseList()
@@ -630,6 +731,42 @@ const loadVectorDatabases = async () => {
     ElMessage.warning('加载向量库列表失败，请手动输入向量库ID')
   } finally {
     loadingVectorDatabases.value = false
+  }
+}
+
+// 加载Elasticsearch数据源列表
+const loadElasticsearchDataSources = async () => {
+  if (elasticsearchDataSources.value.length > 0 || loadingElasticsearchDataSources.value) {
+    return // 已经加载过或正在加载
+  }
+
+  loadingElasticsearchDataSources.value = true
+  try {
+    const response = await getDataSourceList({ type: 'elasticsearch', status: 1 })
+    elasticsearchDataSources.value = Array.isArray(response) ? response : (response?.records || response?.data || response || [])
+  } catch (error) {
+    console.error('加载Elasticsearch数据源列表失败:', error)
+    ElMessage.warning('加载Elasticsearch数据源列表失败，请手动输入数据源ID')
+  } finally {
+    loadingElasticsearchDataSources.value = false
+  }
+}
+
+// 加载Neo4j数据源列表
+const loadNeo4jDataSources = async () => {
+  if (neo4jDataSources.value.length > 0 || loadingNeo4jDataSources.value) {
+    return // 已经加载过或正在加载
+  }
+
+  loadingNeo4jDataSources.value = true
+  try {
+    const response = await getDataSourceList({ type: 'neo4j', status: 1 })
+    neo4jDataSources.value = Array.isArray(response) ? response : (response?.records || response?.data || response || [])
+  } catch (error) {
+    console.error('加载Neo4j数据源列表失败:', error)
+    ElMessage.warning('加载Neo4j数据源列表失败，请手动输入数据源ID')
+  } finally {
+    loadingNeo4jDataSources.value = false
   }
 }
 
@@ -706,33 +843,57 @@ const groupConfigMap = {
     description: '用户手册和帮助系统相关配置'
   },
   'system': {
-    label: '系统配置',
+    label: '系统全局配置',
     icon: Setting,
     order: 2,
     description: '系统全局设置和主题配置'
   },
+  'userActionLog': {
+    label: '行为日志配置',
+    icon: Monitor,
+    order: 3,
+    description: '用户行为日志和Elasticsearch相关配置'
+  },
+  'userlog': {
+    label: '行为日志配置',
+    icon: Monitor,
+    order: 3,
+    description: '用户行为日志和Elasticsearch相关配置'
+  },
+  'dataAnalysis': {
+    label: '数据分析配置',
+    icon: DataAnalysis,
+    order: 4,
+    description: '数据分析和Neo4j相关配置'
+  },
+  'analysis': {
+    label: '数据分析配置',
+    icon: DataAnalysis,
+    order: 4,
+    description: '数据分析和Neo4j相关配置'
+  },
   'dify': {
     label: 'Dify集成配置',
     icon: Grid,
-    order: 3,
+    order: 5,
     description: 'Dify平台集成相关配置'
   },
   'ocr': {
     label: 'OCR服务配置',
     icon: Picture,
-    order: 4,
+    order: 6,
     description: 'OCR识别服务配置'
   },
   'documentReader': {
     label: '文档解读配置',
     icon: Files,
-    order: 5,
+    order: 7,
     description: '智能文档解读功能配置'
   },
   'mindmap': {
     label: '思维导图配置',
     icon: Monitor,
-    order: 6,
+    order: 8,
     description: '思维导图生成服务配置'
   }
 }
@@ -966,6 +1127,12 @@ const handleDelete = (row) => {
   }).catch(() => {
     // 取消删除
   })
+}
+
+// 搜索处理
+const handleSearch = () => {
+  // 搜索功能通过groupedConfigs计算属性自动实现
+  // 这里不需要额外处理
 }
 
 onMounted(() => {

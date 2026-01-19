@@ -11,9 +11,6 @@
             <el-button @click="openSettingsDialog" :icon="Setting">
               同步设置
             </el-button>
-            <el-button @click="loadStatus" :loading="loadingStatus" :icon="Refresh">
-              刷新状态
-            </el-button>
             <el-button type="primary" @click="runNow" :loading="runningNow" :disabled="!settingsForm.neo4jDataSourceId" :icon="VideoPlay">
               立即同步
             </el-button>
@@ -43,43 +40,51 @@
             <el-input-number v-model="graphLimit" :min="10" :max="2000" controls-position="right" size="small" />
           </div>
           <div class="footer-right">
-            <el-button @click="showStats = !showStats" :icon="showStats ? 'ArrowUp' : 'ArrowDown'" size="small">
-              {{ showStats ? '收起' : '展开' }}
+            <el-button @click="openStatsDialog" :icon="DataLine" size="small">
+              统计信息
             </el-button>
             <el-button @click="loadGraph" :loading="graphLoading" :icon="Refresh" size="small">
               刷新
             </el-button>
           </div>
         </div>
+      </div>
+    </el-card>
 
-        <div v-if="graphData?.nodeCounts || graphData?.relationshipCounts" class="graph-stats" v-show="showStats">
-          <div v-if="graphData?.nodeCounts" class="stats-section">
-            <div class="stats-title">
-              <el-icon><CircleCheck /></el-icon>
-              <span>节点统计</span>
-            </div>
-            <div class="stats-grid">
-              <div v-for="(v, k) in graphData.nodeCounts" :key="k" class="stat-item">
-                <div class="stat-label">{{ k }}</div>
-                <div class="stat-value">{{ v }}</div>
-              </div>
+    <el-dialog
+      v-model="statsDialogVisible"
+      title="统计信息"
+      width="800px"
+      :close-on-click-modal="true"
+      class="stats-dialog"
+    >
+      <div class="stats-dialog-content">
+        <div v-if="graphData?.nodeCounts" class="stats-section">
+          <div class="stats-title">
+            <el-icon><CircleCheck /></el-icon>
+            <span>节点统计</span>
+          </div>
+          <div class="stats-grid">
+            <div v-for="(v, k) in graphData.nodeCounts" :key="k" class="stat-item">
+              <div class="stat-label">{{ k }}</div>
+              <div class="stat-value">{{ v }}</div>
             </div>
           </div>
-          <div v-if="graphData?.relationshipCounts" class="stats-section">
-            <div class="stats-title">
-              <el-icon><Link /></el-icon>
-              <span>关系统计</span>
-            </div>
-            <div class="stats-grid">
-              <div v-for="(v, k) in graphData.relationshipCounts" :key="k" class="stat-item">
-                <div class="stat-label">{{ k }}</div>
-                <div class="stat-value">{{ v }}</div>
-              </div>
+        </div>
+        <div v-if="graphData?.relationshipCounts" class="stats-section">
+          <div class="stats-title">
+            <el-icon><Link /></el-icon>
+            <span>关系统计</span>
+          </div>
+          <div class="stats-grid">
+            <div v-for="(v, k) in graphData.relationshipCounts" :key="k" class="stat-item">
+              <div class="stat-label">{{ k }}</div>
+              <div class="stat-value">{{ v }}</div>
             </div>
           </div>
         </div>
       </div>
-    </el-card>
+    </el-dialog>
 
     <el-dialog
       v-model="settingsDialogVisible"
@@ -194,7 +199,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { ArrowDown, ArrowUp, CircleCheck, DataAnalysis, DataLine, Link, Loading, Monitor, Refresh, Setting, VideoPause, VideoPlay } from '@element-plus/icons-vue'
+import { CircleCheck, DataAnalysis, DataLine, Link, Loading, Monitor, Refresh, Setting, VideoPause, VideoPlay } from '@element-plus/icons-vue'
 import { getDataSourceList } from '@/api/dataSource'
 import { getDataAnalysisGraph, getDataAnalysisSettings, getDataAnalysisStatus, runDataAnalysis, updateDataAnalysisSettings } from '@/api/dataAnalysis'
 import { logger } from '@/utils/logger'
@@ -210,6 +215,7 @@ const loadingStatus = ref(false)
 const saving = ref(false)
 const runningNow = ref(false)
 const settingsDialogVisible = ref(false)
+const statsDialogVisible = ref(false)
 
 const dataSources = ref([])
 const status = ref(null)
@@ -358,7 +364,10 @@ let graphLoadTimer = null
 const graphLoading = ref(false)
 const graphLimit = ref(200)
 const graphData = ref(null)
-const showStats = ref(true)
+
+const openStatsDialog = () => {
+  statsDialogVisible.value = true
+}
 
 const graphOption = computed(() => {
   const nodes = graphData.value?.nodes || []
@@ -594,45 +603,34 @@ onUnmounted(() => {
   width: 100%;
 }
 
-.graph-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 20px;
-  margin-top: 16px;
-  flex-shrink: 0;
-  max-height: 300px;
+.stats-dialog :deep(.el-dialog__body) {
+  max-height: 60vh;
   overflow-y: auto;
-  transition: all 0.3s ease;
-  opacity: 1;
-  transform: translateY(0);
+  padding: 20px;
 }
 
-.graph-stats[style*="display: none"] {
-  opacity: 0;
-  transform: translateY(-10px);
-  max-height: 0;
-  margin-top: 0;
-  gap: 0;
-  padding: 0;
+.stats-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .stats-section {
-  background: #fff;
+  background: #f9fafb;
   border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  padding: 16px;
 }
 
 .stats-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #303133;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid #f0f0f0;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e5e7eb;
 }
 
 .stats-title .el-icon {
@@ -642,33 +640,34 @@ onUnmounted(() => {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 16px;
 }
 
 .stat-item {
-  background: #f5f7fa;
-  border-radius: 6px;
-  padding: 12px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
   text-align: center;
   transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .stat-item:hover {
   background: #e8f4ff;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
 }
 
 .stat-label {
   font-size: 13px;
   color: #909399;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   word-break: break-all;
 }
 
 .stat-value {
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 700;
   color: #409eff;
 }
@@ -827,12 +826,6 @@ onUnmounted(() => {
   gap: 12px;
 }
 
-@media (max-width: 1200px) {
-  .graph-stats {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 768px) {
   .data-analysis {
     padding: 0;
@@ -857,12 +850,9 @@ onUnmounted(() => {
     min-height: 400px;
   }
 
-  .stats-grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  }
-
-  .stat-value {
-    font-size: 20px;
+  .stats-dialog :deep(.el-dialog) {
+    width: 95% !important;
+    margin: 0 auto;
   }
 
   .settings-dialog :deep(.el-dialog) {
