@@ -11,11 +11,11 @@
         </div>
       </template>
 
-      <!-- 搜索和筛选 -->
+      <!-- 搜索 -->
       <div class="search-bar">
         <el-input
           v-model="searchKeyword"
-          placeholder="搜索配置键或描述"
+          placeholder="搜索配置项"
           clearable
           style="width: 300px"
           @input="handleSearch"
@@ -24,60 +24,78 @@
             <el-icon><Search /></el-icon>
           </template>
         </el-input>
-        <el-select
-          v-model="filterGroup"
-          placeholder="筛选配置分组"
-          clearable
-          style="width: 200px; margin-left: 10px"
-          @change="handleFilter"
-        >
-          <el-option label="全部" value="" />
-          <el-option
-            v-for="group in availableGroups"
-            :key="group.value"
-            :label="group.label"
-            :value="group.value"
-          />
-        </el-select>
       </div>
 
-      <!-- 配置列表 -->
-      <el-table
-        :data="filteredConfigList"
-        v-loading="loading"
-        stripe
-        border
-        style="width: 100%; margin-top: 20px"
-      >
-        <el-table-column prop="configKey" label="配置键" min-width="180" show-overflow-tooltip align="center"/>
-        <el-table-column prop="configValue" label="配置值" min-width="100" show-overflow-tooltip align="center">
-          <template #default="{ row }">
-            <span v-if="row.configValue && row.configValue.length > 50">
-              {{ row.configValue.substring(0, 50) }}...
-            </span>
-            <span v-else>{{ row.configValue || '-' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="configGroup" label="配置分组" width="140" align="center">
-          <template #default="{ row }">
-            <el-tag v-if="row.configGroup" size="small">{{ row.configGroup }}</el-tag>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="configType" label="配置类型" width="140" align="center">
-          <template #default="{ row }">
-            <el-tag v-if="row.configType" size="small" type="info">{{ row.configType }}</el-tag>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
-        <el-table-column label="操作" width="200" fixed="right" align="center">
-          <template #default="{ row }">
-            <el-button size="small" type="primary" @click="handleEdit(row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <!-- 按功能分组展示配置 -->
+      <div v-loading="loading" class="config-groups">
+        <div v-if="Object.keys(groupedConfigs).length === 0" class="empty-state">
+          <el-empty description="暂无配置项" />
+        </div>
+
+        <div
+          v-for="(configs, groupKey) in groupedConfigs"
+          :key="groupKey"
+          class="config-group-section"
+        >
+          <!-- 分组标题 -->
+          <div class="group-header">
+            <div class="group-title">
+              <el-icon class="group-icon">
+                <component :is="getGroupIcon(groupKey)" />
+              </el-icon>
+              <span>{{ getGroupLabel(groupKey) }}</span>
+              <el-tag size="small" type="info" style="margin-left: 10px">
+                {{ configs.length }} 项
+              </el-tag>
+            </div>
+            <el-button
+              size="small"
+              @click="toggleGroupExpand(groupKey)"
+              :icon="isGroupExpanded(groupKey) ? 'ArrowUp' : 'ArrowDown'"
+            >
+              {{ isGroupExpanded(groupKey) ? '收起' : '展开' }}
+            </el-button>
+          </div>
+
+          <!-- 配置列表 -->
+          <el-collapse-transition>
+            <div v-show="isGroupExpanded(groupKey)" class="group-content">
+              <el-table
+                :data="configs"
+                stripe
+                border
+                style="width: 100%"
+              >
+                <el-table-column prop="configKey" label="配置键" min-width="200" show-overflow-tooltip align="center"/>
+                <el-table-column prop="configValue" label="配置值" min-width="120" show-overflow-tooltip align="center">
+                  <template #default="{ row }">
+                    <span v-if="isGlobalThemeConfigKey(row.configKey)" class="theme-value-display">
+                      {{ getThemeDisplayValue(row.configValue) }}
+                    </span>
+                    <span v-else-if="row.configValue && row.configValue.length > 50">
+                      {{ row.configValue.substring(0, 50) }}...
+                    </span>
+                    <span v-else>{{ row.configValue || '-' }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="configType" label="类型" width="100" align="center">
+                  <template #default="{ row }">
+                    <el-tag v-if="row.configType" size="small" type="info">{{ row.configType }}</el-tag>
+                    <span v-else>-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="description" label="描述" min-width="250" show-overflow-tooltip />
+                <el-table-column label="操作" width="180" fixed="right" align="center">
+                  <template #default="{ row }">
+                    <el-button size="small" type="primary" @click="handleEdit(row)">编辑</el-button>
+                    <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </el-collapse-transition>
+        </div>
+      </div>
     </el-card>
 
     <!-- 添加/编辑配置对话框 -->
@@ -378,7 +396,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Check } from '@element-plus/icons-vue'
+import { Plus, Search, Check, Document, Setting, Grid, Picture, Monitor, Files } from '@element-plus/icons-vue'
 import { getAllConfigs, setOrUpdateConfig, deleteConfig } from '@/api/systemConfig'
 import { industrialThemes, getThemeById } from '@/utils/themes'
 import { GLOBAL_THEME_CONFIG_KEY } from '@/utils/globalTheme'
@@ -486,10 +504,10 @@ const loading = ref(false)
 const saving = ref(false)
 const configList = ref([])
 const searchKeyword = ref('')
-const filterGroup = ref('')
 const showDialog = ref(false)
 const editingConfig = ref(null)
 const formRef = ref(null)
+const expandedGroups = ref(new Set(['help', 'system', 'documentReader'])) // 默认展开主要分组
 
 const form = ref({
   configKey: '',
@@ -679,78 +697,105 @@ watch(() => form.value.configKey, (newKey) => {
   }
 }, { immediate: true })
 
-// 获取可用的分组列表（从配置列表中提取，去重）
-const availableGroups = computed(() => {
-  const groupsSet = new Set()
-  
-  // 从配置列表中提取所有分组
-  configList.value.forEach(config => {
-    if (config.configGroup && config.configGroup.trim()) {
-      groupsSet.add(config.configGroup.trim())
-    }
-  })
-  
-  // 转换为数组并排序
-  const groupArray = Array.from(groupsSet).sort()
-  
-  // 分组名称映射（用于显示中文标签）
-  const groupLabelMap = {
-    'help': '帮助配置',
-    'system': '系统配置',
-    'dify': 'Dify配置',
-    'ocr': 'OCR服务',
-    'documentReader': '文档解读配置'
+// 功能分组配置映射
+const groupConfigMap = {
+  'help': {
+    label: '帮助中心配置',
+    icon: Document,
+    order: 1,
+    description: '用户手册和帮助系统相关配置'
+  },
+  'system': {
+    label: '系统配置',
+    icon: Setting,
+    order: 2,
+    description: '系统全局设置和主题配置'
+  },
+  'dify': {
+    label: 'Dify集成配置',
+    icon: Grid,
+    order: 3,
+    description: 'Dify平台集成相关配置'
+  },
+  'ocr': {
+    label: 'OCR服务配置',
+    icon: Picture,
+    order: 4,
+    description: 'OCR识别服务配置'
+  },
+  'documentReader': {
+    label: '文档解读配置',
+    icon: Files,
+    order: 5,
+    description: '智能文档解读功能配置'
+  },
+  'mindmap': {
+    label: '思维导图配置',
+    icon: Monitor,
+    order: 6,
+    description: '思维导图生成服务配置'
   }
-  
-  // 返回分组选项，优先显示已知分组，然后显示其他分组
-  const knownGroups = []
-  const otherGroups = []
-  
-  groupArray.forEach(group => {
-    const option = {
-      value: group,
-      label: groupLabelMap[group] || group
-    }
-    if (groupLabelMap[group]) {
-      knownGroups.push(option)
-    } else {
-      otherGroups.push(option)
-    }
-  })
-  
-  // 已知分组按固定顺序排列
-  const orderedKnownGroups = []
-  const knownOrder = ['help', 'system', 'dify', 'ocr', 'documentReader']
-  knownOrder.forEach(key => {
-    const found = knownGroups.find(g => g.value === key)
-    if (found) {
-      orderedKnownGroups.push(found)
-    }
-  })
-  
-  // 合并：已知分组（按顺序）+ 其他分组（按字母顺序）
-  return [...orderedKnownGroups, ...otherGroups]
-})
+}
 
-// 过滤后的配置列表
-const filteredConfigList = computed(() => {
-  let result = configList.value
+// 获取分组显示名称
+const getGroupLabel = (groupKey) => {
+  return groupConfigMap[groupKey]?.label || groupKey
+}
 
-  // 按关键词搜索
+// 获取分组图标
+const getGroupIcon = (groupKey) => {
+  return groupConfigMap[groupKey]?.icon || Setting
+}
+
+// 判断分组是否展开
+const isGroupExpanded = (groupKey) => {
+  return expandedGroups.value.has(groupKey)
+}
+
+// 切换分组展开状态
+const toggleGroupExpand = (groupKey) => {
+  if (expandedGroups.value.has(groupKey)) {
+    expandedGroups.value.delete(groupKey)
+  } else {
+    expandedGroups.value.add(groupKey)
+  }
+}
+
+// 按功能分组配置
+const groupedConfigs = computed(() => {
+  const grouped = {}
+
+  // 过滤配置列表
+  let filteredList = configList.value
   if (searchKeyword.value) {
     const keyword = searchKeyword.value.toLowerCase()
-    result = result.filter(config => 
+    filteredList = filteredList.filter(config =>
       config.configKey.toLowerCase().includes(keyword) ||
-      (config.description && config.description.toLowerCase().includes(keyword))
+      (config.description && config.description.toLowerCase().includes(keyword)) ||
+      (config.configGroup && config.configGroup.toLowerCase().includes(keyword))
     )
   }
 
-  // 按分组筛选
-  if (filterGroup.value) {
-    result = result.filter(config => config.configGroup === filterGroup.value)
-  }
+  // 按分组聚合
+  filteredList.forEach(config => {
+    const groupKey = config.configGroup || 'other'
+    if (!grouped[groupKey]) {
+      grouped[groupKey] = []
+    }
+    grouped[groupKey].push(config)
+  })
 
-  return result
+  // 按分组排序
+  const sortedGroups = {}
+  Object.keys(grouped).sort((a, b) => {
+    const orderA = groupConfigMap[a]?.order || 999
+    const orderB = groupConfigMap[b]?.order || 999
+    return orderA - orderB
+  }).forEach(key => {
+    sortedGroups[key] = grouped[key]
+  })
+
+  return sortedGroups
 })
 
 // 加载配置列表
@@ -767,14 +812,17 @@ const loadConfigs = async () => {
   }
 }
 
-// 搜索
-const handleSearch = () => {
-  // 搜索逻辑在 computed 中处理
+// 判断是否是全局主题配置键
+const isGlobalThemeConfigKey = (configKey) => {
+  return configKey === GLOBAL_THEME_CONFIG_KEY
 }
 
-// 筛选
-const handleFilter = () => {
-  // 筛选逻辑在 computed 中处理
+// 获取主题显示值
+const getThemeDisplayValue = (configValue) => {
+  if (!configValue) return '-'
+  const [themeId] = configValue.split(':')
+  const theme = getThemeById(themeId)
+  return theme ? `${theme.name} (${themeId})` : configValue
 }
 
 // 添加配置
@@ -940,6 +988,61 @@ onMounted(() => {
   display: flex;
   align-items: center;
   margin-bottom: 20px;
+}
+
+/* 配置分组样式 */
+.config-groups {
+  margin-top: 20px;
+}
+
+.empty-state {
+  padding: 40px 0;
+  text-align: center;
+}
+
+.config-group-section {
+  margin-bottom: 24px;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: linear-gradient(to right, #f5f7fa, #ffffff);
+  border-bottom: 1px solid #e4e7ed;
+  transition: background 0.3s;
+}
+
+.group-header:hover {
+  background: linear-gradient(to right, #ecf5ff, #ffffff);
+}
+
+.group-title {
+  display: flex;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.group-icon {
+  margin-right: 8px;
+  font-size: 18px;
+  color: #409eff;
+}
+
+.group-content {
+  padding: 0;
+}
+
+.theme-value-display {
+  color: #409eff;
+  font-weight: 500;
 }
 
 /* 主题选择器样式 */
