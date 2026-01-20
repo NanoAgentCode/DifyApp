@@ -41,11 +41,17 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class DataAnalysisServiceImpl implements DataAnalysisService {
@@ -369,47 +375,49 @@ public class DataAnalysisServiceImpl implements DataAnalysisService {
         }
     }
 
+    @Transactional(readOnly = true)
     private Map<String, Object> syncToNeo4j(DataSource neo4jDataSource) {
+        // 小表可以一次性加载（通常数据量不大）
         List<User> users = userRepository.findAll();
         List<AiApp> apps = aiAppRepository.findAll();
-        List<AiAppUser> appUsers = aiAppUserRepository.findAll();
-        List<KnowledgeBase> knowledgeBases = knowledgeBaseRepository.findAll();
-        List<KnowledgeBaseDocument> documents = knowledgeBaseDocumentRepository.findAll();
-        List<ChatConversation> conversations = chatConversationRepository.findAll();
-        List<ChatMessage> messages = chatMessageRepository.findAll();
         List<QAModel> qaModels = qaModelRepository.findAll();
-
+        
+        // 构建用户ID映射（用于后续关系处理）
         Map<Long, User> userById = users.stream()
                 .filter(u -> u.getId() != null)
                 .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
 
+        // 统计计数器
+        final AtomicLong appUsersCount = new AtomicLong(0);
+        final AtomicLong knowledgeBasesCount = new AtomicLong(0);
+        final AtomicLong documentsCount = new AtomicLong(0);
+        final AtomicLong conversationsCount = new AtomicLong(0);
+        final AtomicLong messagesCount = new AtomicLong(0);
+
         try (Session session = databaseConnectionService.getNeo4jSession(neo4jDataSource)) {
             ensureConstraints(session);
 
+            // 处理小表（一次性加载）
             upsertUsers(session, users);
             upsertAiApps(session, apps);
-            upsertKnowledgeBases(session, knowledgeBases);
-            upsertKnowledgeBaseDocuments(session, documents);
-            upsertConversations(session, conversations);
-            upsertMessages(session, messages);
             upsertQAModels(session, qaModels);
 
-            upsertAppUserRelations(session, appUsers);
-            upsertKnowledgeBaseCreatorRelations(session, knowledgeBases, userById);
-            upsertDocumentRelations(session, documents);
-            upsertConversationRelations(session, conversations);
-            upsertMessageRelations(session, messages);
-            upsertMessageModelRelations(session, messages);
+            // 处理中等大小的表（使用流式处理）
+            processAppUsersInBatches(session, appUsersCount);
+            processKnowledgeBasesInBatches(session, knowledgeBasesCount, userById);
+            processDocumentsInBatches(session, documentsCount);
+            processConversationsInBatches(session, conversationsCount);
+            processMessagesInBatches(session, messagesCount);
         }
 
         Map<String, Object> metrics = new LinkedHashMap<>();
         metrics.put("users", users.size());
         metrics.put("apps", apps.size());
-        metrics.put("appUsers", appUsers.size());
-        metrics.put("knowledgeBases", knowledgeBases.size());
-        metrics.put("documents", documents.size());
-        metrics.put("conversations", conversations.size());
-        metrics.put("messages", messages.size());
+        metrics.put("appUsers", appUsersCount.get());
+        metrics.put("knowledgeBases", knowledgeBasesCount.get());
+        metrics.put("documents", documentsCount.get());
+        metrics.put("conversations", conversationsCount.get());
+        metrics.put("messages", messagesCount.get());
         metrics.put("qaModels", qaModels.size());
         return metrics;
     }
@@ -818,6 +826,133 @@ public class DataAnalysisServiceImpl implements DataAnalysisService {
             List<Map<String, Object>> batch = rows.subList(i, end);
             session.executeWrite(tx -> tx.run(cypher, Values.parameters("rows", batch)).consume());
         }
+    }
+
+    /**
+     * 分批处理 AiAppUser（使用流式查询避免全表加载）
+     */
+    private void processAppUsersInBatches(Session session, AtomicLong counter) {
+        logger.info("开始分批处理 AiAppUser 数据");
+        int page = 0;
+        Pageable pageable = PageRequest.of(page, BATCH_SIZE);
+        List<AiAppUser> batch;
+        
+        do {
+            batch = aiAppUserRepository.findAll(pageable).getContent();
+            if (!batch.isEmpty()) {
+                upsertAppUserRelations(session, batch);
+                counter.addAndGet(batch.size());
+                logger.debug("已处理 {} 条 AiAppUser 记录，累计: {}", batch.size(), counter.get());
+            }
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!batch.isEmpty());
+        
+        logger.info("AiAppUser 分批处理完成，总计: {}", counter.get());
+    }
+
+    /**
+     * 分批处理 KnowledgeBase（使用流式查询避免全表加载）
+     */
+    private void processKnowledgeBasesInBatches(Session session, AtomicLong counter, Map<Long, User> userById) {
+        logger.info("开始分批处理 KnowledgeBase 数据");
+        int page = 0;
+        Pageable pageable = PageRequest.of(page, BATCH_SIZE);
+        List<KnowledgeBase> batch;
+        
+        do {
+            batch = knowledgeBaseRepository.findAll(pageable).getContent();
+            if (!batch.isEmpty()) {
+                upsertKnowledgeBases(session, batch);
+                // 立即处理关系，避免累积所有数据
+                upsertKnowledgeBaseCreatorRelations(session, batch, userById);
+                counter.addAndGet(batch.size());
+                logger.debug("已处理 {} 条 KnowledgeBase 记录，累计: {}", batch.size(), counter.get());
+            }
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!batch.isEmpty());
+        
+        logger.info("KnowledgeBase 分批处理完成，总计: {}", counter.get());
+    }
+
+    /**
+     * 分批处理 KnowledgeBaseDocument（使用流式查询避免全表加载）
+     */
+    private void processDocumentsInBatches(Session session, AtomicLong counter) {
+        logger.info("开始分批处理 KnowledgeBaseDocument 数据");
+        int page = 0;
+        Pageable pageable = PageRequest.of(page, BATCH_SIZE);
+        List<KnowledgeBaseDocument> batch;
+        
+        do {
+            batch = knowledgeBaseDocumentRepository.findAll(pageable).getContent();
+            if (!batch.isEmpty()) {
+                upsertKnowledgeBaseDocuments(session, batch);
+                // 立即处理关系，避免累积所有数据
+                upsertDocumentRelations(session, batch);
+                counter.addAndGet(batch.size());
+                logger.debug("已处理 {} 条 KnowledgeBaseDocument 记录，累计: {}", batch.size(), counter.get());
+            }
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!batch.isEmpty());
+        
+        logger.info("KnowledgeBaseDocument 分批处理完成，总计: {}", counter.get());
+    }
+
+    /**
+     * 分批处理 ChatConversation（使用流式查询避免全表加载）
+     */
+    private void processConversationsInBatches(Session session, AtomicLong counter) {
+        logger.info("开始分批处理 ChatConversation 数据");
+        int page = 0;
+        Pageable pageable = PageRequest.of(page, BATCH_SIZE);
+        List<ChatConversation> batch;
+        
+        do {
+            batch = chatConversationRepository.findAll(pageable).getContent();
+            if (!batch.isEmpty()) {
+                upsertConversations(session, batch);
+                // 立即处理关系，避免累积所有数据
+                upsertConversationRelations(session, batch);
+                counter.addAndGet(batch.size());
+                logger.debug("已处理 {} 条 ChatConversation 记录，累计: {}", batch.size(), counter.get());
+            }
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!batch.isEmpty());
+        
+        logger.info("ChatConversation 分批处理完成，总计: {}", counter.get());
+    }
+
+    /**
+     * 分批处理 ChatMessage（使用流式查询避免全表加载）
+     * 这是最关键的方法，因为 ChatMessage 表可能包含数百万条记录
+     */
+    private void processMessagesInBatches(Session session, AtomicLong counter) {
+        logger.info("开始分批处理 ChatMessage 数据（使用流式查询避免内存溢出）");
+        int page = 0;
+        Pageable pageable = PageRequest.of(page, BATCH_SIZE);
+        List<ChatMessage> batch;
+        
+        do {
+            batch = chatMessageRepository.findAll(pageable).getContent();
+            if (!batch.isEmpty()) {
+                upsertMessages(session, batch);
+                // 立即处理关系，避免累积所有数据
+                upsertMessageRelations(session, batch);
+                upsertMessageModelRelations(session, batch);
+                counter.addAndGet(batch.size());
+                if (page % 10 == 0) { // 每10页记录一次日志，避免日志过多
+                    logger.info("已处理 {} 页 ChatMessage 数据，累计: {} 条", page + 1, counter.get());
+                }
+            }
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!batch.isEmpty());
+        
+        logger.info("ChatMessage 分批处理完成，总计: {}", counter.get());
     }
 
     private String safeTrim(String s) {

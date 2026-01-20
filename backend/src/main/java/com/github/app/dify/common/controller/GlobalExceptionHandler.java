@@ -18,7 +18,6 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -41,6 +40,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
+import java.nio.file.AccessDeniedException;
 import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
 import java.sql.SQLTimeoutException;
@@ -495,8 +495,7 @@ public class GlobalExceptionHandler {
         // 跳过已处理的异常类型
         if (e instanceof BusinessException || 
             e instanceof IllegalArgumentException ||
-            e instanceof DataAccessException ||
-            e instanceof SQLException) {
+            e instanceof DataAccessException) {
             throw e; // 重新抛出，让更具体的处理器处理
         }
         

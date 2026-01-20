@@ -25,9 +25,7 @@ import com.github.app.dify.knowledgebase.util.KnowledgeBaseDateTimeUtil;
 import com.github.app.dify.common.util.DateTimeUtil;
 import com.github.app.dify.common.util.PageUtil;
 import com.github.app.dify.knowledgebase.util.KnowledgeBaseSoftDeleteUtil;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Optional;
@@ -138,33 +136,14 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
             logger.info("准备触发异步向量化任务 - 知识库ID: {}, 文档ID: {}, 文件名: {}", 
                     knowledgeBaseId, document.getId(), document.getOriginalFileName());
             try {
-                // 重要：在异步执行前，先将MultipartFile内容读取到内存中
-                // 因为MultipartFile基于临时文件，HTTP请求结束后临时文件会被删除
-                // 异步方法执行时可能无法访问原始临时文件，导致"文件不存在"错误
-                logger.debug("开始读取文件内容到内存 - 知识库ID: {}, 文档ID: {}, 文件大小: {} 字节", 
-                        knowledgeBaseId, document.getId(), file.getSize());
-                byte[] fileBytes = file.getBytes();
-                logger.debug("文件内容读取完成 - 知识库ID: {}, 文档ID: {}, 读取字节数: {}", 
-                        knowledgeBaseId, document.getId(), fileBytes.length);
+                // 优化：不将文件加载到内存，直接传递null
+                // 异步向量化方法会从MinIO下载文件，避免大文件内存溢出
+                // 文件已上传到MinIO，异步方法可以通过document.getFilePath()从MinIO下载
+                logger.debug("提交异步向量化任务（文件将从MinIO下载） - 知识库ID: {}, 文档ID: {}, 文件路径: {}", 
+                        knowledgeBaseId, document.getId(), document.getFilePath());
                 
-                // 创建基于内存的MultipartFile实现，避免异步执行时文件不存在的问题
-                MultipartFile inMemoryFile = new InMemoryMultipartFile(
-                        fileBytes,
-                        file.getOriginalFilename(),
-                        file.getContentType()
-                );
-                
-                documentVectorizationService.vectorizeDocumentAsync(knowledgeBaseId, document.getId(), inMemoryFile);
+                documentVectorizationService.vectorizeDocumentAsync(knowledgeBaseId, document.getId(), null);
                 logger.info("异步向量化任务已提交 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, document.getId());
-            } catch (IOException e) {
-                logger.error("读取文件内容失败 - 知识库ID: {}, 文档ID: {}, 错误信息: {}", 
-                        knowledgeBaseId, document.getId(), e.getMessage(), e);
-                // 更新向量化状态为失败
-                document.setVectorizedStatus(3);
-                document.setVectorizedError("读取文件内容失败: " + e.getMessage());
-                KnowledgeBaseDateTimeUtil.setUpdateTime(document);
-                documentRepository.save(document);
-                logger.warn("已更新向量化状态为失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, document.getId());
             } catch (Exception e) {
                 logger.error("触发文档向量化失败 - 知识库ID: {}, 文档ID: {}, 错误信息: {}", 
                         knowledgeBaseId, document.getId(), e.getMessage(), e);
@@ -410,62 +389,4 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
         return fileName.replaceAll("[/\\\\:*?\"<>|]", "_");
     }
     
-    
-    /**
-     * 基于内存的MultipartFile实现
-     * 用于在异步方法中传递文件数据，避免临时文件被删除导致的问题
-     */
-    private static class InMemoryMultipartFile implements MultipartFile {
-        private final byte[] content;
-        private final String fileName;
-        private final String contentType;
-        
-        public InMemoryMultipartFile(byte[] content, String fileName, String contentType) {
-            this.content = content;
-            this.fileName = fileName;
-            this.contentType = contentType;
-        }
-        
-        @Override
-        public String getName() {
-            return "file";
-        }
-        
-        @Override
-        public String getOriginalFilename() {
-            return fileName;
-        }
-        
-        @Override
-        public String getContentType() {
-            return contentType;
-        }
-        
-        @Override
-        public boolean isEmpty() {
-            return content == null || content.length == 0;
-        }
-        
-        @Override
-        public long getSize() {
-            return content != null ? content.length : 0;
-        }
-        
-        @Override
-        public byte[] getBytes() throws IOException {
-            return content != null ? content : new byte[0];
-        }
-        
-        @Override
-        public InputStream getInputStream() throws IOException {
-            return new ByteArrayInputStream(content != null ? content : new byte[0]);
-        }
-        
-        @Override
-        public void transferTo(java.io.File dest) throws IOException, IllegalStateException {
-            if (content != null) {
-                java.nio.file.Files.write(dest.toPath(), content);
-            }
-        }
-    }
 }

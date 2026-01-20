@@ -107,7 +107,8 @@
                     <div 
                       v-for="(conversation, index) in recentConversations" 
                       :key="conversation.id"
-                      class="conversation-card"
+                      v-memo="[conversation.id, conversation.title, conversation.updateTime, selectedConversationId === conversation.id]"
+                      :class="['conversation-card', { 'conversation-selected': selectedConversationId === conversation.id }]"
                       @click="handleConversationClick(conversation)"
                     >
                       <div class="conversation-content">
@@ -142,6 +143,7 @@
                     <div 
                       v-for="(question, index) in displayedQuestions"
                       :key="index"
+                      v-memo="[question.text, question.icon, index]"
                       class="question-card"
                       @click="handlePromptClick(question.text)"
                     >
@@ -398,6 +400,7 @@
             <div
               v-for="(kb, index) in filteredKnowledgeBases"
               :key="kb.id"
+              v-memo="[kb.id, kb.name, kb.documentCount, selectedKbIndex === index]"
               :class="['kb-mention-item', { 'kb-mention-item-active': selectedKbIndex === index }]"
               @click="selectKnowledgeBase(kb)"
               @mouseenter="selectedKbIndex = index"
@@ -421,6 +424,7 @@
             <div
               v-for="(doc, index) in filteredDocuments"
               :key="doc.id"
+              v-memo="[doc.id, doc.originalFileName, doc.fileName, doc.name, doc.fileType, selectedDocIndex === index]"
               :class="['kb-mention-item', { 'kb-mention-item-active': selectedDocIndex === index }]"
               @click="selectDocument(doc)"
               @mouseenter="selectedDocIndex = index"
@@ -506,7 +510,8 @@
       <div v-if="selectedFiles.length > 0" class="attachments-preview">
         <div
           v-for="(file, index) in selectedFiles"
-          :key="index"
+          :key="`${file.name}-${file.size}-${index}`"
+          v-memo="[file.name, file.size, index, sending]"
           class="attachment-item"
         >
           <el-image
@@ -551,7 +556,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { ref, shallowRef, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -603,9 +608,11 @@ const debounce = (fn, delay) => {
 
 const router = useRouter()
 
+// 基础状态
 const question = ref('')
 const sending = ref(false)
-const chatHistory = ref([])
+// 使用 shallowRef 优化大型数组性能（避免深度响应式监听）
+const chatHistory = shallowRef([])
 const messageListRef = ref(null)
 const conversationId = ref(null)
 const availableModels = ref([])
@@ -615,7 +622,8 @@ const isInputFocused = ref(false)
 const uploadRef = ref(null)
 const currentDate = ref('')
 const currentTime = ref('')
-const availableKnowledgeBases = ref([])
+// 使用 shallowRef 优化大型数组性能
+const availableKnowledgeBases = shallowRef([])
 const selectedKnowledgeBaseId = ref(null)
 const selectedKnowledgeBase = ref(null)
 // conversationMode 现在是计算属性，根据选择自动判断（见下方定义）
@@ -638,13 +646,15 @@ const showDocList = ref(false) // 是否显示文档列表
 const slashSymbolIndex = ref(-1) // /符号在输入框中的位置
 const selectedDocIndex = ref(0) // 当前选中的文档索引
 const docListStyle = ref({}) // 文档列表的样式
-const availableDocuments = ref([]) // 可用文档列表
+// 使用 shallowRef 优化大型数组性能
+const availableDocuments = shallowRef([])
 const selectedDocumentId = ref(null) // 选中的文档ID
 const selectedDocument = ref(null) // 选中的文档对象
 const loadingDocuments = ref(false) // 是否正在加载文档列表
 const mentionWidth = ref(0) // 标签的宽度
 const mentionContainerRef = ref(null) // 标签容器的引用
-const recentConversations = ref([]) // 最近会话历史（展开状态3条，收起状态4条）
+// 使用 shallowRef 优化大型数组性能
+const recentConversations = shallowRef([]) // 最近会话历史（展开状态3条，收起状态4条）
 // ResizeObserver 实例，用于清理
 const chatHistoryResizeObserver = ref(null)
 const mentionResizeObserver = ref(null)
@@ -714,6 +724,42 @@ const parseResponseData = (response) => {
   }
   
   return []
+}
+
+// 统一的错误处理函数 - 优化：提取公共错误处理逻辑
+const handleError = (error, context = '操作', showMessage = true) => {
+  const errorMessage = error?.message || error?.toString() || '未知错误'
+  const fullMessage = `${context}失败：${errorMessage}`
+  
+  // 只在开发环境输出详细错误
+  if (process.env.NODE_ENV === 'development') {
+    console.error(`[${context}]`, error)
+  }
+  
+  if (showMessage) {
+    ElMessage.error(fullMessage)
+  }
+  
+  return fullMessage
+}
+
+// 优化：统一的流式响应错误处理
+const handleStreamError = (error, aiMessageIndex, hasContent = false) => {
+  if (!chatHistory.value[aiMessageIndex]) return
+  
+  const message = chatHistory.value[aiMessageIndex]
+  message.isLoading = false
+  
+  if (hasContent && message.content) {
+    message.content += '\n\n⚠️ 连接中断，部分内容可能不完整。'
+  } else {
+    message.content = '抱歉，连接已断开，请重试。'
+  }
+  
+  // 只在开发环境输出详细错误
+  if (process.env.NODE_ENV === 'development') {
+    console.error('流式响应处理失败', error)
+  }
 }
 
 // 获取用户信息
@@ -840,14 +886,14 @@ const handleInputChange = debounce(() => {
 
 // 获取光标位置
 const getCursorPosition = () => {
-  if (!inputRef.value) return 0
+  if (!inputRef.value) return question.value.length
   const textarea = inputRef.value.$el?.querySelector('textarea')
   if (!textarea) return question.value.length
   return textarea.selectionStart || question.value.length
 }
 
-// 更新知识库列表位置
-const updateKbListPosition = () => {
+// 提取公共的列表位置更新逻辑（减少代码重复）
+const updateMentionListPosition = (listStyleRef, isDocList = false) => {
   nextTick(() => {
     if (!inputWrapperRef.value || !inputRef.value) return
     
@@ -857,8 +903,8 @@ const updateKbListPosition = () => {
     const wrapperRect = inputWrapperRef.value.getBoundingClientRect()
     const textareaRect = textarea.getBoundingClientRect()
     
-    // 计算@符号的位置，将列表显示在输入框上方，使用固定宽度
-    kbListStyle.value = {
+    // 计算位置，将列表显示在输入框上方，使用固定宽度
+    listStyleRef.value = {
       bottom: `${wrapperRect.bottom - textareaRect.top + 8}px`,
       left: '16px',
       width: '280px',
@@ -867,26 +913,11 @@ const updateKbListPosition = () => {
   })
 }
 
-// 更新文档列表位置
-const updateDocListPosition = () => {
-  nextTick(() => {
-    if (!inputWrapperRef.value || !inputRef.value) return
-    
-    const textarea = inputRef.value.$el?.querySelector('textarea')
-    if (!textarea) return
+// 更新知识库列表位置 - 优化：使用公共函数
+const updateKbListPosition = () => updateMentionListPosition(kbListStyle, false)
 
-    const wrapperRect = inputWrapperRef.value.getBoundingClientRect()
-    const textareaRect = textarea.getBoundingClientRect()
-    
-    // 计算/符号的位置，将列表显示在输入框上方
-    docListStyle.value = {
-      bottom: `${wrapperRect.bottom - textareaRect.top + 8}px`,
-      left: '16px',
-      width: '280px',
-      top: 'auto'
-    }
-  })
-}
+// 更新文档列表位置 - 优化：使用公共函数
+const updateDocListPosition = () => updateMentionListPosition(docListStyle, true)
 
 // 选择文档
 const selectDocument = (doc) => {
@@ -986,7 +1017,7 @@ const loadDocuments = async () => {
     
     availableDocuments.value = parseResponseData(response)
   } catch (error) {
-    console.error('加载文档列表失败', error)
+    handleError(error, '加载文档列表', false) // 静默失败，不显示错误消息
     availableDocuments.value = []
   } finally {
     loadingDocuments.value = false
@@ -1041,37 +1072,63 @@ const handleKeydown = (e) => {
   }
 }
 
-// 过滤后的知识库列表（最多5个）
+// 获取光标位置的缓存函数（用于计算属性，避免重复计算）
+const getCursorPositionCached = () => {
+  if (!inputRef.value) return question.value.length
+  const textarea = inputRef.value.$el?.querySelector('textarea')
+  if (!textarea) return question.value.length
+  return textarea.selectionStart || question.value.length
+}
+
+// 过滤后的知识库列表（最多5个）- 优化：使用缓存和早期返回
 const filteredKnowledgeBases = computed(() => {
-  if (!showKbList.value || atSymbolIndex.value < 0) return []
-  
-  const searchText = question.value.substring(atSymbolIndex.value + 1, getCursorPosition()).toLowerCase()
-  let filtered = availableKnowledgeBases.value
-  
-  if (searchText) {
-    filtered = availableKnowledgeBases.value.filter(kb => 
-      kb.name.toLowerCase().includes(searchText)
-    )
+  if (!showKbList.value || atSymbolIndex.value < 0 || availableKnowledgeBases.value.length === 0) {
+    return []
   }
   
-  return filtered.slice(0, 5) // 最多显示5个
+  const cursorPos = getCursorPositionCached()
+  const searchText = question.value.substring(atSymbolIndex.value + 1, cursorPos).toLowerCase().trim()
+  
+  if (!searchText) {
+    return availableKnowledgeBases.value.slice(0, 5)
+  }
+  
+  // 使用更高效的过滤方式
+  const filtered = []
+  for (const kb of availableKnowledgeBases.value) {
+    if (kb.name?.toLowerCase().includes(searchText)) {
+      filtered.push(kb)
+      if (filtered.length >= 5) break
+    }
+  }
+  
+  return filtered
 })
 
-// 过滤后的文档列表（最多5个）
+// 过滤后的文档列表（最多5个）- 优化：使用缓存和早期返回
 const filteredDocuments = computed(() => {
-  if (!showDocList.value || slashSymbolIndex.value < 0) return []
-  
-  const searchText = question.value.substring(slashSymbolIndex.value + 1, getCursorPosition()).toLowerCase()
-  let filtered = availableDocuments.value
-  
-  if (searchText) {
-    filtered = availableDocuments.value.filter(doc => {
-      const fileName = doc.originalFileName || doc.fileName || doc.name || ''
-      return fileName.toLowerCase().includes(searchText)
-    })
+  if (!showDocList.value || slashSymbolIndex.value < 0 || availableDocuments.value.length === 0) {
+    return []
   }
   
-  return filtered.slice(0, 5) // 最多显示5个
+  const cursorPos = getCursorPositionCached()
+  const searchText = question.value.substring(slashSymbolIndex.value + 1, cursorPos).toLowerCase().trim()
+  
+  if (!searchText) {
+    return availableDocuments.value.slice(0, 5)
+  }
+  
+  // 使用更高效的过滤方式
+  const filtered = []
+  for (const doc of availableDocuments.value) {
+    const fileName = doc.originalFileName || doc.fileName || doc.name || ''
+    if (fileName.toLowerCase().includes(searchText)) {
+      filtered.push(doc)
+      if (filtered.length >= 5) break
+    }
+  }
+  
+  return filtered
 })
 
 // 选择知识库
@@ -1368,8 +1425,7 @@ const handleSend = async () => {
       await handleStreamResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value, enableBrowserSearch.value, filesToSend)
     }
   } catch (error) {
-    console.error('发送消息失败', error)
-    ElMessage.error('发送消息失败：' + (error.message || '未知错误'))
+    handleError(error, '发送消息', true)
     if (chatHistory.value[aiMessageIndex]) {
       chatHistory.value[aiMessageIndex].content = '抱歉，生成答案时发生错误，请重试。'
       chatHistory.value[aiMessageIndex].isLoading = false
@@ -1555,18 +1611,8 @@ const handleKnowledgeBaseStreamResponse = async (kbId, question, requestConversa
     }
     
   } catch (error) {
-    console.error('知识库问答流式响应处理失败', error)
-    
-    if (chatHistory.value[aiMessageIndex] && chatHistory.value[aiMessageIndex].content) {
-      chatHistory.value[aiMessageIndex].isLoading = false
-      chatHistory.value[aiMessageIndex].content += '\n\n⚠️ 连接中断，部分内容可能不完整。'
-    } else {
-      if (chatHistory.value[aiMessageIndex]) {
-        chatHistory.value[aiMessageIndex].content = '抱歉，连接已断开，请重试。'
-        chatHistory.value[aiMessageIndex].isLoading = false
-      }
-    }
-    
+    const hasContent = chatHistory.value[aiMessageIndex]?.content?.length > 0
+    handleStreamError(error, aiMessageIndex, hasContent)
     throw error
   }
 }
@@ -1688,18 +1734,8 @@ const handleDocumentStreamResponse = async (docId, question, requestConversation
     }
     
   } catch (error) {
-    console.error('文档问答流式响应处理失败', error)
-    
-    if (chatHistory.value[aiMessageIndex] && chatHistory.value[aiMessageIndex].content) {
-      chatHistory.value[aiMessageIndex].isLoading = false
-      chatHistory.value[aiMessageIndex].content += '\n\n⚠️ 连接中断，部分内容可能不完整。'
-    } else {
-      if (chatHistory.value[aiMessageIndex]) {
-        chatHistory.value[aiMessageIndex].content = '抱歉，连接已断开，请重试。'
-        chatHistory.value[aiMessageIndex].isLoading = false
-      }
-    }
-    
+    const hasContent = chatHistory.value[aiMessageIndex]?.content?.length > 0
+    handleStreamError(error, aiMessageIndex, hasContent)
     throw error
   }
 }
@@ -1734,12 +1770,12 @@ const handleStreamResponse = async (question, requestConversationId, userId, his
     })
   }
   
-  const handleError = async (error, attempt = 0) => {
-    console.error('流式响应处理失败', error)
-    
+  const handleStreamErrorWithRetry = async (error, attempt = 0) => {
     // Check if we should retry
     if (attempt < maxRetries && (!error.message || !error.message.includes('disconnected'))) {
-      console.log(`Retrying... Attempt ${attempt + 1}/${maxRetries}`)
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Retrying... Attempt ${attempt + 1}/${maxRetries}`)
+      }
       retryCount.value = attempt + 1
       
       // Wait before retrying (exponential backoff)
@@ -1748,23 +1784,14 @@ const handleStreamResponse = async (question, requestConversationId, userId, his
       try {
         return await handleStreamResponse(question, requestConversationId, userId, history, aiMessageIndex, modelId, enableBrowserSearch, files)
       } catch (retryError) {
-        return handleError(retryError, attempt + 1)
+        return handleStreamErrorWithRetry(retryError, attempt + 1)
       }
     }
     
     // Max retries reached or non-retryable error
     retryCount.value = 0
-    
-    if (chatHistory.value[aiMessageIndex] && chatHistory.value[aiMessageIndex].content) {
-      chatHistory.value[aiMessageIndex].isLoading = false
-      chatHistory.value[aiMessageIndex].content += '\n\n⚠️ 连接中断，部分内容可能不完整。'
-    } else {
-      if (chatHistory.value[aiMessageIndex]) {
-        chatHistory.value[aiMessageIndex].content = '抱歉，连接已断开，请重试。'
-        chatHistory.value[aiMessageIndex].isLoading = false
-      }
-    }
-    
+    const hasContent = chatHistory.value[aiMessageIndex]?.content?.length > 0
+    handleStreamError(error, aiMessageIndex, hasContent)
     throw error
   }
   
@@ -1914,9 +1941,9 @@ const handleStreamResponse = async (question, requestConversationId, userId, his
     // Reset retry count on success
     retryCount.value = 0
     
-  } catch (error) {
-    return handleError(error, retryCount.value)
-  }
+    } catch (error) {
+      return handleStreamErrorWithRetry(error, retryCount.value)
+    }
 }
 
 // 重新生成响应
@@ -1990,8 +2017,7 @@ const handleRegenerate = async (messageIndex) => {
       await handleStreamResponse(userQuestion, currentConversationId, userId, history, aiMessageIndex, selectedModelId.value, enableBrowserSearch.value, filesToSend)
     }
   } catch (error) {
-    console.error('重新生成响应失败', error)
-    ElMessage.error('重新生成响应失败：' + (error.message || '未知错误'))
+    handleError(error, '重新生成响应', true)
     if (chatHistory.value[aiMessageIndex]) {
       chatHistory.value[aiMessageIndex].content = '抱歉，重新生成答案时发生错误，请重试。'
       chatHistory.value[aiMessageIndex].isLoading = false
@@ -2127,7 +2153,7 @@ const loadRecentConversations = async () => {
     // 取最近N条，不限类型
     recentConversations.value = conversations.slice(0, limit)
   } catch (error) {
-    console.error('加载最近会话失败', error)
+    handleError(error, '加载最近会话', false) // 静默失败
     recentConversations.value = []
   } finally {
     loadingConversations.value = false
@@ -2200,8 +2226,7 @@ const loadConversationMessages = async (convId) => {
       }
     })
   } catch (error) {
-    console.error('加载会话消息失败', error)
-    ElMessage.error('加载会话消息失败：' + (error.message || '未知错误'))
+    handleError(error, '加载会话消息', true)
   }
 }
 
@@ -2283,10 +2308,11 @@ const loadKnowledgeBases = async () => {
       return status === 'active' || status === 1 || status === '1'
     })
     
-    console.log('加载知识库列表成功，数量:', availableKnowledgeBases.value.length)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('加载知识库列表成功，数量:', availableKnowledgeBases.value.length)
+    }
   } catch (error) {
-    console.error('加载知识库列表失败', error)
-    ElMessage.error('加载知识库列表失败：' + (error.message || '未知错误'))
+    handleError(error, '加载知识库列表', true)
     availableKnowledgeBases.value = []
   }
 }
@@ -2564,14 +2590,18 @@ onMounted(() => {
   })
 })
 
+// 优化清理逻辑：统一清理所有资源
 onUnmounted(() => {
+  // 清理事件监听器
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleGlobalKeydown)
+  
   // 清理定时器
   if (dateTimeIntervalId.value) {
     clearInterval(dateTimeIntervalId.value)
     dateTimeIntervalId.value = null
   }
+  
   // 清理 ResizeObserver
   if (chatHistoryResizeObserver.value) {
     chatHistoryResizeObserver.value.disconnect()
@@ -2581,6 +2611,9 @@ onUnmounted(() => {
     mentionResizeObserver.value.disconnect()
     mentionResizeObserver.value = null
   }
+  
+  // 清理防抖函数（如果有待执行的）
+  // debounce 函数内部会自动清理，这里不需要额外处理
 })
 </script>
 
@@ -3793,7 +3826,7 @@ onUnmounted(() => {
   margin: 0 auto 10px;
   position: sticky;
   bottom: 0;
-  background: var(--el-bg-color-page, #f5f7fa);
+  background: transparent; /* 与大背景颜色保持一致 */
   padding: 8px 20px 16px 20px; /* 减少顶部内边距，左右内边距与问答区域保持一致 */
   z-index: 10;
   box-sizing: border-box;
@@ -3828,7 +3861,7 @@ onUnmounted(() => {
   position: relative;
   background: var(--el-bg-color, #ffffff);
   border-radius: 20px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 1px 0 rgba(0, 0, 0, 0.02);
   padding: 20px 24px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: 1.5px solid var(--el-border-color-lighter, #e4e7ed);
@@ -3844,12 +3877,12 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px) saturate(180%);
   -webkit-backdrop-filter: blur(12px) saturate(180%);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
-  border-color: rgba(64, 158, 255, 0.3);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 1px 0 rgba(0, 0, 0, 0.02);
+  border-color: var(--el-border-color-lighter, #e4e7ed);
 }
 
 .input-wrapper:focus-within {
-  box-shadow: 0 8px 32px rgba(64, 158, 255, 0.15), 0 2px 8px rgba(64, 158, 255, 0.1);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
   border-color: var(--el-color-primary, #409eff);
   transform: translateY(-1px);
   background: var(--el-bg-color, #ffffff);
@@ -3862,7 +3895,7 @@ onUnmounted(() => {
   padding: 8px 16px;
   background: var(--el-bg-color, #ffffff);
   border-radius: 12px;
-  box-shadow: 0 1px 4px var(--el-box-shadow-light, rgba(0, 0, 0, 0.06));
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 1px 0 rgba(0, 0, 0, 0.02);
   border: 1px solid var(--el-border-color-lighter, #e4e7ed);
   transition: background-color 0.3s ease, backdrop-filter 0.3s ease;
 }

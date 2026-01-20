@@ -77,12 +77,52 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
             documentRepository.save(doc);
             logger.info("已更新状态为向量化中 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
             
+            // 如果文件为null，从MinIO下载文件（避免内存溢出）
+            MultipartFile fileToProcess = file;
+            if (file == null || file.isEmpty()) {
+                logger.info("文件参数为空，从MinIO下载文件 - 知识库ID: {}, 文档ID: {}, 文件路径: {}", 
+                        knowledgeBaseId, documentId, doc.getFilePath());
+                
+                if (fileStorageService == null) {
+                    logger.error("FileStorageService未配置，无法下载文件 - 知识库ID: {}, 文档ID: {}", 
+                            knowledgeBaseId, documentId);
+                    doc.setVectorizedStatus(3);
+                    doc.setVectorizedError("文件存储服务未配置");
+                    doc.setUpdateTime(new java.util.Date());
+                    documentRepository.save(doc);
+                    return;
+                }
+                
+                try {
+                    long downloadStartTime = System.currentTimeMillis();
+                    InputStream inputStream = fileStorageService.downloadFile(doc.getFilePath());
+                    long downloadDuration = System.currentTimeMillis() - downloadStartTime;
+                    logger.info("文件下载完成 - 知识库ID: {}, 文档ID: {}, 耗时: {} 毫秒", 
+                            knowledgeBaseId, documentId, downloadDuration);
+                    
+                    // 将InputStream转换为MultipartFile（使用临时文件，避免大文件内存溢出）
+                    fileToProcess = createMultipartFileFromInputStream(
+                            inputStream,
+                            doc.getOriginalFileName(),
+                            doc.getMimeType()
+                    );
+                } catch (Exception e) {
+                    logger.error("从MinIO下载文件失败 - 知识库ID: {}, 文档ID: {}, 错误: {}", 
+                            knowledgeBaseId, documentId, e.getMessage(), e);
+                    doc.setVectorizedStatus(3);
+                    doc.setVectorizedError("文件下载失败: " + e.getMessage());
+                    doc.setUpdateTime(new java.util.Date());
+                    documentRepository.save(doc);
+                    return;
+                }
+            }
+            
             // 1. 使用LangChain4j加载文档
             logger.info("开始加载文档 - 知识库ID: {}, 文档ID: {}, 文件名: {}", 
-                    knowledgeBaseId, documentId, file.getOriginalFilename());
+                    knowledgeBaseId, documentId, fileToProcess.getOriginalFilename());
             Document document;
             try {
-                document = tikaDocumentLoader.load(file);
+                document = tikaDocumentLoader.load(fileToProcess);
             } catch (RuntimeException e) {
                 // 捕获文档加载异常（如OCR结果为空）
                 logger.error("文档加载失败 - 知识库ID: {}, 文档ID: {}, 错误: {}", 
@@ -337,7 +377,40 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
     }
     
     /**
+     * 从InputStream创建MultipartFile（使用临时文件，避免大文件内存溢出）
+     */
+    private MultipartFile createMultipartFileFromInputStream(
+            InputStream inputStream, String fileName, String contentType) throws IOException {
+        // 创建临时文件
+        java.io.File tempFile = java.io.File.createTempFile("vectorization_", "_" + fileName);
+        tempFile.deleteOnExit(); // JVM退出时删除
+        
+        try {
+            // 将InputStream写入临时文件（流式写入，避免内存溢出）
+            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile)) {
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    fos.write(buffer, 0, bytesRead);
+                }
+            } finally {
+                inputStream.close();
+            }
+            
+            // 从临时文件创建MultipartFile
+            return new TempFileMultipartFile(tempFile, fileName, contentType);
+        } catch (Exception e) {
+            // 清理临时文件
+            if (tempFile.exists()) {
+                tempFile.delete();
+            }
+            throw e;
+        }
+    }
+    
+    /**
      * 读取InputStream的所有字节（Java 8兼容）
+     * 注意：此方法会将整个文件加载到内存，仅用于小文件
      */
     private byte[] readAllBytes(InputStream inputStream) throws IOException {
         java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
@@ -350,7 +423,7 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
     }
     
     /**
-     * MultipartFile实现类，用于将InputStream转换为MultipartFile
+     * MultipartFile实现类，用于将byte[]转换为MultipartFile（小文件）
      */
     private static class InputStreamMultipartFile implements MultipartFile {
         private final byte[] content;
@@ -404,6 +477,76 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
         @Override
         public void transferTo(@NotNull java.io.File dest) throws IllegalStateException {
             throw new UnsupportedOperationException("transferTo not supported");
+        }
+    }
+    
+    /**
+     * MultipartFile实现类，基于临时文件（避免大文件内存溢出）
+     */
+    private static class TempFileMultipartFile implements MultipartFile {
+        private final java.io.File tempFile;
+        private final String fileName;
+        private final String contentType;
+        
+        public TempFileMultipartFile(java.io.File tempFile, String fileName, String contentType) {
+            this.tempFile = tempFile;
+            this.fileName = fileName;
+            this.contentType = contentType;
+        }
+        
+        @NotNull
+        @Override
+        public String getName() {
+            return "file";
+        }
+        
+        @Override
+        public String getOriginalFilename() {
+            return fileName;
+        }
+        
+        @Override
+        public String getContentType() {
+            return contentType;
+        }
+        
+        @Override
+        public boolean isEmpty() {
+            return !tempFile.exists() || tempFile.length() == 0;
+        }
+        
+        @Override
+        public long getSize() {
+            return tempFile.exists() ? tempFile.length() : 0;
+        }
+        
+        @NotNull
+        @Override
+        public byte[] getBytes() throws IOException {
+            // 注意：此方法会将整个文件加载到内存，仅用于小文件
+            // 对于大文件，应该使用 getInputStream()
+            return java.nio.file.Files.readAllBytes(tempFile.toPath());
+        }
+        
+        @NotNull
+        @Override
+        public InputStream getInputStream() throws IOException {
+            return new java.io.FileInputStream(tempFile);
+        }
+        
+        @Override
+        public void transferTo(@NotNull java.io.File dest) throws IOException, IllegalStateException {
+            java.nio.file.Files.copy(tempFile.toPath(), dest.toPath(), 
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        
+        /**
+         * 清理临时文件
+         */
+        public void cleanup() {
+            if (tempFile != null && tempFile.exists()) {
+                tempFile.delete();
+            }
         }
     }
     

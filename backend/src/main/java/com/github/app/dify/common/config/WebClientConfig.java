@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
+import reactor.netty.resources.ConnectionProvider;
 
 import java.time.Duration;
 import java.util.Map;
@@ -45,6 +46,22 @@ public class WebClientConfig {
     
     // 最大内存缓冲区大小（10MB）
     private static final int MAX_IN_MEMORY_SIZE = 10 * 1024 * 1024;
+    
+    // 连接池配置参数
+    private static final int MAX_CONNECTIONS = 500;                    // 最大连接数
+    private static final int MAX_IDLE_TIME_SECONDS = 20;               // 空闲连接超时（秒）
+    private static final int MAX_LIFE_TIME_MINUTES = 5;                // 连接最大生命周期（分钟）
+    private static final int PENDING_ACQUIRE_TIMEOUT_SECONDS = 60;      // 获取连接超时（秒）
+    private static final int EVICT_IN_BACKGROUND_SECONDS = 120;        // 后台清理间隔（秒）
+    
+    // 流式连接池配置（通常需要更多连接，因为连接保持时间更长）
+    private static final int STREAMING_MAX_CONNECTIONS = 200;           // 流式最大连接数
+    private static final int STREAMING_MAX_IDLE_TIME_SECONDS = 60;     // 流式空闲连接超时（秒）
+    private static final int STREAMING_MAX_LIFE_TIME_MINUTES = 10;     // 流式连接最大生命周期（分钟）
+    
+    // 连接池提供者（单例，避免重复创建）
+    private static volatile ConnectionProvider defaultConnectionProvider;
+    private static volatile ConnectionProvider streamingConnectionProvider;
     
     /**
      * 获取或创建WebClient实例（非流式）
@@ -107,11 +124,15 @@ public class WebClientConfig {
         int connectTimeout = difyConfig.getConnectTimeout();
         long responseTimeout = isStreaming ? DEFAULT_STREAMING_TIMEOUT : DEFAULT_RESPONSE_TIMEOUT;
         
-        logger.info("创建WebClient - URL: {}, 连接超时: {}ms, 响应超时: {}ms, 流式: {}", 
-                baseUrl, connectTimeout, responseTimeout, isStreaming);
+        // 获取或创建连接池提供者
+        ConnectionProvider connectionProvider = getConnectionProvider(isStreaming);
         
-        // 配置HttpClient
-        HttpClient httpClient = HttpClient.create()
+        logger.info("创建WebClient - URL: {}, 连接超时: {}ms, 响应超时: {}ms, 流式: {}, 连接池: {}", 
+                baseUrl, connectTimeout, responseTimeout, isStreaming, 
+                isStreaming ? "streaming" : "default");
+        
+        // 配置HttpClient（使用连接池）
+        HttpClient httpClient = HttpClient.create(connectionProvider)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeout)
                 .responseTimeout(Duration.ofMillis(responseTimeout))
                 // 添加读写超时处理器
@@ -132,6 +153,52 @@ public class WebClientConfig {
         }
         
         return builder.build();
+    }
+    
+    /**
+     * 获取或创建连接池提供者（单例模式，避免重复创建）
+     * 
+     * @param isStreaming 是否为流式连接池
+     * @return ConnectionProvider实例
+     */
+    private ConnectionProvider getConnectionProvider(boolean isStreaming) {
+        if (isStreaming) {
+            // 流式连接池（双检锁单例模式）
+            if (streamingConnectionProvider == null) {
+                synchronized (WebClientConfig.class) {
+                    if (streamingConnectionProvider == null) {
+                        streamingConnectionProvider = ConnectionProvider.builder("streaming-pool")
+                                .maxConnections(STREAMING_MAX_CONNECTIONS)
+                                .maxIdleTime(Duration.ofSeconds(STREAMING_MAX_IDLE_TIME_SECONDS))
+                                .maxLifeTime(Duration.ofMinutes(STREAMING_MAX_LIFE_TIME_MINUTES))
+                                .pendingAcquireTimeout(Duration.ofSeconds(PENDING_ACQUIRE_TIMEOUT_SECONDS))
+                                .evictInBackground(Duration.ofSeconds(EVICT_IN_BACKGROUND_SECONDS))
+                                .build();
+                        logger.info("创建流式连接池 - 最大连接数: {}, 空闲超时: {}秒, 最大生命周期: {}分钟", 
+                                STREAMING_MAX_CONNECTIONS, STREAMING_MAX_IDLE_TIME_SECONDS, STREAMING_MAX_LIFE_TIME_MINUTES);
+                    }
+                }
+            }
+            return streamingConnectionProvider;
+        } else {
+            // 默认连接池（双检锁单例模式）
+            if (defaultConnectionProvider == null) {
+                synchronized (WebClientConfig.class) {
+                    if (defaultConnectionProvider == null) {
+                        defaultConnectionProvider = ConnectionProvider.builder("default-pool")
+                                .maxConnections(MAX_CONNECTIONS)
+                                .maxIdleTime(Duration.ofSeconds(MAX_IDLE_TIME_SECONDS))
+                                .maxLifeTime(Duration.ofMinutes(MAX_LIFE_TIME_MINUTES))
+                                .pendingAcquireTimeout(Duration.ofSeconds(PENDING_ACQUIRE_TIMEOUT_SECONDS))
+                                .evictInBackground(Duration.ofSeconds(EVICT_IN_BACKGROUND_SECONDS))
+                                .build();
+                        logger.info("创建默认连接池 - 最大连接数: {}, 空闲超时: {}秒, 最大生命周期: {}分钟", 
+                                MAX_CONNECTIONS, MAX_IDLE_TIME_SECONDS, MAX_LIFE_TIME_MINUTES);
+                    }
+                }
+            }
+            return defaultConnectionProvider;
+        }
     }
     
     /**
