@@ -15,10 +15,14 @@ import com.github.app.dify.knowledgebase.repository.QAModelRepository;
 import com.github.app.dify.statistics.resp.StatisticsResponse;
 import com.github.app.dify.statistics.service.StatisticsService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 /**
@@ -45,26 +49,24 @@ public class StatisticsServiceImpl implements StatisticsService {
     @Autowired
     private QAModelRepository qaModelRepository;
     
+    // 批量处理大小
+    private static final int BATCH_SIZE = 500;
+    
     @Override
+    @Transactional(readOnly = true)
     public StatisticsResponse.OverviewStatistics getOverviewStatistics() {
         StatisticsResponse.OverviewStatistics overview = new StatisticsResponse.OverviewStatistics();
         
-        // 用户总数（未删除）
-        long totalUsers = userRepository.findAll().stream()
-                .filter(u -> u.getDeleted() == null || u.getDeleted() == 0)
-                .count();
+        // 用户总数（未删除）- 使用分页查询计数，避免全表加载
+        long totalUsers = countUsersNotDeleted();
         overview.setTotalUsers(totalUsers);
         
-        // 应用总数（未删除）
-        long totalApps = aiAppRepository.findAll().stream()
-                .filter(a -> a.getDeleted() == null || a.getDeleted() == 0)
-                .count();
+        // 应用总数（未删除）- 使用分页查询计数，避免全表加载
+        long totalApps = countAppsNotDeleted();
         overview.setTotalApps(totalApps);
         
-        // 知识库总数（未删除）
-        long totalKnowledgeBases = knowledgeBaseRepository.findAll().stream()
-                .filter(kb -> kb.getDeleted() == null || kb.getDeleted() == 0)
-                .count();
+        // 知识库总数（未删除）- 使用分页查询计数，避免全表加载
+        long totalKnowledgeBases = countKnowledgeBasesNotDeleted();
         overview.setTotalKnowledgeBases(totalKnowledgeBases);
         
         // 会话总数（未删除）
@@ -76,49 +78,82 @@ public class StatisticsServiceImpl implements StatisticsService {
         return overview;
     }
     
+    /**
+     * 统计未删除的用户数量（使用分页查询避免全表加载）
+     */
+    private long countUsersNotDeleted() {
+        AtomicLong count = new AtomicLong(0);
+        int page = 0;
+        Pageable pageable = PageRequest.of(page, BATCH_SIZE);
+        List<User> batch;
+        
+        do {
+            batch = userRepository.findAll(pageable).getContent();
+            long batchCount = batch.stream()
+                    .filter(u -> u.getDeleted() == null || u.getDeleted() == 0)
+                    .count();
+            count.addAndGet(batchCount);
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!batch.isEmpty());
+        
+        return count.get();
+    }
+    
+    /**
+     * 统计未删除的应用数量（使用分页查询避免全表加载）
+     */
+    private long countAppsNotDeleted() {
+        AtomicLong count = new AtomicLong(0);
+        int page = 0;
+        Pageable pageable = PageRequest.of(page, BATCH_SIZE);
+        List<AiApp> batch;
+        
+        do {
+            batch = aiAppRepository.findAll(pageable).getContent();
+            long batchCount = batch.stream()
+                    .filter(a -> a.getDeleted() == null || a.getDeleted() == 0)
+                    .count();
+            count.addAndGet(batchCount);
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!batch.isEmpty());
+        
+        return count.get();
+    }
+    
+    /**
+     * 统计未删除的知识库数量（使用分页查询避免全表加载）
+     */
+    private long countKnowledgeBasesNotDeleted() {
+        AtomicLong count = new AtomicLong(0);
+        int page = 0;
+        Pageable pageable = PageRequest.of(page, BATCH_SIZE);
+        List<KnowledgeBase> batch;
+        
+        do {
+            batch = knowledgeBaseRepository.findAll(pageable).getContent();
+            long batchCount = batch.stream()
+                    .filter(kb -> kb.getDeleted() == null || kb.getDeleted() == 0)
+                    .count();
+            count.addAndGet(batchCount);
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!batch.isEmpty());
+        
+        return count.get();
+    }
+    
     @Override
+    @Transactional(readOnly = true)
     public StatisticsResponse.UserStatistics getUserStatistics() {
-        StatisticsResponse.UserStatistics userStats = new StatisticsResponse.UserStatistics();
-        
-        // 用户总数
-        List<User> allUsers = userRepository.findAll().stream()
-                .filter(u -> u.getDeleted() == null || u.getDeleted() == 0)
-                .collect(Collectors.toList());
-        userStats.setTotal((long) allUsers.size());
-        
-        // 角色分布
-        Map<String, Long> roleDistribution = new HashMap<>();
-        for (User user : allUsers) {
-            String roleKey = user.getRole() == 1 ? "管理员" : "普通用户";
-            roleDistribution.put(roleKey, roleDistribution.getOrDefault(roleKey, 0L) + 1);
-        }
-        userStats.setRoleDistribution(roleDistribution);
-        
-        // 状态分布
-        Map<String, Long> statusDistribution = new HashMap<>();
-        for (User user : allUsers) {
-            String statusKey;
-            if (user.getStatus() == null) {
-                statusKey = "未知";
-            } else if (user.getStatus() == 0) {
-                statusKey = "待审核";
-            } else if (user.getStatus() == 1) {
-                statusKey = "已激活";
-            } else if (user.getStatus() == 2) {
-                statusKey = "已禁用";
-            } else {
-                statusKey = "未知";
-            }
-            statusDistribution.put(statusKey, statusDistribution.getOrDefault(statusKey, 0L) + 1);
-        }
-        userStats.setStatusDistribution(statusDistribution);
-        
         // 注册趋势（最近N天，默认30天）
         int days = 30; // 默认30天
         return getUserStatistics(days);
     }
     
     @Override
+    @Transactional(readOnly = true)
     public StatisticsResponse.UserStatistics getUserStatistics(Integer days) {
         if (days == null || days <= 0) {
             days = 30; // 默认30天
@@ -130,10 +165,22 @@ public class StatisticsServiceImpl implements StatisticsService {
         
         StatisticsResponse.UserStatistics userStats = new StatisticsResponse.UserStatistics();
         
-        // 用户总数
-        List<User> allUsers = userRepository.findAll().stream()
-                .filter(u -> u.getDeleted() == null || u.getDeleted() == 0)
-                .collect(Collectors.toList());
+        // 使用分页查询处理用户数据，避免全表加载
+        List<User> allUsers = new ArrayList<>();
+        int page = 0;
+        Pageable pageable = PageRequest.of(page, BATCH_SIZE);
+        List<User> batch;
+        
+        do {
+            batch = userRepository.findAll(pageable).getContent();
+            List<User> filteredBatch = batch.stream()
+                    .filter(u -> u.getDeleted() == null || u.getDeleted() == 0)
+                    .collect(Collectors.toList());
+            allUsers.addAll(filteredBatch);
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!batch.isEmpty());
+        
         userStats.setTotal((long) allUsers.size());
         
         // 角色分布
@@ -200,13 +247,26 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public StatisticsResponse.AppStatistics getAppStatistics() {
         StatisticsResponse.AppStatistics appStats = new StatisticsResponse.AppStatistics();
         
-        // 应用总数
-        List<AiApp> allApps = aiAppRepository.findAll().stream()
-                .filter(a -> a.getDeleted() == null || a.getDeleted() == 0)
-                .collect(Collectors.toList());
+        // 使用分页查询处理应用数据，避免全表加载
+        List<AiApp> allApps = new ArrayList<>();
+        int page = 0;
+        Pageable pageable = PageRequest.of(page, BATCH_SIZE);
+        List<AiApp> batch;
+        
+        do {
+            batch = aiAppRepository.findAll(pageable).getContent();
+            List<AiApp> filteredBatch = batch.stream()
+                    .filter(a -> a.getDeleted() == null || a.getDeleted() == 0)
+                    .collect(Collectors.toList());
+            allApps.addAll(filteredBatch);
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!batch.isEmpty());
+        
         appStats.setTotal((long) allApps.size());
         
         // 类型分布
@@ -217,15 +277,21 @@ public class StatisticsServiceImpl implements StatisticsService {
         }
         appStats.setTypeDistribution(typeDistribution);
         
-        // 应用使用情况（按应用分组统计会话数）
-        List<ChatConversation> allConversations = chatConversationRepository.findAll().stream()
-                .filter(c -> (c.getDeleted() == null || c.getDeleted() == 0) && c.getAppId() != null)
-                .collect(Collectors.toList());
-        
+        // 应用使用情况（按应用分组统计会话数）- 使用分页查询
         Map<Long, Long> appUsageMap = new HashMap<>();
-        for (ChatConversation conv : allConversations) {
-            appUsageMap.put(conv.getAppId(), appUsageMap.getOrDefault(conv.getAppId(), 0L) + 1);
-        }
+        page = 0;
+        pageable = PageRequest.of(page, BATCH_SIZE);
+        
+        do {
+            batch = chatConversationRepository.findAll(pageable).getContent();
+            for (ChatConversation conv : batch) {
+                if ((conv.getDeleted() == null || conv.getDeleted() == 0) && conv.getAppId() != null) {
+                    appUsageMap.put(conv.getAppId(), appUsageMap.getOrDefault(conv.getAppId(), 0L) + 1);
+                }
+            }
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!batch.isEmpty());
         
         List<StatisticsResponse.AppUsage> appUsage = new ArrayList<>();
         for (Map.Entry<Long, Long> entry : appUsageMap.entrySet()) {
@@ -254,13 +320,26 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public StatisticsResponse.KnowledgeBaseStatistics getKnowledgeBaseStatistics() {
         StatisticsResponse.KnowledgeBaseStatistics kbStats = new StatisticsResponse.KnowledgeBaseStatistics();
         
-        // 知识库总数
-        List<KnowledgeBase> allKbs = knowledgeBaseRepository.findAll().stream()
-                .filter(kb -> kb.getDeleted() == null || kb.getDeleted() == 0)
-                .collect(Collectors.toList());
+        // 使用分页查询处理知识库数据，避免全表加载
+        List<KnowledgeBase> allKbs = new ArrayList<>();
+        int page = 0;
+        Pageable pageable = PageRequest.of(page, BATCH_SIZE);
+        List<KnowledgeBase> batch;
+        
+        do {
+            batch = knowledgeBaseRepository.findAll(pageable).getContent();
+            List<KnowledgeBase> filteredBatch = batch.stream()
+                    .filter(kb -> kb.getDeleted() == null || kb.getDeleted() == 0)
+                    .collect(Collectors.toList());
+            allKbs.addAll(filteredBatch);
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!batch.isEmpty());
+        
         kbStats.setTotal((long) allKbs.size());
         
         // 状态分布
@@ -271,15 +350,22 @@ public class StatisticsServiceImpl implements StatisticsService {
         }
         kbStats.setStatusDistribution(statusDistribution);
         
-        // 知识库使用情况（按知识库分组统计会话数）
-        List<ChatConversation> allConversations = chatConversationRepository.findAll().stream()
-                .filter(c -> (c.getDeleted() == null || c.getDeleted() == 0) && c.getKnowledgeBaseId() != null)
-                .collect(Collectors.toList());
-        
+        // 知识库使用情况（按知识库分组统计会话数）- 使用分页查询
         Map<Long, Long> kbUsageMap = new HashMap<>();
-        for (ChatConversation conv : allConversations) {
-            kbUsageMap.put(conv.getKnowledgeBaseId(), kbUsageMap.getOrDefault(conv.getKnowledgeBaseId(), 0L) + 1);
-        }
+        page = 0;
+        pageable = PageRequest.of(page, BATCH_SIZE);
+        List<ChatConversation> convBatch;
+        
+        do {
+            convBatch = chatConversationRepository.findAll(pageable).getContent();
+            for (ChatConversation conv : convBatch) {
+                if ((conv.getDeleted() == null || conv.getDeleted() == 0) && conv.getKnowledgeBaseId() != null) {
+                    kbUsageMap.put(conv.getKnowledgeBaseId(), kbUsageMap.getOrDefault(conv.getKnowledgeBaseId(), 0L) + 1);
+                }
+            }
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!convBatch.isEmpty());
         
         List<StatisticsResponse.KnowledgeBaseUsage> kbUsage = new ArrayList<>();
         for (Map.Entry<Long, Long> entry : kbUsageMap.entrySet()) {
@@ -308,12 +394,14 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public StatisticsResponse.ModelTokenStatistics getModelTokenStatistics() {
         // 默认30天
         return getModelTokenStatistics(30);
     }
     
     @Override
+    @Transactional(readOnly = true)
     public StatisticsResponse.ModelTokenStatistics getModelTokenStatistics(Integer days) {
         if (days == null || days <= 0) {
             days = 30; // 默认30天
@@ -325,11 +413,21 @@ public class StatisticsServiceImpl implements StatisticsService {
         
         StatisticsResponse.ModelTokenStatistics tokenStats = new StatisticsResponse.ModelTokenStatistics();
         
-        // 获取所有有token信息的消息
-        List<ChatMessage> allMessages = chatMessageRepository.findAll();
-        List<ChatMessage> messagesWithTokens = allMessages.stream()
-                .filter(m -> m.getTotalTokens() != null && m.getTotalTokens() > 0)
-                .collect(Collectors.toList());
+        // 使用分页查询获取所有有token信息的消息，避免全表加载
+        List<ChatMessage> messagesWithTokens = new ArrayList<>();
+        int page = 0;
+        Pageable pageable = PageRequest.of(page, BATCH_SIZE);
+        List<ChatMessage> batch;
+        
+        do {
+            batch = chatMessageRepository.findAll(pageable).getContent();
+            List<ChatMessage> filteredBatch = batch.stream()
+                    .filter(m -> m.getTotalTokens() != null && m.getTotalTokens() > 0)
+                    .collect(Collectors.toList());
+            messagesWithTokens.addAll(filteredBatch);
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!batch.isEmpty());
         
         // 总Token数
         long totalTokens = messagesWithTokens.stream()
@@ -337,10 +435,21 @@ public class StatisticsServiceImpl implements StatisticsService {
                 .sum();
         tokenStats.setTotalTokens(totalTokens);
         
-        // 获取所有模型
-        List<QAModel> allModels = qaModelRepository.findAll().stream()
-                .filter(m -> m.getDeleted() == null || m.getDeleted() == 0)
-                .collect(Collectors.toList());
+        // 使用分页查询获取所有模型，避免全表加载
+        List<QAModel> allModels = new ArrayList<>();
+        page = 0;
+        pageable = PageRequest.of(page, BATCH_SIZE);
+        List<QAModel> modelBatch;
+        
+        do {
+            modelBatch = qaModelRepository.findAll(pageable).getContent();
+            List<QAModel> filteredModelBatch = modelBatch.stream()
+                    .filter(m -> m.getDeleted() == null || m.getDeleted() == 0)
+                    .collect(Collectors.toList());
+            allModels.addAll(filteredModelBatch);
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!modelBatch.isEmpty());
         
         // 按模型分组统计token使用量
         Map<Long, StatisticsResponse.ModelTokenUsage> modelUsageMap = new HashMap<>();
@@ -386,14 +495,22 @@ public class StatisticsServiceImpl implements StatisticsService {
         // 模型使用占比（按使用次数统计）
         Map<String, Long> modelDistribution = new HashMap<>();
         
-        // 统计每个模型的使用次数（消息数量）
+        // 统计每个模型的使用次数（消息数量）- 使用分页查询
         Map<Long, Long> modelUsageCountMap = new HashMap<>();
-        for (ChatMessage msg : allMessages) {
-            if (msg.getModelId() != null) {
-                modelUsageCountMap.put(msg.getModelId(), 
-                    modelUsageCountMap.getOrDefault(msg.getModelId(), 0L) + 1);
+        page = 0;
+        pageable = PageRequest.of(page, BATCH_SIZE);
+        
+        do {
+            batch = chatMessageRepository.findAll(pageable).getContent();
+            for (ChatMessage msg : batch) {
+                if (msg.getModelId() != null) {
+                    modelUsageCountMap.put(msg.getModelId(), 
+                        modelUsageCountMap.getOrDefault(msg.getModelId(), 0L) + 1);
+                }
             }
-        }
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!batch.isEmpty());
         
         // 转换为模型名称和次数的映射
         for (Map.Entry<Long, Long> entry : modelUsageCountMap.entrySet()) {
@@ -417,15 +534,23 @@ public class StatisticsServiceImpl implements StatisticsService {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         Calendar cal = Calendar.getInstance();
         
-        // 获取所有有token信息的消息（包含modelId）
-        List<ChatMessage> allMessagesWithTokens = chatMessageRepository.findAll().stream()
-                .filter(m -> m.getTotalTokens() != null && m.getTotalTokens() > 0 && m.getModelId() != null)
-                .collect(Collectors.toList());
+        // 使用分页查询获取所有有token信息的消息（包含modelId），避免全表加载
+        List<ChatMessage> allMessagesWithTokens = new ArrayList<>();
+        page = 0;
+        pageable = PageRequest.of(page, BATCH_SIZE);
         
-        // 获取所有模型（用于查找模型名称）
-        List<QAModel> allModelsForTrend = qaModelRepository.findAll().stream()
-                .filter(m -> m.getDeleted() == null || m.getDeleted() == 0)
-                .collect(Collectors.toList());
+        do {
+            batch = chatMessageRepository.findAll(pageable).getContent();
+            List<ChatMessage> filteredBatch = batch.stream()
+                    .filter(m -> m.getTotalTokens() != null && m.getTotalTokens() > 0 && m.getModelId() != null)
+                    .collect(Collectors.toList());
+            allMessagesWithTokens.addAll(filteredBatch);
+            page++;
+            pageable = PageRequest.of(page, BATCH_SIZE);
+        } while (!batch.isEmpty());
+        
+        // 使用已加载的 allModels（避免重复查询）
+        List<QAModel> allModelsForTrend = allModels;
         
         // 获取有使用记录的模型ID列表
         Set<Long> usedModelIds = allMessagesWithTokens.stream()

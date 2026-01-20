@@ -19,9 +19,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -199,8 +202,10 @@ public class AuthServiceImpl implements AuthService {
     
     /**
      * 获取所有用户列表（管理员使用）
+     * 优化：使用分页查询避免全表加载
      */
     @Override
+    @Transactional(readOnly = true)
     public List<UserResp> getAllUsers(String keyword, Integer status, Integer role) {
         List<User> users;
         
@@ -212,12 +217,19 @@ public class AuthServiceImpl implements AuthService {
                 role
             );
         } else {
-            // 否则获取所有用户
-            users = userRepository.findAll();
-            // 过滤已删除的用户
-            users = users.stream()
-                    .filter(user -> user.getDeleted() == null || user.getDeleted() == 0)
-                    .collect(Collectors.toList());
+            // 使用分页查询分批加载，避免全表查询
+            users = new ArrayList<>();
+            int page = 0;
+            int batchSize = 500;
+            Pageable pageable = PageRequest.of(page, batchSize);
+            List<User> batch;
+            
+            do {
+                batch = userRepository.findByDeletedIsNullOrDeleted(pageable).getContent();
+                users.addAll(batch);
+                page++;
+                pageable = PageRequest.of(page, batchSize);
+            } while (!batch.isEmpty());
         }
         
         return users.stream()
@@ -227,8 +239,10 @@ public class AuthServiceImpl implements AuthService {
     
     /**
      * 获取所有用户列表（分页，管理员使用）
+     * 优化：使用分页查询避免全表加载
      */
     @Override
+    @Transactional(readOnly = true)
     public PageResponse<UserResp> getAllUsersWithPagination(
             String keyword, Integer status, Integer role, int page, int pageSize) {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
@@ -245,25 +259,8 @@ public class AuthServiceImpl implements AuthService {
                 pageable
             );
         } else {
-            // 否则获取所有用户（需要手动过滤已删除的）
-            // 为了准确计算总数，先查询所有未删除的用户
-            List<User> allUsers = userRepository.findAll().stream()
-                    .filter(user -> user.getDeleted() == null || user.getDeleted() == 0)
-                    .toList();
-            
-            // 手动分页
-            int start = (page - 1) * pageSize;
-            int end = Math.min(start + pageSize, allUsers.size());
-            List<User> pageContent = start < allUsers.size() 
-                    ? allUsers.subList(start, end) 
-                    : java.util.Collections.emptyList();
-            
-            // 转换为Page对象（简化处理）
-            List<UserResp> content = pageContent.stream()
-                    .map(AuthConverterUtil::convertToResp)
-                    .collect(Collectors.toList());
-            
-            return new PageResponse<>(content, allUsers.size(), page, pageSize);
+            // 使用分页查询方法，避免全表加载
+            userPage = userRepository.findByDeletedIsNullOrDeleted(pageable);
         }
         
         // 搜索方法已经过滤了已删除的用户

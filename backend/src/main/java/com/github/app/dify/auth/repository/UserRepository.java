@@ -54,5 +54,17 @@ public interface UserRepository extends JpaRepository<User, Long> {
                                              @Param("status") Integer status, 
                                              @Param("role") Integer role,
                                              Pageable pageable);
+    
+    /**
+     * 查询所有未删除的用户（分页）- 用于避免全表查询
+     */
+    @Query("SELECT u FROM User u WHERE (u.deleted IS NULL OR u.deleted = 0)")
+    Page<User> findByDeletedIsNullOrDeleted(Pageable pageable);
+    
+    /**
+     * 查询所有未删除的用户 - 用于避免全表查询
+     */
+    @Query("SELECT u FROM User u WHERE (u.deleted IS NULL OR u.deleted = 0)")
+    List<User> findByDeletedIsNullOrDeleted();
 }
 
