@@ -228,22 +228,112 @@ const formatTime = (time) => {
 </script>
 
 <style scoped>
+/* ========== 页面容器 ========== */
 .prompt-management {
-  padding: 20px;
+  padding: var(--spacing-lg);
+  background: var(--color-bg-secondary);
 }
 
+/* ========== 卡片样式 ========== */
+:deep(.el-card) {
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--color-border-lighter);
+  transition: box-shadow var(--transition-base);
+}
+
+:deep(.el-card:hover) {
+  box-shadow: var(--card-shadow-hover);
+}
+
+:deep(.el-card__header) {
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border-lighter);
+  padding: var(--spacing-md) var(--card-padding);
+}
+
+:deep(.el-card__body) {
+  background: var(--color-bg-primary);
+  padding: var(--card-padding);
+}
+
+/* ========== 卡片头部 ========== */
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.search-bar {
-  margin-bottom: 20px;
+.card-header span {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
 }
 
+.card-header .el-button {
+  transition: all var(--transition-base);
+}
+
+.card-header .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-primary);
+}
+
+/* ========== 搜索栏 ========== */
+.search-bar {
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-lighter);
+}
+
+.search-bar :deep(.el-input__wrapper) {
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+}
+
+.search-bar :deep(.el-input__wrapper:hover) {
+  box-shadow: var(--shadow-xs);
+}
+
+.search-bar :deep(.el-input__wrapper.is-focus) {
+  box-shadow: var(--shadow-primary);
+}
+
+/* ========== 表格容器 ========== */
 .table-container {
-  margin-top: 20px;
+  margin-top: var(--spacing-lg);
+}
+
+:deep(.el-table) {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-bg-primary);
+}
+
+:deep(.el-table__header) {
+  background: var(--table-header-bg);
+}
+
+:deep(.el-table th) {
+  background: var(--table-header-bg);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  border-bottom: 2px solid var(--color-border-base);
+}
+
+:deep(.el-table td) {
+  border-bottom: 1px solid var(--table-border-color);
+}
+
+:deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
+  background-color: var(--color-bg-tertiary);
+}
+
+:deep(.el-table__body tr:hover > td) {
+  background-color: var(--table-row-hover-bg);
+  transition: background-color var(--transition-fast);
 }
 
 .content-preview {
@@ -251,18 +341,57 @@ const formatTime = (time) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--color-text-regular);
 }
 
+/* ========== 表单提示 ========== */
 .form-tip {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 4px;
-  font-size: 12px;
-  color: #909399;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
 }
 
 .form-tip .el-icon {
-  font-size: 14px;
+  font-size: var(--font-size-sm);
+  color: var(--color-primary);
+}
+
+/* ========== 对话框样式 ========== */
+:deep(.el-dialog) {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-2xl);
+}
+
+:deep(.el-dialog__header) {
+  padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-lighter);
+}
+
+:deep(.el-dialog__body) {
+  padding: var(--spacing-lg);
+}
+
+:deep(.el-form-item__label) {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+:deep(.el-input__wrapper),
+:deep(.el-textarea__inner) {
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+}
+
+:deep(.el-input__wrapper:hover),
+:deep(.el-textarea__inner:hover) {
+  box-shadow: var(--shadow-xs);
+}
+
+:deep(.el-input__wrapper.is-focus),
+:deep(.el-textarea__inner:focus) {
+  box-shadow: var(--shadow-primary);
 }
 </style>

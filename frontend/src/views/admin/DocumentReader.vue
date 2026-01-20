@@ -217,15 +217,16 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ========== 页面容器 ========== */
 .document-reader {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  background: var(--el-bg-color-page, #f5f7fa);
+  background: var(--color-bg-secondary);
   position: relative;
 }
 
-
+/* ========== 阅读器容器 ========== */
 .reader-container {
   display: flex;
   height: 100%;
@@ -236,23 +237,25 @@ onMounted(() => {
 .reader-container.qa-focused .left-panel {
   opacity: 0.3;
   pointer-events: none;
-  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity var(--transition-base);
 }
 
 .reader-container.qa-focused .right-panel .function-tabs {
   opacity: 0.3;
   pointer-events: none;
-  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity var(--transition-base);
 }
 
+/* ========== 左侧面板 ========== */
 .left-panel {
   width: 50%;
   flex-shrink: 0;
-  border-right: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-right: 1px solid var(--color-border-lighter);
   overflow: hidden;
-  background: var(--el-bg-color-page, #f5f7fa);
+  background: var(--color-bg-secondary);
 }
 
+/* ========== 右侧面板 ========== */
 .right-panel {
   width: 50%;
   flex-shrink: 0;
@@ -260,24 +263,26 @@ onMounted(() => {
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  background: var(--el-bg-color, #ffffff);
+  background: var(--color-bg-primary);
 }
 
+/* ========== 功能标签页 ========== */
 .function-tabs {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
-  background: var(--el-bg-color, #ffffff);
+  background: var(--color-bg-primary);
 }
 
 .function-tabs :deep(.el-tabs__header) {
   margin: 0;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  padding: 0 var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border-lighter);
   flex-shrink: 0;
-  background: var(--el-bg-color, #ffffff);
+  background: var(--color-bg-tertiary);
+  box-shadow: var(--shadow-xs);
 }
 
 .function-tabs :deep(.el-tabs__nav-wrap) {
@@ -285,31 +290,32 @@ onMounted(() => {
 }
 
 .function-tabs :deep(.el-tabs__item) {
-  padding: 0 20px;
+  padding: 0 var(--spacing-lg);
   height: 48px;
   line-height: 48px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--el-text-color-regular, #606266);
-  transition: all 0.3s;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-regular);
+  transition: all var(--transition-base);
 }
 
 .function-tabs :deep(.el-tabs__item:hover) {
-  color: var(--el-color-primary, #409eff);
+  color: var(--color-primary);
 }
 
 .function-tabs :deep(.el-tabs__item.is-active) {
-  color: var(--el-color-primary, #409eff);
-  font-weight: 600;
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
 }
 
 .function-tabs :deep(.el-tabs__active-bar) {
   height: 3px;
-  background: var(--el-color-primary, #409eff);
+  background: var(--color-primary);
+  border-radius: var(--radius-sm);
 }
 
 .function-tabs :deep(.el-tabs__item.is-disabled) {
-  color: var(--el-text-color-disabled, #c0c4cc);
+  color: var(--color-text-disabled);
   cursor: not-allowed;
 }
 
@@ -318,25 +324,18 @@ onMounted(() => {
   overflow: hidden;
   padding: 0;
   min-height: 0;
+  position: relative;
 }
 
 .function-tabs :deep(.el-tab-pane) {
   height: 100%;
   overflow: hidden;
-}
-
-/* 选项卡切换过渡动画 */
-.function-tabs :deep(.el-tabs__content) {
-  position: relative;
-}
-
-.function-tabs :deep(.el-tab-pane) {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: opacity var(--transition-base), transform var(--transition-base);
 }
 
 .function-tabs :deep(.el-tab-pane.is-active) {
-  animation: tabFadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: opacity, transform; /* 硬件加速 */
+  animation: tabFadeIn var(--transition-fast) forwards;
+  will-change: opacity, transform;
 }
 
 @keyframes tabFadeIn {
@@ -350,20 +349,21 @@ onMounted(() => {
   }
 }
 
+/* ========== 问答区域 ========== */
 .qa-section {
   flex: 0 0 auto;
   flex-shrink: 0;
-  border-top: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-top: 1px solid var(--color-border-lighter);
   overflow: visible;
-  background: var(--el-bg-color, #ffffff);
+  background: var(--color-bg-primary);
   position: relative;
-  z-index: 1;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: var(--z-base);
+  transition: all var(--transition-base);
   transform-origin: bottom center;
   opacity: 1;
   transform: scaleY(1) translateY(0);
   height: auto;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm);
 }
 
 .qa-section.qa-focused {
@@ -373,9 +373,10 @@ onMounted(() => {
   right: 0;
   bottom: 0;
   height: 100%;
-  z-index: 10;
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.15);
-  animation: qaExpand 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  z-index: var(--z-modal);
+  box-shadow: var(--shadow-xl);
+  background: var(--color-bg-primary);
+  animation: qaExpand var(--transition-base) forwards;
 }
 
 @keyframes qaExpand {

@@ -1605,25 +1605,48 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* ========== 页面容器 ========== */
 .workflow-app {
   width: 100%;
   height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 20px;
+  padding: var(--spacing-lg);
+  background: var(--color-bg-secondary);
 }
 
 .workflow-container {
   width: 100%;
-  max-width: 1400px;
+  max-width: var(--content-max-width);
   height: 90vh;
+}
+
+:deep(.workflow-container .el-card) {
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+  transition: box-shadow var(--transition-base);
+}
+
+:deep(.workflow-container .el-card:hover) {
+  box-shadow: var(--card-shadow-hover);
+}
+
+:deep(.workflow-container .el-card__header) {
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border-lighter);
+  padding: var(--spacing-md) var(--card-padding);
+}
+
+:deep(.workflow-container .el-card__body) {
+  background: var(--color-bg-primary);
+  padding: var(--card-padding);
 }
 
 .workflow-content {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  gap: var(--spacing-lg);
   height: calc(90vh - 120px);
 }
 
@@ -1631,6 +1654,7 @@ onBeforeUnmount(() => {
   .workflow-content {
     grid-template-columns: 1fr;
     height: auto;
+    gap: var(--spacing-md);
   }
 }
 
@@ -1638,11 +1662,19 @@ onBeforeUnmount(() => {
 .output-section {
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-lighter);
   min-height: 0;
+  transition: all var(--transition-base);
+}
+
+.input-section:hover,
+.output-section:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-base);
 }
 
 .output-panel {
@@ -1657,23 +1689,33 @@ onBeforeUnmount(() => {
 }
 
 .input-actions-bar {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #e4e7ed;
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border-lighter);
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  background: #fff;
+  gap: var(--spacing-md);
+  background: var(--color-bg-primary);
+  flex-shrink: 0;
+}
+
+.input-actions-bar .el-button {
+  transition: all var(--transition-base);
+}
+
+.input-actions-bar .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .input-section h4,
 .output-section h4 {
-  margin: 0 0 20px 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--el-text-color-primary, #303133);
-  padding-bottom: 12px;
-  border-bottom: 2px solid var(--el-color-primary, #409eff);
+  margin: 0 0 var(--spacing-lg) 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 2px solid var(--color-primary);
 }
 
 .result-content {
@@ -1692,23 +1734,23 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #909399;
-  padding: 12px;
+  color: var(--color-text-secondary);
+  padding: var(--spacing-md);
 }
 
 .error-message {
-  margin-bottom: 16px;
+  margin-bottom: var(--spacing-md);
 }
 
 .error-tip {
-  margin-top: 12px;
-  padding: 12px;
-  background-color: #fef0f0;
-  border: 1px solid #fde2e2;
-  border-radius: 4px;
-  color: #f56c6c;
-  font-size: 14px;
-  line-height: 1.6;
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  background-color: var(--color-danger-light);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
 }
 
 .complex-input {
@@ -1726,12 +1768,18 @@ onBeforeUnmount(() => {
 }
 
 .file-preview-item {
-  margin-bottom: 20px;
-  padding: 16px;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  background-color: #fafafa;
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-bg-tertiary);
   overflow: visible;
+  transition: all var(--transition-base);
+}
+
+.file-preview-item:hover {
+  border-color: var(--color-border-base);
+  box-shadow: var(--shadow-sm);
 }
 
 .file-info {

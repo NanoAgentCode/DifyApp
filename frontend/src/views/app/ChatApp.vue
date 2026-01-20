@@ -1013,8 +1013,8 @@ onMounted(() => {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 20px;
-  background: #f5f7fa;
+  padding: var(--spacing-lg);
+  background: var(--color-bg-secondary);
   min-height: 0; /* 确保 flex 子元素可以缩小 */
   scroll-behavior: auto; /* 禁用平滑滚动，避免跳动 */
   /* 优化滚动性能 */
@@ -1108,19 +1108,32 @@ onMounted(() => {
 
 .message-content {
   max-width: 70%;
-  padding: 12px 16px;
-  border-radius: 8px;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
 }
 
 .message.user .message-content {
-  background: var(--el-color-primary, #409eff);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
   color: white;
+  box-shadow: var(--shadow-md);
+}
+
+.message.user .message-content:hover {
+  box-shadow: var(--shadow-primary-lg);
+  transform: translateY(-1px);
 }
 
 .message.assistant .message-content {
-  background: white;
-  color: #333;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-lighter);
+}
+
+.message.assistant .message-content:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-base);
 }
 
 .message-text {
@@ -1152,18 +1165,27 @@ onMounted(() => {
 }
 
 .inline-preview-item {
-  border: 1px solid #ebeef5;
-  border-radius: 10px;
+  border: 1px solid var(--color-border-lighter);
+  border-radius: var(--radius-lg);
   overflow: hidden;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-xs);
+}
+
+.inline-preview-item:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-base);
+  transform: translateY(-1px);
 }
 
 .inline-preview-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  background: #f5f7fa;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border-lighter);
 }
 
 .inline-preview-name {
@@ -1172,8 +1194,9 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
-  color: #303133;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
 }
 
 .inline-preview-fullscreen {
@@ -1181,7 +1204,7 @@ onMounted(() => {
 }
 
 .inline-preview-body {
-  background: #fff;
+  background: var(--color-bg-primary);
 }
 
 .inline-iframe,
@@ -1417,15 +1440,17 @@ onMounted(() => {
 }
 
 .chat-input {
-  padding: 20px;
-  border-top: 1px solid #e4e7ed;
+  padding: var(--spacing-lg);
+  border-top: 1px solid var(--color-border-lighter);
   flex-shrink: 0; /* 防止输入框被压缩 */
+  background: var(--color-bg-primary);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .chat-input-main {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--spacing-md);
 }
 
 .upload-header {
@@ -1446,6 +1471,16 @@ onMounted(() => {
 
 .chat-input-textarea :deep(.el-textarea__inner) {
   resize: none;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+}
+
+.chat-input-textarea :deep(.el-textarea__inner:hover) {
+  box-shadow: var(--shadow-xs);
+}
+
+.chat-input-textarea :deep(.el-textarea__inner:focus) {
+  box-shadow: var(--shadow-primary);
 }
 
 .chat-input-textarea :deep(.el-textarea__inner) {
@@ -1456,9 +1491,9 @@ onMounted(() => {
 .input-actions {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
+  gap: var(--spacing-md);
   align-items: stretch;
-  margin-top: 8px;
+  margin-top: var(--spacing-sm);
 }
 
 .input-actions :deep(.el-upload),
@@ -1468,6 +1503,16 @@ onMounted(() => {
 
 .input-actions :deep(.el-button) {
   height: 40px;
+  transition: all var(--transition-base);
+}
+
+.input-actions :deep(.el-button:hover) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.input-actions :deep(.el-button:active) {
+  transform: translateY(0);
 }
 
 .input-actions :deep(.el-upload) {
@@ -1480,23 +1525,39 @@ onMounted(() => {
 
 .input-actions :deep(.action-btn) {
   justify-content: center;
-  gap: 8px;
-  border-radius: 10px;
-  font-weight: 600;
+  gap: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
 }
 
 .input-actions :deep(.action-btn--upload) {
-  border-color: #409eff;
-  color: #409eff;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.input-actions :deep(.action-btn--upload:hover) {
+  background-color: var(--color-primary-light-5);
+  box-shadow: var(--shadow-primary);
 }
 
 .input-actions :deep(.action-btn--clear) {
-  border-color: #f56c6c;
-  color: #f56c6c;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.input-actions :deep(.action-btn--clear:hover) {
+  background-color: var(--color-danger-light);
+  box-shadow: 0 4px 12px rgba(245, 108, 108, 0.2);
 }
 
 .input-actions :deep(.action-btn--send) {
-  background-color: #67c23a;
-  border-color: #67c23a;
+  background: linear-gradient(135deg, var(--color-success) 0%, #5daf34 100%);
+  border-color: var(--color-success);
+  box-shadow: var(--shadow-sm);
+}
+
+.input-actions :deep(.action-btn--send:hover) {
+  box-shadow: 0 4px 12px rgba(103, 194, 58, 0.3);
+  transform: translateY(-1px);
 }
 </style>

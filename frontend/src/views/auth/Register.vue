@@ -132,12 +132,13 @@ const goToLogin = () => {
 </script>
 
 <style scoped>
+/* ========== 页面容器 ========== */
 .register-container {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #409EFF 0%, #1890ff 50%, #096dd9 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 50%, var(--color-primary-dark-2) 100%);
   position: relative;
   overflow: hidden;
 }
@@ -163,92 +164,117 @@ const goToLogin = () => {
   }
 }
 
+/* ========== 注册框 ========== */
 .register-box {
   width: 420px;
-  padding: 50px 40px;
+  padding: var(--spacing-3xl) var(--spacing-xl);
   background: rgba(255, 255, 255, 0.98);
-  border-radius: 12px;
-  box-shadow: 0 15px 50px rgba(64, 158, 255, 0.3);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-primary-lg);
   position: relative;
-  z-index: 1;
+  z-index: var(--z-base);
   backdrop-filter: blur(10px);
+  animation: scaleIn var(--transition-base);
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .title {
   text-align: center;
-  margin-bottom: 40px;
-  color: #409EFF;
-  font-size: 28px;
-  font-weight: 600;
+  margin-bottom: var(--spacing-2xl);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 1px;
 }
 
+/* ========== 表单样式 ========== */
 .register-form {
-  margin-top: 20px;
+  margin-top: var(--spacing-lg);
 }
 
 .register-form :deep(.el-input__wrapper) {
-  border-radius: 6px;
-  box-shadow: 0 0 0 1px #dcdfe6 inset;
-  transition: all 0.3s;
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 1px var(--color-border-base) inset;
+  transition: all var(--transition-base);
 }
 
 .register-form :deep(.el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px #409EFF inset;
+  box-shadow: var(--shadow-xs);
+  border-color: var(--color-primary);
 }
 
 .register-form :deep(.el-input.is-focus .el-input__wrapper) {
-  box-shadow: 0 0 0 1px #409EFF inset;
+  box-shadow: var(--shadow-primary);
+  border-color: var(--color-primary);
 }
 
 .register-form :deep(.el-input__inner) {
-  color: #333;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
 }
 
 .register-form :deep(.el-input__prefix) {
-  color: #409EFF;
+  color: var(--color-primary);
 }
 
+/* ========== 注册按钮 ========== */
 .register-button {
   width: 100%;
-  background: linear-gradient(135deg, #409EFF 0%, #1890ff 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
   border: none;
-  border-radius: 6px;
-  font-size: 16px;
-  font-weight: 500;
-  height: 44px;
-  transition: all 0.3s;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  height: var(--button-height-lg);
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-primary);
 }
 
 .register-button:hover {
-  background: linear-gradient(135deg, #66b1ff 0%, #409EFF 100%);
-  box-shadow: 0 6px 16px rgba(64, 158, 255, 0.5);
+  background: linear-gradient(135deg, var(--color-primary-light-1) 0%, var(--color-primary) 100%);
+  box-shadow: var(--shadow-primary-lg);
   transform: translateY(-2px);
 }
 
 .register-button:active {
   transform: translateY(0);
+  box-shadow: var(--shadow-primary);
 }
 
+/* ========== 登录链接 ========== */
 .login-link {
   text-align: center;
   width: 100%;
-  color: #606266;
-  font-size: 14px;
+  color: var(--color-text-regular);
+  font-size: var(--font-size-sm);
 }
 
 .login-link span {
-  margin-right: 8px;
+  margin-right: var(--spacing-sm);
 }
 
 .login-link :deep(.el-link) {
-  color: #409EFF;
-  font-weight: 500;
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-base);
 }
 
 .login-link :deep(.el-link:hover) {
-  color: #66b1ff;
+  color: var(--color-primary-light-1);
+  text-decoration: underline;
 }
 </style>
 

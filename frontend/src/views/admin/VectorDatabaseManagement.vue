@@ -721,40 +721,108 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ========== 页面容器 ========== */
 .vector-database-management {
-  padding: 0;
+  padding: var(--spacing-lg);
+  background: var(--color-bg-secondary);
 }
 
+/* ========== 区域头部 ========== */
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  gap: 12px;
+  margin-bottom: var(--spacing-lg);
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-lighter);
 }
 
+.section-header :deep(.el-input__wrapper) {
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+}
+
+.section-header :deep(.el-input__wrapper:hover) {
+  box-shadow: var(--shadow-xs);
+}
+
+.section-header :deep(.el-input__wrapper.is-focus) {
+  box-shadow: var(--shadow-primary);
+}
+
+.section-header .el-button {
+  transition: all var(--transition-base);
+}
+
+.section-header .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-primary);
+}
+
+/* ========== 配置列表区域 ========== */
 .config-list-section {
   padding: 0;
 }
 
+:deep(.el-table) {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-bg-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+:deep(.el-table__header) {
+  background: var(--table-header-bg);
+}
+
+:deep(.el-table th) {
+  background: var(--table-header-bg);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  border-bottom: 2px solid var(--color-border-base);
+}
+
+:deep(.el-table td) {
+  border-bottom: 1px solid var(--table-border-color);
+}
+
+:deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
+  background-color: var(--color-bg-tertiary);
+}
+
+:deep(.el-table__body tr:hover > td) {
+  background-color: var(--table-row-hover-bg);
+  transition: background-color var(--transition-fast);
+}
+
+/* ========== 操作按钮 ========== */
 .action-buttons {
   display: flex;
-  gap: 8px;
+  gap: var(--spacing-sm);
   justify-content: center;
   flex-wrap: wrap;
 }
 
 .action-buttons .el-button {
   margin: 0;
+  transition: all var(--transition-base);
 }
 
-/* 默认配置行高亮 */
+.action-buttons .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ========== 默认配置行高亮 ========== */
 :deep(.default-config-row) {
-  background-color: #f0f9ff;
+  background-color: var(--color-bg-active) !important;
 }
 
 :deep(.default-config-row:hover) {
-  background-color: #e0f2fe;
+  background-color: var(--color-primary-light-4) !important;
 }
 
 /* 隐藏单选按钮的label文本（id） */

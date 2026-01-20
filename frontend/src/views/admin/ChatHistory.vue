@@ -198,25 +198,37 @@ const {
 </script>
 
 <style scoped>
+/* ========== 页面容器 ========== */
 .admin-chat-history {
-  padding: 0;
+  padding: var(--spacing-lg);
   height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--color-bg-secondary);
 }
 
+/* ========== 卡片样式 ========== */
 :deep(.el-card) {
   height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   margin: 0;
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+  transition: box-shadow var(--transition-base);
+}
+
+:deep(.el-card:hover) {
+  box-shadow: var(--card-shadow-hover);
 }
 
 :deep(.el-card__header) {
   flex-shrink: 0;
-  padding: 18px 20px;
+  padding: var(--spacing-md) var(--card-padding);
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border-lighter);
 }
 
 :deep(.el-card__body) {
@@ -224,10 +236,12 @@ const {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 20px;
+  padding: var(--card-padding);
   min-height: 0;
+  background: var(--color-bg-primary);
 }
 
+/* ========== 卡片头部 ========== */
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -237,19 +251,60 @@ const {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--spacing-md);
 }
 
+.header-left span {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+/* ========== 过滤栏 ========== */
 .filter-bar {
-  margin-bottom: 20px;
+  margin-bottom: var(--spacing-lg);
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-lighter);
+  flex-wrap: wrap;
 }
 
+.filter-bar :deep(.el-input__wrapper),
+.filter-bar :deep(.el-select .el-input__wrapper) {
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+}
+
+.filter-bar :deep(.el-input__wrapper:hover) {
+  box-shadow: var(--shadow-xs);
+}
+
+.filter-bar :deep(.el-input__wrapper.is-focus) {
+  box-shadow: var(--shadow-primary);
+}
+
+.filter-bar .el-button {
+  transition: all var(--transition-base);
+}
+
+.filter-bar .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ========== 批量操作 ========== */
 .batch-actions {
-  margin-bottom: 20px;
+  margin-bottom: var(--spacing-lg);
   flex-shrink: 0;
+  padding: var(--spacing-md);
+  background: var(--color-warning-light);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-warning);
 }
 
 .table-wrapper {
@@ -271,16 +326,67 @@ const {
   overflow-y: auto;
 }
 
+/* ========== 分页容器 ========== */
 .pagination-container {
-  margin-top: 20px;
+  margin-top: var(--spacing-lg);
   display: flex;
   justify-content: flex-end;
-  padding: 0;
+  padding: var(--spacing-md);
   flex-shrink: 0;
+  background: var(--color-bg-tertiary);
+  border-top: 1px solid var(--color-border-lighter);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+:deep(.el-pagination .el-pager li) {
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-base);
+}
+
+:deep(.el-pagination .el-pager li:hover) {
+  background-color: var(--color-bg-hover);
+}
+
+:deep(.el-pagination .el-pager li.is-active) {
+  background-color: var(--color-primary);
+  color: #ffffff;
+}
+
+/* ========== 表格样式 ========== */
+:deep(.el-table) {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-bg-primary);
+}
+
+:deep(.el-table__header) {
+  background: var(--table-header-bg);
+}
+
+:deep(.el-table th) {
+  background: var(--table-header-bg);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  border-bottom: 2px solid var(--color-border-base);
+  padding: var(--spacing-sm) 0;
+}
+
+:deep(.el-table td) {
+  border-bottom: 1px solid var(--table-border-color);
+  padding: var(--spacing-sm) 0;
+}
+
+:deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
+  background-color: var(--color-bg-tertiary);
+}
+
+:deep(.el-table__body tr:hover > td) {
+  background-color: var(--table-row-hover-bg);
+  transition: background-color var(--transition-fast);
 }
 
 :deep(.el-table .el-table__cell) {
-  padding: 7px 0;
+  padding: var(--spacing-sm) 0;
 }
 
 :deep(.el-table th.el-table__cell) {
@@ -299,6 +405,7 @@ const {
   text-align: left;
 }
 
+/* ========== 对话详情 ========== */
 .conversation-detail {
   max-height: 70vh;
   display: flex;
@@ -306,20 +413,20 @@ const {
 }
 
 .detail-header {
-  margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #e4e7ed;
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-lighter);
 }
 
 .detail-info {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--spacing-md);
 }
 
 .detail-meta {
-  font-size: 12px;
-  color: #909399;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
 }
 
 .messages-container {
@@ -341,33 +448,39 @@ const {
 }
 
 .message-item {
-  padding: 15px;
-  border-radius: 8px;
-  border: 1px solid #e4e7ed;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
+  transition: all var(--transition-base);
+}
+
+.message-item:hover {
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .user-message {
-  background-color: #f0f9ff;
-  border-color: #b3d8ff;
+  background: linear-gradient(135deg, var(--color-primary-light-5) 0%, var(--color-bg-primary) 100%);
+  border-color: var(--color-primary-light-3);
 }
 
 .assistant-message {
-  background-color: #f5f5f5;
-  border-color: #d3d3d3;
+  background-color: var(--color-bg-tertiary);
+  border-color: var(--color-border-base);
 }
 
 .message-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  font-size: 12px;
-  color: #909399;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
 }
 
 .message-role {
-  font-weight: 500;
-  color: #606266;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-regular);
 }
 
 .message-time {

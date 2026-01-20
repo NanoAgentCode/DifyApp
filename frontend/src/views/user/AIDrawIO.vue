@@ -895,33 +895,39 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ========== 页面容器 ========== */
 .ai-drawio-container {
   height: 100vh;
   display: flex;
   flex-direction: column;
+  background: var(--color-bg-secondary);
 }
 
 .full-height {
   height: 100%;
 }
 
+/* ========== 工具栏面板 ========== */
 .toolbar-panel {
-  background: #f5f7fa;
-  border-right: 1px solid #e4e7ed;
-  padding: 15px 20px;
+  background: var(--color-bg-primary);
+  border-right: 1px solid var(--color-border-lighter);
+  padding: var(--spacing-md) var(--spacing-lg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   height: 100%;
+  box-shadow: var(--shadow-sm);
 }
 
 .toolbar-header {
-  margin-bottom: 15px;
+  margin-bottom: var(--spacing-md);
   flex-shrink: 0;
   position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-lighter);
 }
 
 .header-top {
@@ -929,10 +935,24 @@ onMounted(async () => {
   align-items: center;
 }
 
+.header-top .el-button {
+  transition: all var(--transition-base);
+}
+
+.header-top .el-button:hover {
+  color: var(--color-primary);
+  transform: translateX(-2px);
+}
+
 .toolbar-header h3 {
   margin: 0;
-  color: #303133;
-  font-size: 18px;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .diagram-type-section {
@@ -1133,43 +1153,65 @@ onMounted(async () => {
   min-width: 0;
 }
 
+/* ========== 画布面板 ========== */
 .canvas-panel {
   padding: 0;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: var(--color-bg-primary);
 }
 
 .canvas-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 20px;
-  border-bottom: 1px solid #e4e7ed;
-  background: #fff;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border-lighter);
+  background: var(--color-bg-tertiary);
+  box-shadow: var(--shadow-xs);
 }
 
 .canvas-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.canvas-title .el-icon {
+  color: var(--color-primary);
+  transition: all var(--transition-base);
+}
+
+.canvas-header:hover .canvas-title .el-icon {
+  transform: scale(1.1);
 }
 
 .canvas-actions {
   display: flex;
-  gap: 10px;
+  gap: var(--spacing-sm);
 }
 
+.canvas-actions .el-button {
+  transition: all var(--transition-base);
+}
+
+.canvas-actions .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ========== Mermaid图表容器 ========== */
 .mermaid-wrapper {
   flex: 1;
   position: relative;
   overflow: hidden;
-  background: #fff;
-  border: 1px solid #e4e7ed;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-lighter);
   user-select: none;
+  box-shadow: var(--shadow-sm);
 }
 
 .mermaid-wrapper.dragging {
@@ -1178,11 +1220,11 @@ onMounted(async () => {
 
 .mermaid-container {
   position: relative;
-  padding: 20px;
+  padding: var(--spacing-lg);
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  transition: transform 0.2s ease;
+  transition: transform var(--transition-base);
   min-width: 100%;
   min-height: 100%;
 }
@@ -1294,8 +1336,12 @@ onMounted(async () => {
 }
 
 .mermaid-error {
-  color: #f56c6c;
-  padding: 20px;
+  color: var(--color-danger);
+  padding: var(--spacing-lg);
   text-align: center;
+  font-size: var(--font-size-sm);
+  background: var(--color-danger-light);
+  border-radius: var(--radius-md);
+  margin: var(--spacing-lg);
 }
 </style>

@@ -440,50 +440,100 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ========== 页面容器 ========== */
 .user-action-log {
-  padding: 0;
+  padding: var(--spacing-lg);
   height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--color-bg-secondary);
 }
 
+/* ========== 卡片样式 ========== */
 :deep(.el-card) {
   flex: 1;
   display: flex;
   flex-direction: column;
   margin: 0;
   overflow: hidden;
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+  transition: box-shadow var(--transition-base);
+}
+
+:deep(.el-card:hover) {
+  box-shadow: var(--card-shadow-hover);
 }
 
 :deep(.el-card__header) {
   flex-shrink: 0;
-  padding: 18px 20px;
+  padding: var(--spacing-md) var(--card-padding);
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border-lighter);
 }
 
 :deep(.el-card__body) {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 20px;
+  padding: var(--card-padding);
   overflow: hidden;
   min-height: 0;
+  background: var(--color-bg-primary);
 }
 
+/* ========== 卡片头部 ========== */
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
+.card-header span {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+/* ========== 搜索栏 ========== */
 .search-bar {
-  margin-bottom: 20px;
+  margin-bottom: var(--spacing-lg);
   flex-shrink: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 0;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-lighter);
+  align-items: center;
 }
 
+.search-bar :deep(.el-input__wrapper),
+.search-bar :deep(.el-select .el-input__wrapper) {
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+}
+
+.search-bar :deep(.el-input__wrapper:hover) {
+  box-shadow: var(--shadow-xs);
+}
+
+.search-bar :deep(.el-input__wrapper.is-focus) {
+  box-shadow: var(--shadow-primary);
+}
+
+.search-bar .el-button {
+  transition: all var(--transition-base);
+}
+
+.search-bar .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ========== 表格容器 ========== */
 .table-wrapper {
   flex: 1;
   overflow: hidden;
@@ -492,26 +542,76 @@ onMounted(() => {
 
 :deep(.el-table) {
   height: 100%;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-bg-primary);
 }
 
+:deep(.el-table__header) {
+  background: var(--table-header-bg);
+}
+
+:deep(.el-table th) {
+  background: var(--table-header-bg);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  border-bottom: 2px solid var(--color-border-base);
+}
+
+:deep(.el-table td) {
+  border-bottom: 1px solid var(--table-border-color);
+}
+
+:deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
+  background-color: var(--color-bg-tertiary);
+}
+
+:deep(.el-table__body tr:hover > td) {
+  background-color: var(--table-row-hover-bg);
+  transition: background-color var(--transition-fast);
+}
+
+/* ========== 分页 ========== */
 .pagination-wrapper {
   flex-shrink: 0;
-  padding-top: 20px;
+  padding-top: var(--spacing-lg);
+  padding: var(--spacing-md);
   display: flex;
   justify-content: flex-end;
+  background: var(--color-bg-tertiary);
+  border-top: 1px solid var(--color-border-lighter);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
+:deep(.el-pagination .el-pager li) {
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-base);
+}
+
+:deep(.el-pagination .el-pager li:hover) {
+  background-color: var(--color-bg-hover);
+}
+
+:deep(.el-pagination .el-pager li.is-active) {
+  background-color: var(--color-primary);
+  color: #ffffff;
+}
+
+/* ========== 日志详情 ========== */
 .log-detail {
   max-height: 600px;
   overflow-y: auto;
 }
 
 .code-block {
-  background: #f5f7fa;
-  border-radius: 4px;
-  padding: 10px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm);
   max-height: 200px;
   overflow-y: auto;
+  border: 1px solid var(--color-border-lighter);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
 }
 
 .code-block pre {

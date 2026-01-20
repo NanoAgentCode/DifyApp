@@ -1279,26 +1279,36 @@ const getVectorDatabaseDocumentCount = (db) => {
   white-space: nowrap !important;
 }
 
+/* ========== 页面容器 ========== */
 .knowledge-base-management {
-  padding: 0;
+  padding: var(--spacing-lg);
   height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--color-bg-secondary);
 }
 
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
+/* ========== 卡片样式 ========== */
 :deep(.el-card) {
   height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   margin: 0;
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+  transition: box-shadow var(--transition-base);
+}
+
+:deep(.el-card:hover) {
+  box-shadow: var(--card-shadow-hover);
+}
+
+:deep(.el-card__header) {
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border-lighter);
+  padding: var(--spacing-md) var(--card-padding);
 }
 
 :deep(.el-card__body) {
@@ -1308,37 +1318,77 @@ const getVectorDatabaseDocumentCount = (db) => {
   overflow: hidden;
   padding: 0;
   min-height: 0;
+  background: var(--color-bg-primary);
 }
 
+/* ========== 卡片头部 ========== */
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.card-header span {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+/* ========== 搜索栏 ========== */
 .search-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: var(--spacing-lg);
   flex-shrink: 0;
-  padding: 20px 20px 0 20px;
+  padding: var(--spacing-lg);
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border-lighter);
+  gap: var(--spacing-md);
 }
 
 .search-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--spacing-md);
+  flex: 1;
 }
 
 .search-right {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
+.search-left :deep(.el-input__wrapper),
+.search-left :deep(.el-select .el-input__wrapper) {
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+}
+
+.search-left :deep(.el-input__wrapper:hover) {
+  box-shadow: var(--shadow-xs);
+}
+
+.search-left :deep(.el-input__wrapper.is-focus) {
+  box-shadow: var(--shadow-primary);
+}
+
+/* ========== 知识库名称单元格 ========== */
 .kb-name-cell {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .kb-icon {
-  color: #409eff;
+  color: var(--color-primary);
   font-size: 18px;
+  transition: all var(--transition-base);
+}
+
+.kb-name-cell:hover .kb-icon {
+  transform: scale(1.1);
 }
 
 /* 减少名称和描述列之间的间距 */
@@ -1350,18 +1400,72 @@ const getVectorDatabaseDocumentCount = (db) => {
   padding-left: 8px;
 }
 
+/* ========== 表格容器 ========== */
 .table-container {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  padding: 0 var(--spacing-lg);
 }
 
+:deep(.el-table) {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-bg-primary);
+}
+
+:deep(.el-table__header) {
+  background: var(--table-header-bg);
+}
+
+:deep(.el-table th) {
+  background: var(--table-header-bg);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  border-bottom: 2px solid var(--color-border-base);
+}
+
+:deep(.el-table td) {
+  border-bottom: 1px solid var(--table-border-color);
+}
+
+:deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
+  background-color: var(--color-bg-tertiary);
+}
+
+:deep(.el-table__body tr:hover > td) {
+  background-color: var(--table-row-hover-bg);
+  transition: background-color var(--transition-fast);
+}
+
+/* ========== 分页 ========== */
 .pagination {
-  margin-top: 20px;
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-lg);
   display: flex;
   justify-content: flex-end;
   flex-shrink: 0;
+  background: var(--color-bg-tertiary);
+  border-top: 1px solid var(--color-border-lighter);
+}
+
+:deep(.el-pagination) {
+  justify-content: flex-end;
+}
+
+:deep(.el-pagination .el-pager li) {
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-base);
+}
+
+:deep(.el-pagination .el-pager li:hover) {
+  background-color: var(--color-bg-hover);
+}
+
+:deep(.el-pagination .el-pager li.is-active) {
+  background-color: var(--color-primary);
+  color: #ffffff;
 }
 
 .doc-management {
@@ -1369,10 +1473,16 @@ const getVectorDatabaseDocumentCount = (db) => {
 }
 
 .upload-section {
-  padding: 20px;
-  border: 1px dashed #dcdfe6;
-  border-radius: 4px;
-  background-color: #fafafa;
+  padding: var(--spacing-lg);
+  border: 2px dashed var(--color-border-base);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-bg-tertiary);
+  transition: all var(--transition-base);
+}
+
+.upload-section:hover {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-light-5);
 }
 
 .upload-actions {
@@ -1439,21 +1549,26 @@ const getVectorDatabaseDocumentCount = (db) => {
   flex: 1;
   display: flex;
   align-items: flex-start;
-  padding: 12px 16px;
-  border: 1px solid #dcdfe6;
-  border-radius: 6px;
-  transition: all 0.3s;
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
   margin: 0;
   min-height: 80px;
+  cursor: pointer;
 }
 
 .visibility-radio-item:hover {
-  border-color: #409eff;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-xs);
+  transform: translateY(-1px);
 }
 
 .visibility-radio-item.is-checked {
-  border-color: #409eff;
-  background-color: #ecf5ff;
+  border-color: var(--color-primary);
+  background-color: var(--color-bg-active);
+  box-shadow: var(--shadow-primary);
+}
 }
 
 .visibility-radio-item :deep(.el-radio__input) {

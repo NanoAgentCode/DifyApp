@@ -2607,7 +2607,7 @@ onUnmounted(() => {
 
 .portal-container {
   height: 100vh; /* 固定高度，确保只有一个滚动条 */
-  background: var(--el-bg-color-page, #f5f7fa);
+  background: var(--color-bg-secondary);
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -2615,7 +2615,7 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   overflow: hidden; /* 防止容器本身滚动，只让portal-content滚动 */
-  z-index: 1; /* 确保在导航栏下方 */
+  z-index: var(--z-base); /* 确保在导航栏下方 */
 }
 
 /* 确保 Portal 页面的导航栏始终显示在最上层并占据顶部宽度 */
@@ -2817,37 +2817,46 @@ onUnmounted(() => {
 .assistant-card {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 14px 16px;
-  background: var(--el-bg-color, #ffffff);
-  border-radius: 12px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-  margin-bottom: 12px;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--spacing-md);
   width: 100%;
-  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
-  transition: all 0.3s ease;
+  border: 1px solid var(--color-border-lighter);
+  transition: all var(--transition-base);
   flex-shrink: 0;
 }
 
 .assistant-card:hover {
-  box-shadow: 0 4px 20px rgba(64, 158, 255, 0.12);
+  box-shadow: var(--shadow-primary-lg);
   transform: translateY(-2px);
+  border-color: var(--color-primary);
 }
 
 .assistant-avatar {
   width: 48px;
   height: 48px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--el-color-primary-light-8, #d9ecff) 0%, var(--el-color-primary-light-9, #ecf5ff) 100%);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--color-primary-light-4) 0%, var(--color-primary-light-5) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-xs);
+}
+
+.assistant-card:hover .assistant-avatar {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-sm);
 }
 
 .assistant-icon {
   font-size: 24px;
-  color: var(--el-color-primary, #409eff);
+  color: var(--color-primary);
+  transition: all var(--transition-base);
 }
 
 .assistant-info {
@@ -2872,42 +2881,49 @@ onUnmounted(() => {
 
 /* 欢迎消息卡片 */
 .welcome-card {
-  background: var(--el-bg-color, #ffffff);
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin-bottom: 12px;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
   width: 100%;
-  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--color-border-lighter);
+  box-shadow: var(--shadow-sm);
   flex-shrink: 0;
+  transition: all var(--transition-base);
+}
+
+.welcome-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-base);
+  transform: translateY(-1px);
 }
 
 .welcome-message {
-  margin-bottom: 10px;
+  margin-bottom: var(--spacing-sm);
 }
 
 .greeting-text {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--el-text-color-primary, #303133);
-  margin: 0 0 4px 0;
-  line-height: 1.5;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-xs) 0;
+  line-height: var(--line-height-normal);
 }
 
 .greeting-subtext {
-  font-size: 13px;
-  color: var(--el-text-color-regular, #606266);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-regular);
   margin: 0;
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
 }
 
 /* 快速操作提示 */
 .quick-actions {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  padding-top: 10px;
-  border-top: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  gap: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border-lighter);
 }
 
 .action-item {
@@ -2915,33 +2931,44 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 10px 8px;
-  background: var(--el-fill-color-lighter, #f5f7fa);
-  border-radius: 8px;
-  transition: all 0.3s ease;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-xs);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
   cursor: default;
   text-align: center;
+  border: 1px solid transparent;
 }
 
 .action-item:hover {
-  background: var(--el-color-primary-light-9, #ecf5ff);
+  background: var(--color-bg-active);
+  border-color: var(--color-primary-light-3);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
 }
 
 .action-icon {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
-  background: var(--el-color-primary-light-9, #ecf5ff);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-light-5);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transition: all var(--transition-base);
+}
+
+.action-item:hover .action-icon {
+  background: var(--color-primary-light-4);
+  transform: scale(1.1);
 }
 
 .action-icon .el-icon {
-  font-size: 16px;
-  color: var(--el-color-primary, #409eff);
+  font-size: var(--font-size-md);
+  color: var(--color-primary);
+  transition: all var(--transition-base);
 }
 
 .action-content {
@@ -2954,34 +2981,35 @@ onUnmounted(() => {
 }
 
 .action-title {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--el-text-color-primary, #303133);
-  line-height: 1.4;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-tight);
 }
 
 .action-desc {
   font-size: 11px;
-  color: var(--el-text-color-secondary, #909399);
-  line-height: 1.4;
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-tight);
   text-align: center;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 2px;
+  gap: var(--spacing-xs);
 }
 
 .action-desc kbd {
   display: inline-block;
-  padding: 1px 4px;
-  margin: 0 1px;
+  padding: var(--spacing-xs) var(--spacing-xs);
+  margin: 0 var(--spacing-xs);
   font-size: 10px;
-  font-family: 'Courier New', monospace;
-  color: var(--el-color-primary, #409eff);
-  background: var(--el-color-primary-light-9, #ecf5ff);
-  border: 1px solid var(--el-color-primary-light-7, #b3d8ff);
-  border-radius: 3px;
+  font-family: var(--font-family-mono);
+  color: var(--color-primary);
+  background: var(--color-primary-light-5);
+  border: 1px solid var(--color-primary-light-3);
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-medium);
 }
 
 /* 快捷键描述样式 */
@@ -3491,23 +3519,27 @@ onUnmounted(() => {
 }
 
 .feature-title-text {
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--el-text-color-primary, #303133);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .feature-subtitle {
-  font-size: 14px;
-  color: var(--el-text-color-secondary, #909399);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
   margin: 0;
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
 }
 
 /* 功能分类容器 */
 .feature-categories {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--spacing-lg);
   width: 100%;
   flex: 1;
   min-height: 0;
@@ -3517,25 +3549,30 @@ onUnmounted(() => {
 .feature-category {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--spacing-md);
   flex-shrink: 0;
 }
 
 .category-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--el-text-color-primary, #303133);
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
   margin: 0;
-  padding-bottom: 12px;
-  border-bottom: 2px solid var(--el-border-color-lighter, #e4e7ed);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 2px solid var(--color-border-base);
 }
 
 .category-icon {
-  font-size: 20px;
-  color: var(--el-color-primary, #409eff);
+  font-size: var(--font-size-lg);
+  color: var(--color-primary);
+  transition: all var(--transition-base);
+}
+
+.category-title:hover .category-icon {
+  transform: scale(1.1);
 }
 
 /* 功能卡片容器 */
@@ -3550,14 +3587,14 @@ onUnmounted(() => {
 .feature-card {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 20px;
-  background: var(--el-bg-color, #ffffff);
-  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
-  border-radius: 12px;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-lighter);
+  border-radius: var(--radius-xl);
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-sm);
   position: relative;
   overflow: hidden;
 }
@@ -3569,16 +3606,16 @@ onUnmounted(() => {
   left: 0;
   width: 4px;
   height: 100%;
-  background: var(--el-color-primary, #409eff);
+  background: var(--color-primary);
   transform: scaleY(0);
   transform-origin: top;
-  transition: transform 0.3s ease;
+  transition: transform var(--transition-base);
 }
 
 .feature-card:hover {
   transform: translateY(-4px);
-  border-color: var(--el-color-primary, #409eff);
-  box-shadow: 0 8px 24px rgba(64, 158, 255, 0.15);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-primary-lg);
 }
 
 .feature-card:hover::before {
@@ -3596,23 +3633,25 @@ onUnmounted(() => {
   flex-shrink: 0;
   width: 56px;
   height: 56px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--el-color-primary-light-9, #ecf5ff) 0%, var(--el-color-primary-light-8, #d9ecff) 100%);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--color-primary-light-5) 0%, var(--color-primary-light-4) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-xs);
 }
 
 .feature-card:hover .feature-card-icon {
-  background: linear-gradient(135deg, var(--el-color-primary-light-8, #d9ecff) 0%, var(--el-color-primary-light-7, #b3d8ff) 100%);
+  background: linear-gradient(135deg, var(--color-primary-light-4) 0%, var(--color-primary-light-3) 100%);
   transform: scale(1.05);
+  box-shadow: var(--shadow-sm);
 }
 
 .feature-icon {
   font-size: 28px;
-  color: var(--el-color-primary, #409eff);
-  transition: transform 0.3s ease;
+  color: var(--color-primary);
+  transition: transform var(--transition-base);
 }
 
 .feature-card:hover .feature-icon {
@@ -3629,22 +3668,22 @@ onUnmounted(() => {
 }
 
 .feature-card-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--el-text-color-primary, #303133);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
   margin: 0;
-  transition: color 0.3s ease;
+  transition: color var(--transition-base);
 }
 
 .feature-card:hover .feature-card-title {
-  color: var(--el-color-primary, #409eff);
+  color: var(--color-primary);
 }
 
 .feature-card-desc {
-  font-size: 13px;
-  color: var(--el-text-color-secondary, #909399);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
   margin: 0;
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -3656,14 +3695,14 @@ onUnmounted(() => {
 /* 功能卡片箭头 */
 .feature-card-arrow {
   flex-shrink: 0;
-  font-size: 18px;
-  color: var(--el-text-color-placeholder, #c0c4cc);
-  transition: all 0.3s ease;
+  font-size: var(--font-size-lg);
+  color: var(--color-text-placeholder);
+  transition: all var(--transition-base);
   transform: translateX(0);
 }
 
 .feature-card:hover .feature-card-arrow {
-  color: var(--el-color-primary, #409eff);
+  color: var(--color-primary);
   transform: translateX(4px);
 }
 

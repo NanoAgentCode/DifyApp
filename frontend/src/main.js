@@ -4,6 +4,9 @@ import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import 'highlight.js/styles/vs2015.css' // highlight.js 官方 VS Code 2015 Dark 主题
 import '@/styles/vscode-dark.css' // 自定义 VS Code Dark+ 主题（作为补充，优先级更高）
+import '@/styles/design-tokens.css' // 企业级设计令牌
+import '@/styles/enterprise-base.css' // 企业级基础样式
+import '@/styles/animations.css' // 企业级动画和微交互
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import App from './App.vue'

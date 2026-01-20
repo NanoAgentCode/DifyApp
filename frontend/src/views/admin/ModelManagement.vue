@@ -1545,15 +1545,15 @@ const formatPromptTime = (time) => {
 .form-tip {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-  color: #909399;
-  font-size: 12px;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-xs);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
 }
 
 .form-tip .el-icon {
-  font-size: 14px;
-  color: #409eff;
+  font-size: var(--font-size-sm);
+  color: var(--color-primary);
 }
 
 :deep(.el-form-item) {
@@ -1588,20 +1588,20 @@ const formatPromptTime = (time) => {
 
 /* 高亮默认模型行 */
 :deep(.el-table .default-model-row) {
-  background-color: #ecf5ff !important;
+  background-color: var(--color-bg-active) !important;
 }
 
 :deep(.el-table .default-model-row:hover) {
-  background-color: #d4e8ff !important;
+  background-color: var(--color-primary-light-4) !important;
 }
 
 /* 确保条纹表格中默认模型行也能正确高亮 */
 :deep(.el-table--striped .default-model-row.el-table__row--striped) {
-  background-color: #ecf5ff !important;
+  background-color: var(--color-bg-active) !important;
 }
 
 :deep(.el-table--striped .default-model-row.el-table__row--striped:hover) {
-  background-color: #d4e8ff !important;
+  background-color: var(--color-primary-light-4) !important;
 }
 
 /* 隐藏单选按钮的 label 文本 */

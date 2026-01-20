@@ -1614,25 +1614,37 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ========== 页面容器 ========== */
 .statistics {
-  padding: 0;
+  padding: var(--spacing-lg);
   height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--color-bg-secondary);
 }
 
+/* ========== 卡片样式 ========== */
 :deep(.el-card) {
   height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   margin: 0;
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+  transition: box-shadow var(--transition-base);
+}
+
+:deep(.el-card:hover) {
+  box-shadow: var(--card-shadow-hover);
 }
 
 :deep(.el-card__header) {
   flex-shrink: 0;
-  padding: 12px 16px;
+  padding: var(--spacing-md) var(--card-padding);
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border-lighter);
 }
 
 :deep(.el-card__body) {
@@ -1640,58 +1652,84 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 12px;
+  padding: var(--spacing-md);
   min-height: 0;
+  background: var(--color-bg-primary);
 }
 
+/* ========== 卡片头部 ========== */
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
+.card-header span {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+/* ========== 内容区域 ========== */
 .statistics-content {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  /* 确保滚动条样式统一应用 */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
-  /* 添加底部padding，防止内容被遮挡 */
-  padding-bottom: 20px;
-  /* 确保内容区域有足够的空间 */
+  padding-bottom: var(--spacing-lg);
   box-sizing: border-box;
 }
 
+/* ========== 概览统计卡片 ========== */
 .overview-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-  margin-bottom: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
 }
 
 .stat-card {
   text-align: center;
+  transition: all var(--transition-base);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
 .stat-item {
-  padding: 8px;
+  padding: var(--spacing-md);
 }
 
 .stat-label {
-  font-size: 14px;
-  color: #909399;
-  margin-bottom: 10px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-sm);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .stat-value {
-  font-size: 28px;
-  font-weight: bold;
-  color: #409eff;
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  line-height: var(--line-height-tight);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .chart-card {
-  margin-bottom: 12px;
+  margin-bottom: var(--spacing-lg);
+  transition: all var(--transition-base);
+}
+
+.chart-card:hover {
+  box-shadow: var(--card-shadow-hover);
 }
 
 /* 确保最后一个卡片有足够的底部空间 */
@@ -1768,28 +1806,55 @@ onMounted(() => {
 .chart-container {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 16px;
+  gap: var(--spacing-lg);
 }
 
 /* 饼状图容器 - 使用3列布局，更整齐 */
 .chart-container-pie {
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: var(--spacing-lg);
+}
+
+.chart-item {
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  border: 1px solid var(--color-border-lighter);
+  transition: all var(--transition-base);
+}
+
+.chart-item:hover {
+  box-shadow: var(--shadow-sm);
+  border-color: var(--color-border-base);
+}
+
+.chart-item h3 {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-md);
 }
 
 /* 柱状图和时间曲线容器 - 单列布局 */
 .chart-container .chart-item.full-width {
-  background: #fafafa;
-  border-radius: 6px;
-  padding: 16px;
-  padding-bottom: 16px;
-  border: 1px solid #e4e7ed;
-  transition: all 0.3s;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  border: 1px solid var(--color-border-light);
+  transition: all var(--transition-base);
 }
 
 .chart-container .chart-item.full-width:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  border-color: #c0c4cc;
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-base);
+  transform: translateY(-2px);
+}
+
+.chart-container .chart-item h3 {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-md);
 }
 
 @media (max-width: 1400px) {

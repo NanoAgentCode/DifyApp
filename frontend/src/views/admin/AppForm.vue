@@ -882,12 +882,16 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ========== 页面容器 ========== */
 .app-form {
   width: 100%;
-  max-width: 900px;
+  max-width: 1000px;
   margin: 0 auto;
+  padding: var(--spacing-lg);
+  background: var(--color-bg-secondary);
 }
 
+/* ========== 卡片头部 ========== */
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -897,46 +901,93 @@ onMounted(() => {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--spacing-md);
+}
+
+.header-left span {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+/* ========== 表单区域 ========== */
+:deep(.el-card) {
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--color-border-lighter);
+  transition: box-shadow var(--transition-base);
+}
+
+:deep(.el-card:hover) {
+  box-shadow: var(--card-shadow-hover);
 }
 
 .form-section {
-  margin-bottom: 20px;
-  border: 1px solid #e4e7ed;
+  margin-bottom: var(--spacing-lg);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+}
+
+.form-section:hover {
+  border-color: var(--color-border-base);
+  box-shadow: var(--shadow-sm);
 }
 
 .form-section :deep(.el-card__header) {
-  background-color: #f5f7fa;
-  padding: 15px 20px;
-  border-bottom: 1px solid #e4e7ed;
+  background-color: var(--color-bg-tertiary);
+  padding: var(--spacing-md) var(--card-padding);
+  border-bottom: 1px solid var(--color-border-lighter);
 }
 
 .section-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
 }
 
 .form-section :deep(.el-card__body) {
-  padding: 20px;
+  padding: var(--card-padding);
+  background: var(--color-bg-primary);
 }
 
 .form-section :deep(.el-form-item) {
-  margin-bottom: 22px;
+  margin-bottom: var(--spacing-lg);
+}
+
+.form-section :deep(.el-form-item__label) {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.form-section :deep(.el-input__wrapper) {
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+}
+
+.form-section :deep(.el-input__wrapper:hover) {
+  box-shadow: var(--shadow-xs);
+}
+
+.form-section :deep(.el-input__wrapper.is-focus) {
+  box-shadow: var(--shadow-primary);
 }
 
 .form-item-tip {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
-  line-height: 1.5;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: var(--spacing-xs);
+  line-height: var(--line-height-normal);
 }
 
+/* ========== 表单操作 ========== */
 .form-actions {
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid #e4e7ed;
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--color-border-lighter);
   text-align: center;
+  background: var(--color-bg-tertiary);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
 .form-actions :deep(.el-form-item__content) {
@@ -944,20 +995,37 @@ onMounted(() => {
 }
 
 .form-actions .el-button {
-  margin: 0 10px;
+  margin: 0 var(--spacing-sm);
+  min-width: 100px;
+  transition: all var(--transition-base);
 }
 
-/* 输入字段配置样式 */
+.form-actions .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ========== 输入字段配置 ========== */
 .input-fields-config {
   width: 100%;
 }
 
 .config-header {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #e4e7ed;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-lighter);
+  flex-wrap: wrap;
+}
+
+.config-header .el-button {
+  transition: all var(--transition-base);
+}
+
+.config-header .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
 }
 
 .final-json-preview {
@@ -975,7 +1043,14 @@ onMounted(() => {
 }
 
 .field-card {
-  margin-bottom: 15px;
+  margin-bottom: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+}
+
+.field-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .field-header {
@@ -985,9 +1060,9 @@ onMounted(() => {
 }
 
 .field-title {
-  font-weight: 600;
-  font-size: 15px;
-  color: #303133;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
 }
 
 .select-options {
@@ -1045,18 +1120,25 @@ onMounted(() => {
 }
 
 .icon-radio-icon {
-  color: #409eff;
+  color: var(--color-primary);
   flex-shrink: 0;
+  transition: all var(--transition-base);
+}
+
+.icon-radio-item.is-checked .icon-radio-icon {
+  color: var(--color-primary);
+  transform: scale(1.1);
 }
 
 .icon-radio-label {
-  font-size: 14px;
-  color: #303133;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  transition: all var(--transition-base);
 }
 
 .icon-radio-item.is-checked .icon-radio-label {
-  color: #409eff;
-  font-weight: 500;
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
 }
 
 .custom-icon-input {
@@ -1067,14 +1149,20 @@ onMounted(() => {
 .custom-icon-preview {
   width: 64px;
   height: 64px;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: #f5f7fa;
-  margin-top: 8px;
+  background: var(--color-bg-secondary);
+  margin-top: var(--spacing-sm);
+  transition: all var(--transition-base);
+}
+
+.custom-icon-preview:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-xs);
 }
 
 .custom-icon-preview img {

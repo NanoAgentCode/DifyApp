@@ -152,37 +152,39 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ========== 侧边栏基础样式 ========== */
 .app-sidebar :deep(.el-aside),
 .app-sidebar {
-  width: 56px !important;
-  min-width: 56px !important;
-  max-width: 56px !important;
+  width: var(--sidebar-width) !important;
+  min-width: var(--sidebar-width) !important;
+  max-width: var(--sidebar-width) !important;
 }
 
 .app-sidebar {
-  width: 56px !important;
-  min-width: 56px !important;
-  max-width: 56px !important;
+  width: var(--sidebar-width) !important;
+  min-width: var(--sidebar-width) !important;
+  max-width: var(--sidebar-width) !important;
   position: fixed;
   left: 0;
-  top: 60px !important;
-  z-index: 50;
-  height: calc(100vh - 60px) !important;
+  top: var(--header-height) !important;
+  z-index: var(--z-sticky);
+  height: calc(100vh - var(--header-height)) !important;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   flex-shrink: 0;
   margin: 0 !important;
   padding: 0 !important;
-  background: #fff;
-  border-right: 1px solid #e4e7ed;
-  transition: top 0.3s ease, height 0.3s ease;
+  background: var(--color-bg-primary);
+  border-right: 1px solid var(--color-border-light);
+  transition: top var(--transition-base), height var(--transition-base), box-shadow var(--transition-base);
   box-sizing: border-box;
+  box-shadow: var(--shadow-sm);
 }
 
 .app-sidebar.portal-sidebar:not(.sidebar-header-collapsed) {
-  top: 60px !important;
-  height: calc(100vh - 60px) !important;
+  top: var(--header-height) !important;
+  height: calc(100vh - var(--header-height)) !important;
 }
 
 .app-sidebar.portal-sidebar.sidebar-header-collapsed {
@@ -191,8 +193,8 @@ onMounted(() => {
 }
 
 .app-sidebar:not(.portal-sidebar):not(.sidebar-header-collapsed-non-portal):not(.sidebar-header-collapsed) {
-  top: 60px !important;
-  height: calc(100vh - 60px) !important;
+  top: var(--header-height) !important;
+  height: calc(100vh - var(--header-height)) !important;
 }
 
 .app-sidebar.sidebar-header-collapsed-non-portal {
@@ -200,50 +202,60 @@ onMounted(() => {
   top: 0 !important;
 }
 
+/* ========== Logo 区域 ========== */
 .sidebar-logo {
-  width: 56px;
-  height: 56px;
+  width: var(--sidebar-width);
+  height: var(--header-height);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff;
-  border-bottom: 1px solid #e4e7ed;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
+  border-bottom: 1px solid var(--color-border-light);
   flex-shrink: 0;
   box-sizing: border-box;
+  transition: all var(--transition-base);
+}
+
+.sidebar-logo:hover {
+  background: linear-gradient(135deg, var(--color-primary-light-1) 0%, var(--color-primary) 100%);
 }
 
 .sidebar-logo-img {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
+/* ========== 菜单样式 ========== */
 .menu {
   border-right: none;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  background: #fff;
+  background: var(--color-bg-primary);
   margin: 0 !important;
-  padding: 0 !important;
+  padding: var(--spacing-sm) 0 !important;
   border-radius: 0;
   box-shadow: none;
 }
 
 .menu :deep(.el-menu--collapse) {
-  width: 56px !important;
-  min-width: 56px !important;
-  max-width: 56px !important;
+  width: var(--sidebar-width) !important;
+  min-width: var(--sidebar-width) !important;
+  max-width: var(--sidebar-width) !important;
   padding: 0 !important;
   margin: 0 !important;
   box-sizing: border-box;
+  background: transparent;
 }
 
 .menu :deep(.el-menu) {
   padding: 0 !important;
   margin: 0 !important;
   border: none !important;
+  background: transparent;
 }
 
 .menu :deep(.el-menu--collapse .el-menu-item) {
@@ -251,21 +263,58 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   padding: 0 !important;
-  height: 56px;
-  width: 56px;
-  margin: 0;
+  height: 48px;
+  width: 48px;
+  margin: var(--spacing-xs) auto;
   box-sizing: border-box;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+  position: relative;
+}
+
+.menu :deep(.el-menu--collapse .el-menu-item::before) {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 0;
+  background: var(--color-primary);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  transition: height var(--transition-base);
+}
+
+.menu :deep(.el-menu--collapse .el-menu-item.is-active::before) {
+  height: 24px;
 }
 
 .menu :deep(.el-menu--collapse .el-menu-item .el-icon) {
   margin: 0 !important;
   padding: 0 !important;
-  font-size: 24px;
-  width: 24px;
-  height: 24px;
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all var(--transition-base);
+}
+
+.menu :deep(.el-menu--collapse .el-menu-item:hover) {
+  background-color: var(--color-bg-hover);
+  transform: translateX(2px);
+}
+
+.menu :deep(.el-menu--collapse .el-menu-item.is-active) {
+  background-color: var(--color-bg-active);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.menu :deep(.el-menu--collapse .el-menu-item.is-active .el-icon) {
+  color: var(--color-primary);
+  transform: scale(1.1);
 }
 
 .menu :deep(.el-menu--collapse .el-sub-menu__title) {
@@ -273,36 +322,50 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   padding: 0 !important;
-  height: 56px;
-  width: 56px;
-  margin: 0;
+  height: 48px;
+  width: 48px;
+  margin: var(--spacing-xs) auto;
   box-sizing: border-box;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+}
+
+.menu :deep(.el-menu--collapse .el-sub-menu__title:hover) {
+  background-color: var(--color-bg-hover);
 }
 
 .menu :deep(.el-menu--collapse .el-sub-menu__title .el-icon) {
   margin: 0 !important;
   padding: 0 !important;
-  font-size: 24px;
-  width: 24px;
-  height: 24px;
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.menu :deep(.el-menu-item.is-active) {
-  background-color: #ecf5ff;
-  color: #409eff;
+/* ========== 工具提示样式增强 ========== */
+:deep(.el-tooltip__popper) {
+  background: var(--color-text-primary);
+  color: var(--color-bg-primary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  box-shadow: var(--shadow-lg);
+  border: none;
 }
 
-.menu :deep(.el-menu-item:hover) {
-  background-color: #f5f7fa;
+:deep(.el-tooltip__popper .el-popper__arrow::before) {
+  background: var(--color-text-primary);
+  border: none;
 }
 
+/* ========== 响应式设计 ========== */
 @media (max-width: 1024px) {
   .app-sidebar.portal-sidebar:not(.sidebar-header-collapsed) {
-    top: 50px !important;
-    height: calc(100vh - 50px) !important;
+    top: 56px !important;
+    height: calc(100vh - 56px) !important;
   }
 
   .app-sidebar.portal-sidebar.sidebar-header-collapsed {
@@ -311,13 +374,24 @@ onMounted(() => {
   }
 
   .app-sidebar:not(.portal-sidebar):not(.sidebar-header-collapsed-non-portal) {
-    top: 50px !important;
-    height: calc(100vh - 50px) !important;
+    top: 56px !important;
+    height: calc(100vh - 56px) !important;
   }
 
   .app-sidebar.sidebar-header-collapsed-non-portal {
     top: 0 !important;
     height: 100vh !important;
+  }
+
+  .menu :deep(.el-menu--collapse .el-menu-item) {
+    height: 44px;
+    width: 44px;
+  }
+
+  .menu :deep(.el-menu--collapse .el-menu-item .el-icon) {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
   }
 }
 </style>

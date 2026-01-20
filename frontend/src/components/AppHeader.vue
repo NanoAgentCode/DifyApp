@@ -143,64 +143,71 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ========== 顶部 Logo 占位 ========== */
 .top-logo-placeholder {
   position: fixed;
   top: 0;
   left: 0;
-  width: 60px;
-  height: 60px;
+  width: var(--header-height);
+  height: var(--header-height);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--el-color-primary, #409EFF);
-  z-index: 1001;
-  border-bottom: 1px solid var(--el-border-color-primary-dark-2, rgba(64, 158, 255, 0.8));
-  border-right: 1px solid var(--el-border-color-primary-dark-2, rgba(64, 158, 255, 0.8));
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
+  z-index: calc(var(--z-fixed) + 1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
   box-sizing: border-box;
-  transition: transform 0.3s ease;
+  transition: transform var(--transition-base);
+  box-shadow: var(--shadow-sm);
 }
 
 .top-logo-img {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .top-logo-placeholder.logo-collapsed {
   transform: translateY(-100%);
 }
 
+/* ========== 主头部 ========== */
 .app-header {
   display: flex !important;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 var(--spacing-lg);
   width: 100vw !important;
   max-width: 100vw !important;
-  height: 60px;
-  background: var(--el-color-primary, #409EFF);
-  border-bottom: 1px solid var(--el-border-color-primary-dark-2, rgba(64, 158, 255, 0.8));
+  height: var(--header-height);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  z-index: 1000 !important;
-  transition: transform 0.3s ease;
+  z-index: var(--z-fixed) !important;
+  transition: transform var(--transition-base);
   box-sizing: border-box;
   visibility: visible !important;
   opacity: 1 !important;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(10px);
 }
 
 .app-header.header-collapsed {
   transform: translateY(-100%);
 }
 
+/* ========== 左侧区域 ========== */
 .header-left {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: var(--spacing-md);
   position: relative;
 }
 
@@ -209,93 +216,145 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-xs);
+  transition: all var(--transition-base);
+}
+
+.system-icon:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
 }
 
 .system-logo {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .header-left h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: var(--font-size-xl);
   color: #ffffff;
-  font-weight: 500;
+  font-weight: var(--font-weight-semibold);
   white-space: nowrap;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .collapse-header-button {
-  padding: 8px;
-  color: #ffffff;
-  background-color: transparent;
-  transition: color 0.2s, background-color 0.2s;
+  padding: var(--spacing-sm);
+  color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
   flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .collapse-header-button:hover,
 .collapse-header-button:focus {
   color: #ffffff;
-  background-color: rgba(128, 128, 128, 0.3);
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.collapse-header-button:active {
+  transform: translateY(0);
 }
 
 .collapse-header-button:focus-visible {
-  outline: none;
-  background-color: rgba(128, 128, 128, 0.3);
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
 }
 
+/* ========== 右侧区域 ========== */
 .header-right {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--spacing-md);
   position: relative;
-  z-index: 1001;
+  z-index: calc(var(--z-fixed) + 1);
 }
 
 .user-info {
   display: flex;
   align-items: center;
-  gap: 5px;
-  color: white;
+  gap: var(--spacing-sm);
+  color: rgba(255, 255, 255, 0.95);
   cursor: pointer;
-  padding: 5px 10px;
-  border-radius: 4px;
-  transition: background-color 0.3s;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-weight: var(--font-weight-medium);
 }
 
 .user-info:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
+.user-info:active {
+  transform: translateY(0);
+}
+
+.user-info .el-icon {
+  font-size: 18px;
+}
+
+.user-info span {
+  font-size: var(--font-size-sm);
+}
+
+/* ========== 展开按钮 ========== */
 .expand-header-button {
   position: fixed;
-  top: 10px;
+  top: var(--spacing-md);
   left: 50%;
   transform: translateX(-50%);
-  z-index: 999;
-  animation: slideDown 0.3s ease;
+  z-index: calc(var(--z-fixed) - 1);
+  animation: slideDown var(--transition-base);
   pointer-events: auto;
 }
 
 .expand-header-button :deep(.el-button) {
-  background-color: transparent !important;
-  border-color: transparent !important;
-  color: #909399 !important;
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: var(--color-border-light) !important;
+  color: var(--color-text-primary) !important;
+  box-shadow: var(--shadow-md) !important;
+  transition: all var(--transition-base) !important;
 }
 
 .expand-header-button :deep(.el-button:hover),
 .expand-header-button :deep(.el-button:focus) {
-  background-color: rgba(128, 128, 128, 0.3) !important;
-  border-color: rgba(128, 128, 128, 0.3) !important;
-  color: #909399 !important;
+  background-color: #ffffff !important;
+  border-color: var(--color-primary) !important;
+  color: var(--color-primary) !important;
+  box-shadow: var(--shadow-primary) !important;
+  transform: translateY(-2px) !important;
+}
+
+.expand-header-button :deep(.el-button:active) {
+  transform: translateY(0) !important;
 }
 
 .expand-header-button :deep(.el-button:focus-visible) {
-  outline: none;
-  background-color: rgba(128, 128, 128, 0.3) !important;
+  outline: 2px solid var(--color-primary-light-3);
+  outline-offset: 2px;
 }
 
+/* ========== 动画 ========== */
 @keyframes slideDown {
   from {
     opacity: 0;
@@ -307,20 +366,48 @@ onMounted(() => {
   }
 }
 
+/* ========== 响应式设计 ========== */
 @media (max-width: 1024px) {
   .app-header {
-    padding: 0 12px;
-    height: 50px;
+    padding: 0 var(--spacing-md);
+    height: 56px;
   }
 
   .header-left h2 {
-    font-size: 16px;
+    font-size: var(--font-size-lg);
+  }
+
+  .system-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .system-logo {
+    width: 24px;
+    height: 24px;
   }
 }
 
 @media (max-width: 768px) {
+  .app-header {
+    padding: 0 var(--spacing-sm);
+    height: 52px;
+  }
+
+  .header-left {
+    gap: var(--spacing-sm);
+  }
+
   .header-left h2 {
-    font-size: 14px;
+    font-size: var(--font-size-md);
+  }
+
+  .user-info span {
+    display: none;
+  }
+
+  .user-info {
+    padding: var(--spacing-xs) var(--spacing-sm);
   }
 }
 </style>

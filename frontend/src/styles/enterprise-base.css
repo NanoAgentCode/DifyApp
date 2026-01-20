@@ -1,0 +1,346 @@
+/**
+ * 企业级基础样式
+ * 基于设计令牌构建的基础样式系统
+ */
+
+@import './design-tokens.css';
+
+/* ========== 全局重置和基础样式 ========== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-secondary);
+  overflow: hidden;
+}
+
+/* ========== 滚动条样式 ========== */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: var(--radius-sm);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-base);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+/* ========== 链接样式 ========== */
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--color-primary-dark-1);
+}
+
+a:active {
+  color: var(--color-primary-dark-2);
+}
+
+/* ========== 标题样式 ========== */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+h1 { font-size: var(--font-size-3xl); }
+h2 { font-size: var(--font-size-2xl); }
+h3 { font-size: var(--font-size-xl); }
+h4 { font-size: var(--font-size-lg); }
+h5 { font-size: var(--font-size-md); }
+h6 { font-size: var(--font-size-base); }
+
+/* ========== 工具类 ========== */
+
+/* 文本工具类 */
+.text-primary { color: var(--color-text-primary); }
+.text-regular { color: var(--color-text-regular); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-placeholder { color: var(--color-text-placeholder); }
+.text-disabled { color: var(--color-text-disabled); }
+
+.text-xs { font-size: var(--font-size-xs); }
+.text-sm { font-size: var(--font-size-sm); }
+.text-base { font-size: var(--font-size-base); }
+.text-md { font-size: var(--font-size-md); }
+.text-lg { font-size: var(--font-size-lg); }
+.text-xl { font-size: var(--font-size-xl); }
+
+.font-light { font-weight: var(--font-weight-light); }
+.font-normal { font-weight: var(--font-weight-normal); }
+.font-medium { font-weight: var(--font-weight-medium); }
+.font-semibold { font-weight: var(--font-weight-semibold); }
+.font-bold { font-weight: var(--font-weight-bold); }
+
+/* 间距工具类 */
+.m-0 { margin: 0; }
+.m-xs { margin: var(--spacing-xs); }
+.m-sm { margin: var(--spacing-sm); }
+.m-md { margin: var(--spacing-md); }
+.m-lg { margin: var(--spacing-lg); }
+.m-xl { margin: var(--spacing-xl); }
+
+.p-0 { padding: 0; }
+.p-xs { padding: var(--spacing-xs); }
+.p-sm { padding: var(--spacing-sm); }
+.p-md { padding: var(--spacing-md); }
+.p-lg { padding: var(--spacing-lg); }
+.p-xl { padding: var(--spacing-xl); }
+
+/* 圆角工具类 */
+.rounded-sm { border-radius: var(--radius-sm); }
+.rounded-md { border-radius: var(--radius-md); }
+.rounded-lg { border-radius: var(--radius-lg); }
+.rounded-xl { border-radius: var(--radius-xl); }
+.rounded-full { border-radius: var(--radius-full); }
+
+/* 阴影工具类 */
+.shadow-xs { box-shadow: var(--shadow-xs); }
+.shadow-sm { box-shadow: var(--shadow-sm); }
+.shadow-md { box-shadow: var(--shadow-md); }
+.shadow-lg { box-shadow: var(--shadow-lg); }
+.shadow-xl { box-shadow: var(--shadow-xl); }
+
+/* 过渡工具类 */
+.transition-fast { transition: all var(--transition-fast); }
+.transition-base { transition: all var(--transition-base); }
+.transition-slow { transition: all var(--transition-slow); }
+
+/* ========== Element Plus 组件样式覆盖 ========== */
+
+/* 卡片样式增强 */
+:deep(.el-card) {
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--color-border-lighter);
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+:deep(.el-card:hover) {
+  box-shadow: var(--card-shadow-hover);
+}
+
+:deep(.el-card__header) {
+  padding: var(--spacing-md) var(--card-padding);
+  border-bottom: 1px solid var(--color-border-lighter);
+  background-color: var(--color-bg-tertiary);
+  font-weight: var(--font-weight-medium);
+}
+
+:deep(.el-card__body) {
+  padding: var(--card-padding);
+}
+
+/* 按钮样式增强 */
+:deep(.el-button) {
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-normal);
+  transition: all var(--transition-base);
+}
+
+:deep(.el-button--primary) {
+  box-shadow: var(--shadow-xs);
+}
+
+:deep(.el-button--primary:hover) {
+  box-shadow: var(--shadow-primary);
+  transform: translateY(-1px);
+}
+
+:deep(.el-button--primary:active) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-xs);
+}
+
+/* 输入框样式增强 */
+:deep(.el-input__wrapper) {
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+}
+
+:deep(.el-input__wrapper:hover) {
+  box-shadow: var(--shadow-xs);
+}
+
+:deep(.el-input__wrapper.is-focus) {
+  box-shadow: var(--shadow-primary);
+}
+
+/* 表格样式增强 */
+:deep(.el-table) {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+:deep(.el-table__header) {
+  background-color: var(--table-header-bg);
+}
+
+:deep(.el-table th) {
+  background-color: var(--table-header-bg);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  border-bottom: 2px solid var(--color-border-base);
+}
+
+:deep(.el-table td) {
+  border-bottom: 1px solid var(--table-border-color);
+}
+
+:deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
+  background-color: var(--color-bg-tertiary);
+}
+
+:deep(.el-table__body tr:hover > td) {
+  background-color: var(--table-row-hover-bg);
+}
+
+/* 标签样式增强 */
+:deep(.el-tag) {
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-normal);
+  border: none;
+  padding: 2px var(--spacing-sm);
+}
+
+/* 对话框样式增强 */
+:deep(.el-dialog) {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-2xl);
+}
+
+:deep(.el-dialog__header) {
+  padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-lighter);
+}
+
+:deep(.el-dialog__body) {
+  padding: var(--spacing-lg);
+}
+
+/* 菜单样式增强 */
+:deep(.el-menu) {
+  border: none;
+}
+
+:deep(.el-menu-item) {
+  border-radius: var(--radius-md);
+  margin: var(--spacing-xs) var(--spacing-sm);
+  transition: all var(--transition-base);
+}
+
+:deep(.el-menu-item:hover) {
+  background-color: var(--color-bg-hover);
+}
+
+:deep(.el-menu-item.is-active) {
+  background-color: var(--color-bg-active);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* ========== 响应式设计 ========== */
+@media (max-width: 1024px) {
+  :deep(.el-table) { 
+    font-size: var(--font-size-sm); 
+  }
+  
+  :deep(.el-table th),
+  :deep(.el-table td) { 
+    padding: var(--spacing-sm) var(--spacing-xs); 
+  }
+  
+  :deep(.el-card__body) { 
+    padding: var(--spacing-md); 
+  }
+  
+  :deep(.el-button) { 
+    padding: var(--spacing-sm) var(--spacing-md); 
+    font-size: var(--font-size-sm); 
+  }
+  
+  :deep(.el-input__inner),
+  :deep(.el-textarea__inner) { 
+    font-size: var(--font-size-sm); 
+  }
+  
+  :deep(.el-dialog__body) { 
+    padding: var(--spacing-md); 
+  }
+  
+  :deep(.el-form-item__label) { 
+    font-size: var(--font-size-sm); 
+    padding-bottom: var(--spacing-xs); 
+  }
+  
+  :deep(.el-form-item) { 
+    margin-bottom: var(--spacing-md); 
+  }
+}
+
+@media (max-width: 768px) {
+  :deep(.el-table) { 
+    font-size: var(--font-size-xs); 
+  }
+  
+  :deep(.el-table th),
+  :deep(.el-table td) { 
+    padding: var(--spacing-xs) var(--spacing-xs); 
+  }
+  
+  :deep(.el-card__body) { 
+    padding: var(--spacing-sm); 
+  }
+  
+  :deep(.el-button) { 
+    padding: var(--spacing-xs) var(--spacing-sm); 
+    font-size: var(--font-size-xs); 
+  }
+  
+  :deep(.el-dialog__body) { 
+    padding: var(--spacing-md); 
+  }
+  
+  :deep(.el-form-item) { 
+    margin-bottom: var(--spacing-md); 
+  }
+  
+  :deep(.el-dialog) { 
+    width: 95% !important; 
+    margin: 5vh auto !important; 
+  }
+}

@@ -124,12 +124,13 @@ const goToRegister = () => {
 </script>
 
 <style scoped>
+/* ========== 登录容器 ========== */
 .login-container {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--el-color-primary, #409EFF) 0%, var(--el-color-primary-dark-2, #337ECC) 50%, var(--el-color-primary-dark-2, #2B6CB0) 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 50%, var(--color-primary-dark-2) 100%);
   position: relative;
   overflow: hidden;
 }
@@ -155,92 +156,147 @@ const goToRegister = () => {
   }
 }
 
+/* ========== 登录框 ========== */
 .login-box {
   width: 420px;
-  padding: 50px 40px;
+  padding: var(--spacing-3xl) var(--spacing-2xl);
   background: rgba(255, 255, 255, 0.98);
-  border-radius: 12px;
-  box-shadow: 0 15px 50px var(--el-color-primary-rgba-03, rgba(64, 158, 255, 0.25));
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-2xl), 0 15px 50px rgba(64, 158, 255, 0.25);
   position: relative;
-  z-index: 1;
+  z-index: var(--z-base);
   backdrop-filter: blur(10px);
+  transition: all var(--transition-base);
+  animation: scaleIn var(--transition-base) ease-out;
 }
 
+.login-box:hover {
+  box-shadow: var(--shadow-2xl), 0 20px 60px rgba(64, 158, 255, 0.3);
+}
+
+/* ========== 标题 ========== */
 .title {
   text-align: center;
-  margin-bottom: 40px;
-  color: var(--el-color-primary, #409EFF);
-  font-size: 28px;
-  font-weight: 600;
+  margin-bottom: var(--spacing-2xl);
+  color: var(--color-primary);
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 1px;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
+/* ========== 表单 ========== */
 .login-form {
-  margin-top: 20px;
+  margin-top: var(--spacing-lg);
+}
+
+.login-form :deep(.el-form-item) {
+  margin-bottom: var(--spacing-lg);
 }
 
 .login-form :deep(.el-input__wrapper) {
-  border-radius: 6px;
-  box-shadow: 0 0 0 1px #dcdfe6 inset;
-  transition: all 0.3s;
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 1px var(--color-border-base) inset;
+  transition: all var(--transition-base);
+  background: var(--color-bg-primary);
 }
 
 .login-form :deep(.el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px var(--el-color-primary, #409EFF) inset;
+  box-shadow: 0 0 0 1px var(--color-primary-light-2) inset, var(--shadow-xs);
 }
 
 .login-form :deep(.el-input.is-focus .el-input__wrapper) {
-  box-shadow: 0 0 0 1px var(--el-color-primary, #409EFF) inset;
+  box-shadow: var(--shadow-primary);
+  border-color: var(--color-primary);
 }
 
 .login-form :deep(.el-input__inner) {
-  color: #333;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
 }
 
 .login-form :deep(.el-input__prefix) {
-  color: var(--el-color-primary, #409EFF);
+  color: var(--color-primary);
 }
 
+/* ========== 登录按钮 ========== */
 .login-button {
   width: 100%;
-  background: linear-gradient(135deg, var(--el-color-primary, #409EFF) 0%, var(--el-color-primary-dark-2, #337ECC) 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
   border: none;
-  border-radius: 6px;
-  font-size: 16px;
-  font-weight: 500;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
   height: 44px;
-  transition: all 0.3s;
-  box-shadow: 0 4px 12px var(--el-color-primary-rgba-04, rgba(64, 158, 255, 0.3));
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-primary);
+  color: #ffffff;
 }
 
 .login-button:hover {
-  background: linear-gradient(135deg, var(--el-color-primary-light-3, #66B1FF) 0%, var(--el-color-primary, #409EFF) 100%);
-  box-shadow: 0 6px 16px var(--el-color-primary-rgba-05, rgba(64, 158, 255, 0.4));
+  background: linear-gradient(135deg, var(--color-primary-light-1) 0%, var(--color-primary) 100%);
+  box-shadow: var(--shadow-primary-lg);
   transform: translateY(-2px);
 }
 
 .login-button:active {
   transform: translateY(0);
+  box-shadow: var(--shadow-primary);
 }
 
+.login-button:focus {
+  outline: 2px solid var(--color-primary-light-3);
+  outline-offset: 2px;
+}
+
+/* ========== 注册链接 ========== */
 .register-link {
   text-align: center;
   width: 100%;
-  color: #606266;
-  font-size: 14px;
+  color: var(--color-text-regular);
+  font-size: var(--font-size-sm);
 }
 
 .register-link span {
-  margin-right: 8px;
+  margin-right: var(--spacing-sm);
 }
 
 .register-link :deep(.el-link) {
-  color: var(--el-color-primary, #409EFF);
-  font-weight: 500;
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+  transition: color var(--transition-base);
 }
 
 .register-link :deep(.el-link:hover) {
-  color: var(--el-color-primary-light-3, #66B1FF);
+  color: var(--color-primary-light-1);
+}
+
+/* ========== 响应式设计 ========== */
+@media (max-width: 768px) {
+  .login-box {
+    width: 90%;
+    max-width: 400px;
+    padding: var(--spacing-2xl) var(--spacing-lg);
+  }
+
+  .title {
+    font-size: var(--font-size-2xl);
+    margin-bottom: var(--spacing-xl);
+  }
+}
+
+@media (max-width: 480px) {
+  .login-box {
+    width: 95%;
+    padding: var(--spacing-xl) var(--spacing-md);
+  }
+
+  .title {
+    font-size: var(--font-size-xl);
+  }
 }
 </style>
 

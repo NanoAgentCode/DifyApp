@@ -77,10 +77,12 @@ onMounted(async () => {
 <style scoped>
 .app-layout {
   height: 100vh;
+  background: var(--color-bg-secondary);
 }
 
 .main {
   padding: 0;
-  background: #f5f7fa;
+  background: var(--color-bg-secondary);
+  overflow: hidden;
 }
 </style>

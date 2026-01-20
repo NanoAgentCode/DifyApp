@@ -609,17 +609,33 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* ========== 页面容器 ========== */
 .document-reader-management {
   height: 100%;
   width: 100%;
   box-sizing: border-box;
   overflow-x: hidden;
+  padding: var(--spacing-lg);
+  background: var(--color-bg-secondary);
 }
 
 .document-reader-management :deep(.el-card) {
   height: 100%;
   display: flex;
   flex-direction: column;
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+  transition: box-shadow var(--transition-base);
+}
+
+.document-reader-management :deep(.el-card:hover) {
+  box-shadow: var(--card-shadow-hover);
+}
+
+.document-reader-management :deep(.el-card__header) {
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border-lighter);
+  padding: var(--spacing-md) var(--card-padding);
 }
 
 .document-reader-management :deep(.el-card__body) {
@@ -627,30 +643,37 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 20px; /* 确保与内层 card body 的 padding 一致 */
+  padding: var(--card-padding);
+  background: var(--color-bg-primary);
 }
 
+/* ========== 区域标题 ========== */
 .section-title {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 var(--card-padding);
 }
 
 .section-title-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--spacing-md);
 }
 
 .doc-list-section :deep(.el-card__header) {
-  padding: 18px 20px;
+  padding: var(--spacing-md) var(--card-padding);
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border-lighter);
 }
 
 .section-title-text {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
 }
 
 .doc-list-section {
@@ -677,23 +700,53 @@ onUnmounted(() => {
 }
 
 .search-filter-bar {
-  margin-bottom: 16px;
+  margin-bottom: var(--spacing-md);
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
+  padding: var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-lighter);
+  gap: var(--spacing-md);
 }
 
 .search-left {
   display: flex;
   align-items: center;
   flex: 1;
+  gap: var(--spacing-md);
+}
+
+.search-left :deep(.el-input__wrapper),
+.search-left :deep(.el-select .el-input__wrapper) {
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+}
+
+.search-left :deep(.el-input__wrapper:hover) {
+  box-shadow: var(--shadow-xs);
+}
+
+.search-left :deep(.el-input__wrapper.is-focus) {
+  box-shadow: var(--shadow-primary);
 }
 
 .search-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--spacing-md);
+  flex-shrink: 0;
+}
+
+.search-right .el-button {
+  transition: all var(--transition-base);
+}
+
+.search-right .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .cards-wrapper {
@@ -722,7 +775,7 @@ onUnmounted(() => {
 .documents-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px;
+  gap: var(--spacing-md);
   padding: 0;
 }
 
@@ -736,21 +789,23 @@ onUnmounted(() => {
 @media (max-width: 768px) {
   .documents-grid {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 12px;
+    gap: var(--spacing-sm);
   }
 }
 
 .document-card {
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--transition-base);
   width: 100%;
   min-height: 240px;
   max-height: 320px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  border: 1px solid var(--color-border-lighter);
+  box-shadow: var(--shadow-xs);
 }
 
 .document-card :deep(.el-card__body) {
@@ -760,11 +815,13 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   flex: 1;
+  background: var(--color-bg-primary);
 }
 
 .document-card:hover {
   transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-primary);
 }
 
 .card-content {
@@ -784,9 +841,14 @@ onUnmounted(() => {
 
 .file-type-icon {
   font-size: 48px;
-  color: var(--el-color-primary);
-  margin-bottom: 8px;
+  color: var(--color-primary);
+  margin-bottom: var(--spacing-sm);
   flex-shrink: 0;
+  transition: all var(--transition-base);
+}
+
+.document-card:hover .file-type-icon {
+  transform: scale(1.1);
 }
 
 @media (max-width: 768px) {
@@ -882,17 +944,17 @@ onUnmounted(() => {
 }
 
 .file-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--el-text-color-primary);
-  margin-bottom: 8px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
-  line-height: 1.4;
+  line-height: var(--line-height-normal);
   text-align: center;
   word-break: break-word;
   min-height: 36px;
@@ -929,23 +991,49 @@ onUnmounted(() => {
 
 .card-footer {
   display: flex;
-  gap: 6px;
+  gap: var(--spacing-xs);
   justify-content: center;
-  padding: 8px 10px;
-  border-top: 1px solid var(--el-border-color-lighter);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-top: 1px solid var(--color-border-lighter);
   margin-top: auto;
+  background: var(--color-bg-tertiary);
 }
 
 .card-footer .el-button {
   width: 28px;
   height: 28px;
   padding: 0;
+  transition: all var(--transition-base);
+  border-radius: var(--radius-sm);
+}
+
+.card-footer .el-button:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-xs);
 }
 
 .pagination {
-  margin-top: 20px;
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
   display: flex;
   justify-content: flex-end;
+  background: var(--color-bg-tertiary);
+  border-top: 1px solid var(--color-border-lighter);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+:deep(.el-pagination .el-pager li) {
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-base);
+}
+
+:deep(.el-pagination .el-pager li:hover) {
+  background-color: var(--color-bg-hover);
+}
+
+:deep(.el-pagination .el-pager li.is-active) {
+  background-color: var(--color-primary);
+  color: #ffffff;
 }
 </style>
 

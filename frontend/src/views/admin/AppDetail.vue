@@ -100,10 +100,32 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ========== 页面容器 ========== */
 .app-detail {
   width: 100%;
+  padding: var(--spacing-lg);
+  background: var(--color-bg-secondary);
 }
 
+/* ========== 卡片样式 ========== */
+:deep(.el-card) {
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--color-border-lighter);
+  transition: box-shadow var(--transition-base);
+}
+
+:deep(.el-card:hover) {
+  box-shadow: var(--card-shadow-hover);
+}
+
+:deep(.el-card__header) {
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border-lighter);
+  padding: var(--spacing-md) var(--card-padding);
+}
+
+/* ========== 卡片头部 ========== */
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -113,11 +135,107 @@ onMounted(() => {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--spacing-md);
+}
+
+.header-left span {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
 }
 
 .header-left .app-icon {
   flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xs);
+  transition: all var(--transition-base);
+}
+
+.header-left .app-icon:hover {
+  background: var(--color-bg-hover);
+  transform: scale(1.05);
+}
+
+.card-header .el-button {
+  transition: all var(--transition-base);
+}
+
+.card-header .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ========== 描述列表样式 ========== */
+:deep(.el-descriptions) {
+  background: var(--color-bg-primary);
+}
+
+:deep(.el-descriptions__header) {
+  margin-bottom: var(--spacing-md);
+}
+
+:deep(.el-descriptions__title) {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+:deep(.el-descriptions__label) {
+  color: var(--color-text-regular);
+  font-weight: var(--font-weight-medium);
+  background: var(--color-bg-tertiary);
+}
+
+:deep(.el-descriptions__content) {
+  color: var(--color-text-primary);
+}
+
+:deep(.el-descriptions__table) {
+  border: 1px solid var(--color-border-lighter);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+:deep(.el-descriptions__table td),
+:deep(.el-descriptions__table th) {
+  border-color: var(--color-border-lighter);
+}
+
+/* ========== 标签样式 ========== */
+:deep(.el-tag) {
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-normal);
+  border: none;
+  padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+/* ========== 响应式设计 ========== */
+@media (max-width: 768px) {
+  .app-detail {
+    padding: var(--spacing-md);
+  }
+
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+  }
+
+  .card-header > div:last-child {
+    width: 100%;
+    display: flex;
+    gap: var(--spacing-sm);
+  }
+
+  .card-header .el-button {
+    flex: 1;
+  }
 }
 </style>
 

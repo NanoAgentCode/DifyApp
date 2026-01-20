@@ -785,37 +785,48 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* ========== 页面容器 ========== */
 .document-management {
-  padding: 0;
+  padding: var(--spacing-lg);
   height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--color-bg-secondary);
 }
 
+/* ========== 卡片样式 ========== */
 :deep(.el-card) {
-  border-radius: 8px;
+  border-radius: var(--card-border-radius);
   height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-shadow: var(--card-shadow);
+  transition: box-shadow var(--transition-base);
+}
+
+:deep(.el-card:hover) {
+  box-shadow: var(--card-shadow-hover);
 }
 
 :deep(.el-card__header) {
-  padding: 16px 20px;
-  border-bottom: 1px solid #f0f0f0;
-  background: #fafafa;
+  padding: var(--spacing-md) var(--card-padding);
+  border-bottom: 1px solid var(--color-border-lighter);
+  background: var(--color-bg-tertiary);
   flex-shrink: 0;
 }
 
 :deep(.el-card__body) {
-  padding: 20px;
+  padding: var(--card-padding);
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
+  background: var(--color-bg-primary);
 }
 
+/* ========== 卡片头部 ========== */
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -825,29 +836,36 @@ onUnmounted(() => {
 .header-left {
   display: flex;
   align-items: center;
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  gap: var(--spacing-md);
 }
 
 .header-left .el-button {
-  color: #606266;
-  font-size: 14px;
+  color: var(--color-text-regular);
+  font-size: var(--font-size-sm);
+  transition: all var(--transition-base);
 }
 
+.header-left .el-button:hover {
+  color: var(--color-primary);
+}
+
+/* ========== 区域标题 ========== */
 .section-title {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .section-title-text {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 15px;
-  color: #303133;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
 }
 
 .upload-section {
@@ -856,23 +874,36 @@ onUnmounted(() => {
 
 .upload-card,
 .recent-uploads-card {
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+}
+
+.upload-card:hover,
+.recent-uploads-card:hover {
+  border-color: var(--color-border-base);
+  box-shadow: var(--shadow-sm);
 }
 
 .upload-content {
-  padding: 10px 0;
+  padding: var(--spacing-sm) 0;
 }
 
 .upload-actions {
   display: flex;
-  gap: 10px;
-  margin-top: 16px;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
   justify-content: center;
 }
 
 .upload-actions .el-button {
   min-width: 100px;
+  transition: all var(--transition-base);
+}
+
+.upload-actions .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 :deep(.upload-dragger) {
@@ -882,15 +913,16 @@ onUnmounted(() => {
 :deep(.upload-dragger .el-upload-dragger) {
   width: 100%;
   height: 180px;
-  border: 2px dashed #d9d9d9;
-  border-radius: 6px;
-  background: #fafafa;
-  transition: all 0.3s;
+  border: 2px dashed var(--color-border-base);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  transition: all var(--transition-base);
 }
 
 :deep(.upload-dragger .el-upload-dragger:hover) {
-  border-color: #409eff;
-  background: #f0f7ff;
+  border-color: var(--color-primary);
+  background: var(--color-primary-light-5);
+  box-shadow: var(--shadow-xs);
 }
 
 :deep(.upload-dragger .el-icon--upload) {
@@ -926,9 +958,26 @@ onUnmounted(() => {
 .search-filter-bar {
   display: flex;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: var(--spacing-md);
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-lighter);
+}
+
+.search-filter-bar :deep(.el-input__wrapper) {
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+}
+
+.search-filter-bar :deep(.el-input__wrapper:hover) {
+  box-shadow: var(--shadow-xs);
+}
+
+.search-filter-bar :deep(.el-input__wrapper.is-focus) {
+  box-shadow: var(--shadow-primary);
 }
 
 .doc-list-section {
@@ -972,9 +1021,27 @@ onUnmounted(() => {
 
 .pagination {
   flex-shrink: 0;
-  margin-top: 20px;
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
   display: flex;
   justify-content: flex-end;
+  background: var(--color-bg-tertiary);
+  border-top: 1px solid var(--color-border-lighter);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+:deep(.el-pagination .el-pager li) {
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-base);
+}
+
+:deep(.el-pagination .el-pager li:hover) {
+  background-color: var(--color-bg-hover);
+}
+
+:deep(.el-pagination .el-pager li.is-active) {
+  background-color: var(--color-primary);
+  color: #ffffff;
 }
 
 .file-name-cell {
