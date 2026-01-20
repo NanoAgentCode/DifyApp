@@ -15,8 +15,11 @@ public class ApiResponse<T> {
     private String message;
     private T data;
     private Integer code;
+    private Long timestamp;
+    private String path;
     
     public ApiResponse() {
+        this.timestamp = System.currentTimeMillis();
     }
     
     public ApiResponse(boolean success, String message, T data, Integer code) {
@@ -24,6 +27,7 @@ public class ApiResponse<T> {
         this.message = message;
         this.data = data;
         this.code = code;
+        this.timestamp = System.currentTimeMillis();
     }
     
     /**
