@@ -11,7 +11,10 @@
         <div class="system-icon">
           <img src="/logo.svg" alt="系统图标" class="system-logo" />
         </div>
-        <h2>NanoAgent Workbench</h2>
+      </div>
+      <!-- 标题居中显示 -->
+      <div class="header-center">
+        <h2 class="header-title">NanoAgent Workbench</h2>
         <el-tooltip :content="isCollapsed ? '展开顶部' : '收起顶部'" placement="bottom">
           <el-button type="text" @click="toggleCollapse" class="collapse-header-button">
             <el-icon><ArrowUp v-if="!isCollapsed" /><ArrowDown v-else /></el-icon>
@@ -155,11 +158,10 @@ onMounted(() => {
   justify-content: center;
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
   z-index: calc(var(--z-fixed) + 1);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
   box-sizing: border-box;
   transition: transform var(--transition-base);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(10px);
 }
 
 .top-logo-img {
@@ -206,7 +208,7 @@ onMounted(() => {
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: var(--spacing-md);
   position: relative;
 }
@@ -222,6 +224,8 @@ onMounted(() => {
   border-radius: var(--radius-md);
   padding: var(--spacing-xs);
   transition: all var(--transition-base);
+  position: relative;
+  z-index: 2;
 }
 
 .system-icon:hover {
@@ -236,14 +240,31 @@ onMounted(() => {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
-.header-left h2 {
+/* ========== 中间区域（标题和收起按钮） ========== */
+.header-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  z-index: calc(var(--z-fixed) + 1);
+}
+
+/* ========== 标题居中 ========== */
+.header-title {
   margin: 0;
+  padding-left: 15%; /* 60px / 1920px ≈ 3.125% (基于常见桌面宽度) */
   font-size: var(--font-size-xl);
   color: #ffffff;
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
   letter-spacing: 0.5px;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+  min-width: max-content;
+  text-align: center;
 }
 
 .collapse-header-button {
@@ -254,6 +275,9 @@ onMounted(() => {
   transition: all var(--transition-base);
   flex-shrink: 0;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
 }
 
 .collapse-header-button:hover,
@@ -276,9 +300,10 @@ onMounted(() => {
 
 /* ========== 右侧区域 ========== */
 .header-right {
-  flex: 0 0 auto;
+  flex: 1;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--spacing-md);
   position: relative;
   z-index: calc(var(--z-fixed) + 1);
@@ -373,8 +398,17 @@ onMounted(() => {
     height: 56px;
   }
 
-  .header-left h2 {
+  .top-logo-placeholder {
+    width: 56px;
+    height: 56px;
+  }
+
+  .header-title {
     font-size: var(--font-size-lg);
+  }
+
+  .header-center {
+    gap: var(--spacing-xs);
   }
 
   .system-icon {
@@ -394,12 +428,25 @@ onMounted(() => {
     height: 52px;
   }
 
+  .top-logo-placeholder {
+    width: 52px;
+    height: 52px;
+  }
+
   .header-left {
     gap: var(--spacing-sm);
   }
 
-  .header-left h2 {
+  .header-center {
+    gap: var(--spacing-xs);
+  }
+
+  .header-title {
     font-size: var(--font-size-md);
+    /* 在小屏幕上，如果空间不足，可以稍微调整位置 */
+    max-width: calc(100vw - 200px);
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .user-info span {
