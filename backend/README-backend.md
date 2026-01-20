@@ -15,6 +15,7 @@ DifyApp 后端是一个基于 Java 的企业级后端应用，提供用户认证
 - **安全认证**：JWT 令牌认证，Spring Security 加密
 - **统一规范**：统一异常处理、统一 API 响应格式
 - **日志与分析**：集成用户行为日志采集，支持 Elasticsearch 分析
+- **数据分析**：Neo4j 图数据库集成，支持数据同步和关系可视化
 - **上下文优化**：新增上下文压缩服务，提升长对话处理效率
 - **实体架构优化**：统一的 BaseEntity 设计，移除中间层实体，简化继承结构
 - **完善的填充逻辑**：所有实体类自动填充 BaseEntity 字段，确保数据完整性
@@ -32,8 +33,9 @@ DifyApp 后端是一个基于 Java 的企业级后端应用，提供用户认证
 ### 数据库支持
 
 - **关系型数据库**: PostgreSQL / MySQL / Oracle
-- **NoSQL数据库**: MongoDB / Neo4j
-- **搜索引擎**: Elasticsearch
+- **NoSQL数据库**: MongoDB
+- **图数据库**: Neo4j (用于数据分析和关系可视化)
+- **搜索引擎**: Elasticsearch (用于用户行为日志存储和检索)
 - **向量数据库**: 
   - Chroma
   - FAISS (本地文件存储)
@@ -85,6 +87,8 @@ graph TB
         DB[(关系型数据库<br/>PostgreSQL/MySQL)]
         Redis[(Redis<br/>缓存)]
         VectorDB[(向量数据库<br/>Chroma/FAISS/Milvus等)]
+        Neo4j[(Neo4j<br/>图数据库)]
+        ES[(Elasticsearch<br/>日志存储)]
         RustFS[RustFS<br/>对象存储<br/>S3兼容]
     end
     
@@ -99,6 +103,8 @@ graph TB
     Repository --> DB
     Service --> Redis
     Service --> VectorDB
+    Service --> Neo4j
+    Service --> ES
     Service --> RustFS
     Service --> DifyAPI
     Service --> EmbeddingAPI
@@ -249,7 +255,7 @@ graph LR
 
 ## 模块说明
 
-系统采用模块化设计，主要包含以下11个核心模块（按主应用类中的模块化结构顺序）：
+系统采用模块化设计，主要包含以下13个核心模块（按主应用类中的模块化结构顺序）：
 
 1. **auth** - 认证模块（登录、注册、JWT）
 2. **permission** - 权限管理模块（可见性控制）
@@ -258,10 +264,12 @@ graph LR
 5. **documentreader** - 文档解读模块
 6. **system** - 系统配置模块
 7. **statistics** - 数据统计模块
-8. **mcp** - MCP服务集成模块（浏览器搜索、时间服务等）
-9. **model** - 模型配置模块（问答模型、向量化模型配置管理）
-10. **datasource** - 数据源管理模块（数据源配置、连接管理、表结构管理）
-11. **common** - 公共组件模块（工具类、异常、响应格式）
+8. **analysis** - 数据分析模块（Neo4j 图数据库集成）
+9. **userlog** - 用户行为日志模块（Elasticsearch 日志存储）
+10. **mcp** - MCP服务集成模块（浏览器搜索、时间服务等）
+11. **model** - 模型配置模块（问答模型、向量化模型配置管理）
+12. **datasource** - 数据源管理模块（数据源配置、连接管理、表结构管理）
+13. **common** - 公共组件模块（工具类、异常、响应格式）
 
 ### 1. 用户认证模块 (auth)
 
@@ -463,7 +471,43 @@ graph LR
 - 支持多维度数据统计
 - 统计数据缓存机制
 
-### 8. MCP 协议服务模块 (mcp)
+### 8. 数据分析模块 (analysis)
+
+**核心功能：**
+- Neo4j 图数据库集成
+- 数据同步到 Neo4j（用户、应用、知识库、文档、对话、消息等实体和关系）
+- 定时同步任务（可配置同步间隔，默认60分钟）
+- 立即同步功能
+- 同步状态监控（最近同步时间、状态、指标等）
+- 图数据查询和可视化（节点和关系展示）
+- 数据源配置（通过数据源管理配置 Neo4j 连接）
+
+**技术实现：**
+- Neo4j Java Driver
+- Spring Scheduled 定时任务
+- 系统配置管理（存储同步设置）
+- 数据源管理集成
+
+### 9. 用户行为日志模块 (userlog)
+
+**核心功能：**
+- 用户行为日志采集（基于 AOP 切面）
+- Elasticsearch 日志存储
+- 日志查询和检索（多维度查询：用户、模块、操作类型、时间范围等）
+- 日志聚合分析（操作类型统计、模块统计等）
+- 数据源配置（通过数据源管理配置 Elasticsearch 连接）
+- 动态索引管理（自动创建索引和映射）
+
+**技术实现：**
+- AOP 切面编程（@UserAction 注解）
+- Elasticsearch Java Client
+- 异步日志保存（@Async）
+- 动态索引管理
+- 数据源管理集成
+
+**详细文档：** `doc/14.用户行为日志功能设计文档.md`
+
+### 10. MCP 协议服务模块 (mcp)
 
 **核心功能：**
 
@@ -484,7 +528,7 @@ graph LR
 - 服务结果缓存机制
 - 统一的服务接口封装
 
-### 9. 模型配置模块 (model)
+### 11. 模型配置模块 (model)
 
 **核心功能：**
 
@@ -503,7 +547,7 @@ graph LR
 - 模型测试通过 API 调用验证
 - 支持多种模型提供商
 
-### 10. 数据源管理模块 (datasource)
+### 12. 数据源管理模块 (datasource)
 
 **核心功能：**
 
@@ -581,7 +625,7 @@ graph LR
 - 新增 handleClearFilters 方法处理查询条件重置
 - 使用 Element Plus 的按钮组件实现视觉区分
 
-### 11. 公共组件模块 (common)
+### 13. 公共组件模块 (common)
 
 **核心功能：**
 

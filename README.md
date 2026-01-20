@@ -90,15 +90,27 @@ DifyApp 是一个基于 Spring Boot 和 Vue 3 构建的企业级 AI 应用平台
   - 用户行为日志采集与分析（Elasticsearch）
   - 数据可视化展示
 
+- **数据分析模块**
+  - Neo4j 图数据库集成
+  - 数据同步到 Neo4j（用户、应用、知识库、对话等实体和关系）
+  - 定时同步任务（可配置同步间隔）
+  - 图数据可视化（节点和关系展示）
+  - 数据源配置（通过数据源管理配置 Neo4j 连接）
+  - 同步状态监控（最近同步时间、状态、指标等）
+
 - **系统管理**
   - 系统配置管理（全局参数设置）
   - 数据源管理（数据库连接配置、表结构管理）
+    - 支持 PostgreSQL、MySQL、Oracle、MongoDB、Neo4j、Elasticsearch 等多种数据源
+    - 连接池管理和连接状态监控
+    - 表结构自动发现和缓存
   - 模型管理（LLM 模型配置、嵌入模型配置）
   - 向量数据库配置管理
   - Prompt 模板管理（可复用的提示词模板）
   - 用户管理（管理员功能，用户审核、禁用等）
   - 权限管理（用户与应用/数据源/知识库的可见性控制）
   - 系统监控和日志管理（统一超时策略）
+  - 用户行为日志管理（基于 Elasticsearch，支持多维度查询和分析）
 
 - **MCP 协议支持**
   - 浏览器搜索服务（实时网络搜索）
@@ -139,6 +151,8 @@ graph TB
         DB[(关系型数据库<br/>PostgreSQL/MySQL)]
         Redis[(Redis<br/>缓存)]
         VectorDB[(向量数据库<br/>Chroma/FAISS/Milvus<br/>Qdrant/Weaviate/PgVector等)]
+        Neo4j[(Neo4j<br/>图数据库)]
+        ES[(Elasticsearch<br/>日志存储)]
         RustFS[RustFS<br/>对象存储<br/>S3兼容]
     end
     
@@ -150,6 +164,8 @@ graph TB
     Backend --> DB
     Backend --> Redis
     Backend --> VectorDB
+    Backend --> Neo4j
+    Backend --> ES
     Backend --> RustFS
     Backend --> DifyAPI
     
@@ -158,6 +174,8 @@ graph TB
     style DB fill:#336791,stroke:#333,stroke-width:2px,color:#fff
     style Redis fill:#dc382d,stroke:#333,stroke-width:2px,color:#fff
     style VectorDB fill:#0d9488,stroke:#333,stroke-width:2px,color:#fff
+    style Neo4j fill:#008cc1,stroke:#333,stroke-width:2px,color:#fff
+    style ES fill:#005571,stroke:#333,stroke-width:2px,color:#fff
     style RustFS fill:#ff9900,stroke:#333,stroke-width:2px,color:#fff
     style DifyAPI fill:#6366f1,stroke:#333,stroke-width:2px,color:#fff
 ```
@@ -172,6 +190,8 @@ graph TB
 - **ORM 框架**: Spring Data JPA / Hibernate
 - **数据库**: PostgreSQL / MySQL / Oracle / MongoDB / Neo4j
 - **向量数据库**: Chroma / FAISS / Milvus / PgVector / Qdrant / Weaviate / Elasticsearch
+- **图数据库**: Neo4j (用于数据分析和关系可视化)
+- **日志存储**: Elasticsearch (用于用户行为日志)
 - **存储与缓存**: RustFS (对象存储，S3兼容) / Redis (缓存)
 - **AI 框架**: LangChain4j 0.34.0
 - **文档解析**: Apache Tika, Apache POI
@@ -236,6 +256,8 @@ DifyApp/
 - **Redis**: 6.0+ (可选，用于缓存)
 - **对象存储**: RustFS (S3兼容，用于文档存储)
 - **向量数据库**: 根据需求选择安装（Qdrant/Milvus/FAISS/Chroma/Weaviate/PgVector/Elasticsearch）
+- **图数据库**: Neo4j 4.0+ (可选，用于数据分析和关系可视化)
+- **日志存储**: Elasticsearch 7.0+ (可选，用于用户行为日志)
 - **OCR服务**: EasyOCR (可选，用于图片和PDF文字识别)
 
 #### 前端环境
@@ -438,7 +460,7 @@ graph LR
 
 ## 功能模块
 
-系统采用模块化设计，主要包含以下11个核心模块：
+系统采用模块化设计，主要包含以下13个核心模块：
 
 1. **auth** - 认证模块（登录、注册、JWT）
 2. **permission** - 权限管理模块（可见性控制）
@@ -447,10 +469,12 @@ graph LR
 5. **documentreader** - 文档解读模块
 6. **system** - 系统配置模块
 7. **statistics** - 数据统计模块
-8. **mcp** - MCP服务集成模块（浏览器搜索、时间服务等）
-9. **model** - 模型配置模块（问答模型、向量化模型配置管理）
-10. **datasource** - 数据源管理模块（数据源配置、连接管理、表结构管理）
-11. **common** - 公共组件模块（工具类、异常、响应格式）
+8. **analysis** - 数据分析模块（Neo4j 图数据库集成）
+9. **userlog** - 用户行为日志模块（Elasticsearch 日志存储）
+10. **mcp** - MCP服务集成模块（浏览器搜索、时间服务等）
+11. **model** - 模型配置模块（问答模型、向量化模型配置管理）
+12. **datasource** - 数据源管理模块（数据源配置、连接管理、表结构管理）
+13. **common** - 公共组件模块（工具类、异常、响应格式）
 
 ### 1. 用户认证模块 (auth)
 
@@ -611,6 +635,41 @@ graph LR
 - 数据可视化
 - 统计报表导出
 - 实时数据更新
+
+### 8.1 数据分析模块 (analysis)
+
+**后端功能：**
+- Neo4j 图数据库集成
+- 数据同步到 Neo4j（用户、应用、知识库、对话、消息等实体和关系）
+- 定时同步任务（可配置同步间隔，默认60分钟）
+- 立即同步功能
+- 同步状态监控（最近同步时间、状态、指标等）
+- 图数据查询和可视化（节点和关系展示）
+- 数据源配置（通过数据源管理配置 Neo4j 连接）
+
+**前端功能：**
+- 数据分析页面（图数据可视化）
+- 同步设置界面（配置 Neo4j 数据源、同步间隔、启用/禁用）
+- 同步状态展示（同步时间、状态、指标等）
+- 立即同步按钮
+- 图数据交互式展示（基于 ECharts Graph）
+
+### 8.2 用户行为日志模块 (userlog)
+
+**后端功能：**
+- 用户行为日志采集（基于 AOP 切面）
+- Elasticsearch 日志存储
+- 日志查询和检索（多维度查询：用户、模块、操作类型、时间范围等）
+- 日志聚合分析（操作类型统计、模块统计等）
+- 数据源配置（通过数据源管理配置 Elasticsearch 连接）
+- 动态索引管理（自动创建索引和映射）
+
+**前端功能：**
+- 用户行为日志查询界面（管理员）
+- 多维度筛选（用户、模块、操作类型、时间范围等）
+- 日志列表展示
+- 日志详情查看
+- 操作类型和模块统计
 
 ### 9. MCP服务集成模块 (mcp)
 
