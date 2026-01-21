@@ -5,7 +5,7 @@ import com.github.app.dify.system.config.DifyConfig;
 import com.github.app.dify.chat.resp.DifyResponse;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
-import com.github.app.dify.common.config.WebClientConfig;
+import com.github.app.dify.system.config.WebClientConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

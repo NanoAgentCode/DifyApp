@@ -1,4 +1,4 @@
-package com.github.app.dify.cache;
+package com.github.app.dify.common.cache;
 
 import lombok.Getter;
 import lombok.Setter;

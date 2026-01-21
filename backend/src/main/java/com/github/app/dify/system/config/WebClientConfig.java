@@ -1,6 +1,5 @@
-package com.github.app.dify.common.config;
+package com.github.app.dify.system.config;
 
-import com.github.app.dify.system.config.DifyConfig;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;

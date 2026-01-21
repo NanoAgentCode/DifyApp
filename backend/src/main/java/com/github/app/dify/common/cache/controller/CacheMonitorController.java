@@ -1,7 +1,7 @@
-package com.github.app.dify.cache.controller;
+package com.github.app.dify.common.cache.controller;
 
-import com.github.app.dify.cache.CacheMonitorService;
-import com.github.app.dify.cache.CacheMonitorService.CacheStatistics;
+import com.github.app.dify.common.cache.CacheMonitorService;
+import com.github.app.dify.common.cache.CacheMonitorService.CacheStatistics;
 import com.github.app.dify.common.resp.ApiResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
