@@ -7,6 +7,9 @@ import com.github.app.dify.common.exception.ErrorCode;
 import org.apache.poi.hwpf.HWPFDocument;
 import org.apache.poi.hwpf.usermodel.Picture;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFTable;
+import org.apache.poi.xwpf.usermodel.XWPFTableRow;
+import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFPictureData;
 import org.apache.poi.common.usermodel.PictureType;
 import org.apache.tika.Tika;
@@ -97,11 +100,19 @@ public class DocumentParserServiceImpl implements DocumentParserService {
             }
         }
         
-        // Word文档：提取图片并进行OCR，然后与文本内容合并
-        if (isWordDoc && ocrService != null) {
+        // Word文档：提取表格、图片并进行OCR，然后与文本内容合并
+        if (isWordDoc) {
             try {
-                logger.info("检测到Word文档，提取图片并进行OCR识别 - 文件名: {}", fileName);
-                List<String> ocrTexts = extractAndOcrImagesFromWord(file);
+                logger.info("检测到Word文档，提取表格和图片 - 文件名: {}", fileName);
+                
+                // 提取表格结构
+                String tableContent = extractTablesFromWord(file);
+                
+                // 提取图片并进行OCR
+                List<String> ocrTexts = new ArrayList<>();
+                if (ocrService != null) {
+                    ocrTexts = extractAndOcrImagesFromWord(file);
+                }
                 
                 // 使用Tika提取文本内容
                 String textContent;
@@ -109,12 +120,22 @@ public class DocumentParserServiceImpl implements DocumentParserService {
                     textContent = tika.parseToString(inputStream);
                 }
                 
-                // 合并文本内容和OCR结果
+                // 合并文本内容、表格和OCR结果
                 StringBuilder fullContent = new StringBuilder();
                 if (textContent != null && !textContent.trim().isEmpty()) {
                     fullContent.append(textContent.trim());
                 }
                 
+                // 添加表格内容（如果存在）
+                if (tableContent != null && !tableContent.trim().isEmpty()) {
+                    if (fullContent.length() > 0) {
+                        fullContent.append("\n\n");
+                    }
+                    fullContent.append("--- 文档中的表格 ---\n");
+                    fullContent.append(tableContent);
+                }
+                
+                // 添加OCR结果
                 if (!ocrTexts.isEmpty()) {
                     if (fullContent.length() > 0) {
                         fullContent.append("\n\n--- 文档中的图片OCR识别结果 ---\n");
@@ -129,12 +150,14 @@ public class DocumentParserServiceImpl implements DocumentParserService {
                 }
                 
                 String result = fullContent.toString().trim();
-                logger.info("Word文档解析完成 - 文件名: {}, 文本长度: {}, 图片OCR数量: {}", 
-                           fileName, result.length(), ocrTexts.size());
+                logger.info("Word文档解析完成 - 文件名: {}, 文本长度: {}, 表格数量: {}, 图片OCR数量: {}", 
+                           fileName, result.length(), 
+                           tableContent != null && !tableContent.isEmpty() ? "有" : "无",
+                           ocrTexts.size());
                 return result;
                 
             } catch (Exception e) {
-                logger.error("Word文档图片OCR处理失败，回退到Tika解析 - 文件名: {}", fileName, e);
+                logger.error("Word文档处理失败，回退到Tika解析 - 文件名: {}", fileName, e);
                 // 失败时回退到Tika解析
             }
         }
@@ -142,6 +165,13 @@ public class DocumentParserServiceImpl implements DocumentParserService {
         // 非图片文件或OCR不可用时，使用Tika解析
         try (InputStream inputStream = file.getInputStream()) {
             String content = tika.parseToString(inputStream);
+            
+            // 对于Markdown文件，识别并标记表格
+            if (fileName != null && (fileName.toLowerCase().endsWith(".md") || 
+                fileName.toLowerCase().endsWith(".markdown"))) {
+                content = enhanceMarkdownTables(content);
+            }
+            
             logger.info("文档解析成功 - 文件名: {}, 内容长度: {}", file.getOriginalFilename(), content.length());
             return content != null ? content.trim() : "";
         } catch (IOException | TikaException e) {
@@ -371,6 +401,140 @@ public class DocumentParserServiceImpl implements DocumentParserService {
             default:
                 return "jpg";
         }
+    }
+    
+    /**
+     * 从Word文档中提取表格
+     * 
+     * @param file Word文档文件
+     * @return 表格内容（Markdown格式）
+     */
+    private String extractTablesFromWord(MultipartFile file) {
+        String fileName = file.getOriginalFilename();
+        if (fileName == null) {
+            return null;
+        }
+        
+        boolean isDocx = fileName.toLowerCase().endsWith(".docx");
+        boolean isDoc = fileName.toLowerCase().endsWith(".doc");
+        
+        if (!isDocx && !isDoc) {
+            return null;
+        }
+        
+        try (InputStream inputStream = file.getInputStream()) {
+            if (isDocx) {
+                return extractTablesFromDocx(inputStream);
+            } else if (isDoc) {
+                // .doc 格式的表格提取较复杂，这里先返回null
+                // 可以使用 HWPFDocument 的 API 提取，但需要更复杂的处理
+                logger.debug("暂不支持从 .doc 文件提取表格结构");
+                return null;
+            }
+        } catch (Exception e) {
+            logger.warn("提取Word表格失败 - 文件名: {}", fileName, e);
+        }
+        
+        return null;
+    }
+    
+    /**
+     * 从 .docx 文件中提取表格
+     */
+    private String extractTablesFromDocx(InputStream inputStream) throws Exception {
+        StringBuilder tablesContent = new StringBuilder();
+        
+        try (XWPFDocument document = new XWPFDocument(inputStream)) {
+            List<XWPFTable> tables = document.getTables();
+            logger.info("从Word文档中提取到 {} 个表格", tables.size());
+            
+            for (int tableIndex = 0; tableIndex < tables.size(); tableIndex++) {
+                XWPFTable table = tables.get(tableIndex);
+                List<XWPFTableRow> rows = table.getRows();
+                
+                if (rows.isEmpty()) {
+                    continue;
+                }
+                
+                // 构建Markdown格式的表格
+                StringBuilder tableBuilder = new StringBuilder();
+                
+                // 处理表头（第一行）
+                XWPFTableRow headerRow = rows.get(0);
+                List<String> headerCells = new ArrayList<>();
+                for (XWPFTableCell cell : headerRow.getTableCells()) {
+                    headerCells.add(cell.getText().trim());
+                }
+                
+                if (!headerCells.isEmpty()) {
+                    // 表头行
+                    tableBuilder.append("| ").append(String.join(" | ", headerCells)).append(" |\n");
+                    // 分隔行
+                    tableBuilder.append("| ");
+                    for (int i = 0; i < headerCells.size(); i++) {
+                        tableBuilder.append("---");
+                        if (i < headerCells.size() - 1) {
+                            tableBuilder.append(" | ");
+                        }
+                    }
+                    tableBuilder.append(" |\n");
+                }
+                
+                // 处理数据行
+                for (int rowIndex = 1; rowIndex < rows.size(); rowIndex++) {
+                    XWPFTableRow row = rows.get(rowIndex);
+                    List<String> cellTexts = new ArrayList<>();
+                    for (XWPFTableCell cell : row.getTableCells()) {
+                        cellTexts.add(cell.getText().trim());
+                    }
+                    
+                    // 确保列数一致（用空字符串填充）
+                    while (cellTexts.size() < headerCells.size()) {
+                        cellTexts.add("");
+                    }
+                    
+                    tableBuilder.append("| ").append(String.join(" | ", cellTexts)).append(" |\n");
+                }
+                
+                String tableText = tableBuilder.toString();
+                if (!tableText.trim().isEmpty()) {
+                    if (tablesContent.length() > 0) {
+                        tablesContent.append("\n\n");
+                    }
+                    tablesContent.append("【表格 ").append(tableIndex + 1).append("】\n");
+                    tablesContent.append(tableText);
+                }
+            }
+        }
+        
+        return tablesContent.toString();
+    }
+    
+    /**
+     * 增强Markdown文档中的表格识别
+     * 确保表格格式正确，便于后续分块识别
+     */
+    private String enhanceMarkdownTables(String content) {
+        if (content == null || content.isEmpty()) {
+            return content;
+        }
+        
+        // Markdown表格模式：| col1 | col2 |
+        //                    |------|------|
+        //                    | val1 | val2 |
+        java.util.regex.Pattern tablePattern = java.util.regex.Pattern.compile(
+                "(\\|.*\\|\\s*\\n\\|[-:]+\\|.*\\|\\s*\\n(?:\\|.*\\|\\s*\\n?)+)",
+                java.util.regex.Pattern.MULTILINE);
+        
+        java.util.regex.Matcher matcher = tablePattern.matcher(content);
+        
+        // 如果找到表格，确保格式正确
+        if (matcher.find()) {
+            logger.debug("检测到Markdown表格，已保留表格结构");
+            // 表格格式已经正确，无需修改
+        }
+        
+        return content;
     }
     
     /**

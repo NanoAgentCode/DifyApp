@@ -12,6 +12,8 @@ import com.github.app.dify.knowledgebase.resp.KnowledgeBaseDocumentResp;
 import com.github.app.dify.knowledgebase.service.DocumentVectorizationService;
 import com.github.app.dify.knowledgebase.service.FileStorageService;
 import com.github.app.dify.knowledgebase.service.KnowledgeBaseDocumentService;
+import com.github.app.dify.knowledgebase.service.chunking.ChunkStrategySelector;
+import com.github.app.dify.knowledgebase.service.chunking.ChunkStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,6 +58,9 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
     
     @Autowired(required = false)
     private DocumentVectorizationService documentVectorizationService;
+    
+    @Autowired(required = false)
+    private ChunkStrategySelector chunkStrategySelector;
     
     /**
      * 上传文档
@@ -161,7 +166,70 @@ public class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentSe
         
         logger.info("文档上传流程完成 - 知识库ID: {}, 文档ID: {}, 文件名: {}", 
                 knowledgeBaseId, document.getId(), document.getOriginalFileName());
-        return KnowledgeBaseConverterUtil.convertToResp(document);
+        
+        // 检测分块策略并添加到响应中
+        KnowledgeBaseDocumentResp resp = KnowledgeBaseConverterUtil.convertToResp(document);
+        if (chunkStrategySelector != null) {
+            String fileType = document.getFileType();
+            // 根据文件类型快速检测策略（不解析内容，性能更好）
+            String strategyInfo = detectChunkStrategy(fileType);
+            resp.setChunkStrategy(strategyInfo);
+            logger.debug("检测到分块策略 - 文件类型: {}, 策略: {}", fileType, strategyInfo);
+        }
+        
+        return resp;
+    }
+    
+    /**
+     * 检测分块策略（根据文件类型快速检测，不解析内容）
+     */
+    private String detectChunkStrategy(String fileType) {
+        if (fileType == null || fileType.isEmpty()) {
+            return "固定大小分块";
+        }
+        
+        String lowerType = fileType.toLowerCase();
+        
+        // 代码文件
+        String[] codeExtensions = {
+                "java", "js", "javascript", "ts", "typescript", "py", "python",
+                "cpp", "c", "h", "hpp", "cs", "go", "rust", "rb", "ruby",
+                "php", "swift", "kt", "kotlin", "scala", "sh", "bash", "sql",
+                "html", "css", "xml", "json", "yaml", "yml"
+        };
+        for (String ext : codeExtensions) {
+            if (ext.equals(lowerType)) {
+                return "代码分块";
+            }
+        }
+        
+        // 表格文件
+        if ("xls".equals(lowerType) || "xlsx".equals(lowerType) || "csv".equals(lowerType)) {
+            return "表格分块";
+        }
+        
+        // Markdown文件
+        if ("md".equals(lowerType) || "markdown".equals(lowerType)) {
+            return "标题/段落分块（自动检测表格和代码）";
+        }
+        
+        // Word文档
+        if ("doc".equals(lowerType) || "docx".equals(lowerType)) {
+            return "段落分块（自动检测表格）";
+        }
+        
+        // PDF文档
+        if ("pdf".equals(lowerType)) {
+            return "段落分块（自动检测表格）";
+        }
+        
+        // 纯文本文件
+        if ("txt".equals(lowerType)) {
+            return "段落分块";
+        }
+        
+        // 默认策略
+        return "固定大小分块";
     }
     
     /**

@@ -62,6 +62,9 @@ public class KnowledgeBaseDocumentResp {
     @Schema(description = "向量化错误信息")
     private String vectorizedError;
     
+    @Schema(description = "分块策略信息（用于前端提示）")
+    private String chunkStrategy;
+    
     // Getters and Setters
     public Long getId() {
         return id;
@@ -205,5 +208,13 @@ public class KnowledgeBaseDocumentResp {
     
     public void setVectorizedError(String vectorizedError) {
         this.vectorizedError = vectorizedError;
+    }
+    
+    public String getChunkStrategy() {
+        return chunkStrategy;
+    }
+    
+    public void setChunkStrategy(String chunkStrategy) {
+        this.chunkStrategy = chunkStrategy;
     }
 }

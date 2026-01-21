@@ -93,7 +93,7 @@
             </el-table-column>
             <el-table-column label="上传时间" width="180" align="center">
               <template #default="{ row }">
-                <span class="upload-time">{{ formatDate(row.uploadTime) }}</span>
+                <span class="upload-time">{{ formatDate(row.createTime) }}</span>
               </template>
             </el-table-column>
             <el-table-column label="向量化状态" width="130" align="center">
@@ -215,9 +215,9 @@
                 <span class="file-size">{{ formatFileSize(row.fileSize) }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="uploadTime" label="上传时间" width="170" align="center">
+            <el-table-column prop="createTime" label="上传时间" width="170" align="center">
               <template #default="{ row }">
-                <span class="upload-time">{{ formatDate(row.uploadTime) }}</span>
+                <span class="upload-time">{{ formatDate(row.createTime) }}</span>
               </template>
             </el-table-column>
             <el-table-column label="向量化状态" width="130" align="center">
@@ -409,6 +409,10 @@ const handleUploadFiles = async () => {
         uploadDocument(kbId.value, formData)
           .then((response) => {
             ElMessage.success(`文件 ${fileItem.name} 上传成功`)
+            // 显示智能分块提醒
+            if (response.chunkStrategy) {
+              ElMessage.info(`智能分块提醒：${response.chunkStrategy}`)
+            }
             return response
           })
           .catch((error) => {
@@ -742,29 +746,40 @@ const formatFileSize = (bytes) => {
 }
 
 const formatDate = (date) => {
-  if (!date) return ''
-  if (typeof date === 'string') {
-    return date
+  if (!date) return '-'
+  
+  try {
+    let dateObj
+    if (date instanceof Date) {
+      dateObj = date
+    } else if (typeof date === 'string') {
+      // 处理字符串格式的日期
+      dateObj = new Date(date)
+    } else if (typeof date === 'number') {
+      // 处理时间戳
+      dateObj = new Date(date)
+    } else {
+      return '-'
+    }
+    
+    // 检查日期是否有效
+    if (isNaN(dateObj.getTime())) {
+      return '-'
+    }
+    
+    // 格式化为 YYYY-MM-DD HH:mm:ss
+    const year = dateObj.getFullYear()
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+    const day = String(dateObj.getDate()).padStart(2, '0')
+    const hours = String(dateObj.getHours()).padStart(2, '0')
+    const minutes = String(dateObj.getMinutes()).padStart(2, '0')
+    const seconds = String(dateObj.getSeconds()).padStart(2, '0')
+    
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+  } catch (error) {
+    console.error('日期格式化错误:', error)
+    return '-'
   }
-  if (date instanceof Date) {
-    return date.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })
-  }
-  const d = new Date(date)
-  return d.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
 }
 
 const goBack = () => {

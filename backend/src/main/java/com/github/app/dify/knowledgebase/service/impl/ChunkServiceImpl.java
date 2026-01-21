@@ -1,5 +1,6 @@
 package com.github.app.dify.knowledgebase.service.impl;
 
+import com.github.app.dify.knowledgebase.service.chunking.*;
 import com.github.app.dify.system.config.RagConfig;
 import com.github.app.dify.knowledgebase.service.ChunkService;
 import org.slf4j.Logger;
@@ -10,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 /**
  * 文档分块服务
+ * 集成新的分块策略系统，支持根据文件类型自动选择分块方式
  */
 @Service
 public class ChunkServiceImpl implements ChunkService {
@@ -18,6 +20,15 @@ public class ChunkServiceImpl implements ChunkService {
     
     @Autowired
     private RagConfig ragConfig;
+    
+    @Autowired(required = false)
+    private ChunkStrategySelector strategySelector;
+    
+    @Autowired(required = false)
+    private ContentAnalyzer contentAnalyzer;
+    
+    @Autowired(required = false)
+    private MixedContentChunker mixedContentChunker;
     
     /**
      * 文档分块
@@ -29,6 +40,7 @@ public class ChunkServiceImpl implements ChunkService {
     
     /**
      * 文档分块（自定义参数）
+     * 如果新策略系统可用，使用新策略；否则使用原有实现保持向后兼容
      */
     @Override
     public List<Chunk> chunkText(String text, int chunkSize, int chunkOverlap) {
@@ -36,6 +48,60 @@ public class ChunkServiceImpl implements ChunkService {
             return new ArrayList<>();
         }
         
+        // 如果新策略系统可用，使用新策略
+        if (strategySelector != null) {
+            return chunkTextWithNewStrategy(text, chunkSize, chunkOverlap, null);
+        }
+        
+        // 否则使用原有实现（向后兼容）
+        return chunkTextLegacy(text, chunkSize, chunkOverlap);
+    }
+    
+    /**
+     * 使用新策略系统进行分块
+     */
+    private List<Chunk> chunkTextWithNewStrategy(String text, int chunkSize, int chunkOverlap, String fileType) {
+        // 选择分块策略
+        List<ChunkStrategy> strategies = strategySelector.selectStrategy(fileType, text);
+        
+        // 创建分块配置
+        ChunkConfig config = new ChunkConfig(chunkSize, chunkOverlap);
+        
+        // 如果选择了多个策略（混合内容），使用混合分块器
+        if (strategies.size() > 1 && mixedContentChunker != null && contentAnalyzer != null) {
+            logger.debug("检测到混合内容，使用混合分块策略");
+            ContentStructure structure = contentAnalyzer.analyzeText(text, fileType);
+            List<ChunkStrategy.ChunkResult> chunkResults = mixedContentChunker.chunk(structure, config);
+            return convertToChunks(chunkResults);
+        }
+        
+        // 使用单个策略
+        ChunkStrategy strategy = strategies.get(0);
+        logger.debug("使用分块策略: {}", strategy.getName());
+        List<ChunkStrategy.ChunkResult> chunkResults = strategy.chunk(text, config);
+        return convertToChunks(chunkResults);
+    }
+    
+    /**
+     * 将ChunkResult转换为Chunk
+     */
+    private List<Chunk> convertToChunks(List<ChunkStrategy.ChunkResult> chunkResults) {
+        List<Chunk> chunks = new ArrayList<>();
+        for (ChunkStrategy.ChunkResult result : chunkResults) {
+            Chunk chunk = new Chunk();
+            chunk.setContent(result.getContent());
+            chunk.setChunkIndex(result.getChunkIndex());
+            chunk.setStartIndex(result.getStartIndex());
+            chunk.setEndIndex(result.getEndIndex());
+            chunks.add(chunk);
+        }
+        return chunks;
+    }
+    
+    /**
+     * 原有实现（向后兼容）
+     */
+    private List<Chunk> chunkTextLegacy(String text, int chunkSize, int chunkOverlap) {
         List<Chunk> chunks = new ArrayList<>();
         
         // 按字符数分块（简单实现，可以改进为按句子或段落分块）
@@ -80,7 +146,7 @@ public class ChunkServiceImpl implements ChunkService {
             }
         }
         
-        logger.debug("文档分块完成 - 总长度: {}, chunk数量: {}, chunk大小: {}, 重叠: {}", 
+        logger.debug("文档分块完成（原有实现） - 总长度: {}, chunk数量: {}, chunk大小: {}, 重叠: {}", 
                 textLength, chunks.size(), chunkSize, chunkOverlap);
         
         return chunks;
