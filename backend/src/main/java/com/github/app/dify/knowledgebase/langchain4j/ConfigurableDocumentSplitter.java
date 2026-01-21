@@ -51,13 +51,13 @@ public class ConfigurableDocumentSplitter implements DocumentSplitter {
             return new ArrayList<>();
         }
         
-        // 从文档metadata获取文件类型
+        // 从文档metadata获取文件类型（使用新的API替代已过时的get方法）
         String fileType = null;
         if (document.metadata() != null) {
-            fileType = document.metadata().get("fileType");
+            fileType = document.metadata().getString("fileType");
             if (fileType == null || fileType.isEmpty()) {
                 // 尝试从文件名推断
-                String fileName = document.metadata().get("fileName");
+                String fileName = document.metadata().getString("fileName");
                 if (fileName != null && fileName.contains(".")) {
                     fileType = fileName.substring(fileName.lastIndexOf('.') + 1);
                 }
