@@ -1569,7 +1569,6 @@ const getVectorDatabaseDocumentCount = (db) => {
   background-color: var(--color-bg-active);
   box-shadow: var(--shadow-primary);
 }
-}
 
 .visibility-radio-item :deep(.el-radio__input) {
   margin-top: 2px;
