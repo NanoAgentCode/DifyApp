@@ -43,7 +43,13 @@ DifyApp 是一个基于 Spring Boot 和 Vue 3 构建的企业级 AI 应用平台
 - **知识库管理**
   - 知识库创建、编辑、删除、查询
   - 支持多种文档格式（PDF、Word、Excel、TXT、Markdown、图片等）
-  - 自动文档解析和分块处理
+  - 自动文档解析和智能分块处理
+  - **智能分块策略**：根据文件类型和内容特征自动选择合适的分块方式
+    - 代码文件 → 代码分块
+    - 表格文件 → 表格分块
+    - Markdown文件 → 标题/段落分块（自动检测表格和代码）
+    - Word/PDF文档 → 段落分块（自动检测表格）
+    - 混合内容支持（表格+文本+代码）
   - OCR 服务集成（图片和PDF文字识别）
   - 文档向量化和语义索引
   - 支持多种向量数据库（Chroma、FAISS、Milvus、Qdrant、Weaviate、PgVector、Elasticsearch）

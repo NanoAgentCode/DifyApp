@@ -311,6 +311,7 @@ graph LR
   - 路由：`/user/knowledge-base/:kbId/documents`、`/admin/knowledge-base/:kbId/documents`
   - 文档上传、删除、重新处理
   - 文档处理状态与结果查看
+  - 智能分块策略提示（上传成功后显示系统选择的分块方式）
 - **知识库问答** (`views/user/KnowledgeBaseQA.vue` / `views/admin/KnowledgeBaseQA.vue`)：
   - 问题输入框
   - 答案显示区域
