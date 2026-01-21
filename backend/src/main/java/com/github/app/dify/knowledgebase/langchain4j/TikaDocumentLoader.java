@@ -46,11 +46,18 @@ public class TikaDocumentLoader {
             Document document = Document.from(text);
             
             // 添加metadata
-            document.metadata().put("fileName", file.getOriginalFilename());
+            String fileName = file.getOriginalFilename();
+            document.metadata().put("fileName", fileName);
             document.metadata().put("fileSize", String.valueOf(file.getSize()));
             document.metadata().put("contentType", file.getContentType());
             
-            logger.info("文档加载成功 - 文件名: {}, 内容长度: {}", file.getOriginalFilename(), text.length());
+            // 从文件名提取文件扩展名，用于智能分块策略
+            if (fileName != null && fileName.contains(".")) {
+                String fileType = fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
+                document.metadata().put("fileType", fileType);
+            }
+            
+            logger.info("文档加载成功 - 文件名: {}, 内容长度: {}", fileName, text.length());
             
             return document;
         } catch (Exception e) {
@@ -77,6 +84,12 @@ public class TikaDocumentLoader {
             
             // 添加metadata
             document.metadata().put("fileName", fileName);
+            
+            // 从文件名提取文件扩展名，用于智能分块策略
+            if (fileName != null && fileName.contains(".")) {
+                String fileType = fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
+                document.metadata().put("fileType", fileType);
+            }
             
             logger.info("文档加载成功 - 文件名: {}, 内容长度: {}", fileName, text.length());
             
