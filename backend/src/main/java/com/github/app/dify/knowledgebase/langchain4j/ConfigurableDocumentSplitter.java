@@ -12,8 +12,42 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 /**
- * 可配置的文档分割器，使用现有配置
- * 集成新的分块策略系统，根据文件类型自动选择合适的分块方式
+ * 可配置的文档分割器
+ * 
+ * <p>实现了LangChain4j的{@link DocumentSplitter}接口，集成智能分块策略系统，
+ * 根据文件类型和内容特征自动选择合适的分块方式。
+ * 
+ * <p>工作流程：
+ * <ol>
+ *   <li>从文档metadata获取文件类型（fileType或从fileName推断）</li>
+ *   <li>使用{@link ChunkStrategySelector}选择合适的分块策略</li>
+ *   <li>如果检测到混合内容，使用{@link MixedContentChunker}进行混合分块</li>
+ *   <li>否则使用单个策略进行分块</li>
+ *   <li>将分块结果转换为LangChain4j的{@link TextSegment}格式</li>
+ * </ol>
+ * 
+ * <p>配置来源：
+ * <ul>
+ *   <li>chunkSize和chunkOverlap从{@link RagConfig}读取</li>
+ *   <li>支持自定义参数的分割方法</li>
+ * </ul>
+ * 
+ * <p>使用场景：
+ * <ul>
+ *   <li>知识库文档向量化流程中的文档分割</li>
+ *   <li>文档解读模块的文档分割</li>
+ * </ul>
+ * 
+ * <p>与智能分块策略系统的关系：
+ * 本类是LangChain4j框架与智能分块策略系统的桥梁，将LangChain4j的Document
+ * 转换为使用智能分块策略处理的TextSegment列表。
+ * 
+ * @see DocumentSplitter
+ * @see ChunkStrategySelector
+ * @see ChunkStrategy
+ * @see MixedContentChunker
+ * @author DifyApp Team
+ * @since 1.0
  */
 @Component
 public class ConfigurableDocumentSplitter implements DocumentSplitter {

@@ -14,7 +14,44 @@ import java.util.regex.Pattern;
 
 /**
  * 分块策略选择器
- * 根据文件类型和内容特征自动选择合适的分块策略
+ * 
+ * <p>根据文件类型和内容特征自动选择合适的分块策略。这是智能分块策略系统的核心组件，
+ * 负责分析文档特征并选择最优的分块方式。
+ * 
+ * <p>选择逻辑：
+ * <ul>
+ *   <li>代码文件（.java, .py, .js等）→ 代码分块策略</li>
+ *   <li>表格文件（.csv, .xlsx等）→ 表格分块策略</li>
+ *   <li>Markdown文件 → 根据内容特征（标题、表格、代码块）选择</li>
+ *   <li>Word文档 → 根据内容特征（段落、表格）选择</li>
+ *   <li>PDF文档 → 根据内容特征选择</li>
+ *   <li>纯文本文件 → 段落分块策略</li>
+ *   <li>其他文件 → 固定大小分块策略（默认）</li>
+ * </ul>
+ * 
+ * <p>性能优化：
+ * <ul>
+ *   <li>使用HashSet存储代码文件扩展名，O(1)查找效率</li>
+ *   <li>预编译正则表达式，避免重复编译</li>
+ *   <li>快速检测机制，避免不必要的完整内容分析</li>
+ *   <li>使用字符计数替代split()，避免创建大数组</li>
+ * </ul>
+ * 
+ * <p>混合内容处理：
+ * 当检测到文档包含多种内容类型（如Markdown中的表格和代码块）时，
+ * 会返回多个策略，由{@link MixedContentChunker}进行混合分块处理。
+ * 
+ * <p>使用场景：
+ * <ul>
+ *   <li>知识库文档向量化前的分块处理</li>
+ *   <li>文档解读模块的文档分块</li>
+ * </ul>
+ * 
+ * @see ChunkStrategy
+ * @see ContentAnalyzer
+ * @see MixedContentChunker
+ * @author DifyApp Team
+ * @since 1.0
  */
 @Component
 public class ChunkStrategySelector {

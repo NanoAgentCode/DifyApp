@@ -15,7 +15,59 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 向量存储工厂类
- * 根据知识库的vector_store_type配置选择创建Qdrant、FAISS、Milvus、Chroma、Weaviate、Elasticsearch或PgVector EmbeddingStore
+ * 
+ * <p>负责创建和管理向量数据库的EmbeddingStore实例。根据知识库配置的向量存储类型，
+ * 自动选择对应的策略实现并创建相应的EmbeddingStore实例。
+ * 
+ * <p>支持的向量数据库：
+ * <ul>
+ *   <li>Qdrant - 默认向量库，高性能向量搜索引擎</li>
+ *   <li>FAISS - Facebook AI Similarity Search</li>
+ *   <li>Milvus - 开源向量数据库</li>
+ *   <li>Chroma - 轻量级向量数据库</li>
+ *   <li>Weaviate - 开源向量搜索引擎</li>
+ *   <li>PgVector - 基于PostgreSQL的向量扩展</li>
+ *   <li>Elasticsearch - 支持向量搜索的搜索引擎</li>
+ * </ul>
+ * 
+ * <p>工作原理：
+ * <ol>
+ *   <li>从知识库配置获取向量存储类型（优先从vectorDatabaseId获取实例配置）</li>
+ *   <li>根据类型从策略映射中获取对应的{@link VectorStoreStrategy}</li>
+ *   <li>使用策略创建对应的EmbeddingStore实例（langchain4j.store包中的实现）</li>
+ *   <li>缓存EmbeddingStore实例，避免重复创建</li>
+ * </ol>
+ * 
+ * <p>缓存机制：
+ * <ul>
+ *   <li>使用ConcurrentHashMap缓存EmbeddingStore实例</li>
+ *   <li>以knowledgeBaseId为键，支持多知识库隔离</li>
+ *   <li>文档解读使用固定的knowledgeBaseId（0L）</li>
+ * </ul>
+ * 
+ * <p>策略模式：
+ * 通过{@link VectorStoreStrategy}接口实现策略模式，支持灵活扩展新的向量数据库。
+ * 系统会自动发现所有注册的VectorStoreStrategy实现，并建立类型到策略的映射。
+ * 
+ * <p>配置优先级：
+ * <ol>
+ *   <li>vectorDatabaseId指向的向量库实例配置（最高优先级）</li>
+ *   <li>知识库的vectorStoreType配置</li>
+ *   <li>默认值（知识库：qdrant，文档解读：pgvector）</li>
+ * </ol>
+ * 
+ * <p>使用场景：
+ * <ul>
+ *   <li>知识库文档向量化后的存储</li>
+ *   <li>RAG检索时的向量查询</li>
+ *   <li>文档解读模块的向量存储</li>
+ * </ul>
+ * 
+ * @see VectorStoreStrategy
+ * @see EmbeddingStore
+ * @see com.github.app.dify.knowledgebase.langchain4j.store
+ * @author DifyApp Team
+ * @since 1.0
  */
 @Component
 public class VectorStoreFactory {
