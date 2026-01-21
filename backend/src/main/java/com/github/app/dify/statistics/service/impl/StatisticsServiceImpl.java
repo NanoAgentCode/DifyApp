@@ -281,17 +281,18 @@ public class StatisticsServiceImpl implements StatisticsService {
         Map<Long, Long> appUsageMap = new HashMap<>();
         page = 0;
         pageable = PageRequest.of(page, BATCH_SIZE);
+        List<ChatConversation> convBatch;
         
         do {
-            batch = chatConversationRepository.findAll(pageable).getContent();
-            for (ChatConversation conv : batch) {
+            convBatch = chatConversationRepository.findAll(pageable).getContent();
+            for (ChatConversation conv : convBatch) {
                 if ((conv.getDeleted() == null || conv.getDeleted() == 0) && conv.getAppId() != null) {
                     appUsageMap.put(conv.getAppId(), appUsageMap.getOrDefault(conv.getAppId(), 0L) + 1);
                 }
             }
             page++;
             pageable = PageRequest.of(page, BATCH_SIZE);
-        } while (!batch.isEmpty());
+        } while (!convBatch.isEmpty());
         
         List<StatisticsResponse.AppUsage> appUsage = new ArrayList<>();
         for (Map.Entry<Long, Long> entry : appUsageMap.entrySet()) {
