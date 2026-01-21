@@ -119,6 +119,7 @@ public class CodeChunkStrategy implements ChunkStrategy {
     
     /**
      * 分块代码文件（按函数/类边界）
+     * 优化：避免使用 split() 创建大数组
      */
     private List<ChunkResult> chunkCodeFile(String text, ChunkConfig config) {
         List<ChunkResult> chunks = new ArrayList<>();
@@ -126,30 +127,41 @@ public class CodeChunkStrategy implements ChunkStrategy {
         
         // 简单的实现：按空行和函数/类定义分块
         // 更复杂的实现可以使用AST解析器
-        String[] lines = text.split("\n");
+        // 优化：使用更高效的方式分割行，同时记录位置信息
+        List<LineInfo> lineInfos = splitLinesWithPosition(text);
         StringBuilder currentChunk = new StringBuilder();
         int chunkIndex = 0;
-        int startIndex = 0;
+        int chunkStartIndex = 0;
         
-        for (int i = 0; i < lines.length; i++) {
-            String line = lines[i];
+        // 预编译正则表达式（优化：避免每次调用都编译）
+        Pattern definitionPattern = Pattern.compile(
+                ".*\\b(class|interface|function|def|public|private|protected)\\s+\\w+.*");
+        
+        for (int i = 0; i < lineInfos.size(); i++) {
+            LineInfo lineInfo = lineInfos.get(i);
+            String line = lineInfo.content;
             
-            // 检测函数/类定义（简单模式）
-            boolean isDefinition = line.matches(".*\\b(class|interface|function|def|public|private|protected)\\s+\\w+.*");
+            // 检测函数/类定义（使用预编译的正则表达式）
+            boolean isDefinition = definitionPattern.matcher(line).matches();
             
             if (isDefinition && currentChunk.length() > 0) {
                 // 保存当前chunk
                 ChunkResult chunk = new ChunkResult();
                 chunk.setContent(currentChunk.toString().trim());
                 chunk.setChunkIndex(chunkIndex++);
-                chunk.setStartIndex(startIndex);
-                chunk.setEndIndex(startIndex + chunk.getContent().length());
+                chunk.setStartIndex(chunkStartIndex);
+                chunk.setEndIndex(chunkStartIndex + chunk.getContent().length());
                 chunk.setContentType(ContentStructure.ContentType.CODE);
                 chunks.add(chunk);
                 
                 // 开始新chunk
                 currentChunk = new StringBuilder();
-                startIndex = text.indexOf(line);
+                chunkStartIndex = lineInfo.startIndex;
+            }
+            
+            // 如果是第一个chunk，记录起始位置
+            if (currentChunk.length() == 0) {
+                chunkStartIndex = lineInfo.startIndex;
             }
             
             currentChunk.append(line).append("\n");
@@ -159,13 +171,14 @@ public class CodeChunkStrategy implements ChunkStrategy {
                 ChunkResult chunk = new ChunkResult();
                 chunk.setContent(currentChunk.toString().trim());
                 chunk.setChunkIndex(chunkIndex++);
-                chunk.setStartIndex(startIndex);
-                chunk.setEndIndex(startIndex + chunk.getContent().length());
+                chunk.setStartIndex(chunkStartIndex);
+                chunk.setEndIndex(chunkStartIndex + chunk.getContent().length());
                 chunk.setContentType(ContentStructure.ContentType.CODE);
                 chunks.add(chunk);
                 
                 currentChunk = new StringBuilder();
-                startIndex = text.indexOf(line, startIndex) + line.length();
+                // 下一个chunk从当前行开始（考虑重叠）
+                chunkStartIndex = lineInfo.startIndex;
             }
         }
         
@@ -174,8 +187,8 @@ public class CodeChunkStrategy implements ChunkStrategy {
             ChunkResult chunk = new ChunkResult();
             chunk.setContent(currentChunk.toString().trim());
             chunk.setChunkIndex(chunkIndex);
-            chunk.setStartIndex(startIndex);
-            chunk.setEndIndex(startIndex + chunk.getContent().length());
+            chunk.setStartIndex(chunkStartIndex);
+            chunk.setEndIndex(chunkStartIndex + chunk.getContent().length());
             chunk.setContentType(ContentStructure.ContentType.CODE);
             chunks.add(chunk);
         }
@@ -186,14 +199,53 @@ public class CodeChunkStrategy implements ChunkStrategy {
     }
     
     /**
+     * 行信息（包含内容和位置）
+     */
+    private static class LineInfo {
+        String content;
+        int startIndex;
+        int endIndex;
+        
+        LineInfo(String content, int startIndex, int endIndex) {
+            this.content = content;
+            this.startIndex = startIndex;
+            this.endIndex = endIndex;
+        }
+    }
+    
+    /**
+     * 分割文本为行（优化：避免使用 split() 创建大数组，同时记录位置信息）
+     */
+    private List<LineInfo> splitLinesWithPosition(String text) {
+        List<LineInfo> lines = new ArrayList<>();
+        if (text == null || text.isEmpty()) {
+            return lines;
+        }
+        
+        int start = 0;
+        int textLength = text.length();
+        
+        while (start < textLength) {
+            int newlineIndex = text.indexOf('\n', start);
+            int end = (newlineIndex != -1) ? newlineIndex + 1 : textLength;
+            String line = text.substring(start, end);
+            lines.add(new LineInfo(line, start, end));
+            start = end;
+        }
+        
+        return lines;
+    }
+    
+    /**
      * 拆分大代码块
      */
     private List<String> splitLargeCode(String code, int maxSize) {
         List<String> result = new ArrayList<>();
-        String[] lines = code.split("\n");
+        List<String> lines = splitLines(code);
         StringBuilder current = new StringBuilder();
         
-        for (String line : lines) {
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
             if (current.length() + line.length() + 1 > maxSize && current.length() > 0) {
                 result.add(current.toString());
                 current = new StringBuilder();

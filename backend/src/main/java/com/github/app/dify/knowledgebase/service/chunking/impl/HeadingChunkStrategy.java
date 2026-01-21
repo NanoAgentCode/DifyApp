@@ -86,7 +86,7 @@ public class HeadingChunkStrategy implements ChunkStrategy {
         String currentHeading = null;
         int currentHeadingLevel = 0;
         int currentHeadingStart = 0;
-        StringBuilder currentContent = new StringBuilder();
+        int currentHeadingEnd = 0;
         
         while (matcher.find()) {
             int headingStart = matcher.start();
@@ -97,9 +97,10 @@ public class HeadingChunkStrategy implements ChunkStrategy {
             
             // 保存前一个标题块
             if (currentHeading != null) {
-                String content = text.substring(currentHeadingStart + 
-                        text.substring(currentHeadingStart).indexOf('\n', 
-                        text.indexOf(currentHeading, currentHeadingStart)), headingStart).trim();
+                // 优化：直接使用位置信息，避免重复查找
+                int contentStart = currentHeadingEnd;
+                int contentEnd = headingStart;
+                String content = text.substring(contentStart, contentEnd).trim();
                 blocks.add(new HeadingBlock(currentHeading, content, currentHeadingStart));
             }
             
@@ -107,13 +108,14 @@ public class HeadingChunkStrategy implements ChunkStrategy {
             currentHeading = headingText;
             currentHeadingLevel = headingLevel;
             currentHeadingStart = headingStart;
+            currentHeadingEnd = headingEnd;
         }
         
         // 处理最后一个标题块
         if (currentHeading != null) {
-            String content = text.substring(currentHeadingStart + 
-                    text.substring(currentHeadingStart).indexOf('\n', 
-                    text.indexOf(currentHeading, currentHeadingStart))).trim();
+            int contentStart = currentHeadingEnd;
+            int contentEnd = text.length();
+            String content = text.substring(contentStart, contentEnd).trim();
             blocks.add(new HeadingBlock(currentHeading, content, currentHeadingStart));
         }
         

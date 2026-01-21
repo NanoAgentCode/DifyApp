@@ -147,13 +147,19 @@ public class ContentAnalyzer {
     
     /**
      * 检测是否有Markdown表格
+     * 优化：快速检测，只检查关键特征
      */
     private boolean hasMarkdownTable(String text) {
+        // 快速检测：表格必须包含 | 和 ---
+        if (!text.contains("|") || !text.contains("---")) {
+            return false;
+        }
         return MARKDOWN_TABLE.matcher(text).find();
     }
     
     /**
      * 提取Markdown表格
+     * 优化：合并检测和提取，避免重复匹配
      */
     private List<ContentStructure.ContentSegment> extractMarkdownTables(String text) {
         List<ContentStructure.ContentSegment> segments = new ArrayList<>();
@@ -175,8 +181,13 @@ public class ContentAnalyzer {
     
     /**
      * 检测是否有Markdown代码块
+     * 优化：快速检测，只检查关键特征
      */
     private boolean hasMarkdownCodeBlock(String text) {
+        // 快速检测：代码块必须包含 ```
+        if (!text.contains("```")) {
+            return false;
+        }
         return MARKDOWN_CODE_BLOCK.matcher(text).find();
     }
     
@@ -207,8 +218,13 @@ public class ContentAnalyzer {
     
     /**
      * 检测是否有Markdown标题
+     * 优化：快速检测，只检查关键特征
      */
     private boolean hasMarkdownHeading(String text) {
+        // 快速检测：标题必须包含 #
+        if (!text.contains("#")) {
+            return false;
+        }
         return MARKDOWN_HEADING.matcher(text).find();
     }
     

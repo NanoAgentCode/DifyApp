@@ -66,7 +66,7 @@ public class ConfigurableDocumentSplitter implements DocumentSplitter {
         
         logger.info("文档文本长度: {} 字符, 文件类型: {}", text.length(), fileType != null ? fileType : "未知");
         
-        // 选择分块策略
+        // 选择分块策略（优化：策略选择器会进行快速检测，避免不必要的完整分析）
         List<ChunkStrategy> strategies = strategySelector.selectStrategy(fileType, text);
         
         // 创建分块配置
@@ -75,6 +75,8 @@ public class ConfigurableDocumentSplitter implements DocumentSplitter {
         // 如果选择了多个策略（混合内容），使用混合分块器
         if (strategies.size() > 1) {
             logger.info("检测到混合内容，使用混合分块策略");
+            // 注意：如果策略选择器已经进行了完整分析，这里可以复用结果
+            // 当前实现中，策略选择器只做快速检测，这里进行完整分析
             ContentStructure structure = contentAnalyzer.analyzeText(text, fileType);
             List<ChunkStrategy.ChunkResult> chunkResults = mixedContentChunker.chunk(structure, config);
             return convertToTextSegments(chunkResults, document);

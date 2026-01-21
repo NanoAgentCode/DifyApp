@@ -82,23 +82,23 @@ public class TableChunkStrategy implements ChunkStrategy {
             int startIndex = matcher.start();
             int endIndex = matcher.end();
             
-            // 按行分割表格
-            String[] lines = tableText.split("\n");
-            if (lines.length < 2) {
+            // 优化：按行分割表格，避免使用 split() 创建大数组
+            List<String> lines = splitLines(tableText);
+            if (lines.size() < 2) {
                 continue;
             }
             
             // 表头
-            String header = lines[0];
-            String separator = lines[1];
+            String header = lines.get(0);
+            String separator = lines.get(1);
             
             // 合并表头和分隔符
             StringBuilder currentChunk = new StringBuilder();
             currentChunk.append(header).append("\n").append(separator).append("\n");
             
             // 按行分块（保持表头）
-            for (int i = 2; i < lines.length; i++) {
-                String row = lines[i].trim();
+            for (int i = 2; i < lines.size(); i++) {
+                String row = lines.get(i).trim();
                 if (row.isEmpty() || !row.startsWith("|")) {
                     continue;
                 }
@@ -146,22 +146,22 @@ public class TableChunkStrategy implements ChunkStrategy {
      */
     private List<ChunkResult> chunkCsvTable(String text, ChunkConfig config) {
         List<ChunkResult> chunks = new ArrayList<>();
-        String[] lines = text.split("\n");
+        List<String> lines = splitLines(text);
         
-        if (lines.length == 0) {
+        if (lines.isEmpty()) {
             return chunks;
         }
         
         // 第一行作为表头
-        String header = lines[0];
+        String header = lines.get(0);
         StringBuilder currentChunk = new StringBuilder();
         currentChunk.append(header).append("\n");
         
         int chunkIndex = 0;
         int startIndex = 0;
         
-        for (int i = 1; i < lines.length; i++) {
-            String row = lines[i].trim();
+        for (int i = 1; i < lines.size(); i++) {
+            String row = lines.get(i).trim();
             if (row.isEmpty()) {
                 continue;
             }
@@ -205,17 +205,40 @@ public class TableChunkStrategy implements ChunkStrategy {
     }
     
     /**
+     * 分割文本为行（优化：避免使用 split() 创建大数组）
+     */
+    private List<String> splitLines(String text) {
+        List<String> lines = new ArrayList<>();
+        if (text == null || text.isEmpty()) {
+            return lines;
+        }
+        
+        int start = 0;
+        int textLength = text.length();
+        
+        while (start < textLength) {
+            int newlineIndex = text.indexOf('\n', start);
+            int end = (newlineIndex != -1) ? newlineIndex + 1 : textLength;
+            lines.add(text.substring(start, end));
+            start = end;
+        }
+        
+        return lines;
+    }
+    
+    /**
      * 按行分块（默认方式）
      */
     private List<ChunkResult> chunkByLines(String text, ChunkConfig config) {
         List<ChunkResult> chunks = new ArrayList<>();
-        String[] lines = text.split("\n");
+        List<String> lines = splitLines(text);
         
         StringBuilder currentChunk = new StringBuilder();
         int chunkIndex = 0;
         int startIndex = 0;
         
-        for (String line : lines) {
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
             if (currentChunk.length() + line.length() + 1 > config.getChunkSize() && 
                 currentChunk.length() > 0) {
                 ChunkResult chunk = new ChunkResult();

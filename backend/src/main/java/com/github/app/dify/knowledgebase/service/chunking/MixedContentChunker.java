@@ -75,11 +75,11 @@ public class MixedContentChunker {
             
             // 调整索引和元数据
             for (ChunkStrategy.ChunkResult chunk : chunks) {
-                // 调整全局索引
-                chunk.setStartIndex(segment.getStartIndex() + 
-                        (chunk.getStartIndex() - 0)); // 相对位置
-                chunk.setEndIndex(segment.getStartIndex() + 
-                        (chunk.getEndIndex() - 0));
+                // 调整全局索引（优化：chunk的startIndex和endIndex是相对于segment内容的，需要加上segment的起始位置）
+                int relativeStart = chunk.getStartIndex();
+                int relativeEnd = chunk.getEndIndex();
+                chunk.setStartIndex(segment.getStartIndex() + relativeStart);
+                chunk.setEndIndex(segment.getStartIndex() + relativeEnd);
                 
                 // 设置全局chunk索引
                 chunk.setChunkIndex(globalChunkIndex++);

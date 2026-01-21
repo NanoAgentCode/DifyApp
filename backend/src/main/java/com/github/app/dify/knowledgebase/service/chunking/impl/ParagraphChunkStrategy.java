@@ -43,50 +43,43 @@ public class ParagraphChunkStrategy implements ChunkStrategy {
         int chunkSize = config.getChunkSize();
         int chunkOverlap = config.getChunkOverlap();
         
-        // 按段落分隔符分割
-        String[] paragraphs = PARAGRAPH_SEPARATOR.split(text);
-        List<String> processedParagraphs = new ArrayList<>();
+        // 优化：使用更高效的方式分割段落，同时记录位置信息
+        List<ParagraphInfo> paragraphInfos = splitParagraphsWithPosition(text);
+        List<ParagraphInfo> processedParagraphs = new ArrayList<>();
         
         // 处理段落：合并小段落，拆分大段落
-        for (String para : paragraphs) {
-            String trimmed = para.trim();
+        for (ParagraphInfo paraInfo : paragraphInfos) {
+            String trimmed = paraInfo.content.trim();
             if (trimmed.isEmpty()) {
                 continue;
             }
             
             if (trimmed.length() <= chunkSize) {
-                processedParagraphs.add(trimmed);
+                processedParagraphs.add(new ParagraphInfo(trimmed, paraInfo.startIndex, paraInfo.endIndex));
             } else {
                 // 大段落需要拆分
-                List<String> splitParagraphs = splitLargeParagraph(trimmed, chunkSize);
+                List<ParagraphInfo> splitParagraphs = splitLargeParagraphWithPosition(
+                        trimmed, paraInfo.startIndex, chunkSize);
                 processedParagraphs.addAll(splitParagraphs);
             }
         }
         
-        // 合并小段落
-        List<String> mergedParagraphs = mergeSmallParagraphs(processedParagraphs, chunkSize);
+        // 合并小段落（同时保持位置信息）
+        List<ParagraphInfo> mergedParagraphs = mergeSmallParagraphsWithPosition(
+                processedParagraphs, chunkSize);
         
-        // 生成分块结果
+        // 生成分块结果（优化：使用记录的位置信息）
         List<ChunkResult> chunks = new ArrayList<>();
-        int currentIndex = 0;
         int chunkIndex = 0;
         
-        for (String para : mergedParagraphs) {
-            int startIndex = text.indexOf(para, currentIndex);
-            if (startIndex == -1) {
-                startIndex = currentIndex;
-            }
-            int endIndex = startIndex + para.length();
-            
+        for (ParagraphInfo paraInfo : mergedParagraphs) {
             ChunkResult chunk = new ChunkResult();
-            chunk.setContent(para);
+            chunk.setContent(paraInfo.content);
             chunk.setChunkIndex(chunkIndex);
-            chunk.setStartIndex(startIndex);
-            chunk.setEndIndex(endIndex);
+            chunk.setStartIndex(paraInfo.startIndex);
+            chunk.setEndIndex(paraInfo.endIndex);
             chunk.setContentType(ContentStructure.ContentType.TEXT);
             chunks.add(chunk);
-            
-            currentIndex = endIndex;
             chunkIndex++;
         }
         
@@ -123,31 +116,138 @@ public class ParagraphChunkStrategy implements ChunkStrategy {
     }
     
     /**
-     * 合并小段落
+     * 段落信息（包含内容和位置）
      */
-    private List<String> mergeSmallParagraphs(List<String> paragraphs, int targetSize) {
-        List<String> result = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
+    private static class ParagraphInfo {
+        String content;
+        int startIndex;
+        int endIndex;
         
-        for (String para : paragraphs) {
-            if (current.length() + para.length() + 2 <= targetSize) {
+        ParagraphInfo(String content, int startIndex, int endIndex) {
+            this.content = content;
+            this.startIndex = startIndex;
+            this.endIndex = endIndex;
+        }
+    }
+    
+    /**
+     * 分割段落（优化：避免使用 split() 创建大数组，同时记录位置信息）
+     */
+    private List<ParagraphInfo> splitParagraphsWithPosition(String text) {
+        List<ParagraphInfo> paragraphs = new ArrayList<>();
+        if (text == null || text.isEmpty()) {
+            return paragraphs;
+        }
+        
+        int start = 0;
+        int textLength = text.length();
+        
+        while (start < textLength) {
+            // 查找段落分隔符（双换行）
+            int doubleNewline = text.indexOf("\n\n", start);
+            
+            int end;
+            if (doubleNewline != -1) {
+                end = doubleNewline + 2;
+            } else {
+                end = textLength;
+            }
+            
+            String paragraph = text.substring(start, end);
+            String trimmed = paragraph.trim();
+            if (!trimmed.isEmpty()) {
+                // 计算trim后的实际位置
+                int trimmedStart = start;
+                while (trimmedStart < end && Character.isWhitespace(text.charAt(trimmedStart))) {
+                    trimmedStart++;
+                }
+                int trimmedEnd = end;
+                while (trimmedEnd > trimmedStart && Character.isWhitespace(text.charAt(trimmedEnd - 1))) {
+                    trimmedEnd--;
+                }
+                paragraphs.add(new ParagraphInfo(trimmed, trimmedStart, trimmedEnd));
+            }
+            
+            start = end;
+        }
+        
+        // 如果没有找到段落分隔符，整个文本作为一个段落
+        if (paragraphs.isEmpty()) {
+            paragraphs.add(new ParagraphInfo(text.trim(), 0, text.length()));
+        }
+        
+        return paragraphs;
+    }
+    
+    /**
+     * 拆分大段落（同时保持位置信息）
+     */
+    private List<ParagraphInfo> splitLargeParagraphWithPosition(
+            String paragraph, int baseStartIndex, int maxSize) {
+        List<ParagraphInfo> result = new ArrayList<>();
+        int start = 0;
+        
+        while (start < paragraph.length()) {
+            int end = Math.min(start + maxSize, paragraph.length());
+            String chunk = paragraph.substring(start, end);
+            
+            // 尝试在句子边界截断
+            if (end < paragraph.length()) {
+                int sentenceEnd = findLastSentenceEnd(chunk);
+                if (sentenceEnd > maxSize * 0.5) {
+                    chunk = chunk.substring(0, sentenceEnd + 1);
+                    end = start + sentenceEnd + 1;
+                }
+            }
+            
+            String trimmed = chunk.trim();
+            if (!trimmed.isEmpty()) {
+                int trimmedStart = baseStartIndex + start;
+                int trimmedEnd = baseStartIndex + start + trimmed.length();
+                result.add(new ParagraphInfo(trimmed, trimmedStart, trimmedEnd));
+            }
+            start = end;
+        }
+        
+        return result;
+    }
+    
+    /**
+     * 合并小段落（同时保持位置信息）
+     */
+    private List<ParagraphInfo> mergeSmallParagraphsWithPosition(
+            List<ParagraphInfo> paragraphs, int targetSize) {
+        List<ParagraphInfo> result = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        int currentStart = -1;
+        int currentEnd = -1;
+        
+        for (ParagraphInfo paraInfo : paragraphs) {
+            if (current.length() + paraInfo.content.length() + 2 <= targetSize) {
                 // 可以合并
                 if (current.length() > 0) {
                     current.append("\n\n");
                 }
-                current.append(para);
+                current.append(paraInfo.content);
+                if (currentStart == -1) {
+                    currentStart = paraInfo.startIndex;
+                }
+                currentEnd = paraInfo.endIndex;
             } else {
                 // 不能合并，保存当前段落
                 if (current.length() > 0) {
-                    result.add(current.toString());
+                    result.add(new ParagraphInfo(current.toString(), currentStart, currentEnd));
                     current = new StringBuilder();
+                    currentStart = -1;
                 }
-                current.append(para);
+                current.append(paraInfo.content);
+                currentStart = paraInfo.startIndex;
+                currentEnd = paraInfo.endIndex;
             }
         }
         
         if (current.length() > 0) {
-            result.add(current.toString());
+            result.add(new ParagraphInfo(current.toString(), currentStart, currentEnd));
         }
         
         return result;

@@ -7,7 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * 分块策略选择器
@@ -41,6 +44,45 @@ public class ChunkStrategySelector {
     
     @Autowired
     private ContentAnalyzer contentAnalyzer;
+    
+    // 代码文件扩展名集合（优化：使用HashSet提升查找效率）
+    private static final Set<String> CODE_EXTENSIONS = new HashSet<>();
+    static {
+        CODE_EXTENSIONS.add("java");
+        CODE_EXTENSIONS.add("js");
+        CODE_EXTENSIONS.add("javascript");
+        CODE_EXTENSIONS.add("ts");
+        CODE_EXTENSIONS.add("typescript");
+        CODE_EXTENSIONS.add("py");
+        CODE_EXTENSIONS.add("python");
+        CODE_EXTENSIONS.add("cpp");
+        CODE_EXTENSIONS.add("c");
+        CODE_EXTENSIONS.add("h");
+        CODE_EXTENSIONS.add("hpp");
+        CODE_EXTENSIONS.add("cs");
+        CODE_EXTENSIONS.add("go");
+        CODE_EXTENSIONS.add("rust");
+        CODE_EXTENSIONS.add("rb");
+        CODE_EXTENSIONS.add("ruby");
+        CODE_EXTENSIONS.add("php");
+        CODE_EXTENSIONS.add("swift");
+        CODE_EXTENSIONS.add("kt");
+        CODE_EXTENSIONS.add("kotlin");
+        CODE_EXTENSIONS.add("scala");
+        CODE_EXTENSIONS.add("sh");
+        CODE_EXTENSIONS.add("bash");
+        CODE_EXTENSIONS.add("sql");
+        CODE_EXTENSIONS.add("html");
+        CODE_EXTENSIONS.add("css");
+        CODE_EXTENSIONS.add("xml");
+        CODE_EXTENSIONS.add("json");
+        CODE_EXTENSIONS.add("yaml");
+        CODE_EXTENSIONS.add("yml");
+    }
+    
+    // Markdown标题模式（预编译，避免重复编译）
+    private static final Pattern MARKDOWN_HEADING_PATTERN = Pattern.compile(
+            "^#{1,6}\\s+.*$", Pattern.MULTILINE);
     
     /**
      * 选择分块策略
@@ -96,24 +138,38 @@ public class ChunkStrategySelector {
     
     /**
      * 为Markdown文件选择策略
+     * 优化：快速检测，避免完整分析（如果不需要混合策略）
      */
     private List<ChunkStrategy> selectStrategyForMarkdown(String text) {
-        ContentStructure structure = contentAnalyzer.analyzeText(text, "md");
+        // 快速检测标题（使用预编译的正则表达式）
+        boolean hasHeading = MARKDOWN_HEADING_PATTERN.matcher(text).find();
         
-        boolean hasTable = structure.getSegments().stream()
-                .anyMatch(s -> ContentStructure.ContentType.TABLE.equals(s.getType()));
-        boolean hasCode = structure.getSegments().stream()
-                .anyMatch(s -> ContentStructure.ContentType.CODE.equals(s.getType()));
-        boolean hasHeading = text.matches(".*^#{1,6}\\s+.*$.*");
+        // 快速检测表格和代码块（只检查关键特征，不完整分析）
+        boolean hasTableLike = text.contains("|") && text.contains("---");
+        boolean hasCodeLike = text.contains("```");
         
-        // 如果包含多种内容类型，使用混合策略
-        if ((hasTable || hasCode) && (hasHeading || text.length() > 1000)) {
-            logger.debug("Markdown文件包含混合内容，将使用混合分块策略");
-            return createMixedStrategies(hasTable, hasCode, hasHeading);
-        }
-        
-        // 如果只有标题，使用标题策略
-        if (hasHeading && !hasTable && !hasCode) {
+        // 如果检测到表格或代码块特征，进行完整分析
+        if (hasTableLike || hasCodeLike) {
+            ContentStructure structure = contentAnalyzer.analyzeText(text, "md");
+            
+            boolean hasTable = structure.getSegments().stream()
+                    .anyMatch(s -> ContentStructure.ContentType.TABLE.equals(s.getType()));
+            boolean hasCode = structure.getSegments().stream()
+                    .anyMatch(s -> ContentStructure.ContentType.CODE.equals(s.getType()));
+            
+            // 如果包含多种内容类型，使用混合策略
+            if ((hasTable || hasCode) && (hasHeading || text.length() > 1000)) {
+                logger.debug("Markdown文件包含混合内容，将使用混合分块策略");
+                return createMixedStrategies(hasTable, hasCode, hasHeading);
+            }
+            
+            // 如果只有标题，使用标题策略
+            if (hasHeading && !hasTable && !hasCode) {
+                logger.debug("选择标题分块策略 - Markdown文件");
+                return List.of(headingStrategy);
+            }
+        } else if (hasHeading) {
+            // 没有表格和代码，但有标题，直接使用标题策略
             logger.debug("选择标题分块策略 - Markdown文件");
             return List.of(headingStrategy);
         }
@@ -125,16 +181,24 @@ public class ChunkStrategySelector {
     
     /**
      * 为Word文档选择策略
+     * 优化：快速检测表格特征，避免完整分析（如果不需要）
      */
     private List<ChunkStrategy> selectStrategyForWord(String text) {
-        ContentStructure structure = contentAnalyzer.analyzeText(text, "docx");
+        // 快速检测：Word文档解析后如果包含表格，通常会有 "--- 文档中的表格 ---" 标记
+        // 或者包含表格特征（| 分隔符和换行）
+        boolean hasTableLike = text.contains("--- 文档中的表格 ---") || 
+                              (text.contains("|") && text.split("\n").length > 10);
         
-        boolean hasTable = structure.getSegments().stream()
-                .anyMatch(s -> ContentStructure.ContentType.TABLE.equals(s.getType()));
-        
-        if (hasTable) {
-            logger.debug("Word文档包含表格，将使用混合分块策略");
-            return createMixedStrategies(true, false, false);
+        if (hasTableLike) {
+            // 进行完整分析确认
+            ContentStructure structure = contentAnalyzer.analyzeText(text, "docx");
+            boolean hasTable = structure.getSegments().stream()
+                    .anyMatch(s -> ContentStructure.ContentType.TABLE.equals(s.getType()));
+            
+            if (hasTable) {
+                logger.debug("Word文档包含表格，将使用混合分块策略");
+                return createMixedStrategies(true, false, false);
+            }
         }
         
         // 默认使用段落策略
@@ -144,10 +208,12 @@ public class ChunkStrategySelector {
     
     /**
      * 为PDF文档选择策略
+     * 优化：避免使用 split()，改用字符计数
      */
     private List<ChunkStrategy> selectStrategyForPdf(String text) {
         // PDF通常解析为纯文本，检测是否有表格特征
-        boolean hasTableLike = text.contains("|") && text.split("\n").length > 5;
+        // 优化：使用字符计数替代 split()，避免创建大数组
+        boolean hasTableLike = text.contains("|") && countLines(text) > 5;
         
         if (hasTableLike) {
             logger.debug("PDF文档可能包含表格，将使用混合分块策略");
@@ -157,6 +223,22 @@ public class ChunkStrategySelector {
         // 默认使用段落策略
         logger.debug("选择段落分块策略 - PDF文档");
         return List.of(paragraphStrategy);
+    }
+    
+    /**
+     * 快速计算文本行数（优化：避免使用 split()）
+     */
+    private int countLines(String text) {
+        if (text == null || text.isEmpty()) {
+            return 0;
+        }
+        int count = 1;
+        for (int i = 0; i < text.length(); i++) {
+            if (text.charAt(i) == '\n') {
+                count++;
+            }
+        }
+        return count;
     }
     
     /**
@@ -183,22 +265,10 @@ public class ChunkStrategySelector {
     
     /**
      * 判断是否为代码文件
+     * 优化：使用HashSet，O(1)查找
      */
     private boolean isCodeFile(String fileType) {
-        String[] codeExtensions = {
-                "java", "js", "javascript", "ts", "typescript", "py", "python",
-                "cpp", "c", "h", "hpp", "cs", "go", "rust", "rb", "ruby",
-                "php", "swift", "kt", "kotlin", "scala", "sh", "bash", "sql",
-                "html", "css", "xml", "json", "yaml", "yml"
-        };
-        
-        for (String ext : codeExtensions) {
-            if (ext.equals(fileType)) {
-                return true;
-            }
-        }
-        
-        return false;
+        return CODE_EXTENSIONS.contains(fileType);
     }
     
     /**

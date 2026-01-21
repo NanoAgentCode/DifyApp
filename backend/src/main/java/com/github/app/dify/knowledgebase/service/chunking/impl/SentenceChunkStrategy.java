@@ -50,27 +50,35 @@ public class SentenceChunkStrategy implements ChunkStrategy {
         // 合并句子以接近目标chunkSize
         List<String> mergedChunks = mergeSentences(sentences, chunkSize);
         
-        // 生成分块结果
+        // 生成分块结果（优化：直接使用分割时的位置信息，避免重复查找）
         List<ChunkResult> chunks = new ArrayList<>();
         int currentIndex = 0;
         int chunkIndex = 0;
         
         for (String chunk : mergedChunks) {
-            int startIndex = text.indexOf(chunk, currentIndex);
-            if (startIndex == -1) {
-                startIndex = currentIndex;
+            // 优化：使用 trim() 后的内容，但保持原始位置
+            String trimmedChunk = chunk.trim();
+            int startIndex = currentIndex;
+            // 跳过前导空白
+            while (startIndex < text.length() && 
+                   Character.isWhitespace(text.charAt(startIndex))) {
+                startIndex++;
             }
-            int endIndex = startIndex + chunk.length();
+            int endIndex = startIndex + trimmedChunk.length();
             
             ChunkResult result = new ChunkResult();
-            result.setContent(chunk.trim());
+            result.setContent(trimmedChunk);
             result.setChunkIndex(chunkIndex);
             result.setStartIndex(startIndex);
             result.setEndIndex(endIndex);
             result.setContentType(ContentStructure.ContentType.TEXT);
             chunks.add(result);
             
-            currentIndex = endIndex;
+            // 移动到下一个chunk的起始位置（考虑重叠）
+            currentIndex = endIndex - config.getChunkOverlap();
+            if (currentIndex < startIndex) {
+                currentIndex = endIndex;
+            }
             chunkIndex++;
         }
         
