@@ -151,22 +151,30 @@ onMounted(() => {
   position: fixed;
   top: 0;
   left: 0;
-  width: var(--header-height);
+  width: var(--sidebar-width);
   height: var(--header-height);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-xs);
   z-index: calc(var(--z-fixed) + 1);
   box-sizing: border-box;
-  transition: transform var(--transition-base);
-  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+  box-shadow: none;
   backdrop-filter: blur(10px);
+  border: none;
+}
+
+.top-logo-placeholder:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
 }
 
 .top-logo-img {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
@@ -180,7 +188,7 @@ onMounted(() => {
   display: flex !important;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--spacing-lg);
+  padding: 0 var(--spacing-lg) 0 calc(var(--sidebar-width) + var(--spacing-lg));
   width: 100vw !important;
   max-width: 100vw !important;
   height: var(--header-height);
@@ -214,28 +222,28 @@ onMounted(() => {
 }
 
 .system-icon {
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   width: 36px;
   height: 36px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-xs);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
+  border-radius: 0;
+  padding: 0;
   transition: all var(--transition-base);
   position: relative;
   z-index: 2;
 }
 
 .system-icon:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.05);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
+  transform: none;
 }
 
 .system-logo {
-  width: 28px;
-  height: 28px;
+  width: 34.2px;
+  height: 34.2px;
   object-fit: contain;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
@@ -335,7 +343,7 @@ onMounted(() => {
 }
 
 .user-info .el-icon {
-  font-size: 18px;
+  font-size: 36px;
 }
 
 .user-info span {
@@ -394,12 +402,12 @@ onMounted(() => {
 /* ========== 响应式设计 ========== */
 @media (max-width: 1024px) {
   .app-header {
-    padding: 0 var(--spacing-md);
+    padding: 0 var(--spacing-md) 0 calc(var(--sidebar-width) + var(--spacing-md));
     height: 56px;
   }
 
   .top-logo-placeholder {
-    width: 56px;
+    width: var(--sidebar-width);
     height: 56px;
   }
 
@@ -424,12 +432,12 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .app-header {
-    padding: 0 var(--spacing-sm);
+    padding: 0 var(--spacing-sm) 0 calc(var(--sidebar-width) + var(--spacing-sm));
     height: 52px;
   }
 
   .top-logo-placeholder {
-    width: 52px;
+    width: var(--sidebar-width);
     height: 52px;
   }
 
