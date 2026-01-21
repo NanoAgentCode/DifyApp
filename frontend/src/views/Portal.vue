@@ -542,7 +542,10 @@
 
     <!-- 底部免责声明 -->
     <div class="portal-footer">
-      <span class="footer-text">内容由AI生成仅供参考</span>
+      <div class="footer-content">
+        <el-icon class="footer-icon"><InfoFilled /></el-icon>
+        <span class="footer-text">内容由AI生成，仅供参考</span>
+      </div>
     </div>
 
     <!-- 修改密码对话框 -->
@@ -4368,17 +4371,60 @@ onUnmounted(() => {
 /* 底部免责声明 */
 .portal-footer {
   text-align: center;
-  padding: 12px 20px;
-  background: var(--el-bg-color, #ffffff);
+  padding: 16px 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%);
+  backdrop-filter: blur(10px);
   border-top: 1px solid var(--el-border-color-lighter, #e4e7ed);
   position: sticky;
   bottom: 0;
   z-index: 10;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+
+.portal-footer:hover {
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.footer-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: rgba(64, 158, 255, 0.06);
+  transition: all 0.3s ease;
+}
+
+.portal-footer:hover .footer-content {
+  background: rgba(64, 158, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.footer-icon {
+  font-size: 14px;
+  color: var(--el-color-primary, #409eff);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
 }
 
 .footer-text {
-  font-size: 12px;
-  color: var(--el-text-color-placeholder, #909399);
+  font-size: 13px;
+  color: var(--el-text-color-regular, #606266);
+  font-weight: 400;
+  letter-spacing: 0.3px;
+  line-height: 1.5;
 }
 
 /* 响应式设计 */
@@ -4420,6 +4466,24 @@ onUnmounted(() => {
 
   .feature-label {
     font-size: 12px;
+  }
+
+  .portal-footer {
+    padding: 12px 16px;
+  }
+
+  .footer-content {
+    padding: 6px 12px;
+    gap: 6px;
+  }
+
+  .footer-icon {
+    font-size: 12px;
+  }
+
+  .footer-text {
+    font-size: 12px;
+    letter-spacing: 0.2px;
   }
 }
 </style>

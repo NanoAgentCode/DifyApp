@@ -15,11 +15,15 @@
       <!-- 标题居中显示 -->
       <div class="header-center">
         <h2 class="header-title">NanoAgent Workbench</h2>
-        <el-tooltip :content="isCollapsed ? '展开顶部' : '收起顶部'" placement="bottom">
-          <el-button type="text" @click="toggleCollapse" class="collapse-header-button">
+        <div class="collapse-button-wrapper" @click.stop.prevent="toggleCollapse" :title="isCollapsed ? '展开顶部' : '收起顶部'">
+          <button 
+            type="button"
+            class="collapse-header-button"
+            @click.stop.prevent="toggleCollapse"
+          >
             <el-icon><ArrowUp v-if="!isCollapsed" /><ArrowDown v-else /></el-icon>
-          </el-button>
-        </el-tooltip>
+          </button>
+        </div>
       </div>
       <div class="header-right">
         <slot name="extra-buttons"></slot>
@@ -104,7 +108,11 @@ const getUserInfo = () => {
 }
 
 // 切换收起/展开
-const toggleCollapse = () => {
+const toggleCollapse = (event) => {
+  if (event) {
+    event.preventDefault()
+    event.stopPropagation()
+  }
   isCollapsed.value = !isCollapsed.value
   saveCollapsedState(isCollapsed.value)
   emit('update:modelValue', isCollapsed.value)
@@ -257,7 +265,26 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  z-index: calc(var(--z-fixed) + 1);
+  z-index: calc(var(--z-fixed) + 100) !important;
+  pointer-events: none; /* 让容器不拦截点击，但子元素可以 */
+  width: auto;
+  height: auto;
+}
+
+.header-center > * {
+  pointer-events: auto; /* 恢复子元素的点击事件 */
+}
+
+.header-center > .collapse-button-wrapper {
+  pointer-events: auto !important;
+  z-index: 99999 !important;
+  position: relative;
+}
+
+.collapse-button-wrapper {
+  position: relative;
+  z-index: 99999 !important;
+  pointer-events: auto !important;
 }
 
 /* ========== 标题居中 ========== */
@@ -276,25 +303,42 @@ onMounted(() => {
 }
 
 .collapse-header-button {
-  padding: var(--spacing-sm);
-  color: rgba(255, 255, 255, 0.9);
-  background-color: rgba(255, 255, 255, 0.1);
+  padding: 0;
+  color: rgba(255, 255, 255, 0.9) !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
   border-radius: var(--radius-md);
   transition: all var(--transition-base);
   flex-shrink: 0;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
   position: relative;
-  z-index: 2;
-  pointer-events: auto;
+  z-index: 99999 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  outline: none !important;
+  font-family: inherit;
+}
+
+.collapse-header-button:focus {
+  outline: 2px solid rgba(255, 255, 255, 0.5) !important;
+  outline-offset: 2px !important;
 }
 
 .collapse-header-button:hover,
 .collapse-header-button:focus {
-  color: #ffffff;
-  background-color: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
+  z-index: calc(var(--z-fixed) + 10) !important;
 }
 
 .collapse-header-button:active {
@@ -304,6 +348,12 @@ onMounted(() => {
 .collapse-header-button:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.5);
   outline-offset: 2px;
+}
+
+.collapse-header-button .el-icon {
+  pointer-events: none !important;
+  font-size: 16px !important;
+  color: inherit !important;
 }
 
 /* ========== 右侧区域 ========== */
@@ -320,10 +370,10 @@ onMounted(() => {
 .user-info {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: 6px;
   color: rgba(255, 255, 255, 0.95);
   cursor: pointer;
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: 6px 12px;
   border-radius: var(--radius-md);
   transition: all var(--transition-base);
   background: rgba(255, 255, 255, 0.1);
@@ -343,11 +393,15 @@ onMounted(() => {
 }
 
 .user-info .el-icon {
-  font-size: 36px;
+  font-size: 18px;
+}
+
+.user-info .el-icon--right {
+  font-size: 14px;
 }
 
 .user-info span {
-  font-size: var(--font-size-sm);
+  font-size: 13px;
 }
 
 /* ========== 展开按钮 ========== */
@@ -462,7 +516,12 @@ onMounted(() => {
   }
 
   .user-info {
-    padding: var(--spacing-xs) var(--spacing-sm);
+    padding: 4px 8px;
+    gap: 4px;
+  }
+
+  .user-info .el-icon {
+    font-size: 16px;
   }
 }
 </style>
