@@ -6,7 +6,7 @@
         <div class="toolbar-header">
           <h3>智能框图助手</h3>
           <div class="header-top">
-            <el-button type="text" @click="handleBack" size="small">
+            <el-button link @click="handleBack" size="small">
               <el-icon><ArrowLeft /></el-icon>
               返回
             </el-button>
@@ -184,11 +184,11 @@
           </div>
         </div>
         
-        <!-- Mermaid 图表容器 -->
+        <!-- AntV Infographic 图表容器 -->
         <div 
-          class="mermaid-wrapper"
+          class="infographic-wrapper"
           :class="{ dragging: isDragging }"
-          ref="mermaidWrapper" 
+          ref="infographicWrapper" 
           @wheel="handleWheel"
           @mousedown="handleMouseDown"
           @mousemove="handleMouseMove"
@@ -196,8 +196,8 @@
           @mouseleave="handleMouseUp"
         >
           <div 
-            class="mermaid-container" 
-            ref="mermaidContainer"
+            class="infographic-container" 
+            ref="infographicContainer"
             :style="{ 
               transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`, 
               transformOrigin: 'top left',
@@ -262,14 +262,29 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-// 动态导入 Mermaid，只在访问 AIDrawIO 页面时才加载
-let mermaid = null
-const loadMermaid = async () => {
-  if (!mermaid) {
-    const module = await import('mermaid')
-    mermaid = module.default || module
+// 动态导入 AntV Infographic，只在访问 AIDrawIO 页面时才加载
+let Infographic = null
+const loadInfographic = async () => {
+  if (!Infographic) {
+    try {
+      const module = await import('@antv/infographic')
+      // 0.2.12 版本使用命名导出 { Infographic }
+      // 尝试多种导出方式以确保兼容性
+      Infographic = module.Infographic || 
+                    module.default?.Infographic || 
+                    module.default ||
+                    (module.default && typeof module.default === 'function' ? module.default : null)
+      
+      if (!Infographic) {
+        console.error('模块导出内容:', module)
+        throw new Error('无法从 @antv/infographic 加载 Infographic 类，请检查包是否正确安装')
+      }
+    } catch (error) {
+      console.error('加载 @antv/infographic 失败:', error)
+      throw new Error(`加载图表库失败: ${error.message || '未知错误'}。请确保已运行 npm install 并重启开发服务器。`)
+    }
   }
-  return mermaid
+  return Infographic
 }
 import {
   MagicStick,
@@ -324,10 +339,10 @@ const handleBack = () => {
   router.push('/admin/chat')
 }
 
-// Mermaid 图表相关
-const mermaidContainer = ref(null)
-const mermaidWrapper = ref(null)
-let mermaidInstance = null
+// AntV Infographic 图表相关
+const infographicContainer = ref(null)
+const infographicWrapper = ref(null)
+let infographicInstance = null
 
 // 缩放相关
 const zoomLevel = ref(1)
@@ -373,7 +388,7 @@ const diagramTypeConfig = {
   mindmap: {
     name: '思维导图',
     icon: 'Share',
-    placeholder: '描述思维导图主题和分支，例如：项目管理，包含需求分析、设计、开发、测试、部署等分支',
+    placeholder: '描述思维导图主题和分支，例如：项目管理，包含需求分析（子分支：用户调研、需求文档）、设计（子分支：架构设计、UI设计）、开发、测试、部署等分支',
     promptPrefix: '请绘制一个思维导图，'
   },
   sequence: {
@@ -473,297 +488,295 @@ const saving = ref(false)
 const loadDialogVisible = ref(false)
 const diagramList = ref([])
 
-// Mermaid 初始化标志
-let mermaidInitialized = false
+// AntV Infographic 初始化标志
+let infographicInitialized = false
 
-// 初始化 Mermaid
-const initMermaid = async () => {
-  if (mermaidInitialized) {
+// 初始化 AntV Infographic
+const initInfographic = async () => {
+  if (infographicInitialized) {
+    return
+  }
+
+  // 等待容器元素存在
+  await nextTick()
+  
+  // 使用 ref 获取容器元素（官方推荐方式）
+  const container = infographicContainer.value
+  if (!container) {
+    console.warn('容器元素不存在，等待下次调用')
     return
   }
 
   try {
-    // 动态加载 Mermaid
-    const mermaidModule = await loadMermaid()
+    const InfographicClass = await loadInfographic()
+    if (!InfographicClass) {
+      throw new Error('无法加载 Infographic 类')
+    }
     
-    // 初始化 Mermaid
-    mermaidModule.initialize({
-      startOnLoad: false,
-      theme: 'default',
-      securityLevel: 'loose',
-      flowchart: {
-        useMaxWidth: true,
-        htmlLabels: true,
-        curve: 'basis'
-      },
-      themeVariables: {
-        // 基于 Transformer 架构图的颜色主题
-        primaryColor: '#409eff',
-        primaryTextColor: '#303133',
-        primaryBorderColor: '#409eff',
-        lineColor: '#606266',
-        secondaryColor: '#ecf5ff',
-        tertiaryColor: '#f5f7fa',
-        // 自定义颜色变量
-        lightBlue: '#ADD8E6',      // 浅蓝色 - 输入/输出嵌入层
-        yellow: '#FFD700',          // 黄色 - 位置编码
-        purple: '#9370DB',          // 紫色 - 编码器块
-        red: '#FF5252',             // 红色 - 注意力机制、前馈网络
-        green: '#4CAF50',           // 绿色 - 归一化层
-        orange: '#FF9800',          // 橙色 - 解码器块
-        darkBlue: '#1976D2',        // 深蓝色 - 输出层
-        gray: '#808080'             // 灰色 - 连接线
-      }
+    // 清空容器
+    container.innerHTML = ''
+    
+    // 确保容器有尺寸（如果容器尺寸为 0，可能导致渲染失败）
+    const containerWidth = container.clientWidth || container.offsetWidth || 800
+    const containerHeight = container.clientHeight || container.offsetHeight || 600
+    
+    console.log('容器尺寸:', {
+      clientWidth: container.clientWidth,
+      clientHeight: container.clientHeight,
+      offsetWidth: container.offsetWidth,
+      offsetHeight: container.offsetHeight,
+      computedWidth: containerWidth,
+      computedHeight: containerHeight
     })
     
-    mermaidInitialized = true
-    console.log('Mermaid 初始化完成')
+    // 如果容器尺寸为 0，设置一个默认尺寸
+    if (containerWidth === 0 || containerHeight === 0) {
+      console.warn('容器尺寸为 0，设置默认尺寸')
+      container.style.width = container.style.width || '800px'
+      container.style.height = container.style.height || '600px'
+    }
+    
+    // Vue 3 官方推荐：直接传入 DOM 元素（ref.value）
+    infographicInstance = new InfographicClass({
+      container: container, // 直接传入 DOM 元素
+      width: containerWidth > 0 ? containerWidth : '100%',
+      height: containerHeight > 0 ? containerHeight : '100%',
+      editable: false // 禁用编辑模式
+    })
+    infographicInitialized = true
+    console.log('AntV Infographic 初始化完成', {
+      container: container,
+      instance: infographicInstance,
+      width: container.clientWidth,
+      height: container.clientHeight
+    })
   } catch (e) {
-    console.error('Mermaid 初始化失败:', e)
+    console.error('AntV Infographic 初始化失败:', e)
+    console.error('错误堆栈:', e.stack)
+    ElMessage.error('初始化图表引擎失败: ' + (e.message || '未知错误'))
+    infographicInitialized = false
+    infographicInstance = null
   }
 }
 
-// 渲染 Mermaid 图表
-const renderMermaid = async (mermaidCode) => {
-  if (!mermaidContainer.value) {
+// 渲染 AntV Infographic 图表
+const renderInfographic = async (infographicCode) => {
+  const container = infographicContainer.value
+  if (!container) {
     ElMessage.warning('容器未初始化')
     return
   }
 
-  if (!mermaidCode || !mermaidCode.trim()) {
-    mermaidContainer.value.innerHTML = ''
+  if (!infographicCode || !infographicCode.trim()) {
+    if (infographicInstance) {
+      infographicInstance.destroy?.()
+      infographicInstance = null
+    }
+    container.innerHTML = ''
     hasDiagram.value = false
+    infographicInitialized = false
     return
   }
 
-  // 确保 Mermaid 已初始化
-  if (!mermaidInitialized) {
-    await initMermaid()
+  // 等待 DOM 更新
+  await nextTick()
+
+  // 确保 AntV Infographic 已初始化
+  if (!infographicInitialized || !infographicInstance) {
+    await initInfographic()
   }
 
+  // 再次等待，确保初始化完成
+  await nextTick()
+
   try {
-    // 对于架构图，强制确保使用 TD（从上到下）方向，并添加必要的布局指令
-    let codeToRender = mermaidCode.trim()
-    if (selectedDiagramType.value === 'architecture') {
-      // 强制确保架构图使用 TD 方向（整体垂直分层）
-      // 最关键：强制替换第一行的方向为 TD
-      codeToRender = codeToRender.replace(/^(flowchart|graph)\s+(LR|TD|BT|RL)/i, '$1 TD')
-      // 先检查并替换所有可能的 LR
-      codeToRender = codeToRender.replace(/flowchart\s+LR/gi, 'flowchart TD')
-      codeToRender = codeToRender.replace(/graph\s+LR/gi, 'graph TD')
-      // 如果完全没有指定方向，添加 TD
-      if (!codeToRender.match(/^(flowchart|graph)\s+(TD|LR|BT|RL)/i)) {
-        codeToRender = codeToRender.replace(/^(flowchart|graph)/i, '$1 TD')
-      }
-      // 再次确保第一行是 TD（防止遗漏）
-      const firstLine = codeToRender.split('\n')[0]
-      if (!firstLine.match(/^(flowchart|graph)\s+TD/i)) {
-        codeToRender = codeToRender.replace(/^(flowchart|graph)(\s+(TD|LR|BT|RL))?/i, '$1 TD')
-        console.log('前端强制修复：已设置第一行为 TD')
-      }
-      
-      // 确保每个 subgraph 内有 direction LR（用于水平布局）
-      const subgraphRegex = /subgraph\s+[\w"']+[^\n]*\n/g
-      let match
-      const subgraphs = []
-      while ((match = subgraphRegex.exec(codeToRender)) !== null) {
-        subgraphs.push(match.index)
-      }
-      
-      // 为每个 subgraph 检查并添加 direction LR（如果缺失）
-      for (let i = subgraphs.length - 1; i >= 0; i--) {
-        const subgraphStart = subgraphs[i]
-        const nextSubgraph = i < subgraphs.length - 1 ? subgraphs[i + 1] : codeToRender.length
-        const subgraphContent = codeToRender.substring(subgraphStart, nextSubgraph)
-        
-        // 检查是否已有 direction LR（必须是独立的一行）
-        const hasDirectionLR = subgraphContent.match(/^\s*direction\s+LR\s*$/m)
-        
-        // 检查是否有错误的 direction TD，需要改为 LR
-        const wrongDirectionPattern = /direction\s+TD\s*[^\n]*/g
-        let wrongMatch
-        const wrongMatches = []
-        while ((wrongMatch = wrongDirectionPattern.exec(subgraphContent)) !== null) {
-          wrongMatches.push({
-            index: subgraphStart + wrongMatch.index,
-            fullMatch: wrongMatch[0]
-          })
-        }
-        
-        // 从后往前修复，将 direction TD 改为 direction LR
-        for (let j = wrongMatches.length - 1; j >= 0; j--) {
-          const wrongMatch = wrongMatches[j]
-          const wrongLine = wrongMatch.fullMatch
-          const lineStartIndex = wrongMatch.index
-          const lineEndIndex = codeToRender.indexOf('\n', lineStartIndex)
-          const fullLine = codeToRender.substring(lineStartIndex, lineEndIndex >= 0 ? lineEndIndex : codeToRender.length)
-          const indent = fullLine.match(/^(\s*)/)?.[1] || ''
-          
-          // 修复：将 direction TD 改为 direction LR
-          const fixed = indent + '        direction LR'
-          const lineEnd = lineEndIndex >= 0 ? lineEndIndex : codeToRender.length
-          codeToRender = codeToRender.substring(0, lineStartIndex) + 
-                        fixed + 
-                        codeToRender.substring(lineEnd)
-        }
-        
-        // 如果没有 direction LR，添加它
-        if (!hasDirectionLR && !wrongMatches.length) {
-          // 找到 subgraph 行的结束位置
-          const subgraphLineEnd = codeToRender.indexOf('\n', subgraphStart) + 1
-          // 在 subgraph 后添加 direction LR（独立的一行）
-          const indent = codeToRender.substring(subgraphStart, subgraphLineEnd).match(/^(\s*)/)?.[1] || ''
-          codeToRender = codeToRender.substring(0, subgraphLineEnd) + 
-                        indent + '        direction LR\n' + 
-                        codeToRender.substring(subgraphLineEnd)
-        }
-      }
-      
-      // 在 subgraph 之间添加不可见的连接来强制垂直布局
-      // 提取所有 subgraph ID（处理带引号和不带引号的情况）
-      const subgraphIdRegex = /subgraph\s+([\w"']+)/g
-      const subgraphIds = []
-      let idMatch
-      while ((idMatch = subgraphIdRegex.exec(codeToRender)) !== null) {
-        let subgraphId = idMatch[1]
-        // 移除引号
-        subgraphId = subgraphId.replace(/["']/g, '')
-        // 移除可能的方括号内容（如 Layer1["表示层"] -> Layer1）
-        subgraphId = subgraphId.split('[')[0].trim()
-        if (subgraphId) {
-          subgraphIds.push(subgraphId)
-        }
-      }
-      
-      // 在 subgraph 之间添加不可见连接（使用 --- 但通过 linkStyle 隐藏）
-      // 在第一个 subgraph 的 end 之后，第二个 subgraph 之前添加连接
-      let linkIndex = 0
-      for (let i = 0; i < subgraphIds.length - 1; i++) {
-        const currentId = subgraphIds[i]
-        const nextId = subgraphIds[i + 1]
-        // 查找当前 subgraph 的 end，并在其后添加不可见连接
-        const endPattern = new RegExp(`(\\s+end\\s*\\n)(?=\\s*subgraph\\s+[\\w"']*${nextId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'g')
-        if (endPattern.test(codeToRender)) {
-          codeToRender = codeToRender.replace(
-            endPattern,
-            `$1    ${currentId} --- ${nextId}\n`
-          )
-          linkIndex++
-        }
-      }
-      
-      // 在 subgraph 内的节点之间添加不可见的水平连接来强制水平布局
-      const subgraphContentRegex = /subgraph\s+[\w"']+[^\n]*\n([\s\S]*?)\s+end/g
-      let subgraphMatch
-      const subgraphContents = []
-      while ((subgraphMatch = subgraphContentRegex.exec(codeToRender)) !== null) {
-        subgraphContents.push({
-          start: subgraphMatch.index,
-          end: subgraphMatch.index + subgraphMatch[0].length,
-          content: subgraphMatch[1],
-          fullMatch: subgraphMatch[0]
-        })
-      }
-      
-      // 从后往前处理，避免索引变化
-      for (let i = subgraphContents.length - 1; i >= 0; i--) {
-        const subgraphInfo = subgraphContents[i]
-        const content = subgraphInfo.content
-        
-        // 提取节点ID（从节点定义中提取，例如 A[Web前端]:::presentation -> A）
-        const nodeIdRegex = /^\s*([A-Za-z_][\w]*)\s*\[/gm
-        const nodeIds = []
-        let nodeMatch
-        while ((nodeMatch = nodeIdRegex.exec(content)) !== null) {
-          nodeIds.push(nodeMatch[1])
-        }
-        
-        // 如果节点数量大于1，添加水平连接
-        if (nodeIds.length > 1) {
-          // 找到 end 的位置
-          const endIndex = codeToRender.indexOf('end', subgraphInfo.start)
-          if (endIndex > 0) {
-            // 在 end 之前添加水平连接
-            let horizontalLinks = ''
-            for (let j = 0; j < nodeIds.length - 1; j++) {
-              horizontalLinks += `        ${nodeIds[j]} --- ${nodeIds[j + 1]}\n`
-            }
-            codeToRender = codeToRender.substring(0, endIndex) + 
-                          horizontalLinks + 
-                          codeToRender.substring(endIndex)
-            linkIndex += (nodeIds.length - 1)
-          }
-        }
-      }
-      
-      // 添加 linkStyle 来隐藏所有连接线（包括所有类型的连接：-->, ---, <-->, <->, -.-> 等）
-      // 重新计算所有连接线的数量（包括我们添加的和原有的）
-      const allLinkPattern = /(\w+)\s+(--|==|-\.-|<-|->|<->|<-->|<-\|->|==>|<=>|<-\|)\s*(\w+)/g
-      let allLinkMatch
-      let totalLinkCount = 0
-      while ((allLinkMatch = allLinkPattern.exec(codeToRender)) !== null) {
-        totalLinkCount++
-      }
-      
-      if (totalLinkCount > 0) {
-        const hiddenLinks = []
-        for (let i = 0; i < totalLinkCount; i++) {
-          hiddenLinks.push(`    linkStyle ${i} stroke-width:0px,stroke:transparent`)
-        }
-        codeToRender = codeToRender + '\n' + hiddenLinks.join('\n')
-        console.log(`已添加 ${totalLinkCount} 个隐藏连接样式（包括所有类型的连接线）`)
+    // 清理代码：移除特殊字符和多余空白
+    let codeToRender = infographicCode.trim()
+    
+    // 移除零宽字符和其他特殊字符
+    codeToRender = codeToRender.replace(/[\u200B-\u200D\uFEFF]/g, '')
+    
+    // 移除末尾的特殊字符
+    codeToRender = codeToRender.replace(/[\u200B-\u200D\uFEFF\s]+$/, '')
+    codeToRender = normalizeInfographicTemplate(codeToRender)
+    
+    // 确保以 infographic 开头
+    if (!codeToRender.startsWith('infographic')) {
+      const infographicIndex = codeToRender.indexOf('infographic')
+      if (infographicIndex >= 0) {
+        codeToRender = codeToRender.substring(infographicIndex).trim()
       }
     }
     
-    // 生成唯一 ID
-    const id = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    // 调试：输出代码内容
+    console.log('准备渲染的代码（前200字符）:', codeToRender.substring(0, 200))
+    console.log('代码总长度:', codeToRender.length)
+    console.log('代码末尾10个字符:', codeToRender.substring(codeToRender.length - 10))
+    console.log('容器元素:', document.getElementById('admin-infographic-container'))
+    console.log('Infographic 实例:', infographicInstance)
     
-    // 清空容器
-    mermaidContainer.value.innerHTML = ''
-    
-    // 等待 DOM 更新
-    await nextTick()
-    
-    // 使用 render 方法渲染（不需要创建 DOM 元素）
-    const mermaidModule = await loadMermaid()
-    const { svg } = await mermaidModule.render(id, codeToRender)
-    
-    // 直接设置 SVG 内容
-    mermaidContainer.value.innerHTML = svg
-    
-    // 更新当前图表代码（使用修正后的代码）
-    currentDiagramJson.value = codeToRender
-    hasDiagram.value = true
-    ElMessage.success('图表渲染成功')
+    if (infographicInstance) {
+      // 0.2.12 版本：render 方法支持多次调用以更新图表
+      // 清空容器内容（如果之前有内容）
+      if (container) {
+        container.innerHTML = ''
+      }
+      
+      // 验证代码格式
+      if (!codeToRender.startsWith('infographic')) {
+        console.warn('代码格式可能不正确，不以 infographic 开头:', codeToRender.substring(0, 50))
+      }
+      
+      // 调用 render 方法
+      try {
+        console.log('调用 render 方法，代码长度:', codeToRender.length)
+        
+        // render 方法是同步的，但渲染可能是异步的
+        infographicInstance.render(codeToRender)
+        console.log('render 方法调用完成（同步）')
+        
+        // 检查是否有 on 方法可以监听渲染完成事件
+        if (infographicInstance.on && typeof infographicInstance.on === 'function') {
+          console.log('Infographic 实例支持事件监听')
+        }
+      } catch (renderError) {
+        console.error('render 方法调用出错:', renderError)
+        console.error('错误详情:', {
+          message: renderError.message,
+          stack: renderError.stack,
+          name: renderError.name
+        })
+        throw renderError
+      }
+      
+      // 等待多次，确保渲染完成（AntV Infographic 渲染可能是异步的）
+      // 增加等待时间，因为复杂的图表可能需要更长时间渲染
+      await nextTick()
+      await new Promise(resolve => setTimeout(resolve, 300)) // 等待 300ms
+      await nextTick()
+      await new Promise(resolve => setTimeout(resolve, 200)) // 再等待 200ms
+      await nextTick()
+      
+      // 检查容器是否有内容（使用多种方式检查）
+      if (container) {
+        const hasContent = container.children.length > 0 || 
+                          container.innerHTML.trim().length > 0 ||
+                          container.querySelector('svg') !== null ||
+                          container.querySelector('canvas') !== null ||
+                          container.querySelector('div') !== null
+        
+        // 检查容器内的所有元素
+        const svgElements = container.querySelectorAll('svg')
+        const canvasElements = container.querySelectorAll('canvas')
+        const divElements = container.querySelectorAll('div')
+        const allElements = container.querySelectorAll('*')
+        
+        console.log('容器检查结果:', {
+          childrenLength: container.children.length,
+          innerHTMLLength: container.innerHTML.trim().length,
+          hasSVG: svgElements.length > 0,
+          svgCount: svgElements.length,
+          hasCanvas: canvasElements.length > 0,
+          canvasCount: canvasElements.length,
+          hasDiv: divElements.length > 0,
+          divCount: divElements.length,
+          totalElements: allElements.length,
+          innerHTMLPreview: container.innerHTML.substring(0, 500),
+          containerClasses: container.className,
+          containerStyle: container.getAttribute('style')
+        })
+        
+        // 检查 Infographic 实例的方法
+        console.log('Infographic 实例方法:', {
+          hasRender: typeof infographicInstance.render === 'function',
+          hasUpdate: typeof infographicInstance.update === 'function',
+          hasDestroy: typeof infographicInstance.destroy === 'function',
+          hasOn: typeof infographicInstance.on === 'function',
+          hasGetOptions: typeof infographicInstance.getOptions === 'function',
+          instanceKeys: Object.keys(infographicInstance).slice(0, 20)
+        })
+        
+        if (!hasContent) {
+          console.warn('渲染后容器为空，可能渲染失败')
+          console.warn('完整代码:', codeToRender)
+          // 不抛出错误，而是显示警告，让用户看到代码
+          ElMessage.warning('图表渲染后容器为空，请检查代码格式。代码已显示在控制台。')
+          // 在容器中显示代码，方便调试
+          container.innerHTML = `<div class="infographic-error">
+            <p>图表渲染失败，请检查代码格式是否正确</p>
+            <pre style="margin-top: 10px; font-size: 12px; color: #666; max-height: 300px; overflow: auto; background: #f5f5f5; padding: 10px; border-radius: 4px;">${codeToRender}</pre>
+          </div>`
+          currentDiagramJson.value = codeToRender
+          hasDiagram.value = true
+          return
+        }
+      }
+      
+      currentDiagramJson.value = codeToRender
+      hasDiagram.value = true
+      
+      console.log('图表渲染完成，容器内容预览:', container?.innerHTML.substring(0, 200))
+      ElMessage.success('图表渲染成功')
+    } else {
+      throw new Error('Infographic 实例未初始化')
+    }
   } catch (e) {
-    console.error('渲染 Mermaid 图表失败:', e)
+    console.error('渲染 AntV Infographic 图表失败:', e)
+    console.error('错误堆栈:', e.stack)
     const errorMsg = e.message || '未知错误'
     ElMessage.error('渲染图表失败: ' + errorMsg)
-    mermaidContainer.value.innerHTML = `<div class="mermaid-error">图表渲染失败: ${errorMsg}<br/><pre style="margin-top: 10px; font-size: 12px; color: #666;">${mermaidCode.substring(0, 200)}...</pre></div>`
+    if (infographicContainer.value) {
+      infographicContainer.value.innerHTML = `<div class="infographic-error">图表渲染失败: ${errorMsg}<br/><pre style="margin-top: 10px; font-size: 12px; color: #666; max-height: 200px; overflow: auto;">${infographicCode.substring(0, 500)}</pre></div>`
+    }
   }
 }
 
-// 加载 Mermaid 代码
-const loadMermaidCode = (mermaidCode) => {
-  if (typeof mermaidCode === 'string') {
-    renderMermaid(mermaidCode)
+const normalizeInfographicTemplate = (code) => {
+  const lines = code.split(/\r?\n/)
+  if (lines.length === 0) return code
+  const firstLine = lines[0].trim()
+  if (!firstLine.startsWith('infographic ')) return code
+
+  const templateName = firstLine.slice('infographic '.length).trim()
+  const templateMap = {
+    'list-row-simple-vertical-arrow': 'list-column-simple-vertical-arrow',
+    'list-column-simple': 'list-column-simple-vertical-arrow',
+    'compare-binary-vertical-simple': 'compare-binary-horizontal-simple-fold',
+    'chart-bar-horizontal-simple': 'chart-bar-plain-text'
+  }
+  const mapped = templateMap[templateName]
+  if (!mapped) return code
+
+  lines[0] = `infographic ${mapped}`
+  return lines.join('\n')
+}
+
+// 加载 AntV Infographic 代码
+const loadInfographicCode = (infographicCode) => {
+  if (typeof infographicCode === 'string') {
+    renderInfographic(infographicCode)
   } else {
     ElMessage.warning('无效的图表数据格式')
   }
 }
 
-// 导出 Mermaid 代码
-const exportMermaidCode = () => {
+// 导出 AntV Infographic 代码
+const exportInfographicCode = () => {
   return currentDiagramJson.value || ''
 }
 
 // 清空图表
-const clearMermaid = () => {
-  if (mermaidContainer.value) {
-    mermaidContainer.value.innerHTML = ''
-    currentDiagramJson.value = ''
-    hasDiagram.value = false
+const clearInfographic = () => {
+  if (infographicInstance) {
+    infographicInstance.destroy?.()
+    infographicInstance = null
   }
+  if (infographicContainer.value) {
+    infographicContainer.value.innerHTML = ''
+  }
+  currentDiagramJson.value = ''
+  hasDiagram.value = false
+  infographicInitialized = false
 }
 
 // 图表类型变更处理
@@ -828,7 +841,7 @@ const handleGenerate = async () => {
     const response = await generateDiagram(fullPrompt, null, selectedDiagramType.value)
     
     if (response && response.diagramJson) {
-      loadMermaidCode(response.diagramJson)
+      loadInfographicCode(response.diagramJson)
       // 保存历史记录到数据库
       const historyItem = `${diagramTypeConfig[selectedDiagramType.value]?.name || ''}: ${aiPrompt.value}`
       try {
@@ -869,7 +882,7 @@ const handleModify = async () => {
     const response = await modifyDiagram(currentDiagramJson.value, aiPrompt.value, null)
     
     if (response && response.diagramJson) {
-      loadMermaidCode(response.diagramJson)
+      loadInfographicCode(response.diagramJson)
       ElMessage.success('图表修改成功！')
     } else {
       ElMessage.error('修改失败，请检查后端API实现')
@@ -884,7 +897,7 @@ const handleModify = async () => {
 
 // 保存图表
 const handleSave = () => {
-  const code = exportMermaidCode()
+  const code = exportInfographicCode()
   if (!code) {
     ElMessage.warning('没有可保存的图表')
     return
@@ -899,7 +912,7 @@ const confirmSave = async () => {
     return
   }
 
-  const code = exportMermaidCode()
+  const code = exportInfographicCode()
   if (!code) {
     ElMessage.warning('没有可保存的图表')
     return
@@ -935,7 +948,7 @@ const loadDiagram = async (diagram) => {
   try {
     const response = await getDiagramDetail(diagram.id)
     if (response && response.diagramJson) {
-      loadMermaidCode(response.diagramJson)
+      loadInfographicCode(response.diagramJson)
       loadDialogVisible.value = false
       ElMessage.success('加载成功！')
     }
@@ -974,7 +987,7 @@ const handleClear = () => {
     cancelButtonText: '取消',
     type: 'warning'
   }).then(() => {
-    clearMermaid()
+    clearInfographic()
     resetZoom()
     ElMessage.success('画布已清空')
   }).catch(() => {})
@@ -1038,19 +1051,19 @@ const handleMouseUp = () => {
 }
 
 const fitToWindow = () => {
-  if (!mermaidContainer.value || !mermaidWrapper.value) {
+  if (!infographicContainer.value || !infographicWrapper.value) {
     return
   }
   
-  const svg = mermaidContainer.value.querySelector('svg')
+  const svg = infographicContainer.value.querySelector('svg')
   if (!svg) {
     resetZoom()
     return
   }
   
   try {
-    const wrapperWidth = mermaidWrapper.value.clientWidth
-    const wrapperHeight = mermaidWrapper.value.clientHeight
+    const wrapperWidth = infographicWrapper.value.clientWidth
+    const wrapperHeight = infographicWrapper.value.clientHeight
     
     // 尝试多种方式获取 SVG 尺寸
     let svgWidth = 0
@@ -1096,7 +1109,7 @@ const handleWheel = (event) => {
 
 // 导出
 const handleExport = () => {
-  const code = exportMermaidCode()
+  const code = exportInfographicCode()
   if (!code) {
     ElMessage.warning('没有可导出的图表')
     return
@@ -1107,7 +1120,7 @@ const handleExport = () => {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `diagram-${Date.now()}.mmd`
+  link.download = `diagram-${Date.now()}.infographic`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
@@ -1120,7 +1133,7 @@ const handleExport = () => {
 const handleImport = () => {
   const input = document.createElement('input')
   input.type = 'file'
-  input.accept = '.mmd,.txt,.md'
+  input.accept = '.infographic,.jsx,.txt'
   input.onchange = (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -1129,7 +1142,7 @@ const handleImport = () => {
     reader.onload = (event) => {
       try {
         const code = event.target.result
-        loadMermaidCode(code)
+        loadInfographicCode(code)
         ElMessage.success('图表导入成功')
       } catch (error) {
         console.error('导入失败:', error)
@@ -1183,9 +1196,16 @@ onMounted(async () => {
   // 加载历史记录列表
   await loadHistoryList()
   
-  // 等待 DOM 渲染完成后初始化 Mermaid
+  // 等待 DOM 渲染完成后初始化 AntV Infographic
   await nextTick()
-  await initMermaid()
+  await initInfographic()
+})
+
+onUnmounted(() => {
+  if (infographicInstance) {
+    infographicInstance.destroy?.()
+    infographicInstance = null
+  }
 })
 </script>
 
@@ -1573,8 +1593,8 @@ onMounted(async () => {
   box-shadow: var(--shadow-xs);
 }
 
-/* ========== Mermaid图表容器 ========== */
-.mermaid-wrapper {
+/* ========== AntV Infographic图表容器 ========== */
+.infographic-wrapper {
   flex: 1;
   position: relative;
   overflow: hidden;
@@ -1584,28 +1604,36 @@ onMounted(async () => {
   box-shadow: var(--shadow-sm);
 }
 
-.mermaid-wrapper.dragging {
+.infographic-wrapper.dragging {
   cursor: grabbing;
 }
 
-.mermaid-container {
+.infographic-container {
+  /* 重要：不使用 flex 布局，让 @antv/infographic 自己控制内容 */
   position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 800px;
+  min-height: 600px;
   padding: var(--spacing-lg);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
   transition: transform var(--transition-base);
-  min-width: 100%;
-  min-height: 100%;
+  /* 确保容器是块级元素 */
+  display: block;
 }
 
-.mermaid-container :deep(svg) {
+.infographic-container :deep(svg) {
   max-width: none;
   height: auto;
   display: block;
 }
 
-.mermaid-error {
+/* @antv/infographic 渲染的内容样式 */
+.infographic-container :deep(> div) {
+  width: 100%;
+  height: 100%;
+}
+
+.infographic-error {
   color: var(--color-danger);
   padding: var(--spacing-lg);
   text-align: center;

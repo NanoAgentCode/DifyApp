@@ -21,7 +21,7 @@
     "mammoth": "^1.11.0",
     "marked": "^17.0.0",
     "marked-highlight": "^2.2.3",
-    "mermaid": "^11.12.2",
+    "@antv/infographic": "^0.2.12",
     "pdfjs-dist": "^5.4.449",
     "pinia": "^2.1.7",
     "vue": "^3.3.4",
@@ -33,6 +33,7 @@
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.3",
     "terser": "^5.44.1",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vite-plugin-node-polyfills": "^0.25.0"
   }
 }

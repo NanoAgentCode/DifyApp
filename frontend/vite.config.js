@@ -2,15 +2,33 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    // 添加 Node.js 模块 polyfills，解决 @antv/infographic 的依赖问题
+    nodePolyfills({
+      // 包含所有需要 polyfill 的 Node.js 模块
+      include: ['path', 'fs', 'url', 'buffer', 'process', 'util', 'stream', 'events'],
+      globals: {
+        Buffer: true,
+        global: true,
+        process: true,
+      },
+      protocolImports: true,
+    })
+  ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'src')
-    }
+      '@': path.resolve(__dirname, 'src'),
+      // 为 source-map-js 提供浏览器兼容的空模块
+      'source-map-js': path.resolve(__dirname, 'src/utils/empty-module.js'),
+    },
+    // 处理 Node.js 模块的浏览器兼容性
+    conditions: ['browser', 'module', 'import', 'default']
   },
   // 优化导入预加载
   build: {
@@ -20,6 +38,8 @@ export default defineConfig({
     assetsDir: 'assets',
     // 代码分割优化
     rollupOptions: {
+      // 不外部化 Node.js 模块，让 Vite 处理它们
+      external: [],
       output: {
         manualChunks: (id) => {
           // Vue 相关库
@@ -67,10 +87,6 @@ export default defineConfig({
             return 'element-plus-icons'
           }
           
-          // Mermaid 图表库单独打包
-          if (id.includes('node_modules/mermaid/')) {
-            return 'mermaid'
-          }
           
           // Markdown 相关库 - 分别打包
           if (id.includes('node_modules/marked/') || id.includes('node_modules/marked-highlight/')) {
@@ -200,14 +216,28 @@ export default defineConfig({
       'marked',
       'highlight.js',
       'katex',
-      'mermaid'
+      'postcss',
+      'source-map-js',
+      '@antv/infographic'
     ],
     // 排除不需要预构建的包
-    exclude: []
+    exclude: [],
+    // 处理 Node.js 模块的浏览器兼容性
+    esbuildOptions: {
+      define: {
+        global: 'globalThis',
+      },
+      // 将 Node.js 模块替换为空对象或浏览器兼容的实现
+      platform: 'browser',
+      mainFields: ['browser', 'module', 'main'],
+      // 处理 postcss 的 CommonJS 导入问题
+      format: 'esm',
+    },
   },
   // 生产环境优化
   define: {
     __VUE_OPTIONS_API__: JSON.stringify(true),
-    __VUE_PROD_DEVTOOLS__: JSON.stringify(false)
+    __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
+    global: 'globalThis',
   }
 })

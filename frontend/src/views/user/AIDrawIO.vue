@@ -6,7 +6,7 @@
         <div class="toolbar-header">
           <h3>智能框图助手</h3>
           <div class="header-top">
-            <el-button type="text" @click="handleBack" size="small">
+            <el-button link @click="handleBack" size="small">
               <el-icon><ArrowLeft /></el-icon>
               返回
             </el-button>
@@ -166,11 +166,11 @@
           </div>
         </div>
         
-        <!-- Mermaid 图表容器 -->
+        <!-- AntV Infographic 图表容器 -->
         <div 
-          class="mermaid-wrapper"
+          class="infographic-wrapper"
           :class="{ dragging: isDragging }"
-          ref="mermaidWrapper" 
+          ref="infographicWrapper" 
           @wheel="handleWheel"
           @mousedown="handleMouseDown"
           @mousemove="handleMouseMove"
@@ -178,8 +178,8 @@
           @mouseleave="handleMouseUp"
         >
           <div 
-            class="mermaid-container" 
-            ref="mermaidContainer"
+            class="infographic-container" 
+            ref="infographicContainer"
             :style="{ 
               transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`, 
               transformOrigin: 'top left',
@@ -197,14 +197,80 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-// 动态导入 Mermaid，只在访问 AIDrawIO 页面时才加载
-let mermaid = null
-const loadMermaid = async () => {
-  if (!mermaid) {
-    const module = await import('mermaid')
-    mermaid = module.default || module
+// 动态导入 AntV Infographic，只在访问 AIDrawIO 页面时才加载
+let Infographic = null
+let infographicModule = null
+let availableTemplateList = [] // 存储可用模板列表
+
+const loadInfographic = async () => {
+  if (!Infographic) {
+    try {
+      const module = await import('@antv/infographic')
+      infographicModule = module
+      
+      console.log('=== @antv/infographic 模块加载成功 ===')
+      console.log('模块导出:', Object.keys(module))
+      
+      // 获取 Infographic 类
+      Infographic = module.Infographic || 
+                    module.default?.Infographic || 
+                    module.default ||
+                    (module.default && typeof module.default === 'function' ? module.default : null)
+      
+      if (!Infographic) {
+        console.error('模块导出内容:', module)
+        throw new Error('无法从 @antv/infographic 加载 Infographic 类')
+      }
+      
+      // 获取可用模板列表
+      if (module.getTemplates && typeof module.getTemplates === 'function') {
+        try {
+          const templates = module.getTemplates()
+          availableTemplateList = templates || []
+          console.log('=== 可用模板列表 ===')
+          console.log('模板总数:', availableTemplateList.length)
+          
+          // 按类型分组显示模板
+          const templatesByType = {}
+          availableTemplateList.forEach(t => {
+            const type = t.split('-')[0] // 获取模板类型前缀
+            if (!templatesByType[type]) {
+              templatesByType[type] = []
+            }
+            templatesByType[type].push(t)
+          })
+          
+          console.log('按类型分组的模板:')
+          Object.keys(templatesByType).forEach(type => {
+            console.log(`  ${type} (${templatesByType[type].length}个):`, templatesByType[type].slice(0, 5))
+          })
+          
+          // 显示前30个模板名称
+          console.log('前30个模板名称:', availableTemplateList.slice(0, 30))
+        } catch (e) {
+          console.warn('获取模板列表失败:', e)
+        }
+      } else {
+        console.log('getTemplates 方法不可用，尝试其他方式...')
+        // 尝试从 Infographic 类获取
+        if (Infographic.getTemplates) {
+          try {
+            availableTemplateList = Infographic.getTemplates() || []
+            console.log('从 Infographic 类获取模板列表:', availableTemplateList.length)
+          } catch (e) {
+            console.warn('从 Infographic 类获取模板失败:', e)
+          }
+        }
+      }
+      
+      console.log('Infographic 类加载完成')
+      
+    } catch (error) {
+      console.error('加载 @antv/infographic 失败:', error)
+      throw new Error(`加载图表库失败: ${error.message || '未知错误'}`)
+    }
   }
-  return mermaid
+  return Infographic
 }
 import {
   MagicStick,
@@ -253,10 +319,10 @@ const handleBack = () => {
   router.push('/user/chat')
 }
 
-// Mermaid 图表相关
-const mermaidContainer = ref(null)
-const mermaidWrapper = ref(null)
-let mermaidInstance = null
+// AntV Infographic 图表相关
+const infographicContainer = ref(null)
+const infographicWrapper = ref(null)
+let infographicInstance = null
 
 // 缩放相关
 const zoomLevel = ref(1)
@@ -302,7 +368,7 @@ const diagramTypeConfig = {
   mindmap: {
     name: '思维导图',
     icon: 'Share',
-    placeholder: '描述思维导图主题和分支，例如：项目管理，包含需求分析、设计、开发、测试、部署等分支',
+    placeholder: '描述思维导图主题和分支，例如：项目管理，包含需求分析（子分支：用户调研、需求文档）、设计（子分支：架构设计、UI设计）、开发、测试、部署等分支',
     promptPrefix: '请绘制一个思维导图，'
   },
   sequence: {
@@ -392,179 +458,211 @@ const currentDiagramJson = ref('')
 // 历史记录
 const historyList = ref([])
 
+// AntV Infographic 初始化标志
+let infographicInitialized = false
 
-// Mermaid 初始化标志
-let mermaidInitialized = false
+// 初始化 AntV Infographic
+const initInfographic = async () => {
+  if (infographicInitialized) {
+    return
+  }
 
-// 初始化 Mermaid（复制管理端的实现）
-const initMermaid = async () => {
-  if (mermaidInitialized) {
+  // 等待容器元素存在
+  await nextTick()
+  
+  // 使用 ref 获取容器元素（官方推荐方式）
+  const container = infographicContainer.value
+  if (!container) {
+    console.warn('容器元素不存在，等待下次调用')
     return
   }
 
   try {
-    const mermaidModule = await loadMermaid()
-    mermaidModule.initialize({
-      startOnLoad: false,
-      theme: 'default',
-      securityLevel: 'loose',
-      flowchart: {
-        useMaxWidth: true,
-        htmlLabels: true,
-        curve: 'basis'
-      },
-      mindmap: {
-        useMaxWidth: true,
-        htmlLabels: true,
-        padding: 10,
-        maxNodeWidth: 200
-      },
-      themeVariables: {
-        primaryColor: '#409eff',
-        primaryTextColor: '#303133',
-        primaryBorderColor: '#409eff',
-        lineColor: '#606266',
-        secondaryColor: '#ecf5ff',
-        tertiaryColor: '#f5f7fa',
-        // Mindmap 专用颜色变量 - 匹配 markmap 风格
-        cScale0: '#409eff',         // 蓝色 - 主分支
-        cScale1: '#FF9800',         // 橙色 - 分支1
-        cScale2: '#4CAF50',         // 绿色 - 分支2
-        cScale3: '#FF5252',         // 红色 - 分支3
-        cScale4: '#9370DB',         // 紫色 - 分支4
-        cScale5: '#FFD700',         // 黄色 - 分支5
-        cScale6: '#1976D2',         // 深蓝色 - 分支6
-        cScale7: '#808080',         // 灰色 - 分支7
-        // 兼容旧的颜色变量
-        lightBlue: '#409eff',
-        yellow: '#FFD700',
-        purple: '#9370DB',
-        red: '#FF5252',
-        green: '#4CAF50',
-        orange: '#FF9800',
-        darkBlue: '#1976D2',
-        gray: '#808080'
-      }
+    const InfographicClass = await loadInfographic()
+    if (!InfographicClass) {
+      throw new Error('无法加载 Infographic 类')
+    }
+    
+    // 清空容器
+    container.innerHTML = ''
+    
+    // 确保容器有尺寸
+    const containerWidth = container.clientWidth || container.offsetWidth || 800
+    const containerHeight = container.clientHeight || container.offsetHeight || 600
+    
+    console.log('初始化 AntV Infographic，容器尺寸:', containerWidth, 'x', containerHeight)
+    
+    // Vue 3 官方推荐：直接传入 DOM 元素（ref.value）
+    infographicInstance = new InfographicClass({
+      container: container,
+      width: containerWidth > 0 ? containerWidth : 800,
+      height: containerHeight > 0 ? containerHeight : 600,
+      editable: false
     })
-
-    mermaidInitialized = true
-    console.log('Mermaid 初始化完成')
+    infographicInitialized = true
+    console.log('AntV Infographic 初始化完成')
+    
   } catch (e) {
-    console.error('Mermaid 初始化失败:', e)
+    console.error('AntV Infographic 初始化失败:', e)
+    ElMessage.error('初始化图表引擎失败: ' + (e.message || '未知错误'))
+    infographicInitialized = false
+    infographicInstance = null
   }
 }
 
-// 渲染 Mermaid 图表（简化版，复制管理端核心逻辑）
-const renderMermaid = async (mermaidCode) => {
-  if (!mermaidContainer.value) {
+// 渲染 AntV Infographic 图表
+const renderInfographic = async (infographicCode) => {
+  const container = infographicContainer.value
+  if (!container) {
     ElMessage.warning('容器未初始化')
     return
   }
 
-  if (!mermaidCode || !mermaidCode.trim()) {
-    mermaidContainer.value.innerHTML = ''
+  if (!infographicCode || !infographicCode.trim()) {
+    if (infographicInstance) {
+      infographicInstance.destroy?.()
+      infographicInstance = null
+    }
+    container.innerHTML = ''
     hasDiagram.value = false
+    infographicInitialized = false
     return
   }
 
-  if (!mermaidInitialized) {
-    await initMermaid()
+  // 等待 DOM 更新
+  await nextTick()
+
+  // 确保 AntV Infographic 已初始化
+  if (!infographicInitialized || !infographicInstance) {
+    await initInfographic()
   }
 
+  await nextTick()
+
   try {
-    let codeToRender = mermaidCode.trim()
-
-    // 对于架构图的处理（简化版）
-    if (selectedDiagramType.value === 'architecture') {
-      codeToRender = codeToRender.replace(/^(flowchart|graph)\s+(LR|TD|BT|RL)/i, '$1 TD')
-      codeToRender = codeToRender.replace(/flowchart\s+LR/gi, 'flowchart TD')
-      codeToRender = codeToRender.replace(/graph\s+LR/gi, 'graph TD')
-      if (!codeToRender.match(/^(flowchart|graph)\s+(TD|LR|BT|RL)/i)) {
-        codeToRender = codeToRender.replace(/^(flowchart|graph)/i, '$1 TD')
+    // 清理代码
+    let codeToRender = infographicCode.trim()
+    codeToRender = codeToRender.replace(/[\u200B-\u200D\uFEFF]/g, '')
+    codeToRender = normalizeInfographicTemplate(codeToRender)
+    
+    // 确保以 infographic 开头
+    if (!codeToRender.startsWith('infographic')) {
+      const idx = codeToRender.indexOf('infographic')
+      if (idx >= 0) {
+        codeToRender = codeToRender.substring(idx).trim()
       }
-    }
-
-    // 对于思维导图的特殊处理，确保使用正确的mindmap语法
-    if (selectedDiagramType.value === 'mindmap') {
-      // 确保mindmap使用正确的语法格式
-      if (!codeToRender.startsWith('mindmap')) {
-        console.warn('检测到思维导图代码不以mindmap开头，尝试修复')
-        if (codeToRender.includes('root((') || codeToRender.includes('root')) {
-          codeToRender = 'mindmap\n' + codeToRender.replace(/^mindmap\s*\n?/, '').trim()
-        }
-      }
-
-      // 清理可能存在的样式标记（mindmap不支持）
-      codeToRender = codeToRender.replace(/:::[a-zA-Z0-9_-]+/g, '')
-      codeToRender = codeToRender.replace(/classDef\s+[a-zA-Z0-9_-]+\s+.*$/gm, '')
-      codeToRender = codeToRender.replace(/class\s+[a-zA-Z0-9_-]+\s+[a-zA-Z0-9_-]+/g, '')
     }
     
-    const id = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    mermaidContainer.value.innerHTML = ''
+    console.log('=== 开始渲染 AntV Infographic ===')
+    console.log('模板名:', codeToRender.split('\n')[0])
+    console.log('代码长度:', codeToRender.length)
+    
+    if (!infographicInstance) {
+      throw new Error('Infographic 实例未初始化')
+    }
+
+    // 清空容器
+    container.innerHTML = ''
+    
+    // 调用 render 方法
+    infographicInstance.render(codeToRender)
+    
+    // 等待渲染完成
     await nextTick()
-    const mermaidModule = await loadMermaid()
-    const { svg } = await mermaidModule.render(id, codeToRender)
-    mermaidContainer.value.innerHTML = svg
+    await new Promise(resolve => setTimeout(resolve, 500))
     
-    // 对于思维导图，应用额外的样式优化
-    if (selectedDiagramType.value === 'mindmap') {
-      await nextTick()
-      const svgElement = mermaidContainer.value.querySelector('svg')
-      if (svgElement) {
-        // 添加 mindmap 类名以便应用样式
-        svgElement.classList.add('mindmap-svg')
-        
-        // 优化连接线的平滑度
-        const paths = svgElement.querySelectorAll('path')
-        paths.forEach(path => {
-          if (path.getAttribute('d') && path.getAttribute('d').includes('C')) {
-            // 确保使用平滑曲线
-            path.setAttribute('stroke-linecap', 'round')
-            path.setAttribute('stroke-linejoin', 'round')
-          }
-        })
-        
-        // 优化节点圆圈
-        const circles = svgElement.querySelectorAll('circle')
-        circles.forEach(circle => {
-          circle.setAttribute('stroke-width', '2')
-        })
-      }
+    // 检查渲染结果
+    const hasContent = container.children.length > 0 || 
+                       container.innerHTML.trim().length > 0 ||
+                       container.querySelector('svg') !== null
+    
+    console.log('渲染结果:', {
+      hasContent,
+      childrenCount: container.children.length,
+      htmlLength: container.innerHTML.length,
+      hasSvg: !!container.querySelector('svg'),
+      instanceRendered: infographicInstance.rendered,
+      instanceNode: !!infographicInstance.node
+    })
+    
+    if (!hasContent) {
+      console.warn('渲染后容器为空')
+      console.warn('完整代码:', codeToRender)
+      
+      // 显示代码供调试
+      container.innerHTML = `<div class="infographic-error">
+        <p style="color: #e74c3c; font-weight: bold;">图表渲染失败</p>
+        <p style="color: #666; margin-top: 8px;">可能原因：模板名称不正确或语法错误</p>
+        <pre style="margin-top: 10px; font-size: 11px; color: #333; max-height: 400px; overflow: auto; background: #f8f8f8; padding: 12px; border-radius: 4px; white-space: pre-wrap; word-break: break-all;">${codeToRender}</pre>
+      </div>`
+      
+      ElMessage.warning('图表渲染失败，请检查模板名称是否正确')
+    } else {
+      ElMessage.success('图表渲染成功')
     }
     
     currentDiagramJson.value = codeToRender
     hasDiagram.value = true
-    ElMessage.success('图表渲染成功')
+    
   } catch (e) {
-    console.error('渲染 Mermaid 图表失败:', e)
-    const errorMsg = e.message || '未知错误'
-    ElMessage.error('渲染图表失败: ' + errorMsg)
-    mermaidContainer.value.innerHTML = `<div class="mermaid-error">图表渲染失败: ${errorMsg}<br/><pre style="margin-top: 10px; font-size: 12px; color: #666;">${mermaidCode.substring(0, 200)}...</pre></div>`
+    console.error('渲染失败:', e)
+    ElMessage.error('渲染图表失败: ' + (e.message || '未知错误'))
+    
+    if (container) {
+      container.innerHTML = `<div class="infographic-error">
+        <p style="color: #e74c3c;">渲染出错: ${e.message}</p>
+        <pre style="margin-top: 10px; font-size: 11px; max-height: 200px; overflow: auto; background: #f8f8f8; padding: 10px;">${infographicCode.substring(0, 500)}</pre>
+      </div>`
+    }
   }
 }
 
-// 加载 Mermaid 代码
-const loadMermaidCode = (mermaidCode) => {
-  if (typeof mermaidCode === 'string') {
-    renderMermaid(mermaidCode)
+const normalizeInfographicTemplate = (code) => {
+  const lines = code.split(/\r?\n/)
+  if (lines.length === 0) return code
+  const firstLine = lines[0].trim()
+  if (!firstLine.startsWith('infographic ')) return code
+
+  const templateName = firstLine.slice('infographic '.length).trim()
+  const templateMap = {
+    'list-row-simple-vertical-arrow': 'list-column-simple-vertical-arrow',
+    'list-column-simple': 'list-column-simple-vertical-arrow',
+    'compare-binary-vertical-simple': 'compare-binary-horizontal-simple-fold',
+    'chart-bar-horizontal-simple': 'chart-bar-plain-text'
+  }
+  const mapped = templateMap[templateName]
+  if (!mapped) return code
+
+  lines[0] = `infographic ${mapped}`
+  return lines.join('\n')
+}
+
+// 加载 AntV Infographic 代码
+const loadInfographicCode = (infographicCode) => {
+  if (typeof infographicCode === 'string') {
+    renderInfographic(infographicCode)
   } else {
     ElMessage.warning('无效的图表数据格式')
   }
 }
 
-// 导出 Mermaid 代码
-const exportMermaidCode = () => {
+// 导出 AntV Infographic 代码
+const exportInfographicCode = () => {
   return currentDiagramJson.value || ''
 }
 
 // 清空图表
-const clearMermaid = () => {
-  if (mermaidContainer.value) {
-    mermaidContainer.value.innerHTML = ''
-    currentDiagramJson.value = ''
-    hasDiagram.value = false
+const clearInfographic = () => {
+  if (infographicInstance) {
+    infographicInstance.destroy?.()
+    infographicInstance = null
   }
+  if (infographicContainer.value) {
+    infographicContainer.value.innerHTML = ''
+  }
+  currentDiagramJson.value = ''
+  hasDiagram.value = false
+  infographicInitialized = false
 }
 
 // 图表类型变更处理
@@ -627,7 +725,7 @@ const handleGenerate = async () => {
     const response = await generateDiagram(fullPrompt, null, selectedDiagramType.value)
     
     if (response && response.diagramJson) {
-      loadMermaidCode(response.diagramJson)
+      loadInfographicCode(response.diagramJson)
       const historyItem = `${diagramTypeConfig[selectedDiagramType.value]?.name || ''}: ${aiPrompt.value}`
       // 保存历史记录到数据库
       try {
@@ -668,7 +766,7 @@ const handleModify = async () => {
     const response = await modifyDiagram(currentDiagramJson.value, aiPrompt.value, null)
     
     if (response && response.diagramJson) {
-      loadMermaidCode(response.diagramJson)
+      loadInfographicCode(response.diagramJson)
       ElMessage.success('图表修改成功！')
     } else {
       ElMessage.error('修改失败，请检查后端API实现')
@@ -688,7 +786,7 @@ const handleClear = () => {
     cancelButtonText: '取消',
     type: 'warning'
   }).then(() => {
-    clearMermaid()
+    clearInfographic()
     resetZoom()
     ElMessage.success('画布已清空')
   }).catch(() => {})
@@ -747,19 +845,19 @@ const handleMouseUp = () => {
 }
 
 const fitToWindow = () => {
-  if (!mermaidContainer.value || !mermaidWrapper.value) {
+  if (!infographicContainer.value || !infographicWrapper.value) {
     return
   }
   
-  const svg = mermaidContainer.value.querySelector('svg')
+  const svg = infographicContainer.value.querySelector('svg')
   if (!svg) {
     resetZoom()
     return
   }
   
   try {
-    const wrapperWidth = mermaidWrapper.value.clientWidth
-    const wrapperHeight = mermaidWrapper.value.clientHeight
+    const wrapperWidth = infographicWrapper.value.clientWidth
+    const wrapperHeight = infographicWrapper.value.clientHeight
     
     let svgWidth = 0
     let svgHeight = 0
@@ -804,7 +902,7 @@ const handleWheel = (event) => {
 
 // 导出
 const handleExport = () => {
-  const code = exportMermaidCode()
+  const code = exportInfographicCode()
   if (!code) {
     ElMessage.warning('没有可导出的图表')
     return
@@ -814,7 +912,7 @@ const handleExport = () => {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `diagram-${Date.now()}.mmd`
+  link.download = `diagram-${Date.now()}.infographic`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
@@ -827,7 +925,7 @@ const handleExport = () => {
 const handleImport = () => {
   const input = document.createElement('input')
   input.type = 'file'
-  input.accept = '.mmd,.txt,.md'
+  input.accept = '.infographic,.jsx,.txt'
   input.onchange = (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -836,7 +934,7 @@ const handleImport = () => {
     reader.onload = (event) => {
       try {
         const code = event.target.result
-        loadMermaidCode(code)
+        loadInfographicCode(code)
         ElMessage.success('图表导入成功')
       } catch (error) {
         console.error('导入失败:', error)
@@ -890,7 +988,14 @@ onMounted(async () => {
   await loadHistoryList()
   
   await nextTick()
-  await initMermaid()
+  await initInfographic()
+})
+
+onUnmounted(() => {
+  if (infographicInstance) {
+    infographicInstance.destroy?.()
+    infographicInstance = null
+  }
 })
 </script>
 
@@ -1203,8 +1308,8 @@ onMounted(async () => {
   box-shadow: var(--shadow-xs);
 }
 
-/* ========== Mermaid图表容器 ========== */
-.mermaid-wrapper {
+/* ========== AntV Infographic图表容器 ========== */
+.infographic-wrapper {
   flex: 1;
   position: relative;
   overflow: hidden;
@@ -1214,128 +1319,36 @@ onMounted(async () => {
   box-shadow: var(--shadow-sm);
 }
 
-.mermaid-wrapper.dragging {
+.infographic-wrapper.dragging {
   cursor: grabbing;
 }
 
-.mermaid-container {
+.infographic-container {
+  /* 重要：不使用 flex 布局，让 @antv/infographic 自己控制内容 */
   position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 800px;
+  min-height: 600px;
   padding: var(--spacing-lg);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
   transition: transform var(--transition-base);
-  min-width: 100%;
-  min-height: 100%;
+  /* 确保容器是块级元素 */
+  display: block;
 }
 
-.mermaid-container :deep(svg) {
+.infographic-container :deep(svg) {
   max-width: none;
   height: auto;
   display: block;
 }
 
-/* Mindmap 专用样式 - 匹配 markmap 风格 */
-.mermaid-container :deep(.mindmap-node) {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+/* @antv/infographic 渲染的内容样式 */
+.infographic-container :deep(> div) {
+  width: 100%;
+  height: 100%;
 }
 
-/* 思维导图节点样式 */
-.mermaid-container :deep(.nodeLabel) {
-  font-size: 14px;
-  font-weight: 500;
-  color: #303133;
-}
-
-/* 思维导图根节点样式 */
-.mermaid-container :deep(.root-node) {
-  font-weight: 600;
-  font-size: 16px;
-}
-
-/* 思维导图连接线样式 - 平滑曲线 */
-.mermaid-container :deep(.mindmap path) {
-  stroke-width: 2px;
-  fill: none;
-  transition: stroke-width 0.3s ease;
-}
-
-.mermaid-container :deep(.mindmap path:hover) {
-  stroke-width: 3px;
-}
-
-/* 思维导图节点圆圈样式 */
-.mermaid-container :deep(.mindmap circle) {
-  stroke-width: 2px;
-  transition: r 0.3s ease;
-}
-
-.mermaid-container :deep(.mindmap circle:hover) {
-  r: 6;
-}
-
-/* 思维导图文本样式 */
-.mermaid-container :deep(.mindmap text) {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  font-size: 14px;
-  fill: #303133;
-}
-
-/* 思维导图根节点文本 */
-.mermaid-container :deep(.mindmap .root text) {
-  font-weight: 600;
-  font-size: 16px;
-  fill: #409eff;
-}
-
-/* 思维导图 SVG 整体样式 */
-.mermaid-container :deep(.mindmap-svg) {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-}
-
-/* 思维导图节点文本容器 */
-.mermaid-container :deep(.mindmap .nodeLabel) {
-  background: transparent;
-  border: none;
-  padding: 4px 8px;
-  border-radius: 4px;
-}
-
-/* 思维导图连接线 - 更平滑的曲线 */
-.mermaid-container :deep(.mindmap-svg path) {
-  stroke-width: 2.5px;
-  fill: none;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
-}
-
-/* 思维导图节点圆圈 - 更明显的视觉效果 */
-.mermaid-container :deep(.mindmap-svg circle) {
-  stroke-width: 2.5px;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
-}
-
-/* 思维导图文本 - 更好的可读性 */
-.mermaid-container :deep(.mindmap-svg text) {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  fill: #303133;
-  text-rendering: geometricPrecision;
-}
-
-/* 思维导图根节点特殊样式 */
-.mermaid-container :deep(.mindmap-svg .root circle) {
-  stroke-width: 3px;
-  r: 8;
-}
-
-.mermaid-container :deep(.mindmap-svg .root text) {
-  font-weight: 600;
-  font-size: 16px;
-  fill: #409eff;
-}
-
-.mermaid-error {
+.infographic-error {
   color: var(--color-danger);
   padding: var(--spacing-lg);
   text-align: center;

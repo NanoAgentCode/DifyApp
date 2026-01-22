@@ -8,7 +8,6 @@ import hljs from 'highlight.js'
 import '@/styles/vscode-dark.css' // VS Code Dark+ 主题
 import katex from 'katex'
 import 'katex/dist/katex.css'
-import mermaid from 'mermaid'
 import { logger } from '@/utils/logger'
 
 // 配置 marked v17 使用新的 API
@@ -33,12 +32,6 @@ const marked = new Marked(
 marked.setOptions({
   breaks: true,
   gfm: true
-})
-
-// 初始化 mermaid
-mermaid.initialize({ 
-  startOnLoad: false,
-  theme: 'default'
 })
 
 /**
@@ -406,24 +399,6 @@ export function renderMarkdown(content) {
       })
     }
 
-    // 处理 mermaid 图表
-    html = html.replace(/```mermaid\n([\s\S]*?)\n```/g, (match, code) => {
-      const id = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      // 延迟渲染 mermaid，避免阻塞
-      setTimeout(() => {
-        const element = document.getElementById(id)
-        if (element) {
-          mermaid.render(id, code).then(result => {
-            element.innerHTML = result.svg
-          }).catch(err => {
-            logger.debug('Mermaid 渲染失败:', err)
-            element.innerHTML = `<pre>${code}</pre>`
-          })
-        }
-      }, 0)
-      return `<div id="${id}" class="mermaid-container">正在渲染图表...</div>`
-    })
-
     // 处理可能被 Markdown 转义的公式（在渲染后再次检查）
     // 处理行内公式的转义情况：\( ... \)
     html = html.replace(/\\\(([^)]+?)\\\)/g, (match, formula) => {
@@ -460,7 +435,7 @@ export function renderMarkdown(content) {
  * 清理 Markdown 渲染相关的资源
  */
 export function cleanupMarkdown() {
-  // 可以在这里清理 mermaid 实例等
+  // 可以在这里清理渲染相关的资源
 }
 
 
