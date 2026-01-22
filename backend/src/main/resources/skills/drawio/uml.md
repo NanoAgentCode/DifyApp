@@ -1,8 +1,8 @@
 【图表类型特定要求】
 
-- uml（UML图）必须使用模板：list-column-simple-vertical-arrow
-- 仅支持扁平列表结构，不支持 children
-- 通过 label 使用分隔符表示层级与关系，例如：User - Order
+- uml（UML图）必须使用模板：relation-dagre-flow
+- 支持 children 层级结构，节点之间可用关系边表达
+- 节点使用 label 表示类名，desc 描述属性或职责
 
 
 【额外生成要求】
@@ -11,19 +11,25 @@
 
 
 【示例】
-infographic list-column-simple-vertical-arrow
+infographic relation-dagre-flow
   design
     title "电商系统UML类图"
   data
     title "类及其关系"
     items
-      - label "User（用户类）"
-        desc "用户基本信息：id, name, email"
-      - label "Product（商品类）"
-        desc "商品信息：id, name, price, stock"
-      - label "Order（订单类）"
-        desc "订单信息：id, userId, totalAmount, status"
-      - label "OrderItem（订单项类）"
-        desc "订单明细：orderId, productId, quantity, price"
-      - label "User - Order"
-        desc "一对多关系：一个用户可以有多个订单"
+      - label "User"
+        desc "用户：id, name, email"
+      - label "Product"
+        desc "商品：id, name, price, stock"
+      - label "Order"
+        desc "订单：id, userId, totalAmount, status"
+      - label "OrderItem"
+        desc "订单项：orderId, productId, quantity, price"
+      - label "Cart"
+        desc "购物车：userId, productId, quantity"
+      - label "User -> Order"
+        desc "一对多：用户拥有多个订单"
+      - label "Order -> OrderItem"
+        desc "一对多：订单包含多个订单项"
+      - label "Product -> OrderItem"
+        desc "一对多：商品被多个订单项引用"

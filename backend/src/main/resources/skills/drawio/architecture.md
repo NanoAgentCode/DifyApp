@@ -3,11 +3,9 @@
 - architecture（架构图）必须使用模板：list-column-simple-vertical-arrow
 - 仅支持扁平列表结构，不支持 children
 
-
 【额外生成要求】
 
 - 必须包含所有层级和组件，每层至少 3-5 个组件，至少 3-5 层
-
 
 【示例】
 infographic list-column-simple-vertical-arrow

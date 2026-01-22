@@ -3,11 +3,9 @@
 - sequence（时序图）必须使用模板：sequence-zigzag-steps-underline-text
 - 支持扁平列表结构，不支持 children
 
-
 【额外生成要求】
 
 - 必须包含所有参与者和完整的交互序列，至少 4-6 个参与者，10-15 条消息
-
 
 【示例】
 infographic sequence-zigzag-steps-underline-text

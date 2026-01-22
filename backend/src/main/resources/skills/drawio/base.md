@@ -30,6 +30,8 @@ infographic <template-name>
 - sequence-zigzag-steps-underline-text（阶梯式步骤）
 - compare-binary-horizontal-simple-fold（横向对比）
 - hierarchy-mindmap-branch-gradient-rounded-rect（思维导图，支持层级）
+- hierarchy-structure（组织架构，支持层级）
+- relation-dagre-flow（关系图，支持节点连线）
 - chart-pie-donut-pill-badge（饼图）
 - chart-bar-plain-text（条形图）
 
