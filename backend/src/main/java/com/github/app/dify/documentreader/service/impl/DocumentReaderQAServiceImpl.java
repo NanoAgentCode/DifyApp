@@ -309,7 +309,7 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
                                             String documentName) {
         List<ChatMessage> messages = new ArrayList<>();
         
-        String base = SkillLoader.loadSkill("document_qa_system_prompt");
+        String base = SkillLoader.loadSkill("document_reader/qa_system_prompt");
         if (base == null || base.trim().isEmpty()) {
             base = "你是一个专业的文档问答助手。请基于以下文档内容回答用户的问题。\n\n";
         }

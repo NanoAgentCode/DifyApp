@@ -450,13 +450,13 @@ public class ChatServiceImpl implements ChatService {
                                 Boolean.TRUE.equals(qaModel.getSupportsVision()) &&
                                 Boolean.TRUE.equals(qaModel.getSupportsMultimodal());
         
-        String base = SkillLoader.loadSkill("chat_system_prompt");
+        String base = SkillLoader.loadSkill("chat/system_prompt");
         StringBuilder systemMessageBuilder = new StringBuilder();
         if (base != null && !base.trim().isEmpty()) {
             systemMessageBuilder.append(base.trim()).append("\n\n");
         } else {
             // 使用 fallback
-            String fallback = SkillLoader.loadSkill("chat_system_prompt_fallback");
+            String fallback = SkillLoader.loadSkill("chat/system_prompt_fallback");
             if (fallback != null && !fallback.trim().isEmpty()) {
                 systemMessageBuilder.append(fallback.trim()).append("\n\n");
             } else {

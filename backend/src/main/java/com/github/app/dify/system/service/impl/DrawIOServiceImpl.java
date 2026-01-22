@@ -392,12 +392,12 @@ public class DrawIOServiceImpl implements DrawIOService {
      * 构建系统提示词（修改）
      */
     private String buildModifySystemPrompt() {
-        String base = SkillLoader.loadSkill("drawio_modify_system_prompt");
+        String base = SkillLoader.loadSkill("drawio/modify_system_prompt");
         if (base != null && !base.trim().isEmpty()) {
             return base;
         }
         // 使用 fallback
-        String fallback = SkillLoader.loadSkill("drawio_modify_system_prompt_fallback");
+        String fallback = SkillLoader.loadSkill("drawio/modify_system_prompt_fallback");
         if (fallback != null && !fallback.trim().isEmpty()) {
             return fallback;
         }

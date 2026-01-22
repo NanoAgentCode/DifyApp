@@ -298,10 +298,10 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     private List<ChatMessage> buildMessages(KnowledgeBaseQARequest request, String memoryContext) {
         List<ChatMessage> messages = new ArrayList<>();
         
-        String systemPrompt = SkillLoader.loadSkill("knowledge_base_qa_system_prompt");
+        String systemPrompt = SkillLoader.loadSkill("knowledge_base/qa_system_prompt");
         if (systemPrompt == null || systemPrompt.trim().isEmpty()) {
             // 使用 fallback
-            String fallback = SkillLoader.loadSkill("knowledge_base_qa_system_prompt_fallback");
+            String fallback = SkillLoader.loadSkill("knowledge_base/qa_system_prompt_fallback");
             if (fallback != null && !fallback.trim().isEmpty()) {
                 systemPrompt = fallback;
                 // 追加 Markdown 格式要求

@@ -552,10 +552,10 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         // 8. 创建 LLM 模型
         ChatLanguageModel chatModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
         
-        String systemPrompt = SkillLoader.loadSkill("document_summary_system_prompt");
+        String systemPrompt = SkillLoader.loadSkill("knowledge_base/document_summary_system_prompt");
         if (systemPrompt == null || systemPrompt.trim().isEmpty()) {
             // 使用 fallback
-            String fallback = SkillLoader.loadSkill("document_summary_system_prompt_fallback");
+            String fallback = SkillLoader.loadSkill("knowledge_base/document_summary_system_prompt_fallback");
             if (fallback != null && !fallback.trim().isEmpty()) {
                 systemPrompt = fallback;
             } else {
@@ -571,7 +571,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         // 使用模板构建用户提示词
         Map<String, String> variables = new HashMap<>();
         variables.put("content", content);
-        String userPromptTemplate = SkillLoader.loadSkillWithTemplate("document_summary_user_prompt_template", variables);
+        String userPromptTemplate = SkillLoader.loadSkillWithTemplate("knowledge_base/document_summary_user_prompt_template", variables);
         String userPrompt;
         if (userPromptTemplate != null && !userPromptTemplate.trim().isEmpty()) {
             userPrompt = userPromptTemplate;

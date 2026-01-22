@@ -330,7 +330,7 @@ public class ContextCompressionServiceImpl implements ContextCompressionService 
     private List<ChatMessage> compressBySummaryForDocument(List<ChatMessage> historyMessages, DocumentQARequest request) {
         try {
             List<ChatMessage> summaryMessages = new ArrayList<>();
-            String systemSkill = SkillLoader.loadSkill("dialog_summary_system_prompt");
+            String systemSkill = SkillLoader.loadSkill("dialog/summary_system_prompt");
             if (systemSkill == null || systemSkill.trim().isEmpty()) {
                 systemSkill = "你是一个专业的对话总结助手，能够准确总结对话历史的关键信息。";
             }
@@ -452,7 +452,7 @@ public class ContextCompressionServiceImpl implements ContextCompressionService 
             );
             
             List<ChatMessage> summaryMessages = new ArrayList<>();
-            String systemSkill = com.github.app.dify.system.util.SkillLoader.loadSkill("dialog_summary_system_prompt");
+            String systemSkill = com.github.app.dify.system.util.SkillLoader.loadSkill("dialog/summary_system_prompt");
             if (systemSkill == null || systemSkill.trim().isEmpty()) {
                 systemSkill = "你是一个专业的对话总结助手，能够准确总结对话历史的关键信息。";
             }
