@@ -680,6 +680,7 @@ CREATE TABLE "DRAWIO_HISTORY" (
     user_id BIGINT NOT NULL,
     prompt VARCHAR(500) NOT NULL,
     diagram_type VARCHAR(50),
+    diagram_json TEXT,
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted INTEGER DEFAULT 0
 );
@@ -689,6 +690,7 @@ COMMENT ON COLUMN "DRAWIO_HISTORY".id IS '历史记录ID';
 COMMENT ON COLUMN "DRAWIO_HISTORY".user_id IS '用户ID';
 COMMENT ON COLUMN "DRAWIO_HISTORY".prompt IS '提示词内容';
 COMMENT ON COLUMN "DRAWIO_HISTORY".diagram_type IS '图表类型：flowchart-流程图, architecture-架构图, mindmap-思维导图, sequence-时序图, uml-UML图, org-组织架构, network-网络图, custom-自定义';
+COMMENT ON COLUMN "DRAWIO_HISTORY".diagram_json IS '图表JSON内容（AntV Infographic DSL）';
 COMMENT ON COLUMN "DRAWIO_HISTORY".create_time IS '创建时间';
 COMMENT ON COLUMN "DRAWIO_HISTORY".deleted IS '是否删除：0-未删除，1-已删除';
 

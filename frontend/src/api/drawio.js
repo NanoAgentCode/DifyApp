@@ -96,15 +96,17 @@ export function deleteDiagram(id) {
  * 保存历史记录
  * @param {string} prompt - 提示词
  * @param {string} diagramType - 图表类型（可选）
+ * @param {string} diagramJson - 图表JSON内容（可选）
  * @returns {Promise}
  */
-export function saveHistory(prompt, diagramType = null) {
+export function saveHistory(prompt, diagramType = null, diagramJson = null) {
   return request({
     url: '/api/drawio/history',
     method: 'post',
     data: {
       prompt,
-      diagramType
+      diagramType,
+      diagramJson
     }
   })
 }
@@ -131,4 +133,3 @@ export function deleteHistory(id) {
     method: 'delete'
   })
 }
-

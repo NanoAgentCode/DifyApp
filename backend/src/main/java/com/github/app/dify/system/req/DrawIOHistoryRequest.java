@@ -16,6 +16,9 @@ public class DrawIOHistoryRequest {
     @Schema(description = "图表类型：flowchart, architecture, mindmap, sequence, uml, org, network, custom")
     private String diagramType;
 
+    @Schema(description = "图表JSON内容")
+    private String diagramJson;
+
     public String getPrompt() {
         return prompt;
     }
@@ -30,6 +33,14 @@ public class DrawIOHistoryRequest {
 
     public void setDiagramType(String diagramType) {
         this.diagramType = diagramType;
+    }
+
+    public String getDiagramJson() {
+        return diagramJson;
+    }
+
+    public void setDiagramJson(String diagramJson) {
+        this.diagramJson = diagramJson;
     }
 }
 

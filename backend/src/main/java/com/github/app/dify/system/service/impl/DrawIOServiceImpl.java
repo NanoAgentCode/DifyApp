@@ -547,6 +547,22 @@ public class DrawIOServiceImpl implements DrawIOService {
                         .findFirst()
                         .orElse(null);
                 if (existing != null) {
+                    boolean shouldUpdate = false;
+                    if (request.getDiagramJson() != null && !request.getDiagramJson().trim().isEmpty()) {
+                        if (existing.getDiagramJson() == null || !request.getDiagramJson().equals(existing.getDiagramJson())) {
+                            existing.setDiagramJson(request.getDiagramJson());
+                            shouldUpdate = true;
+                        }
+                    }
+                    if (request.getDiagramType() != null && !request.getDiagramType().trim().isEmpty()) {
+                        if (existing.getDiagramType() == null || !request.getDiagramType().equals(existing.getDiagramType())) {
+                            existing.setDiagramType(request.getDiagramType());
+                            shouldUpdate = true;
+                        }
+                    }
+                    if (shouldUpdate) {
+                        drawIOHistoryRepository.save(existing);
+                    }
                     return convertHistoryToResp(existing);
                 }
             }
@@ -556,6 +572,7 @@ public class DrawIOServiceImpl implements DrawIOService {
             history.setUserId(userId);
             history.setPrompt(request.getPrompt());
             history.setDiagramType(request.getDiagramType());
+            history.setDiagramJson(request.getDiagramJson());
             SystemDateTimeUtil.setCreateTime(history);
             history.setDeleted(0);
             
@@ -632,6 +649,7 @@ public class DrawIOServiceImpl implements DrawIOService {
         resp.setUserId(history.getUserId());
         resp.setPrompt(history.getPrompt());
         resp.setDiagramType(history.getDiagramType());
+        resp.setDiagramJson(history.getDiagramJson());
         resp.setCreateTime(history.getCreateTime());
         return resp;
     }

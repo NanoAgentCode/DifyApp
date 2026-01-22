@@ -118,6 +118,38 @@ EXCEPTION
         RAISE WARNING 'USER_MEMORY作用域字段迁移失败：%', SQLERRM;
 END $$;
 
+-- 7. DrawIO 历史记录返回数据迁移（新增）
+-- 说明：为DRAWIO_HISTORY表添加diagram_json字段
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_name = 'drawio_history' OR table_name = 'DRAWIO_HISTORY'
+    ) THEN
+        BEGIN
+            ALTER TABLE "DRAWIO_HISTORY" ADD COLUMN IF NOT EXISTS diagram_json TEXT;
+        EXCEPTION WHEN OTHERS THEN
+            ALTER TABLE drawio_history ADD COLUMN IF NOT EXISTS diagram_json TEXT;
+        END;
+
+        BEGIN
+            COMMENT ON COLUMN "DRAWIO_HISTORY".diagram_json IS '图表JSON内容（AntV Infographic DSL）';
+        EXCEPTION WHEN OTHERS THEN
+            BEGIN
+                COMMENT ON COLUMN drawio_history.diagram_json IS '图表JSON内容（AntV Infographic DSL）';
+            EXCEPTION WHEN OTHERS THEN
+            END;
+        END;
+
+        RAISE NOTICE '已完成DRAWIO_HISTORY返回数据字段迁移';
+    ELSE
+        RAISE NOTICE 'DRAWIO_HISTORY表不存在，跳过返回数据字段迁移';
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE WARNING 'DRAWIO_HISTORY返回数据字段迁移失败：%', SQLERRM;
+END $$;
+
 -- 确保知识库ID序列从1开始
 -- 注意：如果序列已经存在且当前值小于1，将其重置为1
 DO $$

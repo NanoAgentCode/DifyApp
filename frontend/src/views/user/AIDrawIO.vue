@@ -117,17 +117,19 @@
           <el-scrollbar class="history-scrollbar">
             <div 
               v-for="(item, index) in historyList" 
-              :key="index"
+              :key="item?.id || index"
               class="history-item"
             >
-              <div class="history-prompt" @click="loadHistoryPrompt(item)">{{ item }}</div>
+              <div class="history-prompt" @click="loadHistoryPrompt(item)">
+                {{ typeof item === 'string' ? item : item.prompt }}
+              </div>
               <el-button
                 type="danger"
                 :icon="Delete"
                 size="small"
                 text
                 circle
-                @click.stop="deleteHistoryItem(index)"
+                @click.stop="deleteHistoryItem(item)"
                 class="history-delete-btn"
                 title="删除"
               />
@@ -738,7 +740,7 @@ const handleGenerate = async () => {
       const historyItem = `${diagramTypeConfig[selectedDiagramType.value]?.name || ''}: ${aiPrompt.value}`
       // 保存历史记录到数据库
       try {
-        await saveHistory(historyItem, selectedDiagramType.value)
+        await saveHistory(historyItem, selectedDiagramType.value, response.diagramJson)
         // 重新加载历史记录列表
         await loadHistoryList()
       } catch (error) {
@@ -956,12 +958,16 @@ const handleImport = () => {
 }
 
 // 加载历史提示
-const loadHistoryPrompt = (prompt) => {
+const loadHistoryPrompt = (item) => {
+  const prompt = typeof item === 'string' ? item : item?.prompt || ''
   const colonIndex = prompt.indexOf(':')
   if (colonIndex > 0) {
     aiPrompt.value = prompt.substring(colonIndex + 1).trim()
   } else {
     aiPrompt.value = prompt
+  }
+  if (item && typeof item !== 'string' && item.diagramJson) {
+    loadInfographicCode(item.diagramJson)
   }
 }
 
@@ -979,8 +985,13 @@ const loadHistoryList = async () => {
 }
 
 // 删除历史记录项
-const deleteHistoryItem = async (id) => {
+const deleteHistoryItem = async (item) => {
   try {
+    const id = typeof item === 'object' ? item?.id : item
+    if (!id) {
+      ElMessage.error('无法删除历史记录：缺少ID')
+      return
+    }
     await deleteHistory(id)
     // 重新加载历史记录列表
     await loadHistoryList()

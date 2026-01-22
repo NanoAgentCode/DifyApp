@@ -44,6 +44,14 @@ public class DrawIOHistory implements Serializable {
     @Schema(description = "图表类型")
     @Column(name = "diagram_type", length = 50)
     private String diagramType;
+
+    /**
+     * 返回的图表JSON内容（AntV Infographic DSL）
+     */
+    @Schema(description = "图表JSON内容")
+    @Lob
+    @Column(name = "diagram_json", columnDefinition = "TEXT")
+    private String diagramJson;
     
     /**
      * 创建时间
@@ -90,6 +98,14 @@ public class DrawIOHistory implements Serializable {
 
     public void setDiagramType(String diagramType) {
         this.diagramType = diagramType;
+    }
+
+    public String getDiagramJson() {
+        return diagramJson;
+    }
+
+    public void setDiagramJson(String diagramJson) {
+        this.diagramJson = diagramJson;
     }
 
     public Date getCreateTime() {

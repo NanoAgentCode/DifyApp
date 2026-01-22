@@ -20,6 +20,9 @@ public class DrawIOHistoryResp {
     
     @Schema(description = "图表类型")
     private String diagramType;
+
+    @Schema(description = "图表JSON内容")
+    private String diagramJson;
     
     @Schema(description = "创建时间")
     private Date createTime;
@@ -54,6 +57,14 @@ public class DrawIOHistoryResp {
 
     public void setDiagramType(String diagramType) {
         this.diagramType = diagramType;
+    }
+
+    public String getDiagramJson() {
+        return diagramJson;
+    }
+
+    public void setDiagramJson(String diagramJson) {
+        this.diagramJson = diagramJson;
     }
 
     public Date getCreateTime() {
