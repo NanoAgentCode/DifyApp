@@ -46,5 +46,45 @@ public class SkillLoader {
             return null;
         }
     }
+    
+    /**
+     * 加载技能文件并替换模板变量
+     * @param skillName 技能文件名（不含 .md 后缀）
+     * @param variables 模板变量映射，key 为变量名（不含花括号），value 为替换值
+     * @return 替换后的内容，如果文件不存在返回 null
+     */
+    public static String loadSkillWithTemplate(String skillName, Map<String, String> variables) {
+        String content = loadSkill(skillName);
+        if (content == null || variables == null || variables.isEmpty()) {
+            return content;
+        }
+        
+        // 替换模板变量 {variableName}
+        String result = content;
+        for (Map.Entry<String, String> entry : variables.entrySet()) {
+            String placeholder = "{" + entry.getKey() + "}";
+            result = result.replace(placeholder, entry.getValue() != null ? entry.getValue() : "");
+        }
+        
+        return result;
+    }
+    
+    /**
+     * 清除缓存（用于开发环境，当提示词文件更新后可以清除缓存重新加载）
+     */
+    public static void clearCache() {
+        CACHE.clear();
+        logger.info("技能文件缓存已清除");
+    }
+    
+    /**
+     * 清除指定技能的缓存
+     */
+    public static void clearCache(String skillName) {
+        if (skillName != null) {
+            CACHE.remove(skillName.trim());
+            logger.info("技能文件缓存已清除: {}", skillName);
+        }
+    }
 }
 

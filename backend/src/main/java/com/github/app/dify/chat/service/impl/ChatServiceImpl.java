@@ -28,7 +28,9 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import com.github.app.dify.system.util.SkillLoader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -453,27 +455,45 @@ public class ChatServiceImpl implements ChatService {
         if (base != null && !base.trim().isEmpty()) {
             systemMessageBuilder.append(base.trim()).append("\n\n");
         } else {
-            systemMessageBuilder.append("你是一个专业的AI助手，能够回答各种问题，特别擅长编程和技术问题。\n\n");
+            // 使用 fallback
+            String fallback = SkillLoader.loadSkill("chat_system_prompt_fallback");
+            if (fallback != null && !fallback.trim().isEmpty()) {
+                systemMessageBuilder.append(fallback.trim()).append("\n\n");
+            } else {
+                systemMessageBuilder.append("你是一个专业的AI助手，能够回答各种问题，特别擅长编程和技术问题。\n\n");
+            }
         }
         
         // 如果模型支持视觉输入，添加图片处理说明
         if (supportsVision) {
-            systemMessageBuilder.append("【视觉能力说明】\n");
-            systemMessageBuilder.append("你具备视觉理解能力，可以直接处理和分析用户上传的图片。当用户上传图片时，你应该：\n");
-            systemMessageBuilder.append("1. 仔细观察图片中的所有内容，包括文字、图表、代码、界面元素等\n");
-            systemMessageBuilder.append("2. 准确识别图片中的文字内容（包括代码、公式、表格等）\n");
-            systemMessageBuilder.append("3. 理解图片的上下文和意图，提供准确、详细的分析\n");
-            systemMessageBuilder.append("4. 对于代码截图，能够识别代码语言、逻辑结构，并提供专业的代码分析\n");
-            systemMessageBuilder.append("5. 对于图表、流程图等，能够描述其结构和含义\n");
-            systemMessageBuilder.append("6. 对于界面截图，能够识别UI元素、布局和功能\n");
-            systemMessageBuilder.append("7. 如果图片中包含问题或需求，直接基于图片内容进行回答，无需用户额外描述\n");
-            systemMessageBuilder.append("8. 回答时应该详细、准确，充分利用图片中的所有信息\n");
-            systemMessageBuilder.append("9. 不要告诉用户你无法处理图片，因为你具备视觉理解能力，可以直接分析图片内容\n\n");
+            String visionCapability = SkillLoader.loadSkill("chat/vision_capability");
+            if (visionCapability != null && !visionCapability.trim().isEmpty()) {
+                systemMessageBuilder.append(visionCapability.trim()).append("\n\n");
+            } else {
+                // Fallback
+                systemMessageBuilder.append("【视觉能力说明】\n");
+                systemMessageBuilder.append("你具备视觉理解能力，可以直接处理和分析用户上传的图片。当用户上传图片时，你应该：\n");
+                systemMessageBuilder.append("1. 仔细观察图片中的所有内容，包括文字、图表、代码、界面元素等\n");
+                systemMessageBuilder.append("2. 准确识别图片中的文字内容（包括代码、公式、表格等）\n");
+                systemMessageBuilder.append("3. 理解图片的上下文和意图，提供准确、详细的分析\n");
+                systemMessageBuilder.append("4. 对于代码截图，能够识别代码语言、逻辑结构，并提供专业的代码分析\n");
+                systemMessageBuilder.append("5. 对于图表、流程图等，能够描述其结构和含义\n");
+                systemMessageBuilder.append("6. 对于界面截图，能够识别UI元素、布局和功能\n");
+                systemMessageBuilder.append("7. 如果图片中包含问题或需求，直接基于图片内容进行回答，无需用户额外描述\n");
+                systemMessageBuilder.append("8. 回答时应该详细、准确，充分利用图片中的所有信息\n");
+                systemMessageBuilder.append("9. 不要告诉用户你无法处理图片，因为你具备视觉理解能力，可以直接分析图片内容\n\n");
+            }
         } else {
             // 模型不支持视觉输入，智能问答不支持图片处理
-            systemMessageBuilder.append("【图片处理说明】\n");
-            systemMessageBuilder.append("注意：智能问答功能不支持图片处理。如果用户上传了图片，系统会提示用户选择支持视觉输入的模型。\n");
-            systemMessageBuilder.append("你只能处理文本输入，无法直接处理图片。\n\n");
+            String noVision = SkillLoader.loadSkill("chat/no_vision_capability");
+            if (noVision != null && !noVision.trim().isEmpty()) {
+                systemMessageBuilder.append(noVision.trim()).append("\n\n");
+            } else {
+                // Fallback
+                systemMessageBuilder.append("【图片处理说明】\n");
+                systemMessageBuilder.append("注意：智能问答功能不支持图片处理。如果用户上传了图片，系统会提示用户选择支持视觉输入的模型。\n");
+                systemMessageBuilder.append("你只能处理文本输入，无法直接处理图片。\n\n");
+            }
         }
         
         // 如果启用了MCP支持，添加时间信息和地理位置信息
@@ -497,57 +517,71 @@ public class ChatServiceImpl implements ChatService {
         
         // 如果提供了浏览器检索结果，在系统消息中强调要使用检索结果
         if (browserSearchContext != null && !browserSearchContext.trim().isEmpty()) {
-            
-            systemMessageBuilder.append("\n\n【重要提示】当用户问题中包含网络搜索结果时，你必须：");
-            systemMessageBuilder.append("\n1. 优先使用搜索结果中的信息来回答问题");
-            systemMessageBuilder.append("\n2. 在回答中明确引用搜索结果中的内容，并标注来源链接");
-            systemMessageBuilder.append("\n3. 当前年份是").append(currentYear).append("年，请根据信息的时效性自行判断是否需要提醒用户信息可能已过期");
-            systemMessageBuilder.append("\n4. 如果搜索结果与问题相关，必须基于搜索结果来回答，不要仅依赖你的训练数据");
-            systemMessageBuilder.append("\n5. 如果搜索结果与问题不相关，可以结合你的知识来回答，但要说明信息来源");
+            Map<String, String> variables = new HashMap<>();
+            variables.put("currentYear", String.valueOf(currentYear));
+            String browserSearchSystem = SkillLoader.loadSkillWithTemplate("chat/browser_search_system", variables);
+            if (browserSearchSystem != null && !browserSearchSystem.trim().isEmpty()) {
+                systemMessageBuilder.append("\n\n").append(browserSearchSystem.trim());
+            } else {
+                // Fallback
+                systemMessageBuilder.append("\n\n【重要提示】当用户问题中包含网络搜索结果时，你必须：");
+                systemMessageBuilder.append("\n1. 优先使用搜索结果中的信息来回答问题");
+                systemMessageBuilder.append("\n2. 在回答中明确引用搜索结果中的内容，并标注来源链接");
+                systemMessageBuilder.append("\n3. 当前年份是").append(currentYear).append("年，请根据信息的时效性自行判断是否需要提醒用户信息可能已过期");
+                systemMessageBuilder.append("\n4. 如果搜索结果与问题相关，必须基于搜索结果来回答，不要仅依赖你的训练数据");
+                systemMessageBuilder.append("\n5. 如果搜索结果与问题不相关，可以结合你的知识来回答，但要说明信息来源");
+            }
         }
         
-        systemMessageBuilder.append("\n\n重要：请使用Markdown格式来组织你的回答，包括：\n" +
-                "- 使用标题（#、##、###）来组织内容结构\n" +
-                "- 使用列表（-、*、1.）来列举要点\n" +
-                "- 使用代码块（```）来展示代码或技术内容\n" +
-                "- 使用**粗体**和*斜体*来强调重要信息\n" +
-                "- 使用表格来展示结构化数据\n" +
-                "\n【关键要求】代码块格式（必须严格遵守）：\n" +
-                "1. 所有代码块必须包含语言标识符，格式为：```语言标识符\n代码内容\n```\n" +
-                "2. 语言标识符示例：\n" +
-                "   - JavaScript代码：```javascript\n代码\n```\n" +
-                "   - Python代码：```python\n代码\n```\n" +
-                "   - Java代码：```java\n代码\n```\n" +
-                "   - TypeScript代码：```typescript\n代码\n```\n" +
-                "   - Go代码：```go\n代码\n```\n" +
-                "   - Rust代码：```rust\n代码\n```\n" +
-                "   - C/C++代码：```cpp\n代码\n``` 或 ```c\n代码\n```\n" +
-                "   - C#代码：```csharp\n代码\n```\n" +
-                "   - PHP代码：```php\n代码\n```\n" +
-                "   - Ruby代码：```ruby\n代码\n```\n" +
-                "   - Swift代码：```swift\n代码\n```\n" +
-                "   - Kotlin代码：```kotlin\n代码\n```\n" +
-                "   - SQL代码：```sql\n代码\n```\n" +
-                "   - HTML代码：```html\n代码\n```\n" +
-                "   - CSS代码：```css\n代码\n```\n" +
-                "   - JSON代码：```json\n代码\n```\n" +
-                "   - XML代码：```xml\n代码\n```\n" +
-                "   - YAML代码：```yaml\n代码\n```\n" +
-                "   - Bash/Shell代码：```bash\n代码\n``` 或 ```shell\n代码\n```\n" +
-                "3. 绝对禁止使用没有语言标识符的代码块（如 ```\n代码\n```），这会导致代码无法正确高亮显示\n" +
-                "4. 在流式响应中，生成代码块时必须在第一行就包含完整的 ```语言标识符，例如：```javascript\n" +
-                "5. 代码块中的代码应该完整、可运行，并包含必要的注释\n" +
-                "6. 如果用户输入包含代码，请确保在回答中正确使用带语言标识符的代码块格式展示\n" +
-                "\n【关键要求】数学公式格式（必须严格遵守）：\n" +
-                "1. 所有数学公式必须使用LaTeX格式编写，不要使用占位符或省略公式内容\n" +
-                "2. 行内公式使用 $...$ 格式，例如：$E = mc^2$ 或 $\\phi = \\frac{1+\\sqrt{5}}{2}$\n" +
-                "3. 块级公式使用 $$...$$ 格式，例如：\n" +
-                "   $$F(n) = \\frac{1}{\\sqrt{5}} \\left( \\left( \\frac{1 + \\sqrt{5}}{2} \\right)^n - \\left( \\frac{1 - \\sqrt{5}}{2} \\right)^n \\right)$$\n" +
-                "4. 也可以使用 [...] 格式表示块级公式，例如：\n" +
-                "   [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]\n" +
-                "5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式\n" +
-                "6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等\n" +
-                "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符");
+        // 加载 Markdown 格式要求
+        String markdownFormat = SkillLoader.loadSkill("common/markdown_format");
+        if (markdownFormat != null && !markdownFormat.trim().isEmpty()) {
+            systemMessageBuilder.append("\n\n").append(markdownFormat.trim());
+        } else {
+            // Fallback：如果文件不存在，使用硬编码（保持向后兼容）
+            systemMessageBuilder.append("\n\n重要：请使用Markdown格式来组织你的回答，包括：\n" +
+                    "- 使用标题（#、##、###）来组织内容结构\n" +
+                    "- 使用列表（-、*、1.）来列举要点\n" +
+                    "- 使用代码块（```）来展示代码或技术内容\n" +
+                    "- 使用**粗体**和*斜体*来强调重要信息\n" +
+                    "- 使用表格来展示结构化数据\n" +
+                    "\n【关键要求】代码块格式（必须严格遵守）：\n" +
+                    "1. 所有代码块必须包含语言标识符，格式为：```语言标识符\n代码内容\n```\n" +
+                    "2. 语言标识符示例：\n" +
+                    "   - JavaScript代码：```javascript\n代码\n```\n" +
+                    "   - Python代码：```python\n代码\n```\n" +
+                    "   - Java代码：```java\n代码\n```\n" +
+                    "   - TypeScript代码：```typescript\n代码\n```\n" +
+                    "   - Go代码：```go\n代码\n```\n" +
+                    "   - Rust代码：```rust\n代码\n```\n" +
+                    "   - C/C++代码：```cpp\n代码\n``` 或 ```c\n代码\n```\n" +
+                    "   - C#代码：```csharp\n代码\n```\n" +
+                    "   - PHP代码：```php\n代码\n```\n" +
+                    "   - Ruby代码：```ruby\n代码\n```\n" +
+                    "   - Swift代码：```swift\n代码\n```\n" +
+                    "   - Kotlin代码：```kotlin\n代码\n```\n" +
+                    "   - SQL代码：```sql\n代码\n```\n" +
+                    "   - HTML代码：```html\n代码\n```\n" +
+                    "   - CSS代码：```css\n代码\n```\n" +
+                    "   - JSON代码：```json\n代码\n```\n" +
+                    "   - XML代码：```xml\n代码\n```\n" +
+                    "   - YAML代码：```yaml\n代码\n```\n" +
+                    "   - Bash/Shell代码：```bash\n代码\n``` 或 ```shell\n代码\n```\n" +
+                    "3. 绝对禁止使用没有语言标识符的代码块（如 ```\n代码\n```），这会导致代码无法正确高亮显示\n" +
+                    "4. 在流式响应中，生成代码块时必须在第一行就包含完整的 ```语言标识符，例如：```javascript\n" +
+                    "5. 代码块中的代码应该完整、可运行，并包含必要的注释\n" +
+                    "6. 如果用户输入包含代码，请确保在回答中正确使用带语言标识符的代码块格式展示\n" +
+                    "\n【关键要求】数学公式格式（必须严格遵守）：\n" +
+                    "1. 所有数学公式必须使用LaTeX格式编写，不要使用占位符或省略公式内容\n" +
+                    "2. 行内公式使用 $...$ 格式，例如：$E = mc^2$ 或 $\\phi = \\frac{1+\\sqrt{5}}{2}$\n" +
+                    "3. 块级公式使用 $$...$$ 格式，例如：\n" +
+                    "   $$F(n) = \\frac{1}{\\sqrt{5}} \\left( \\left( \\frac{1 + \\sqrt{5}}{2} \\right)^n - \\left( \\frac{1 - \\sqrt{5}}{2} \\right)^n \\right)$$\n" +
+                    "4. 也可以使用 [...] 格式表示块级公式，例如：\n" +
+                    "   [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]\n" +
+                    "5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式\n" +
+                    "6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等\n" +
+                    "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符");
+        }
         
         // 添加系统消息
         messages.add(SystemMessage.from(systemMessageBuilder.toString()));
@@ -568,22 +602,39 @@ public class ChatServiceImpl implements ChatService {
         if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
             // MCP支持已开启
             if (browserSearchContext != null && !browserSearchContext.trim().isEmpty()) {
-                // 将检索结果和问题组合在一起，让LLM更容易理解要使用检索结果
-                userMessageContent = browserSearchContext + 
-                        "\n\n---\n\n" +
-                        "基于以上网络搜索结果，请回答以下问题：\n" + 
-                        request.getQuestion() +
-                        "\n\n【重要要求】\n" +
-                        "1. 必须优先使用上述搜索结果中的信息来回答问题\n" +
-                        "2. 如果搜索结果中包含相关信息，必须明确引用并标注来源链接\n" +
-                        "3. 当前年份是" + currentYear + "年，请根据信息的时效性自行判断是否需要提醒用户信息可能已过期\n" +
-                        "4. 如果搜索结果与问题不相关，请明确说明\"未在搜索结果中找到相关信息\"，然后可以结合你的知识回答\n" +
-                        "5. 绝对不要声称搜索结果包含信息，如果搜索结果中没有相关内容，请明确说明";
+                // 使用模板构建用户消息
+                Map<String, String> variables = new HashMap<>();
+                variables.put("question", request.getQuestion());
+                variables.put("currentYear", String.valueOf(currentYear));
+                String template = SkillLoader.loadSkillWithTemplate("chat/browser_search_user_template", variables);
+                if (template != null && !template.trim().isEmpty()) {
+                    userMessageContent = browserSearchContext + "\n\n---\n\n" + template;
+                } else {
+                    // Fallback
+                    userMessageContent = browserSearchContext + 
+                            "\n\n---\n\n" +
+                            "基于以上网络搜索结果，请回答以下问题：\n" + 
+                            request.getQuestion() +
+                            "\n\n【重要要求】\n" +
+                            "1. 必须优先使用上述搜索结果中的信息来回答问题\n" +
+                            "2. 如果搜索结果中包含相关信息，必须明确引用并标注来源链接\n" +
+                            "3. 当前年份是" + currentYear + "年，请根据信息的时效性自行判断是否需要提醒用户信息可能已过期\n" +
+                            "4. 如果搜索结果与问题不相关，请明确说明\"未在搜索结果中找到相关信息\"，然后可以结合你的知识回答\n" +
+                            "5. 绝对不要声称搜索结果包含信息，如果搜索结果中没有相关内容，请明确说明";
+                }
             } else {
                 // 如果启用了MCP支持但没有找到结果，明确告知LLM
-                userMessageContent = "【网络搜索提示】已启用MCP支持（浏览器检索功能），但未找到与问题相关的搜索结果。\n\n" +
-                        "问题：" + request.getQuestion() + "\n\n" +
-                        "请基于你的知识来回答这个问题。如果问题涉及实时信息或最新动态，请说明需要访问相关网站获取最新信息。";
+                Map<String, String> variables = new HashMap<>();
+                variables.put("question", request.getQuestion());
+                String template = SkillLoader.loadSkillWithTemplate("chat/browser_search_no_results", variables);
+                if (template != null && !template.trim().isEmpty()) {
+                    userMessageContent = template;
+                } else {
+                    // Fallback
+                    userMessageContent = "【网络搜索提示】已启用MCP支持（浏览器检索功能），但未找到与问题相关的搜索结果。\n\n" +
+                            "问题：" + request.getQuestion() + "\n\n" +
+                            "请基于你的知识来回答这个问题。如果问题涉及实时信息或最新动态，请说明需要访问相关网站获取最新信息。";
+                }
             }
         } else {
             // MCP支持已关闭，直接使用原始问题

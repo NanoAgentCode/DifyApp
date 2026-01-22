@@ -302,13 +302,19 @@ public class DrawIOServiceImpl implements DrawIOService {
         if (base != null && !base.trim().isEmpty()) {
             prompt.append(base.trim());
         } else {
-            // 如果系统提示词文件不存在，使用默认提示词
-            prompt.append("你是一个专业的图表生成助手，专门生成 AntV Infographic 格式的图表代码。\n\n");
-            prompt.append("重要要求：\n");
-            prompt.append("1. 你必须只返回有效的 AntV Infographic DSL 代码，不要包含任何解释文字\n");
-            prompt.append("2. 代码必须符合 AntV Infographic 语法规范\n");
-            prompt.append("3. 使用中文标签和文本\n");
-            prompt.append("4. 代码块不要使用 ``` 包裹，直接返回代码\n");
+            // 如果系统提示词文件不存在，使用 fallback
+            String fallback = SkillLoader.loadSkill("drawio/base_fallback");
+            if (fallback != null && !fallback.trim().isEmpty()) {
+                prompt.append(fallback.trim());
+            } else {
+                // 最后的默认提示词
+                prompt.append("你是一个专业的图表生成助手，专门生成 AntV Infographic 格式的图表代码。\n\n");
+                prompt.append("重要要求：\n");
+                prompt.append("1. 你必须只返回有效的 AntV Infographic DSL 代码，不要包含任何解释文字\n");
+                prompt.append("2. 代码必须符合 AntV Infographic 语法规范\n");
+                prompt.append("3. 使用中文标签和文本\n");
+                prompt.append("4. 代码块不要使用 ``` 包裹，直接返回代码\n");
+            }
         }
         
         if (diagramType != null) {
@@ -329,6 +335,45 @@ public class DrawIOServiceImpl implements DrawIOService {
      * 构建用户提示词（生成）
      */
     private String buildUserPrompt(String userPrompt, String diagramType) {
+        // 根据图表类型获取特定要求
+        String typeSpecificRequirement = "";
+        if (diagramType != null) {
+            switch (diagramType) {
+                case "flowchart":
+                    typeSpecificRequirement = "流程图必须包含所有步骤、判断分支、循环等完整流程，至少 8-15 个步骤";
+                    break;
+                case "architecture":
+                    typeSpecificRequirement = "架构图必须包含所有层级和组件，每层至少 3-5 个组件，至少 3-5 层";
+                    break;
+                case "mindmap":
+                    typeSpecificRequirement = "思维导图必须包含所有主要分支和子分支，至少 3-4 个主要分支，每个分支至少 2-3 个子分支";
+                    break;
+                case "sequence":
+                    typeSpecificRequirement = "时序图必须包含所有参与者和完整的交互序列，至少 4-6 个参与者，10-15 条消息";
+                    break;
+                case "uml":
+                    typeSpecificRequirement = "UML图必须包含所有相关的类和关系，至少 5-8 个类";
+                    break;
+                case "org":
+                    typeSpecificRequirement = "组织架构图必须包含所有层级和人员，至少 3-4 层";
+                    break;
+                case "network":
+                    typeSpecificRequirement = "网络图必须包含所有网络设备和连接，至少 8-12 个设备节点";
+                    break;
+            }
+        }
+        
+        // 使用模板加载用户提示词
+        Map<String, String> variables = new HashMap<>();
+        variables.put("userPrompt", userPrompt);
+        variables.put("typeSpecificRequirement", typeSpecificRequirement);
+        
+        String template = SkillLoader.loadSkillWithTemplate("drawio/user_prompt_template", variables);
+        if (template != null && !template.trim().isEmpty()) {
+            return template;
+        }
+        
+        // Fallback：如果模板不存在，使用硬编码方式
         StringBuilder prompt = new StringBuilder();
         prompt.append("请根据以下描述生成详细、完整的 AntV Infographic 格式图表代码：\n\n");
         prompt.append(userPrompt);
@@ -336,34 +381,9 @@ public class DrawIOServiceImpl implements DrawIOService {
         prompt.append("重要要求：\n");
         prompt.append("1. 必须生成详细、完整的图表，包含所有相关节点和细节\n");
         prompt.append("2. 不要简化或省略任何重要部分，要充分展开用户描述的所有内容\n");
-        
-        // 根据图表类型添加具体要求
-        if (diagramType != null) {
-            switch (diagramType) {
-                case "flowchart":
-                    prompt.append("3. 流程图必须包含所有步骤、判断分支、循环等完整流程，至少 8-15 个步骤\n");
-                    break;
-                case "architecture":
-                    prompt.append("3. 架构图必须包含所有层级和组件，每层至少 3-5 个组件，至少 3-5 层\n");
-                    break;
-                case "mindmap":
-                    prompt.append("3. 思维导图必须包含所有主要分支和子分支，至少 3-4 个主要分支，每个分支至少 2-3 个子分支\n");
-                    break;
-                case "sequence":
-                    prompt.append("3. 时序图必须包含所有参与者和完整的交互序列，至少 4-6 个参与者，10-15 条消息\n");
-                    break;
-                case "uml":
-                    prompt.append("3. UML图必须包含所有相关的类和关系，至少 5-8 个类\n");
-                    break;
-                case "org":
-                    prompt.append("3. 组织架构图必须包含所有层级和人员，至少 3-4 层\n");
-                    break;
-                case "network":
-                    prompt.append("3. 网络图必须包含所有网络设备和连接，至少 8-12 个设备节点\n");
-                    break;
-            }
+        if (!typeSpecificRequirement.isEmpty()) {
+            prompt.append("3. ").append(typeSpecificRequirement).append("\n");
         }
-        
         prompt.append("4. 请生成完整的 AntV Infographic DSL 代码，不要使用代码块包裹。");
         return prompt.toString();
     }
@@ -372,10 +392,16 @@ public class DrawIOServiceImpl implements DrawIOService {
      * 构建系统提示词（修改）
      */
     private String buildModifySystemPrompt() {
-        String base = com.github.app.dify.system.util.SkillLoader.loadSkill("drawio_modify_system_prompt");
+        String base = SkillLoader.loadSkill("drawio_modify_system_prompt");
         if (base != null && !base.trim().isEmpty()) {
             return base;
         }
+        // 使用 fallback
+        String fallback = SkillLoader.loadSkill("drawio_modify_system_prompt_fallback");
+        if (fallback != null && !fallback.trim().isEmpty()) {
+            return fallback;
+        }
+        // 最后的默认提示词
         return "你是一个专业的图表修改助手，专门修改 AntV Infographic 格式的图表代码。\n\n" +
                 "重要要求：\n" +
                 "1. 你必须只返回修改后的完整 AntV Infographic DSL 代码，不要包含任何解释文字\n" +
@@ -391,15 +417,26 @@ public class DrawIOServiceImpl implements DrawIOService {
      * 构建用户提示词（修改）
      */
     private String buildModifyUserPrompt(String diagramJson, String modifyInstruction) {
+        // 只传递代码的关键部分，避免过长
+        String diagramCode = diagramJson.length() > 5000 
+            ? diagramJson.substring(0, 5000) + "..." 
+            : diagramJson;
+        
+        // 使用模板加载用户提示词
+        Map<String, String> variables = new HashMap<>();
+        variables.put("diagramJson", diagramCode);
+        variables.put("modifyInstruction", modifyInstruction);
+        
+        String template = SkillLoader.loadSkillWithTemplate("drawio/modify_user_prompt_template", variables);
+        if (template != null && !template.trim().isEmpty()) {
+            return template;
+        }
+        
+        // Fallback：如果模板不存在，使用硬编码方式
         StringBuilder prompt = new StringBuilder();
         prompt.append("现有图表代码：\n");
         prompt.append("```\n");
-        // 只传递代码的关键部分，避免过长
-        if (diagramJson.length() > 5000) {
-            prompt.append(diagramJson.substring(0, 5000)).append("...\n");
-        } else {
-            prompt.append(diagramJson).append("\n");
-        }
+        prompt.append(diagramCode).append("\n");
         prompt.append("```\n\n");
         prompt.append("修改指令：\n");
         prompt.append(modifyInstruction);

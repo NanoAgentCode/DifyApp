@@ -300,25 +300,33 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
         
         String systemPrompt = SkillLoader.loadSkill("knowledge_base_qa_system_prompt");
         if (systemPrompt == null || systemPrompt.trim().isEmpty()) {
-            systemPrompt = "你是一个专业的AI助手，基于提供的知识库内容回答问题。" +
-                    "如果知识库中没有相关信息，请明确说明无法回答。" +
-                    "\n\n重要：请使用Markdown格式来组织你的回答，包括：\n" +
-                    "- 使用标题（#、##、###）来组织内容结构\n" +
-                    "- 使用列表（-、*、1.）来列举要点\n" +
-                    "- 使用代码块（```）来展示代码或技术内容\n" +
-                    "- 使用**粗体**和*斜体*来强调重要信息\n" +
-                    "- 使用表格来展示结构化数据\n" +
-                    "- 确保代码块包含正确的语言标识符\n" +
-                    "\n【关键要求】数学公式格式（必须严格遵守）：\n" +
-                    "1. 所有数学公式必须使用LaTeX格式编写，不要使用占位符或省略公式内容\n" +
-                    "2. 行内公式使用 $...$ 格式，例如：$E = mc^2$ 或 $\\phi = \\frac{1+\\sqrt{5}}{2}$\n" +
-                    "3. 块级公式使用 $$...$$ 格式，例如：\n" +
-                    "   $$F(n) = \\frac{1}{\\sqrt{5}} \\left( \\left( \\frac{1 + \\sqrt{5}}{2} \\right)^n - \\left( \\frac{1 - \\sqrt{5}}{2} \\right)^n \\right)$$\n" +
-                    "4. 也可以使用 [...] 格式表示块级公式，例如：\n" +
-                    "   [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]\n" +
-                    "5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式\n" +
-                    "6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等\n" +
-                    "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符";
+            // 使用 fallback
+            String fallback = SkillLoader.loadSkill("knowledge_base_qa_system_prompt_fallback");
+            if (fallback != null && !fallback.trim().isEmpty()) {
+                systemPrompt = fallback;
+                // 追加 Markdown 格式要求
+                String markdownFormat = SkillLoader.loadSkill("common/markdown_format");
+                if (markdownFormat != null && !markdownFormat.trim().isEmpty()) {
+                    systemPrompt += "\n\n" + markdownFormat.trim();
+                }
+            } else {
+                // 最后的默认提示词
+                systemPrompt = "你是一个专业的AI助手，基于提供的知识库内容回答问题。" +
+                        "如果知识库中没有相关信息，请明确说明无法回答。";
+                // 追加 Markdown 格式要求
+                String markdownFormat = SkillLoader.loadSkill("common/markdown_format");
+                if (markdownFormat != null && !markdownFormat.trim().isEmpty()) {
+                    systemPrompt += "\n\n" + markdownFormat.trim();
+                }
+            }
+        } else {
+            // 如果主提示词存在，检查是否已包含 Markdown 格式要求，如果没有则追加
+            if (!systemPrompt.contains("Markdown格式") && !systemPrompt.contains("代码块格式")) {
+                String markdownFormat = SkillLoader.loadSkill("common/markdown_format");
+                if (markdownFormat != null && !markdownFormat.trim().isEmpty()) {
+                    systemPrompt += "\n\n" + markdownFormat.trim();
+                }
+            }
         }
         StringBuilder systemMessage = new StringBuilder(systemPrompt);
         if (memoryContext != null && !memoryContext.trim().isEmpty()) {
@@ -361,25 +369,25 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             if (memoryContext != null && !memoryContext.trim().isEmpty()) {
                 sys.append(memoryContext).append("\n\n");
             }
-            sys.append(contextBuilder.toString()).append(
-                    "如果知识库中没有相关信息，请明确说明无法回答。" +
-                    "\n\n重要：请使用Markdown格式来组织你的回答，包括：\n" +
-                    "- 使用标题（#、##、###）来组织内容结构\n" +
-                    "- 使用列表（-、*、1.）来列举要点\n" +
-                    "- 使用代码块（```）来展示代码或技术内容\n" +
-                    "- 使用**粗体**和*斜体*来强调重要信息\n" +
-                    "- 使用表格来展示结构化数据\n" +
-                    "- 确保代码块包含正确的语言标识符\n" +
-                    "\n【关键要求】数学公式格式（必须严格遵守）：\n" +
-                    "1. 所有数学公式必须使用LaTeX格式编写，不要使用占位符或省略公式内容\n" +
-                    "2. 行内公式使用 $...$ 格式，例如：$E = mc^2$ 或 $\\phi = \\frac{1+\\sqrt{5}}{2}$\n" +
-                    "3. 块级公式使用 $$...$$ 格式，例如：\n" +
-                    "   $$F(n) = \\frac{1}{\\sqrt{5}} \\left( \\left( \\frac{1 + \\sqrt{5}}{2} \\right)^n - \\left( \\frac{1 - \\sqrt{5}}{2} \\right)^n \\right)$$\n" +
-                    "4. 也可以使用 [...] 格式表示块级公式，例如：\n" +
-                    "   [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]\n" +
-                    "5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式\n" +
-                    "6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等\n" +
-                    "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符");
+            
+            // 使用模板构建检索上下文
+            Map<String, String> variables = new HashMap<>();
+            variables.put("retrievalContext", contextBuilder.toString());
+            String template = SkillLoader.loadSkillWithTemplate("knowledge_base/retrieval_context_template", variables);
+            if (template != null && !template.trim().isEmpty()) {
+                sys.append(template);
+            } else {
+                // Fallback
+                sys.append(contextBuilder.toString()).append(
+                        "如果知识库中没有相关信息，请明确说明无法回答。");
+            }
+            
+            // 追加 Markdown 格式要求
+            String markdownFormat = SkillLoader.loadSkill("common/markdown_format");
+            if (markdownFormat != null && !markdownFormat.trim().isEmpty()) {
+                sys.append("\n\n").append(markdownFormat.trim());
+            }
+            
             messages.set(0, SystemMessage.from(sys.toString()));
         }
         
@@ -428,25 +436,24 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             if (memoryContext != null && !memoryContext.trim().isEmpty()) {
                 sys.append(memoryContext).append("\n\n");
             }
-            sys.append(contextBuilder.toString()).append(
-                    "如果知识库中没有相关信息，请明确说明无法回答。" +
-                    "\n\n重要：请使用Markdown格式来组织你的回答，包括：\n" +
-                    "- 使用标题（#、##、###）来组织内容结构\n" +
-                    "- 使用列表（-、*、1.）来列举要点\n" +
-                    "- 使用代码块（```）来展示代码或技术内容\n" +
-                    "- 使用**粗体**和*斜体*来强调重要信息\n" +
-                    "- 使用表格来展示结构化数据\n" +
-                    "- 确保代码块包含正确的语言标识符\n" +
-                    "\n【关键要求】数学公式格式（必须严格遵守）：\n" +
-                    "1. 所有数学公式必须使用LaTeX格式编写，不要使用占位符或省略公式内容\n" +
-                    "2. 行内公式使用 $...$ 格式，例如：$E = mc^2$ 或 $\\phi = \\frac{1+\\sqrt{5}}{2}$\n" +
-                    "3. 块级公式使用 $$...$$ 格式，例如：\n" +
-                    "   $$F(n) = \\frac{1}{\\sqrt{5}} \\left( \\left( \\frac{1 + \\sqrt{5}}{2} \\right)^n - \\left( \\frac{1 - \\sqrt{5}}{2} \\right)^n \\right)$$\n" +
-                    "4. 也可以使用 [...] 格式表示块级公式，例如：\n" +
-                    "   [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]\n" +
-                    "5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式\n" +
-                    "6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等\n" +
-                    "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符");
+            
+            // 使用模板构建检索上下文
+            Map<String, String> variables = new HashMap<>();
+            variables.put("retrievalContext", contextBuilder.toString());
+            String template = SkillLoader.loadSkillWithTemplate("knowledge_base/retrieval_context_template", variables);
+            if (template != null && !template.trim().isEmpty()) {
+                sys.append(template);
+            } else {
+                // Fallback
+                sys.append(contextBuilder.toString()).append(
+                        "如果知识库中没有相关信息，请明确说明无法回答。");
+            }
+            
+            // 追加 Markdown 格式要求
+            String markdownFormat = SkillLoader.loadSkill("common/markdown_format");
+            if (markdownFormat != null && !markdownFormat.trim().isEmpty()) {
+                sys.append("\n\n").append(markdownFormat.trim());
+            }
             String fullSystemMessage = sys.toString();
             
             // 压缩系统消息中的文档内容

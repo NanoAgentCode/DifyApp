@@ -36,11 +36,13 @@ import com.github.app.dify.knowledgebase.util.KnowledgeBaseConverterUtil;
 import com.github.app.dify.knowledgebase.util.KnowledgeBaseDateTimeUtil;
 import com.github.app.dify.common.util.PageUtil;
 import com.github.app.dify.knowledgebase.util.KnowledgeBaseSoftDeleteUtil;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import com.github.app.dify.system.util.SkillLoader;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.ArrayList;
+import com.github.app.dify.system.util.SkillLoader;
 /**
  * 知识库服务实现
  */
@@ -552,14 +554,31 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         
         String systemPrompt = SkillLoader.loadSkill("document_summary_system_prompt");
         if (systemPrompt == null || systemPrompt.trim().isEmpty()) {
-            systemPrompt = "你是一个专业的文档摘要生成助手。请根据提供的知识库信息，生成一段简洁、准确、全面的摘要。摘要应该：\n" +
-                    "1. 概括知识库的主要内容和主题\n" +
-                    "2. 突出知识库的核心知识点\n" +
-                    "3. 语言简洁明了，控制在200字以内\n" +
-                    "4. 使用中文回答";
+            // 使用 fallback
+            String fallback = SkillLoader.loadSkill("document_summary_system_prompt_fallback");
+            if (fallback != null && !fallback.trim().isEmpty()) {
+                systemPrompt = fallback;
+            } else {
+                // 最后的默认提示词
+                systemPrompt = "你是一个专业的文档摘要生成助手。请根据提供的知识库信息，生成一段简洁、准确、全面的摘要。摘要应该：\n" +
+                        "1. 概括知识库的主要内容和主题\n" +
+                        "2. 突出知识库的核心知识点\n" +
+                        "3. 语言简洁明了，控制在200字以内\n" +
+                        "4. 使用中文回答";
+            }
         }
         
-        String userPrompt = "请为以下知识库生成智能摘要：\n\n" + content;
+        // 使用模板构建用户提示词
+        Map<String, String> variables = new HashMap<>();
+        variables.put("content", content);
+        String userPromptTemplate = SkillLoader.loadSkillWithTemplate("document_summary_user_prompt_template", variables);
+        String userPrompt;
+        if (userPromptTemplate != null && !userPromptTemplate.trim().isEmpty()) {
+            userPrompt = userPromptTemplate;
+        } else {
+            // Fallback
+            userPrompt = "请为以下知识库生成智能摘要：\n\n" + content;
+        }
         
         // 10. 构建消息列表
         List<ChatMessage> messages = new ArrayList<>();
