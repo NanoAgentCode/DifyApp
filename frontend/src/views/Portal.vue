@@ -2757,11 +2757,11 @@ onUnmounted(() => {
   justify-content: flex-start;
   height: calc(100vh - 100px); /* 视口高度 - header高度(60px) - 上下padding(20px + 20px) */
   max-height: calc(100vh - 100px);
-  padding: 12px 20px !important; /* 进一步减少内边距 */
+  padding: 12px 20px 0 20px !important; /* 去掉底部内边距 */
   width: 100%;
   max-width: 1200px;
   min-width: 600px; /* 最小宽度，确保在小屏幕上也有良好显示 */
-  margin: 0 auto;
+  margin: 0 auto 0 auto; /* 去掉底部外边距 */
   box-sizing: border-box;
   overflow: hidden; /* 防止溢出 */
 }
@@ -2778,7 +2778,7 @@ onUnmounted(() => {
 @media (max-width: 768px) {
   .welcome-section {
     min-width: auto; /* 小屏幕下取消最小宽度限制 */
-    padding: 40px 16px !important;
+    padding: 40px 16px 0 16px !important; /* 去掉底部内边距 */
   }
 }
 
@@ -3098,8 +3098,8 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  height: 100%;
-  overflow: hidden;
+  height: auto; /* 改为auto，让内容决定高度 */
+  overflow: visible; /* 改为visible，确保内容不被裁剪 */
   align-items: stretch; /* 确保两列高度一致 */
 }
 
@@ -3107,7 +3107,7 @@ onUnmounted(() => {
 .suggestions-column > * {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: auto; /* 改为auto，让内容决定高度 */
   box-sizing: border-box;
 }
 
@@ -3174,43 +3174,53 @@ onUnmounted(() => {
   width: 100%;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  overflow: hidden;
+  height: auto; /* 改为auto，让内容决定高度 */
+  overflow: visible; /* 改为visible，确保内容不被裁剪 */
   align-items: stretch; /* 确保与右侧列对齐 */
   padding: 0; /* 确保没有额外的padding影响对齐 */
   margin: 0; /* 确保没有额外的margin影响对齐 */
+  min-height: calc(32px + 8px + 3 * 44px + 2 * 4px); /* 标题 + margin + 3条 + gap，展开状态 */
+  box-sizing: border-box;
+}
+
+/* 收起状态下，调整最小高度以容纳4条 */
+.portal-content.content-header-collapsed .recent-conversations {
+  min-height: calc(32px + 8px + 4 * 44px + 3 * 4px); /* 标题 + margin + 4条 + gap，收起状态 */
 }
 
 .conversations-list {
   display: grid;
   grid-template-rows: repeat(3, 44px); /* 默认3行，每行44px高度，确保与右侧对齐 */
   gap: 4px;
-  overflow: hidden;
+  overflow: visible; /* 改为visible，确保内容不被裁剪 */
   flex: 1;
-  min-height: 0;
+  min-height: calc(3 * 44px + 2 * 4px); /* 3条高度 + 2个gap，确保完整显示 */
+  height: calc(3 * 44px + 2 * 4px); /* 固定高度，确保完整显示 */
   align-content: start; /* 从顶部开始对齐 */
+  box-sizing: border-box;
 }
 
 /* 收起状态下显示4行 */
 .conversations-list.collapsed-mode {
   grid-template-rows: repeat(4, 44px); /* 收起状态4行，每行44px高度 */
-}
-
-/* 确保grid容器不会显示不完整的条目 */
-.conversations-list {
-  align-content: start; /* 从顶部开始对齐 */
-  overflow: hidden; /* 隐藏溢出部分 */
+  min-height: calc(4 * 44px + 3 * 4px); /* 4条高度 + 3个gap，确保完整显示 */
+  height: calc(4 * 44px + 3 * 4px); /* 固定高度，确保完整显示 */
 }
 
 /* 对建议问题列表也应用相同的逻辑 */
 .questions-grid {
   align-content: start; /* 从顶部开始对齐 */
-  overflow: hidden; /* 隐藏溢出部分 */
+  overflow: visible; /* 改为visible，确保内容不被裁剪 */
+  min-height: calc(3 * 44px + 2 * 4px); /* 3条高度 + 2个gap，确保完整显示 */
+  height: calc(3 * 44px + 2 * 4px); /* 固定高度，确保完整显示 */
+  box-sizing: border-box;
 }
 
 /* 收起状态下显示4行 */
 .questions-grid.collapsed-mode {
   grid-template-rows: repeat(4, 44px); /* 收起状态4行，每行44px高度 */
+  min-height: calc(4 * 44px + 3 * 4px); /* 4条高度 + 3个gap，确保完整显示 */
+  height: calc(4 * 44px + 3 * 4px); /* 固定高度，确保完整显示 */
 }
 
 .conversation-card {
@@ -3287,13 +3297,20 @@ onUnmounted(() => {
 /* 建议问题 */
 .suggested-questions {
   width: 100%;
-  height: 100%;
+  height: auto; /* 改为auto，让内容决定高度 */
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible; /* 改为visible，确保内容不被裁剪 */
   align-items: stretch; /* 确保与左侧列对齐 */
   padding: 0; /* 确保没有额外的padding影响对齐 */
   margin: 0; /* 确保没有额外的margin影响对齐 */
+  min-height: calc(32px + 8px + 3 * 44px + 2 * 4px); /* 标题 + margin + 3条 + gap，展开状态 */
+  box-sizing: border-box;
+}
+
+/* 收起状态下，调整最小高度以容纳4条 */
+.portal-content.content-header-collapsed .suggested-questions {
+  min-height: calc(32px + 8px + 4 * 44px + 3 * 4px); /* 标题 + margin + 4条 + gap，收起状态 */
 }
 
 .questions-grid {
@@ -3302,9 +3319,11 @@ onUnmounted(() => {
   grid-template-rows: repeat(3, 44px); /* 默认3行，每行44px高度，确保与左侧对齐 */
   gap: 4px;
   flex: 1;
-  min-height: 0;
-  overflow: hidden;
+  min-height: calc(3 * 44px + 2 * 4px); /* 3条高度 + 2个gap，确保完整显示 */
+  height: calc(3 * 44px + 2 * 4px); /* 固定高度，确保完整显示 */
+  overflow: visible; /* 改为visible，确保内容不被裁剪 */
   align-content: start; /* 从顶部开始对齐 */
+  box-sizing: border-box;
 }
 
 /* 收起状态下显示4行 */
@@ -4371,7 +4390,7 @@ onUnmounted(() => {
 /* 底部免责声明 */
 .portal-footer {
   text-align: center;
-  padding: 16px 20px;
+  padding: 10px 20px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%);
   backdrop-filter: blur(10px);
   border-top: 1px solid var(--el-border-color-lighter, #e4e7ed);
@@ -4390,8 +4409,8 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: 6px;
+  padding: 6px 14px;
   border-radius: 20px;
   background: rgba(64, 158, 255, 0.06);
   transition: all 0.3s ease;
@@ -4403,7 +4422,7 @@ onUnmounted(() => {
 }
 
 .footer-icon {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--el-color-primary, #409eff);
   animation: pulse 2s ease-in-out infinite;
 }
@@ -4420,11 +4439,11 @@ onUnmounted(() => {
 }
 
 .footer-text {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--el-text-color-regular, #606266);
   font-weight: 400;
   letter-spacing: 0.3px;
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
 /* 响应式设计 */
@@ -4469,12 +4488,12 @@ onUnmounted(() => {
   }
 
   .portal-footer {
-    padding: 12px 16px;
+    padding: 8px 16px;
   }
 
   .footer-content {
-    padding: 6px 12px;
-    gap: 6px;
+    padding: 4px 10px;
+    gap: 4px;
   }
 
   .footer-icon {
