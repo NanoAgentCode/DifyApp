@@ -31,7 +31,10 @@ infographic <template-name>
 - compare-binary-horizontal-simple-fold（横向对比）
 - hierarchy-mindmap-branch-gradient-rounded-rect（思维导图，支持层级）
 - hierarchy-structure（组织架构，支持层级）
-- relation-dagre-flow（关系图，支持节点连线）
+- relation-dagre-flow-lr-simple-circle-node（关系图，左右布局，圆形节点）
+- relation-dagre-flow-tb-simple-circle-node（关系图，上下布局，圆形节点）
+- relation-dagre-flow-lr-badge-card（关系图，左右布局，卡片节点）
+- relation-dagre-flow-tb-badge-card（关系图，上下布局，卡片节点）
 - chart-pie-donut-pill-badge（饼图）
 - chart-bar-plain-text（条形图）
 

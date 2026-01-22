@@ -599,6 +599,7 @@ const renderInfographic = async (infographicCode) => {
     // 移除末尾的特殊字符
     codeToRender = codeToRender.replace(/[\u200B-\u200D\uFEFF\s]+$/, '')
     codeToRender = normalizeInfographicTemplate(codeToRender)
+    codeToRender = normalizeInfographicText(codeToRender)
     
     // 确保以 infographic 开头
     if (!codeToRender.startsWith('infographic')) {
@@ -742,13 +743,21 @@ const normalizeInfographicTemplate = (code) => {
     'list-row-simple-vertical-arrow': 'list-column-simple-vertical-arrow',
     'list-column-simple': 'list-column-simple-vertical-arrow',
     'compare-binary-vertical-simple': 'compare-binary-horizontal-simple-fold',
-    'chart-bar-horizontal-simple': 'chart-bar-plain-text'
+    'chart-bar-horizontal-simple': 'chart-bar-plain-text',
+    'relation-dagre-flow': 'relation-dagre-flow-lr-badge-card',
+    'relation-dagre-flow-lr-simple-circle-node': 'relation-dagre-flow-lr-badge-card',
+    'relation-dagre-flow-tb-simple-circle-node': 'relation-dagre-flow-tb-badge-card'
   }
   const mapped = templateMap[templateName]
   if (!mapped) return code
 
   lines[0] = `infographic ${mapped}`
   return lines.join('\n')
+}
+
+const normalizeInfographicText = (code) => {
+  if (!code) return code
+  return code.replace(/\\n/g, ' / ').replace(/\\t/g, ' ')
 }
 
 // 加载 AntV Infographic 代码
