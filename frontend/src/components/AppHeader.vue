@@ -408,7 +408,7 @@ onMounted(() => {
 .expand-header-button {
   position: fixed;
   top: var(--spacing-md);
-  left: 50%;
+  left: calc(var(--sidebar-width) + (100vw - var(--sidebar-width)) / 2);
   transform: translateX(-50%);
   z-index: calc(var(--z-fixed) - 1);
   animation: slideDown var(--transition-base);
