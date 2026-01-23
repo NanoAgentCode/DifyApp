@@ -462,12 +462,12 @@
             >
               <el-icon class="el-icon--upload"><upload-filled /></el-icon>
               <div class="el-upload__text">将ZIP文件拖到此处，或<em>点击上传</em></div>
-              <template #tip>
-                <div class="el-upload__tip">
-                  支持导入包含文档文件的ZIP压缩包
-                </div>
-              </template>
             </el-upload>
+            <div class="upload-tip-wrapper">
+              <el-tooltip content="支持导入包含文档文件的ZIP压缩包" placement="top">
+                <el-icon class="upload-tip-icon"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </div>
             <!-- 已选择文件时显示文件信息 -->
             <div v-else class="file-selected-info">
               <el-icon><Document /></el-icon>
@@ -488,7 +488,7 @@
         <!-- 文件预览 -->
         <el-form-item v-if="previewFiles.length > 0" label="文件预览">
           <div class="preview-table-wrapper">
-            <el-table :data="previewFiles" size="small" max-height="120" stripe>
+            <el-table :data="previewFiles" size="small" max-height="140" stripe>
               <el-table-column prop="fileName" label="文件名" min-width="200" show-overflow-tooltip />
               <el-table-column prop="fileSize" label="大小" width="100" align="center">
                 <template #default="{ row }">
@@ -501,8 +501,11 @@
                 </template>
               </el-table-column>
             </el-table>
-            <div class="preview-tip">
-              共 {{ previewFiles.length }} 个文件，导入后将自动进行向量化处理
+            <div class="preview-tip-wrapper">
+              <span class="preview-file-count">共 {{ previewFiles.length }} 个文件</span>
+              <el-tooltip content="导入后将自动进行向量化处理" placement="top">
+                <el-icon class="preview-tip-icon"><QuestionFilled /></el-icon>
+              </el-tooltip>
             </div>
           </div>
         </el-form-item>
@@ -512,21 +515,24 @@
           <el-divider class="form-divider" />
           
           <div class="form-section-header">
-            <el-icon><InfoFilled /></el-icon>
             <span>请确认知识库信息</span>
+            <el-tooltip content="请确认知识库的基本信息，默认使用ZIP文件名作为知识库名称" placement="top">
+              <el-icon class="form-section-icon"><InfoFilled /></el-icon>
+            </el-tooltip>
           </div>
           
           <!-- 基本信息 -->
           <el-form-item label="知识库名称" prop="name" required>
-            <el-input 
-              v-model="importForm.name" 
-              placeholder="请输入知识库名称"
-              :disabled="importing"
-              clearable
-            />
-            <div v-if="defaultName" class="default-name-hint">
-              <el-icon><InfoFilled /></el-icon>
-              <span>默认名称：{{ defaultName }}（可修改）</span>
+            <div class="input-with-tooltip">
+              <el-input 
+                v-model="importForm.name" 
+                placeholder="请输入知识库名称"
+                :disabled="importing"
+                clearable
+              />
+              <el-tooltip v-if="defaultName" :content="`默认名称：${defaultName}（可修改）`" placement="top">
+                <el-icon class="input-tooltip-icon"><InfoFilled /></el-icon>
+              </el-tooltip>
             </div>
           </el-form-item>
           
@@ -1767,10 +1773,16 @@ const getVectorDatabaseDocumentCount = (db) => {
   font-style: normal;
 }
 
-.import-upload :deep(.el-upload__tip) {
-  color: #909399;
-  font-size: 12px;
+.upload-tip-wrapper {
+  display: flex;
+  justify-content: center;
   margin-top: 8px;
+}
+
+.upload-tip-icon {
+  color: #909399;
+  font-size: 16px;
+  cursor: help;
 }
 
 .file-selected-info {
@@ -1814,13 +1826,25 @@ const getVectorDatabaseDocumentCount = (db) => {
   background: #f5f7fa;
 }
 
-.preview-tip {
+.preview-tip-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 6px 12px;
   background: #f5f7fa;
+  border-top: 1px solid #e4e7ed;
+}
+
+.preview-file-count {
   color: #909399;
   font-size: 12px;
-  text-align: center;
-  border-top: 1px solid #e4e7ed;
+}
+
+.preview-tip-icon {
+  color: #909399;
+  font-size: 14px;
+  cursor: help;
 }
 
 .form-divider {
@@ -1841,23 +1865,29 @@ const getVectorDatabaseDocumentCount = (db) => {
   font-weight: 500;
 }
 
-.form-section-header .el-icon {
+.form-section-icon {
   color: #409eff;
-  font-size: 18px;
+  font-size: 16px;
+  cursor: help;
+  flex-shrink: 0;
 }
 
-.default-name-hint {
+.input-with-tooltip {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 4px;
-  color: #909399;
-  font-size: 12px;
+  gap: 8px;
+  width: 100%;
 }
 
-.default-name-hint .el-icon {
+.input-with-tooltip :deep(.el-input) {
+  flex: 1;
+}
+
+.input-tooltip-icon {
   color: #909399;
-  font-size: 14px;
+  font-size: 16px;
+  cursor: help;
+  flex-shrink: 0;
 }
 
 .advanced-config-collapse {
