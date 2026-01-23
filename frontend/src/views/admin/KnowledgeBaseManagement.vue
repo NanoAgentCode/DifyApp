@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <el-button type="text" @click="handleBack" style="margin-right: 10px">
+          <el-button type="primary" link @click="handleBack" style="margin-right: 10px">
             <el-icon><ArrowLeft /></el-icon>
             返回
           </el-button>
@@ -467,39 +467,27 @@
       :lock-scroll="true"
       class="import-dialog"
     >
-      <el-form 
-        :model="importForm" 
-        :rules="importRules" 
-        ref="importFormRef" 
-        label-width="120px"
-        label-position="right"
-      >
+      <div class="import-dialog-content">
         <!-- 文件上传区域 -->
-        <el-form-item label="ZIP文件" required>
-          <div class="upload-wrapper">
-            <!-- 未选择文件时显示上传框 -->
-            <template v-if="importFileList.length === 0">
-              <el-upload
-                :auto-upload="false"
-                :on-change="handleFileChange"
-                :file-list="importFileList"
-                accept=".zip"
-                drag
-                :limit="1"
-                class="import-upload"
-              >
-                <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-                <div class="el-upload__text">将ZIP文件拖到此处，或<em>点击上传</em></div>
-              </el-upload>
-              <div class="upload-tip-wrapper">
-                <el-tooltip content="支持导入包含文档文件的ZIP压缩包" placement="top">
-                  <el-icon class="upload-tip-icon"><QuestionFilled /></el-icon>
-                </el-tooltip>
-              </div>
-            </template>
-            <!-- 已选择文件时显示文件信息 -->
-            <div v-else class="file-selected-info">
-              <el-icon><Document /></el-icon>
+        <div class="upload-section">
+          <template v-if="importFileList.length === 0">
+            <el-upload
+              :auto-upload="false"
+              :on-change="handleFileChange"
+              :file-list="importFileList"
+              accept=".zip"
+              drag
+              :limit="1"
+              class="import-upload"
+            >
+              <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+              <div class="el-upload__text">拖拽ZIP文件到此处或<em>点击上传</em></div>
+            </el-upload>
+          </template>
+          <div v-else class="file-selected-card">
+            <!-- 文件信息 -->
+            <div class="file-info-row">
+              <el-icon class="file-icon"><Document /></el-icon>
               <span class="file-name">{{ importFileList[0].name }}</span>
               <el-button 
                 type="primary" 
@@ -507,113 +495,114 @@
                 size="small" 
                 @click="handleReSelectFile"
                 :disabled="importing"
+                class="re-select-btn"
               >
                 重新选择
               </el-button>
             </div>
-          </div>
-        </el-form-item>
-        
-        <!-- 文件预览 -->
-        <el-form-item v-if="previewFiles.length > 0" label="文件预览">
-          <div class="preview-table-wrapper">
-            <el-table :data="previewFiles" size="small" max-height="140" stripe>
-              <el-table-column prop="fileName" label="文件名" min-width="200" show-overflow-tooltip />
-              <el-table-column prop="fileSize" label="大小" width="100" align="center">
-                <template #default="{ row }">
-                  {{ formatFileSize(row.fileSize) }}
-                </template>
-              </el-table-column>
-              <el-table-column prop="fileType" label="类型" width="80" align="center">
-                <template #default="{ row }">
-                  <el-tag size="small" type="info">{{ row.fileType }}</el-tag>
-                </template>
-              </el-table-column>
-            </el-table>
-            <div class="preview-tip-wrapper">
-              <span class="preview-file-count">共 {{ previewFiles.length }} 个文件</span>
-              <el-tooltip content="导入后将自动进行向量化处理" placement="top">
-                <el-icon class="preview-tip-icon"><QuestionFilled /></el-icon>
-              </el-tooltip>
+            
+            <!-- 文件预览 -->
+            <div v-if="previewFiles.length > 0" class="preview-section">
+              <div class="preview-header">
+                <span class="preview-count">共 {{ previewFiles.length }} 个文件</span>
+                <el-tooltip content="导入后将自动进行向量化处理" placement="top">
+                  <el-icon class="preview-tip-icon"><QuestionFilled /></el-icon>
+                </el-tooltip>
+              </div>
+              <div class="preview-table-wrapper">
+                <el-table :data="previewFiles" size="small" max-height="140">
+                  <el-table-column prop="fileName" label="文件名" min-width="200" show-overflow-tooltip />
+                  <el-table-column prop="fileType" label="类型" width="80" align="center">
+                    <template #default="{ row }">
+                      <span class="file-type-tag">{{ row.fileType }}</span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="fileSize" label="大小" width="100" align="right">
+                    <template #default="{ row }">
+                      {{ formatFileSize(row.fileSize) }}
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
             </div>
           </div>
-        </el-form-item>
+        </div>
         
         <!-- 知识库信息（文件上传后显示） -->
-        <template v-if="importFileList.length > 0">
-          <el-divider class="form-divider" />
-          
-          <div class="form-section-header">
-            <span>请确认知识库信息</span>
-            <el-tooltip content="请确认知识库的基本信息，默认使用ZIP文件名作为知识库名称" placement="top">
-              <el-icon class="form-section-icon"><InfoFilled /></el-icon>
-            </el-tooltip>
-          </div>
-          
-          <!-- 基本信息 -->
-          <el-form-item label="知识库名称" prop="name" required>
-            <div class="input-with-tooltip">
+        <div v-if="importFileList.length > 0" class="form-section">
+          <el-form 
+            :model="importForm" 
+            :rules="importRules" 
+            ref="importFormRef" 
+            label-width="90px"
+            label-position="right"
+          >
+            <div class="form-section-header">
+              <span class="form-section-title">知识库信息</span>
+              <el-tooltip content="请确认知识库的基本信息，默认使用ZIP文件名作为知识库名称" placement="top">
+                <el-icon class="form-section-icon"><InfoFilled /></el-icon>
+              </el-tooltip>
+            </div>
+            
+            <el-form-item label="名称" prop="name" required>
               <el-input 
                 v-model="importForm.name" 
                 placeholder="请输入知识库名称"
                 :disabled="importing"
                 clearable
               />
-              <el-tooltip v-if="defaultName" :content="`默认名称：${defaultName}（可修改）`" placement="top">
-                <el-icon class="input-tooltip-icon"><InfoFilled /></el-icon>
-              </el-tooltip>
-            </div>
-          </el-form-item>
-          
-          <el-form-item label="描述">
-            <el-input 
-              v-model="importForm.description" 
-              type="textarea" 
-              :rows="2"
-              placeholder="请输入知识库描述（可选）"
-              :disabled="importing"
-              maxlength="500"
-              show-word-limit
-            />
-          </el-form-item>
-          
-          <!-- 高级配置（折叠） -->
-          <el-collapse class="advanced-config-collapse">
-            <el-collapse-item title="高级配置（可选）" name="advanced">
-              <el-form-item label="向量存储类型">
-                <el-select 
-                  v-model="importForm.vectorStoreType" 
-                  placeholder="使用系统默认值" 
-                  :disabled="importing"
-                  clearable
-                  style="width: 100%"
-                >
-                  <el-option label="使用默认值" value="" />
-                  <el-option label="Qdrant" value="qdrant" />
-                  <el-option label="FAISS" value="faiss" />
-                  <el-option label="Milvus" value="milvus" />
-                  <el-option label="Chroma" value="chroma" />
-                  <el-option label="Weaviate" value="weaviate" />
-                  <el-option label="PgVector" value="pgvector" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="是否公开" v-if="isAdmin">
-                <div class="switch-with-tooltip">
-                  <el-switch 
-                    v-model="importForm.isPublic" 
+            </el-form-item>
+            
+            <el-form-item label="描述">
+              <el-input 
+                v-model="importForm.description" 
+                type="textarea" 
+                :rows="2"
+                placeholder="请输入知识库描述（可选）"
+                :disabled="importing"
+                maxlength="500"
+                show-word-limit
+              />
+            </el-form-item>
+            
+            <!-- 高级配置（折叠） -->
+            <el-collapse class="advanced-config-collapse" :border="false">
+              <el-collapse-item title="高级配置" name="advanced">
+                <el-form-item label="向量存储类型">
+                  <el-select 
+                    v-model="importForm.vectorStoreType" 
+                    placeholder="使用系统默认值" 
                     :disabled="importing"
-                    active-text="公开"
-                    inactive-text="私有"
-                  />
-                  <el-tooltip content="公开：所有用户都可以访问；私有：只有创建者可以访问" placement="top">
-                    <el-icon class="switch-tooltip-icon"><QuestionFilled /></el-icon>
-                  </el-tooltip>
-                </div>
-              </el-form-item>
-            </el-collapse-item>
-          </el-collapse>
-        </template>
-      </el-form>
+                    clearable
+                    style="width: 100%"
+                  >
+                    <el-option label="使用默认值" value="" />
+                    <el-option label="Qdrant" value="qdrant" />
+                    <el-option label="FAISS" value="faiss" />
+                    <el-option label="Milvus" value="milvus" />
+                    <el-option label="Chroma" value="chroma" />
+                    <el-option label="Weaviate" value="weaviate" />
+                    <el-option label="PgVector" value="pgvector" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="是否公开" v-if="isAdmin">
+                  <div class="switch-with-tooltip">
+                    <el-switch 
+                      v-model="importForm.isPublic" 
+                      :disabled="importing"
+                      active-text="公开"
+                      inactive-text="私有"
+                    />
+                    <el-tooltip content="公开：所有用户都可以访问；私有：只有创建者可以访问" placement="top">
+                      <el-icon class="switch-tooltip-icon"><QuestionFilled /></el-icon>
+                    </el-tooltip>
+                  </div>
+                </el-form-item>
+              </el-collapse-item>
+            </el-collapse>
+          </el-form>
+        </div>
+      </div>
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="importDialogVisible = false" :disabled="importing">取消</el-button>
@@ -2006,69 +1995,219 @@ const getVectorDatabaseDocumentCount = (db) => {
 
 /* ========== 导入对话框样式 ========== */
 :deep(.import-dialog .el-dialog__header) {
-  padding: 12px 16px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--color-border-lighter);
-  background: var(--color-bg-tertiary);
 }
 
 :deep(.import-dialog .el-dialog__title) {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
+  font-size: 16px;
+  font-weight: 500;
   color: var(--color-text-primary);
 }
 
 :deep(.import-dialog .el-dialog__body) {
-  padding: 16px;
-  background: var(--color-bg-primary);
-}
-
-:deep(.import-dialog .el-form) {
   padding: 0;
 }
 
-/* 紧凑的表单项间距 */
-:deep(.import-dialog .el-form-item) {
-  margin-bottom: 12px;
+.import-dialog-content {
+  display: flex;
+  flex-direction: column;
 }
 
-:deep(.import-dialog .el-form-item__label) {
-  padding-bottom: 0;
-  line-height: 32px;
+/* 上传区域 */
+.upload-section {
+  padding: 24px 20px;
 }
 
-.upload-wrapper {
+.import-upload {
   width: 100%;
 }
 
 .import-upload :deep(.el-upload-dragger) {
   width: 100%;
   height: 120px;
-  border: 2px dashed var(--color-border-base);
-  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-border);
+  border-radius: 4px;
   background: var(--color-bg-tertiary);
-  transition: all var(--transition-base);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
-.import-upload :deep(.el-upload-dragger:hover) {
-  border-color: var(--color-primary);
-  background: var(--color-primary-light-5);
-  box-shadow: var(--shadow-xs);
+.import-upload :deep(.el-upload-dragger:focus),
+.import-upload :deep(.el-upload-dragger:focus-visible) {
+  outline: none;
 }
 
 .import-upload :deep(.el-icon--upload) {
-  font-size: 36px;
+  font-size: 32px;
   color: var(--color-text-placeholder);
   margin-bottom: 8px;
 }
 
 .import-upload :deep(.el-upload__text) {
   color: var(--color-text-regular);
-  font-size: var(--font-size-md);
+  font-size: 13px;
 }
 
 .import-upload :deep(.el-upload__text em) {
   color: var(--color-primary);
   font-style: normal;
+}
+
+/* 文件选择后的卡片 */
+.file-selected-card {
+  width: 100%;
+}
+
+.file-info-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.file-icon {
+  color: var(--color-primary);
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.file-name {
+  flex: 1;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.re-select-btn {
+  flex-shrink: 0;
+  padding: 0;
+}
+
+/* 预览区域 */
+.preview-section {
+  margin-top: 16px;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.preview-count {
+  font-size: 13px;
+  color: var(--color-text-regular);
+}
+
+.preview-tip-icon {
+  color: var(--color-text-placeholder);
+  font-size: 14px;
+  cursor: help;
+}
+
+.preview-table-wrapper {
+  width: 100%;
+  border: 1px solid var(--color-border-lighter);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.preview-table-wrapper :deep(.el-table) {
+  border: none;
+}
+
+.preview-table-wrapper :deep(.el-table th) {
+  background: var(--color-bg-tertiary);
+  border: none;
+  padding: 10px 0;
+  font-size: 12px;
+  color: var(--color-text-placeholder);
+  font-weight: 500;
+}
+
+.preview-table-wrapper :deep(.el-table td) {
+  border: none;
+  padding: 10px 0;
+  font-size: 13px;
+}
+
+.preview-table-wrapper :deep(.el-table tr) {
+  background: transparent;
+}
+
+.preview-table-wrapper :deep(.el-table tr:hover > td) {
+  background: var(--color-bg-tertiary);
+}
+
+.file-type-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--color-bg-tertiary);
+  border-radius: 2px;
+  font-size: 12px;
+  color: var(--color-text-regular);
+}
+
+/* 表单区域 */
+.form-section {
+  padding: 20px;
+  background: var(--color-bg-tertiary);
+  border-top: 1px solid var(--color-border-lighter);
+}
+
+.form-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.form-section-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.form-section-icon {
+  color: var(--color-text-placeholder);
+  font-size: 14px;
+  cursor: help;
+  flex-shrink: 0;
+}
+
+:deep(.form-section .el-form-item) {
+  margin-bottom: 18px;
+}
+
+:deep(.form-section .el-form-item:last-child) {
+  margin-bottom: 0;
+}
+
+:deep(.form-section .el-form-item__label) {
+  padding-bottom: 0;
+  line-height: 32px;
+  font-weight: 400;
+  color: var(--color-text-regular);
+  font-size: 13px;
+}
+
+:deep(.form-section .el-input__wrapper) {
+  box-shadow: 0 0 0 1px var(--color-border) inset;
+}
+
+:deep(.form-section .el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px var(--color-border-base) inset;
+}
+
+:deep(.form-section .el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px var(--color-primary) inset;
 }
 
 .upload-tip-wrapper {
@@ -2083,93 +2222,6 @@ const getVectorDatabaseDocumentCount = (db) => {
   cursor: help;
 }
 
-.file-selected-info {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  padding: 8px 12px;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border-lighter);
-  border-radius: var(--radius-md);
-  color: var(--color-text-regular);
-  font-size: var(--font-size-sm);
-}
-
-.file-selected-info .el-icon {
-  color: var(--color-primary);
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.file-selected-info .file-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: var(--font-weight-medium);
-}
-
-.preview-table-wrapper {
-  width: 100%;
-  border: 1px solid var(--color-border-lighter);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.preview-table-wrapper :deep(.el-table) {
-  border: none;
-}
-
-.preview-table-wrapper :deep(.el-table th) {
-  background: var(--table-header-bg);
-}
-
-.preview-tip-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  border-top: 1px solid var(--color-border-lighter);
-}
-
-.preview-file-count {
-  color: var(--color-text-secondary);
-}
-
-.preview-tip-icon {
-  color: var(--color-text-placeholder);
-  font-size: 14px;
-  cursor: help;
-}
-
-.form-divider {
-  margin: 12px 0;
-  border-color: var(--color-border-lighter);
-}
-
-.form-section-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding: 6px 12px;
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-md);
-  color: var(--color-text-regular);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-}
-
-.form-section-icon {
-  color: var(--color-primary);
-  font-size: 16px;
-  cursor: help;
-  flex-shrink: 0;
-}
 
 .input-with-tooltip {
   display: flex;
@@ -2180,6 +2232,18 @@ const getVectorDatabaseDocumentCount = (db) => {
 
 .input-with-tooltip :deep(.el-input) {
   flex: 1;
+}
+
+.input-with-tooltip :deep(.el-input__wrapper) {
+  box-shadow: none;
+}
+
+.input-with-tooltip :deep(.el-input__wrapper.is-focus) {
+  box-shadow: none;
+}
+
+.input-with-tooltip :deep(.el-input__wrapper:hover) {
+  box-shadow: none;
 }
 
 .input-tooltip-icon {
@@ -2203,37 +2267,43 @@ const getVectorDatabaseDocumentCount = (db) => {
 }
 
 .advanced-config-collapse {
-  margin-top: 8px;
+  margin-top: 0;
 }
 
 .advanced-config-collapse :deep(.el-collapse-item__header) {
-  padding: 6px 12px;
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
+  padding: 0;
+  background: transparent;
+  border: none;
+  font-size: 13px;
   color: var(--color-text-regular);
   height: auto;
   line-height: 1.5;
+  font-weight: 400;
 }
 
 .advanced-config-collapse :deep(.el-collapse-item__content) {
-  padding: 12px;
+  padding: 16px 0 0 0;
 }
 
 .advanced-config-collapse :deep(.el-collapse-item__content .el-form-item) {
-  margin-bottom: 8px;
+  margin-bottom: 18px;
+}
+
+.advanced-config-collapse :deep(.el-collapse-item__content .el-form-item:last-child) {
+  margin-bottom: 0;
 }
 
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
-  gap: var(--spacing-md);
-  padding-top: 12px;
+  gap: 12px;
+  padding: 16px 20px;
   border-top: 1px solid var(--color-border-lighter);
+  background: var(--color-bg-primary);
 }
 
 .dialog-footer .el-button {
-  min-width: 100px;
+  min-width: 88px;
 }
 </style>
 
