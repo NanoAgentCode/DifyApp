@@ -5,17 +5,25 @@ import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ForbiddenException;
 import com.github.app.dify.common.exception.NotFoundException;
 import com.github.app.dify.knowledgebase.req.CreateKnowledgeBaseReq;
+import com.github.app.dify.knowledgebase.req.KnowledgeBaseImportRequest;
 import com.github.app.dify.knowledgebase.req.UpdateKnowledgeBaseReq;
+import com.github.app.dify.knowledgebase.resp.KnowledgeBaseImportResult;
 import com.github.app.dify.knowledgebase.resp.KnowledgeBaseResp;
+import com.github.app.dify.knowledgebase.resp.ZipPreviewResult;
+import com.github.app.dify.knowledgebase.service.KnowledgeBaseMigrationService;
 import com.github.app.dify.knowledgebase.service.KnowledgeBaseService;
 import com.github.app.dify.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.InputStream;
 import java.util.List;
 
 /**
@@ -28,6 +36,9 @@ public class KnowledgeBaseController extends BaseController {
     
     @Autowired
     private KnowledgeBaseService knowledgeBaseService;
+    
+    @Autowired
+    private KnowledgeBaseMigrationService migrationService;
     
     /**
      * 检查是否为管理员
@@ -180,5 +191,133 @@ public class KnowledgeBaseController extends BaseController {
         
         String summary = knowledgeBaseService.generateSummary(id, modelId);
         return ResponseEntity.ok(java.util.Map.of("summary", summary));
+    }
+    
+    /**
+     * 导出知识库
+     */
+    @UserAction(module = "知识库管理", actionType = "导出", description = "导出知识库")
+    @Operation(summary = "导出知识库")
+    @GetMapping("/{id}/export")
+    public ResponseEntity<org.springframework.core.io.Resource> exportKnowledgeBase(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        logger.info("接收到导出知识库请求 - 知识库ID: {}", id);
+        
+        Long userId = getUserId(request);
+        boolean isAdmin = isAdmin(request);
+        
+        // 验证用户权限
+        KnowledgeBaseResp kb = knowledgeBaseService.getKnowledgeBaseById(id);
+        if (kb == null) {
+            throw new NotFoundException("知识库不存在: " + id);
+        }
+        
+        boolean hasAccess = false;
+        if (isAdmin) {
+            hasAccess = true;
+        } else {
+            boolean isPublic = Boolean.TRUE.equals(kb.getIsPublic());
+            boolean isOwner = userId.equals(kb.getCreatorId());
+            hasAccess = isPublic || isOwner;
+        }
+        
+        if (!hasAccess) {
+            throw new ForbiddenException("没有权限导出该知识库");
+        }
+        
+        try {
+            InputStream zipStream = migrationService.exportKnowledgeBase(id);
+            String fileName = "knowledge-base-" + id + "-" + System.currentTimeMillis() + ".zip";
+            
+            // 将InputStream读取到字节数组，避免流被多次读取的问题
+            byte[] zipBytes;
+            try (java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream()) {
+                byte[] data = new byte[8192];
+                int nRead;
+                while ((nRead = zipStream.read(data, 0, data.length)) != -1) {
+                    buffer.write(data, 0, nRead);
+                }
+                zipBytes = buffer.toByteArray();
+            } finally {
+                zipStream.close();
+            }
+            
+            org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(zipBytes) {
+                @Override
+                public String getFilename() {
+                    return fileName;
+                }
+            };
+            
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .contentLength(zipBytes.length)
+                    .body(resource);
+        } catch (Exception e) {
+            logger.error("导出知识库失败 - 知识库ID: {}", id, e);
+            throw new BusinessException("导出知识库失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 预览ZIP文件内容
+     */
+    @Operation(summary = "预览ZIP文件内容")
+    @PostMapping("/import/preview")
+    public ResponseEntity<ZipPreviewResult> previewZipFile(
+            @RequestParam("file") MultipartFile file) {
+        logger.info("接收到预览ZIP文件请求 - 文件名: {}", file.getOriginalFilename());
+        
+        try {
+            ZipPreviewResult result = migrationService.previewZipFile(file);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("预览ZIP文件失败", e);
+            throw new BusinessException("预览ZIP文件失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 导入知识库
+     */
+    @UserAction(module = "知识库管理", actionType = "导入", description = "导入知识库")
+    @Operation(summary = "导入知识库")
+    @PostMapping("/import")
+    public ResponseEntity<KnowledgeBaseImportResult> importKnowledgeBase(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("knowledgeBaseName") String knowledgeBaseName,
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) String vectorStoreType,
+            @RequestParam(required = false) Boolean isPublic,
+            @RequestParam(required = false) Integer topK,
+            @RequestParam(required = false) Long embeddingModelId,
+            HttpServletRequest request) {
+        logger.info("接收到导入知识库请求 - 文件名: {}, 知识库名称: {}", 
+                file.getOriginalFilename(), knowledgeBaseName);
+        
+        Long userId = getUserId(request);
+        String username = getUsername(request);
+        Object tenantIdObj = request.getAttribute("tenantId");
+        Integer tenantId = tenantIdObj instanceof Integer ? (Integer) tenantIdObj : 1;
+        
+        // 构建导入请求
+        KnowledgeBaseImportRequest importRequest = new KnowledgeBaseImportRequest();
+        importRequest.setKnowledgeBaseName(knowledgeBaseName);
+        importRequest.setDescription(description);
+        importRequest.setVectorStoreType(vectorStoreType);
+        importRequest.setIsPublic(isPublic);
+        importRequest.setTopK(topK);
+        importRequest.setEmbeddingModelId(embeddingModelId);
+        
+        try {
+            KnowledgeBaseImportResult result = migrationService.importKnowledgeBase(
+                    file, importRequest, userId, username, tenantId);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("导入知识库失败", e);
+            throw new BusinessException("导入知识库失败: " + e.getMessage());
+        }
     }
 }

@@ -11,6 +11,10 @@
             <span>我的知识库</span>
           </div>
           <div class="header-right">
+            <el-button type="success" @click="handleImport">
+              <el-icon><UploadFilled /></el-icon>
+              导入知识库
+            </el-button>
             <el-button type="primary" @click="handleCreate">
               <el-icon><Plus /></el-icon>
               创建知识库
@@ -150,6 +154,10 @@
                         <el-dropdown-item command="documents">
                           <el-icon><Document /></el-icon>
                           文件管理
+                        </el-dropdown-item>
+                        <el-dropdown-item command="export">
+                          <el-icon><Download /></el-icon>
+                          导出知识库
                         </el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
@@ -421,6 +429,158 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 导入知识库对话框 -->
+    <el-dialog 
+      v-model="importDialogVisible" 
+      title="导入知识库" 
+      width="700px" 
+      :close-on-click-modal="false"
+      :lock-scroll="true"
+      class="import-dialog"
+    >
+      <el-form 
+        :model="importForm" 
+        :rules="importRules" 
+        ref="importFormRef" 
+        label-width="120px"
+        label-position="right"
+      >
+        <!-- 文件上传区域 -->
+        <el-form-item label="ZIP文件" required>
+          <div class="upload-wrapper">
+            <!-- 未选择文件时显示上传框 -->
+            <el-upload
+              v-if="importFileList.length === 0"
+              :auto-upload="false"
+              :on-change="handleFileChange"
+              :file-list="importFileList"
+              accept=".zip"
+              drag
+              :limit="1"
+              class="import-upload"
+            >
+              <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+              <div class="el-upload__text">将ZIP文件拖到此处，或<em>点击上传</em></div>
+              <template #tip>
+                <div class="el-upload__tip">
+                  支持导入包含文档文件的ZIP压缩包
+                </div>
+              </template>
+            </el-upload>
+            <!-- 已选择文件时显示文件信息 -->
+            <div v-else class="file-selected-info">
+              <el-icon><Document /></el-icon>
+              <span class="file-name">{{ importFileList[0].name }}</span>
+              <el-button 
+                type="primary" 
+                link 
+                size="small" 
+                @click="handleReSelectFile"
+                :disabled="importing"
+              >
+                重新选择
+              </el-button>
+            </div>
+          </div>
+        </el-form-item>
+        
+        <!-- 文件预览 -->
+        <el-form-item v-if="previewFiles.length > 0" label="文件预览">
+          <div class="preview-table-wrapper">
+            <el-table :data="previewFiles" size="small" max-height="120" stripe>
+              <el-table-column prop="fileName" label="文件名" min-width="200" show-overflow-tooltip />
+              <el-table-column prop="fileSize" label="大小" width="100" align="center">
+                <template #default="{ row }">
+                  {{ formatFileSize(row.fileSize) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="fileType" label="类型" width="80" align="center">
+                <template #default="{ row }">
+                  <el-tag size="small" type="info">{{ row.fileType }}</el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="preview-tip">
+              共 {{ previewFiles.length }} 个文件，导入后将自动进行向量化处理
+            </div>
+          </div>
+        </el-form-item>
+        
+        <!-- 知识库信息（文件上传后显示） -->
+        <template v-if="importFileList.length > 0">
+          <el-divider class="form-divider" />
+          
+          <div class="form-section-header">
+            <el-icon><InfoFilled /></el-icon>
+            <span>请确认知识库信息</span>
+          </div>
+          
+          <!-- 基本信息 -->
+          <el-form-item label="知识库名称" prop="name" required>
+            <el-input 
+              v-model="importForm.name" 
+              placeholder="请输入知识库名称"
+              :disabled="importing"
+              clearable
+            />
+            <div v-if="defaultName" class="default-name-hint">
+              <el-icon><InfoFilled /></el-icon>
+              <span>默认名称：{{ defaultName }}（可修改）</span>
+            </div>
+          </el-form-item>
+          
+          <el-form-item label="描述">
+            <el-input 
+              v-model="importForm.description" 
+              type="textarea" 
+              :rows="2"
+              placeholder="请输入知识库描述（可选）"
+              :disabled="importing"
+              maxlength="500"
+              show-word-limit
+            />
+          </el-form-item>
+          
+          <!-- 高级配置（折叠） -->
+          <el-collapse class="advanced-config-collapse">
+            <el-collapse-item title="高级配置（可选）" name="advanced">
+              <el-form-item label="向量存储类型">
+                <el-select 
+                  v-model="importForm.vectorStoreType" 
+                  placeholder="使用系统默认值" 
+                  :disabled="importing"
+                  clearable
+                  style="width: 100%"
+                >
+                  <el-option label="使用默认值" value="" />
+                  <el-option label="Qdrant" value="qdrant" />
+                  <el-option label="FAISS" value="faiss" />
+                  <el-option label="Milvus" value="milvus" />
+                  <el-option label="Chroma" value="chroma" />
+                  <el-option label="Weaviate" value="weaviate" />
+                  <el-option label="PgVector" value="pgvector" />
+                </el-select>
+              </el-form-item>
+            </el-collapse-item>
+          </el-collapse>
+        </template>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="importDialogVisible = false" :disabled="importing">取消</el-button>
+          <el-button 
+            type="primary" 
+            @click="handleConfirmImport" 
+            :loading="importing"
+            :disabled="importFileList.length === 0 || !importForm.name"
+          >
+            <el-icon v-if="!importing"><UploadFilled /></el-icon>
+            开始导入
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -428,14 +588,17 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, ElTooltip } from 'element-plus'
-import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Check, Close, Warning, Link, QuestionFilled, DocumentCopy, ArrowLeft } from '@element-plus/icons-vue'
+import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Check, Close, Warning, Link, QuestionFilled, DocumentCopy, ArrowLeft, Download } from '@element-plus/icons-vue'
 import { 
   getKnowledgeBaseList, 
   createKnowledgeBase, 
   updateKnowledgeBase, 
   deleteKnowledgeBase,
   getKnowledgeBaseDetail,
-  generateKnowledgeBaseSummary
+  generateKnowledgeBaseSummary,
+  exportKnowledgeBase,
+  importKnowledgeBase,
+  previewZipFile
 } from '@/api/knowledgeBase'
 import { getModelConfig } from '@/api/model'
 import { getModelStyle } from '@/utils/modelColor'
@@ -943,6 +1106,9 @@ const handleDropdownCommand = (command, row) => {
     case 'documents':
       handleDocuments(row)
       break
+    case 'export':
+      handleExport(row)
+      break
   }
 }
 
@@ -966,6 +1132,180 @@ const handleDelete = (row) => {
   }).catch(() => {
     // 取消操作
   })
+}
+
+// 导出知识库
+const handleExport = async (row) => {
+  try {
+    ElMessage.info('正在导出知识库，请稍候...')
+    const response = await exportKnowledgeBase(row.id)
+    
+    // 创建下载链接
+    const url = window.URL.createObjectURL(response)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `knowledge-base-${row.id}-${Date.now()}.zip`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
+    ElMessage.success('导出成功')
+  } catch (error) {
+    ElMessage.error('导出失败：' + (error.message || '未知错误'))
+  }
+}
+
+// 导入相关状态
+const importDialogVisible = ref(false)
+const importFormRef = ref(null)
+const importFileList = ref([])
+const importing = ref(false)
+const previewFiles = ref([])
+const defaultName = ref('')
+
+const importForm = ref({
+  name: '',
+  description: '',
+  vectorStoreType: '',
+  isPublic: false
+})
+
+const importRules = {
+  name: [
+    { required: true, message: '请输入知识库名称', trigger: 'blur' },
+    { min: 1, max: 100, message: '长度在 1 到 100 个字符', trigger: 'blur' }
+  ]
+}
+
+// 打开导入对话框
+const handleImport = () => {
+  importDialogVisible.value = true
+  importForm.value = {
+    name: '',
+    description: '',
+    vectorStoreType: '',
+    isPublic: false
+  }
+  importFileList.value = []
+  previewFiles.value = []
+  defaultName.value = ''
+}
+
+// 提取知识库名称的工具函数
+const extractKnowledgeBaseName = (fileName) => {
+  // 去掉.zip扩展名（不区分大小写）
+  let name = fileName.replace(/\.zip$/i, '')
+  
+  // 去掉路径（只取文件名，支持Windows和Unix路径分隔符）
+  name = name.split('/').pop().split('\\').pop()
+  
+  // 如果提取失败或为空，使用默认值
+  return name.trim() || '导入的知识库'
+}
+
+// 文件上传处理
+const handleFileChange = (file, fileList) => {
+  importFileList.value = fileList
+  
+  if (fileList.length > 0) {
+    const zipFile = fileList[0].raw || fileList[0]
+    
+    // 提取默认知识库名称
+    const fileName = zipFile.name
+    const extractedName = extractKnowledgeBaseName(fileName)
+    
+    // 如果知识库名称为空，自动填充默认名称
+    if (!importForm.value.name) {
+      importForm.value.name = extractedName
+    }
+    
+    // 保存默认名称用于显示
+    defaultName.value = extractedName
+    
+    // 可选：预览ZIP内容
+    previewZipContent(zipFile)
+  }
+}
+
+// 重新选择文件
+const handleReSelectFile = () => {
+  importFileList.value = []
+  previewFiles.value = []
+  defaultName.value = ''
+  importForm.value.name = ''
+}
+
+// 预览ZIP内容（可选）
+const previewZipContent = async (file) => {
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const result = await previewZipFile(formData)
+    previewFiles.value = result.files || []
+  } catch (error) {
+    console.error('预览ZIP失败:', error)
+    // 预览失败不影响导入
+  }
+}
+
+// 确认导入
+const handleConfirmImport = async () => {
+  if (!importFormRef.value) return
+  
+  await importFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    
+    if (importFileList.value.length === 0) {
+      ElMessage.warning('请选择ZIP文件')
+      return
+    }
+    
+    importing.value = true
+    try {
+      const formData = new FormData()
+      formData.append('file', importFileList.value[0].raw)
+      formData.append('knowledgeBaseName', importForm.value.name)
+      
+      if (importForm.value.description) {
+        formData.append('description', importForm.value.description)
+      }
+      if (importForm.value.vectorStoreType) {
+        formData.append('vectorStoreType', importForm.value.vectorStoreType)
+      }
+      // 普通用户只能创建私有知识库，所以isPublic固定为false
+      
+      const result = await importKnowledgeBase(formData)
+      
+      if (result.status === 'SUCCESS') {
+        ElMessage.success(`导入成功！共导入 ${result.successCount} 个文档`)
+      } else if (result.status === 'PARTIAL_SUCCESS') {
+        ElMessage.warning(`部分导入成功！成功: ${result.successCount}，失败: ${result.failedCount}`)
+        if (result.errors && result.errors.length > 0) {
+          console.error('导入错误:', result.errors)
+        }
+      } else {
+        ElMessage.error('导入失败：' + (result.message || '未知错误'))
+      }
+      
+      // 关闭对话框并刷新列表
+      importDialogVisible.value = false
+      loadKnowledgeBases()
+    } catch (error) {
+      ElMessage.error('导入失败：' + (error.message || '未知错误'))
+    } finally {
+      importing.value = false
+    }
+  })
+}
+
+// 格式化文件大小
+const formatFileSize = (bytes) => {
+  if (!bytes || bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
 }
 
 const handleSubmit = () => {
@@ -1360,6 +1700,198 @@ const getVectorDatabaseDocumentCount = (db) => {
 
 .form-item-description .description-text {
   color: #606266;
+}
+/* ========== 导入对话框样式 ========== */
+:deep(.import-dialog .el-dialog__header) {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+:deep(.import-dialog .el-dialog__title) {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+:deep(.import-dialog .el-dialog__body) {
+  padding: 16px;
+  background: #ffffff;
+}
+
+:deep(.import-dialog .el-form) {
+  padding: 0;
+}
+
+/* 紧凑的表单项间距 */
+:deep(.import-dialog .el-form-item) {
+  margin-bottom: 12px;
+}
+
+:deep(.import-dialog .el-form-item__label) {
+  padding-bottom: 0;
+  line-height: 32px;
+}
+
+.upload-wrapper {
+  width: 100%;
+}
+
+.import-upload :deep(.el-upload-dragger) {
+  width: 100%;
+  height: 120px;
+  border: 2px dashed #d9d9d9;
+  border-radius: 6px;
+  background: #fafafa;
+  transition: all 0.3s;
+}
+
+.import-upload :deep(.el-upload-dragger:hover) {
+  border-color: #409eff;
+  background: #f0f7ff;
+}
+
+.import-upload :deep(.el-icon--upload) {
+  font-size: 36px;
+  color: #8c939d;
+  margin-bottom: 8px;
+}
+
+.import-upload :deep(.el-upload__text) {
+  color: #606266;
+  font-size: 14px;
+}
+
+.import-upload :deep(.el-upload__text em) {
+  color: #409eff;
+  font-style: normal;
+}
+
+.import-upload :deep(.el-upload__tip) {
+  color: #909399;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.file-selected-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  color: #606266;
+  font-size: 13px;
+}
+
+.file-selected-info .el-icon {
+  color: #409eff;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.file-selected-info .file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.preview-table-wrapper {
+  width: 100%;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.preview-table-wrapper :deep(.el-table) {
+  border: none;
+}
+
+.preview-table-wrapper :deep(.el-table th) {
+  background: #f5f7fa;
+}
+
+.preview-tip {
+  padding: 6px 12px;
+  background: #f5f7fa;
+  color: #909399;
+  font-size: 12px;
+  text-align: center;
+  border-top: 1px solid #e4e7ed;
+}
+
+.form-divider {
+  margin: 12px 0;
+  border-color: #e4e7ed;
+}
+
+.form-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 6px 12px;
+  background: #f5f7fa;
+  border-radius: 6px;
+  color: #606266;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.form-section-header .el-icon {
+  color: #409eff;
+  font-size: 18px;
+}
+
+.default-name-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  color: #909399;
+  font-size: 12px;
+}
+
+.default-name-hint .el-icon {
+  color: #909399;
+  font-size: 14px;
+}
+
+.advanced-config-collapse {
+  margin-top: 8px;
+}
+
+.advanced-config-collapse :deep(.el-collapse-item__header) {
+  padding: 6px 12px;
+  background: #f5f7fa;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #606266;
+  height: auto;
+  line-height: 1.5;
+}
+
+.advanced-config-collapse :deep(.el-collapse-item__content) {
+  padding: 12px;
+}
+
+.advanced-config-collapse :deep(.el-collapse-item__content .el-form-item) {
+  margin-bottom: 8px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e4e7ed;
+}
+
+.dialog-footer .el-button {
+  min-width: 100px;
 }
 </style>
 

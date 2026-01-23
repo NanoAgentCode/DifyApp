@@ -71,3 +71,45 @@ export function generateKnowledgeBaseSummary(id, modelId) {
   })
 }
 
+/**
+ * 导出知识库
+ * @param {Number} id 知识库ID
+ */
+export function exportKnowledgeBase(id) {
+  return request({
+    url: `/api/knowledge-bases/${id}/export`,
+    method: 'get',
+    responseType: 'blob'
+  })
+}
+
+/**
+ * 预览ZIP文件内容
+ * @param {FormData} formData 包含ZIP文件的FormData
+ */
+export function previewZipFile(formData) {
+  return request({
+    url: '/api/knowledge-bases/import/preview',
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
+/**
+ * 导入知识库
+ * @param {FormData} formData 包含ZIP文件和知识库信息的FormData
+ */
+export function importKnowledgeBase(formData) {
+  return request({
+    url: '/api/knowledge-bases/import',
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
