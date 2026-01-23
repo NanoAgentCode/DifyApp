@@ -170,4 +170,10 @@
     
     <!-- Redis日志 -->
     <logger name="org.springframework.data.redis" level="WARN"/>
+    
+    <!-- Apache POI日志（降低警告级别，减少PowerPoint文件解析时的警告日志） -->
+    <logger name="org.apache.poi" level="ERROR"/>
+    <logger name="org.apache.poi.hslf" level="ERROR"/>
+    <logger name="org.apache.poi.hslf.record" level="ERROR"/>
+    <logger name="org.apache.poi.hslf.usermodel" level="ERROR"/>
 </configuration>
