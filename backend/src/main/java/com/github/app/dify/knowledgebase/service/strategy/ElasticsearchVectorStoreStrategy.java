@@ -101,8 +101,9 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
             List<VectorStoreStrategy.SearchResult> results = new ArrayList<>();
             double maxScore = 0;
             for (Hit<?> hit : searchResponse.hits().hits()) {
-                if (hit.score() != null && hit.score() > maxScore) {
-                    maxScore = hit.score();
+                Double score = hit.score();
+                if (score != null && score > maxScore) {
+                    maxScore = score;
                 }
             }
 

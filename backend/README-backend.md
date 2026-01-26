@@ -8,7 +8,7 @@ DifyApp 后端是一个基于 Java 的企业级后端应用，提供用户认证
 
 - **现代化技术栈**：Spring Boot 3.5.8、Java 17、Spring Data JPA
 - **RAG 框架**：基于 LangChain4j 0.34.0 实现检索增强生成
-- **多向量数据库支持**：支持 Chroma、FAISS、Milvus、Qdrant、Weaviate、PgVector、Elasticsearch
+- **混合检索支持**：结合全文检索与向量检索提升准确率，支持 Elasticsearch 和 Weaviate
 - **流式响应**：支持 Server-Sent Events (SSE) 流式输出
 - **多协议支持**：支持 MCP 协议、Dify API、OCR 服务等
 - **文档处理**：支持多种文档格式解析（PDF、Word、Excel、TXT、Markdown 等）
@@ -368,7 +368,8 @@ graph LR
   - 向量数据的增删改查
 - 知识库问答（RAG）：
   - 向量相似度搜索
-  - 检索结果排序和过滤
+  - 混合检索（向量 + 全文，支持 Elasticsearch 和 Weaviate）
+  - 检索结果排序和过滤归一化
   - 上下文增强生成
   - 支持引用来源
   - 支持视觉模型（多模态输入）
