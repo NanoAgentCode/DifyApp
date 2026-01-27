@@ -51,6 +51,9 @@ public class ModelLanguageModelFactory {
     // 使用ThreadLocal存储当前请求的Trace Source
     private static final ThreadLocal<String> traceSourceContext = new ThreadLocal<>();
 
+    // 使用ThreadLocal存储当前请求的会话ID
+    private static final ThreadLocal<String> conversationIdContext = new ThreadLocal<>();
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -86,6 +89,27 @@ public class ModelLanguageModelFactory {
     }
 
     /**
+     * 设置当前请求的会话ID
+     */
+    public void setConversationId(String conversationId) {
+        conversationIdContext.set(conversationId);
+    }
+
+    /**
+     * 清除当前请求的会话ID
+     */
+    public void clearConversationId() {
+        conversationIdContext.remove();
+    }
+
+    /**
+     * 获取当前请求的会话ID
+     */
+    private static String getConversationId() {
+        return conversationIdContext.get();
+    }
+
+    /**
      * 清除当前请求的图片数据
      */
     public void clearImageData() {
@@ -117,7 +141,7 @@ public class ModelLanguageModelFactory {
                     Map<String, Object> requestBody = buildRequestBody(messages, qaModel);
 
                     // 记录开始
-                    String conversationId = null; // 暂时无法获取，或者从 ThreadLocal 获取
+                    String conversationId = getConversationId(); // 从 ThreadLocal 获取
                     try {
                         String requestJson = objectMapper.writeValueAsString(requestBody);
                         llmTraceService.recordStart(traceId, qaModel.getModel(), qaModel.getProvider(), conversationId,
@@ -264,7 +288,7 @@ public class ModelLanguageModelFactory {
                     logger.info("发送流式请求 - Provider: {}, Model: {}", providerType.getValue(), qaModel.getModel());
 
                     // 记录开始
-                    String conversationId = null;
+                    String conversationId = getConversationId(); // 从 ThreadLocal 获取
                     try {
                         String requestJson = objectMapper.writeValueAsString(requestBody);
                         llmTraceService.recordStart(traceId, qaModel.getModel(), qaModel.getProvider(), conversationId,

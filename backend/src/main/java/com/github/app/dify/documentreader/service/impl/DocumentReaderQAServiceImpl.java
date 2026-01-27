@@ -69,6 +69,11 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
      * 文档问答（非流式）
      */
     @Override
+    @com.github.app.dify.observability.annotation.LLMTrace(
+            traceSource = "Document Reader QA",
+            conversationIdParam = "request.conversationId",
+            extractFromReturn = true
+    )
     public DocumentQAResponse answer(Long documentId, DocumentQARequest request, Long userId) {
         try {
             DocumentReader document = validateDocumentForQA(documentId, userId);
@@ -94,9 +99,9 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
 
             // 获取模型
             QAModel qaModel = getQAModel(request.getModelId());
-            modelLanguageModelFactory.setTraceSource("Document Reader QA");
+            
+            // 创建模型实例（会话ID由AOP切面自动设置）
             ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
-            modelLanguageModelFactory.clearTraceSource();
 
             // 生成答案
             Response<AiMessage> aiResponse = chatLanguageModel.generate(messages);
@@ -173,6 +178,10 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
      * 文档问答（流式）
      */
     @Override
+    @com.github.app.dify.observability.annotation.LLMTrace(
+            traceSource = "Document Reader QA",
+            conversationIdParam = "request.conversationId"
+    )
     public Flux<DocumentQAResponse> answerStream(Long documentId, DocumentQARequest request, Long userId) {
         try {
             DocumentReader document = validateDocumentForQA(documentId, userId);
@@ -198,28 +207,33 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
 
             // 获取模型
             QAModel qaModel = getQAModel(request.getModelId());
-            modelLanguageModelFactory.setTraceSource("Document Reader QA");
+            
+            // 在流式响应开始前，先创建或获取会话（这样可以在第一个数据包就返回 conversationId）
+            final Long[] conversationIdRef = new Long[1];
+            if (userId != null) {
+                try {
+                    Long requestConversationId = request.getConversationId();
+                    conversationIdRef[0] = chatHistoryService.getOrCreateConversation(
+                            userId, requestConversationId, 3, null, documentId, request.getQuestion());
+                    logger.info("流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}",
+                            requestConversationId, conversationIdRef[0]);
+
+                    // 保存用户消息
+                    if (conversationIdRef[0] != null) {
+                        chatHistoryService.saveMessage(conversationIdRef[0], "user", request.getQuestion());
+                        
+                        // 更新ThreadLocal中的会话ID（因为AOP在方法开始时执行，此时会话可能还未创建）
+                        modelLanguageModelFactory.setConversationId(conversationIdRef[0].toString());
+                    }
+                } catch (Exception e) {
+                    logger.error("获取或创建会话失败", e);
+                    // 不抛出异常，继续执行
+                }
+            }
+            
+            // 创建流式模型实例（会话ID由AOP切面自动设置）
             StreamingChatLanguageModel streamingChatLanguageModel = modelLanguageModelFactory
                     .createStreamingChatLanguageModel(qaModel);
-            modelLanguageModelFactory.clearTraceSource();
-
-            // 获取或创建会话（文档问答类型设为3）
-            final Long[] conversationIdRef = new Long[1];
-            try {
-                Long requestConversationId = request.getConversationId();
-                conversationIdRef[0] = chatHistoryService.getOrCreateConversation(
-                        userId, requestConversationId, 3, null, documentId, request.getQuestion());
-                logger.info("流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}",
-                        requestConversationId, conversationIdRef[0]);
-
-                // 保存用户消息
-                if (conversationIdRef[0] != null) {
-                    chatHistoryService.saveMessage(conversationIdRef[0], "user", request.getQuestion());
-                }
-            } catch (Exception e) {
-                logger.error("获取或创建会话失败", e);
-                // 不抛出异常，继续执行
-            }
 
             // 使用Sink来管理流式响应
             Sinks.Many<DocumentQAResponse> sink = Sinks.many().unicast().onBackpressureBuffer();

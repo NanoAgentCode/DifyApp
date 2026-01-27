@@ -72,6 +72,11 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
      * 问答（非流式）
      */
     @Override
+    @com.github.app.dify.observability.annotation.LLMTrace(
+            traceSource = "Knowledge Base QA",
+            conversationIdParam = "request.conversationId",
+            extractFromReturn = true
+    )
     public KnowledgeBaseQAResponse answer(Long knowledgeBaseId, KnowledgeBaseQARequest request, Long userId,
             Integer userRole) {
         try {
@@ -238,6 +243,10 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
      * 问答（流式）
      */
     @Override
+    @com.github.app.dify.observability.annotation.LLMTrace(
+            traceSource = "Knowledge Base QA",
+            conversationIdParam = "request.conversationId"
+    )
     public Flux<KnowledgeBaseQAResponse> answerStream(Long knowledgeBaseId, KnowledgeBaseQARequest request, Long userId,
             Integer userRole) {
         try {
@@ -415,10 +424,8 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             qaModel = modelConfigService.getDefaultQAModelForRAG();
         }
 
-        modelLanguageModelFactory.setTraceSource("Knowledge Base QA");
-        // 创建模型实例
+        // 创建模型实例（会话ID由AOP切面自动设置）
         ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
-        modelLanguageModelFactory.clearTraceSource();
 
         // 调用LLM生成答案
         Response<AiMessage> response = chatLanguageModel.generate(messages);
@@ -498,28 +505,6 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             return Flux.error(new BusinessException("无法获取问答模型", ErrorCode.MODEL_NOT_FOUND));
         }
 
-        modelLanguageModelFactory.setTraceSource("Knowledge Base QA");
-        // 创建流式模型实例
-        StreamingChatLanguageModel streamingModel = modelLanguageModelFactory.createStreamingChatLanguageModel(qaModel);
-        modelLanguageModelFactory.clearTraceSource();
-
-        // 调用流式LLM生成答案
-        logger.info("开始调用流式LLM生成答案 - 知识库ID: {}, 模型ID: {}, 模型名称: {}, 消息数量: {}",
-                knowledgeBaseId, qaModel.getId(), qaModel.getName(), messages.size());
-        Flux<String> tokenFlux = streamingModel.generateStream(messages)
-                .doOnSubscribe(subscription -> {
-                    logger.info("开始订阅token流");
-                })
-                .doOnNext(token -> {
-                    logger.debug("收到token: {}", token.length() > 50 ? token.substring(0, 50) + "..." : token);
-                })
-                .doOnComplete(() -> {
-                    logger.info("token流完成");
-                })
-                .doOnError(error -> {
-                    logger.error("token流发生错误", error);
-                });
-
         // 在流式响应开始前，先创建或获取会话（这样可以在第一个数据包就返回 conversationId）
         final java.util.concurrent.atomic.AtomicReference<Long> conversationIdRef = new java.util.concurrent.atomic.AtomicReference<>(
                 null);
@@ -540,11 +525,34 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                         requestConversationId, conversationId);
                 // 先保存用户消息
                 chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
+                
+                // 更新ThreadLocal中的会话ID（因为AOP在方法开始时执行，此时会话可能还未创建）
+                modelLanguageModelFactory.setConversationId(conversationId.toString());
             } catch (Exception e) {
                 logger.error("创建会话失败（流式）", e);
                 // 不抛出异常，避免影响主流程
             }
         }
+
+        // 创建流式模型实例（会话ID由AOP切面自动设置）
+        StreamingChatLanguageModel streamingModel = modelLanguageModelFactory.createStreamingChatLanguageModel(qaModel);
+
+        // 调用流式LLM生成答案
+        logger.info("开始调用流式LLM生成答案 - 知识库ID: {}, 模型ID: {}, 模型名称: {}, 消息数量: {}",
+                knowledgeBaseId, qaModel.getId(), qaModel.getName(), messages.size());
+        Flux<String> tokenFlux = streamingModel.generateStream(messages)
+                .doOnSubscribe(subscription -> {
+                    logger.info("开始订阅token流");
+                })
+                .doOnNext(token -> {
+                    logger.debug("收到token: {}", token.length() > 50 ? token.substring(0, 50) + "..." : token);
+                })
+                .doOnComplete(() -> {
+                    logger.info("token流完成");
+                })
+                .doOnError(error -> {
+                    logger.error("token流发生错误", error);
+                });
 
         // 使用scan累积答案，并保存最后一个完整答案
         final java.util.concurrent.atomic.AtomicReference<String> lastAnswer = new java.util.concurrent.atomic.AtomicReference<>(

@@ -64,6 +64,11 @@ public class ChatServiceImpl implements ChatService {
     private UserMemoryService userMemoryService;
 
     @Override
+    @LLMTrace(
+            traceSource = "Chat",
+            conversationIdParam = "request.conversationId",
+            extractFromReturn = true
+    )
     public ChatResponse chat(ChatRequest request, Long userId) {
         try {
             // 获取模型配置
@@ -74,10 +79,8 @@ public class ChatServiceImpl implements ChatService {
 
             logger.info("使用问答模型: {} (ID: {})", qaModel.getName(), qaModel.getId());
 
-            modelLanguageModelFactory.setTraceSource("Chat");
-            // 创建模型实例
+            // 创建模型实例（会话ID由AOP切面自动设置）
             ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
-            modelLanguageModelFactory.clearTraceSource();
 
             // 如果启用了MCP支持，直接使用浏览器检索（不再进行检测）
             String browserSearchContext = "";
@@ -255,6 +258,10 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
+    @com.github.app.dify.observability.annotation.LLMTrace(
+            traceSource = "Chat",
+            conversationIdParam = "request.conversationId"
+    )
     public Flux<ChatResponse> chatStream(ChatRequest request, Long userId) {
         try {
             // 获取模型配置
@@ -265,11 +272,37 @@ public class ChatServiceImpl implements ChatService {
 
             logger.info("使用问答模型（流式）: {} (ID: {})", qaModel.getName(), qaModel.getId());
 
-            modelLanguageModelFactory.setTraceSource("Chat");
-            // 创建流式模型实例
+            // 在流式响应开始前，先创建或获取会话（这样可以在第一个数据包就返回 conversationId）
+            final AtomicReference<Long> conversationIdRef = new AtomicReference<>(null);
+            if (userId != null) {
+                try {
+                    Long requestConversationId = null;
+                    if (request.getConversationId() != null && !request.getConversationId().trim().isEmpty()) {
+                        try {
+                            requestConversationId = Long.parseLong(request.getConversationId());
+                        } catch (NumberFormatException e) {
+                            logger.warn("无效的conversationId: {}", request.getConversationId());
+                        }
+                    }
+                    Long conversationId = chatHistoryService.getOrCreateConversation(
+                            userId, requestConversationId, 1, null, null, request.getQuestion());
+                    conversationIdRef.set(conversationId);
+                    logger.info("流式响应开始 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}",
+                            requestConversationId, conversationId);
+                    // 先保存用户消息（不需要token信息）
+                    chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
+                    
+                    // 更新ThreadLocal中的会话ID（因为AOP在方法开始时执行，此时会话可能还未创建）
+                    modelLanguageModelFactory.setConversationId(conversationId.toString());
+                } catch (Exception e) {
+                    logger.error("创建会话失败（流式）", e);
+                    // 不抛出异常，避免影响主流程
+                }
+            }
+
+            // 创建流式模型实例（会话ID由AOP切面自动设置）
             StreamingChatLanguageModel streamingChatLanguageModel = modelLanguageModelFactory
                     .createStreamingChatLanguageModel(qaModel);
-            modelLanguageModelFactory.clearTraceSource();
 
             // 如果启用了MCP支持，直接使用浏览器检索（不再进行检测）
             String browserSearchContext = "";
@@ -334,31 +367,6 @@ public class ChatServiceImpl implements ChatService {
                     .doOnError(error -> {
                         logger.error("token流发生错误", error);
                     });
-
-            // 在流式响应开始前，先创建或获取会话（这样可以在第一个数据包就返回 conversationId）
-            final AtomicReference<Long> conversationIdRef = new AtomicReference<>(null);
-            if (userId != null) {
-                try {
-                    Long requestConversationId = null;
-                    if (request.getConversationId() != null && !request.getConversationId().trim().isEmpty()) {
-                        try {
-                            requestConversationId = Long.parseLong(request.getConversationId());
-                        } catch (NumberFormatException e) {
-                            logger.warn("无效的conversationId: {}", request.getConversationId());
-                        }
-                    }
-                    Long conversationId = chatHistoryService.getOrCreateConversation(
-                            userId, requestConversationId, 1, null, null, request.getQuestion());
-                    conversationIdRef.set(conversationId);
-                    logger.info("流式响应开始 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}",
-                            requestConversationId, conversationId);
-                    // 先保存用户消息（不需要token信息）
-                    chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
-                } catch (Exception e) {
-                    logger.error("创建会话失败（流式）", e);
-                    // 不抛出异常，避免影响主流程
-                }
-            }
 
             // 使用scan累积答案，并保存最后一个完整答案
             final AtomicReference<String> lastAnswer = new AtomicReference<>("");
