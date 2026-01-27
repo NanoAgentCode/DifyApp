@@ -17,9 +17,9 @@
           @clear="handleFilter"
           @keyup.enter="handleFilter"
         >
-          <!-- <template #prefix>
+          <template #prefix>
             <el-icon><Search /></el-icon>
-          </template> -->
+          </template>
         </el-input>
 
         <el-input
@@ -53,9 +53,10 @@
           v-model="form.timeRange"
           type="datetimerange"
           range-separator="至"
-          start-placeholder="开始日期"
-          end-placeholder="结束日期"
+          start-placeholder="开始时间"
+          end-placeholder="结束时间"
           value-format="YYYY-MM-DD HH:mm:ss"
+          format="YYYY-MM-DD HH:mm:ss"
           style="width: 320px; margin-left: 10px"
           @change="handleFilter"
         />
@@ -66,7 +67,7 @@
           @click="handleFilter"
         >
           <el-icon><Search /></el-icon>
-          搜索
+          查询
         </el-button>
         
         <el-button
@@ -88,21 +89,20 @@
           stripe
           fit
         >
-          <el-table-column prop="traceId" label="Trace ID" width="280" align="center" header-align="center">
+          <el-table-column prop="traceId" label="Trace ID" width="280" align="center" show-overflow-tooltip>
             <template #default="scope">
               <code class="trace-id">{{ scope.row.traceId }}</code>
             </template>
           </el-table-column>
-          <el-table-column prop="createdAt" label="时间" width="160" align="center" header-align="center">
+          <el-table-column prop="createdAt" label="时间" width="180" align="center">
             <template #default="scope">
               {{ formatTime(scope.row.createdAt) }}
             </template>
           </el-table-column>
-          <el-table-column prop="traceSource" label="来源" width="200" align="center" header-align="center">
+          <el-table-column prop="traceSource" label="来源" width="180" align="center">
             <template #default="scope">
               <el-tag 
-                :type="getSourceTagType(scope.row.traceSource)" 
-                effect="plain" 
+                :style="getSourceTagStyle(scope.row.traceSource)" 
                 size="small"
                 class="source-tag"
               >
@@ -110,7 +110,7 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="model" label="模型/供应商" min-width="150" align="center" header-align="center">
+          <el-table-column prop="model" label="模型/供应商" min-width="180" align="center" show-overflow-tooltip>
             <template #default="scope">
               <div class="model-info">
                 <span class="provider">{{ scope.row.provider }}</span>
@@ -119,31 +119,43 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="latency" label="延迟" width="100" align="center" header-align="center">
+          <el-table-column prop="latency" label="延迟" width="120" align="center">
              <template #default="scope">
-              <div :class="getLatencyClass(scope.row.latency)" class="latency-cell">
+              <span :class="getLatencyClass(scope.row.latency)" class="latency-cell">
                 {{ scope.row.latency }}ms
-              </div>
+              </span>
             </template>
           </el-table-column>
-          <el-table-column prop="totalTokens" label="Tokens" width="100" align="center" header-align="center">
+          <el-table-column prop="totalTokens" label="Tokens" width="100" align="center">
             <template #default="scope">
               <div class="token-cell">
                 {{ scope.row.totalTokens || 0 }}
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="status" label="状态" width="120" align="center" header-align="center">
+          <el-table-column prop="status" label="状态" width="100" align="center">
             <template #default="scope">
-              <el-tag :type="scope.row.status === 1 ? 'success' : 'danger'" size="small" round>
+              <el-tag :type="scope.row.status === 1 ? 'success' : 'danger'" size="small">
                 {{ scope.row.status === 1 ? '成功' : '失败' }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" fixed="right" width="200" align="center" header-align="center">
+          <el-table-column label="操作" fixed="right" width="180" align="center">
             <template #default="scope">
-              <el-button link type="primary" size="small" @click="handleDetail(scope.row)">详情</el-button>
-              <el-button link type="danger" size="small" @click="handleDelete(scope.row)">删除</el-button>
+              <el-button
+                type="primary"
+                size="small"
+                @click="handleDetail(scope.row)"
+              >
+                详情
+              </el-button>
+              <el-button
+                type="danger"
+                size="small"
+                @click="handleDelete(scope.row)"
+              >
+                删除
+              </el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -281,17 +293,31 @@ const getLatencyClass = (latency) => {
   return 'time-slow'
 }
 
-const getSourceTagType = (source) => {
-  if (!source) return 'info'
-  const mapping = {
-    'Chat': 'primary',
-    'Knowledge Base QA': 'success',
-    'DrawIO Generate': 'warning',
-    'Context Compression': 'info',
-    'Memory Extraction': 'primary',
-    'Dialog Summary': 'success'
-  }
-  return mapping[source] || 'info'
+const sourceColorMap = {
+  'Chat': '#3B82F6',
+  'Knowledge Base QA': '#22C55E',
+  'DrawIO Generate': '#FACC15',
+  'Context Compression': '#60A5FA',
+  'Memory Extraction': '#0EA5E9',
+  'Dialog Summary': '#10B981'
+}
+
+const hexToRgb = (hex) => {
+  if (!hex) return { r: 59, g: 130, b: 246 }
+  const h = hex.replace('#','')
+  const bigint = parseInt(h,16)
+  const r = (bigint >> 16) & 255
+  const g = (bigint >> 8) & 255
+  const b = bigint & 255
+  return { r, g, b }
+}
+
+const getSourceTagStyle = (source) => {
+  const bg = sourceColorMap[source] || '#3B82F6'
+  const { r, g, b } = hexToRgb(bg)
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  const text = lum > 0.7 ? '#303133' : '#fff'
+  return { backgroundColor: bg, borderColor: bg, color: text }
 }
 
 onMounted(() => {
@@ -458,21 +484,18 @@ onMounted(() => {
 }
 
 .time-fast {
-  background: rgba(103, 194, 58, 0.1);
   color: #67c23a;
-  border-radius: 4px;
+  font-weight: 600;
 }
 
 .time-normal {
-  background: rgba(230, 162, 60, 0.1);
   color: #e6a23c;
-  border-radius: 4px;
+  font-weight: 600;
 }
 
 .time-slow {
-  background: rgba(245, 108, 108, 0.1);
   color: #f56c6c;
-  border-radius: 4px;
+  font-weight: 600;
 }
 
 .trace-id {
@@ -488,8 +511,6 @@ onMounted(() => {
 
 .source-tag {
   font-weight: 500;
-  text-transform: uppercase;
-  font-size: 10px;
 }
 
 .model-info {
@@ -516,11 +537,7 @@ onMounted(() => {
 }
 
 .latency-cell {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 8px;
   font-weight: 600;
-  font-size: 12px;
 }
 
 .token-cell {
@@ -528,11 +545,4 @@ onMounted(() => {
   color: var(--color-text-primary);
 }
 
-:deep(.el-table .cell) {
-  padding: 0 12px;
-}
-
-:deep(.el-table__row) {
-  height: 24px;
-}
 </style>
