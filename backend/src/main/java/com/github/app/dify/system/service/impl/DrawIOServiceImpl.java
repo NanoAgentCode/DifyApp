@@ -43,132 +43,128 @@ import java.util.stream.Collectors;
  */
 @Service
 public class DrawIOServiceImpl implements DrawIOService {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(DrawIOServiceImpl.class);
-    
+
     @Autowired
     private DrawIODiagramRepository drawIODiagramRepository;
-    
+
     @Autowired
     private DrawIOHistoryRepository drawIOHistoryRepository;
-    
+
     @Autowired
     private ModelConfigService modelConfigService;
-    
+
     @Autowired
     private SystemConfigService systemConfigService;
-    
+
     @Autowired
     private ModelLanguageModelFactory modelLanguageModelFactory;
-    
+
     @Override
     public DrawIOGenerateResponse generateDiagram(DrawIOGenerateRequest request, Long userId) {
         try {
-            logger.info("生成图表请求 - 用户ID: {}, 提示: {}, 类型: {}", 
+            logger.info("生成图表请求 - 用户ID: {}, 提示: {}, 类型: {}",
                     userId,
                     request.getPrompt(),
                     request.getDiagramType());
-            
+
             // 获取模型
             QAModel qaModel = getQAModel(request.getModelId());
-            
+
             // 构建系统提示词
             String systemPrompt = buildSystemPrompt(request.getDiagramType());
-            
+
             // 构建用户提示词
             String userPrompt = buildUserPrompt(request.getPrompt(), request.getDiagramType());
-            
+
             // 创建模型实例
-            ChatLanguageModel chatLanguageModel = 
-                    modelLanguageModelFactory.createChatLanguageModel(qaModel);
-            
+            ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+
             // 构建消息
             List<ChatMessage> messages = List.of(
-                    new SystemMessage(systemPrompt),
-                    new UserMessage(userPrompt)
-            );
-            
+                    SystemMessage.from(systemPrompt),
+                    UserMessage.from(userPrompt));
+
             // 调用LLM生成图表JSON
             Response<AiMessage> response = chatLanguageModel.generate(messages);
             String diagramJson = extractDiagramJson(response.content().text(), request.getDiagramType());
-            
-            logger.info("图表生成成功 - 用户ID: {}, JSON长度: {}", 
+
+            logger.info("图表生成成功 - 用户ID: {}, JSON长度: {}",
                     userId,
                     diagramJson.length());
-            
+
             // 构建响应
             DrawIOGenerateResponse generateResponse = new DrawIOGenerateResponse();
             generateResponse.setDiagramJson(diagramJson);
             generateResponse.setDiagramType(request.getDiagramType());
-            
+
             return generateResponse;
-            
+
         } catch (Exception e) {
-            logger.error("生成图表失败 - 用户ID: {}, 提示: {}", 
+            logger.error("生成图表失败 - 用户ID: {}, 提示: {}",
                     userId,
                     request.getPrompt(), e);
             throw new BusinessException("生成图表失败，请稍后重试", ErrorCode.API_CALL_FAILED, e);
         }
     }
-    
+
     @Override
     public DrawIOGenerateResponse modifyDiagram(DrawIOModifyRequest request, Long userId) {
         try {
-            logger.info("修改图表请求 - 用户ID: {}, 修改指令: {}", 
+            logger.info("修改图表请求 - 用户ID: {}, 修改指令: {}",
                     userId,
                     request.getPrompt());
-            
+
             // 获取模型
             QAModel qaModel = getQAModel(request.getModelId());
-            
+
             // 构建系统提示词
             String systemPrompt = buildModifySystemPrompt();
-            
+
             // 构建用户提示词
             String userPrompt = buildModifyUserPrompt(request.getDiagramJson(), request.getPrompt());
-            
+
             // 创建模型实例
-            ChatLanguageModel chatLanguageModel = 
-                    modelLanguageModelFactory.createChatLanguageModel(qaModel);
-            
+            ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+
             // 构建消息
             List<ChatMessage> messages = List.of(
-                    new SystemMessage(systemPrompt),
-                    new UserMessage(userPrompt)
-            );
-            
+                    SystemMessage.from(systemPrompt),
+                    UserMessage.from(userPrompt));
+
             // 调用LLM修改图表JSON
             Response<AiMessage> response = chatLanguageModel.generate(messages);
             // 从现有图表代码中推断类型（通过检查代码开头）
             String diagramType = inferDiagramType(request.getDiagramJson());
             String diagramJson = extractDiagramJson(response.content().text(), diagramType);
-            
-            logger.info("图表修改成功 - 用户ID: {}, JSON长度: {}", 
+
+            logger.info("图表修改成功 - 用户ID: {}, JSON长度: {}",
                     userId,
                     diagramJson.length());
-            
+
             // 构建响应
             DrawIOGenerateResponse generateResponse = new DrawIOGenerateResponse();
             generateResponse.setDiagramJson(diagramJson);
-            
+
             return generateResponse;
-            
+
         } catch (Exception e) {
-            logger.error("修改图表失败 - 用户ID: {}, 修改指令: {}", 
-                    userId, 
+            logger.error("修改图表失败 - 用户ID: {}, 修改指令: {}",
+                    userId,
                     request.getPrompt(), e);
             throw new BusinessException("修改图表失败，请稍后重试", ErrorCode.API_CALL_FAILED, e);
         }
     }
-    
+
     @Override
     @Transactional
     public DrawIODiagramResp saveDiagram(DrawIOSaveRequest request, Long userId) {
         try {
-            logger.info("保存图表请求 - 用户ID: {}, 名称: {}", 
-                    userId, 
+            logger.info("保存图表请求 - 用户ID: {}, 名称: {}",
+                    userId,
                     request.getName());
-            
+
             DrawIODiagram diagram = new DrawIODiagram();
             diagram.setName(request.getName());
             diagram.setDiagramType(request.getDiagramType());
@@ -176,23 +172,23 @@ public class DrawIOServiceImpl implements DrawIOService {
             diagram.setUserId(userId);
             SystemDateTimeUtil.setCreateAndUpdateTime(diagram);
             diagram.setDeleted(0);
-            
+
             diagram = drawIODiagramRepository.save(diagram);
-            
-            logger.info("图表保存成功 - ID: {}, 用户ID: {}", 
-                    diagram.getId(), 
+
+            logger.info("图表保存成功 - ID: {}, 用户ID: {}",
+                    diagram.getId(),
                     userId);
-            
+
             return SystemConverterUtil.convertToResp(diagram);
-            
+
         } catch (Exception e) {
-            logger.error("保存图表失败 - 用户ID: {}, 名称: {}", 
-                    userId, 
+            logger.error("保存图表失败 - 用户ID: {}, 名称: {}",
+                    userId,
                     request.getName(), e);
             throw new BusinessException("保存图表失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
-    
+
     @Override
     public List<DrawIODiagramResp> getDiagramList(Long userId) {
         try {
@@ -201,49 +197,49 @@ public class DrawIOServiceImpl implements DrawIOService {
                     .map(SystemConverterUtil::convertToResp)
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            logger.error("获取图表列表失败 - 用户ID: {}", 
+            logger.error("获取图表列表失败 - 用户ID: {}",
                     userId, e);
             throw new BusinessException("获取图表列表失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
-    
+
     @Override
     public DrawIODiagramResp getDiagramDetail(Long id, Long userId) {
         try {
             DrawIODiagram diagram = drawIODiagramRepository.findByIdAndUserId(id, userId)
                     .orElseThrow(() -> new BusinessException("图表不存在或无权限访问", ErrorCode.FORBIDDEN));
-            
+
             return SystemConverterUtil.convertToResp(diagram);
         } catch (Exception e) {
-            logger.error("获取图表详情失败 - ID: {}, 用户ID: {}", 
-                    id, 
+            logger.error("获取图表详情失败 - ID: {}, 用户ID: {}",
+                    id,
                     userId, e);
             throw new BusinessException("获取图表详情失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
-    
+
     @Override
     @Transactional
     public void deleteDiagram(Long id, Long userId) {
         try {
             DrawIODiagram diagram = drawIODiagramRepository.findByIdAndUserId(id, userId)
                     .orElseThrow(() -> new BusinessException("图表不存在或无权限访问", ErrorCode.FORBIDDEN));
-            
+
             diagram.setDeleted(1);
             SystemDateTimeUtil.setUpdateTime(diagram);
             drawIODiagramRepository.save(diagram);
-            
-            logger.info("图表删除成功 - ID: {}, 用户ID: {}", 
-                    id, 
+
+            logger.info("图表删除成功 - ID: {}, 用户ID: {}",
+                    id,
                     userId);
         } catch (Exception e) {
-            logger.error("删除图表失败 - ID: {}, 用户ID: {}", 
-                    id, 
+            logger.error("删除图表失败 - ID: {}, 用户ID: {}",
+                    id,
                     userId, e);
             throw new BusinessException("删除图表失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
-    
+
     /**
      * 获取问答模型
      * 优先级：1. 请求中的modelId 2. 系统配置中的drawio.defaultModelId 3. 默认RAG模型
@@ -278,7 +274,7 @@ public class DrawIOServiceImpl implements DrawIOService {
                     // 使用默认RAG模型
                     qaModel = modelConfigService.getDefaultQAModelForRAG();
                 }
-                
+
                 if (qaModel == null) {
                     throw new IllegalStateException("未找到可用的问答模型，请先在系统配置中配置模型或设置drawio.defaultModelId");
                 }
@@ -292,7 +288,7 @@ public class DrawIOServiceImpl implements DrawIOService {
             throw new IllegalStateException("获取问答模型失败: " + e.getMessage(), e);
         }
     }
-    
+
     /**
      * 构建系统提示词（生成）
      */
@@ -316,7 +312,7 @@ public class DrawIOServiceImpl implements DrawIOService {
                 prompt.append("4. 代码块不要使用 ``` 包裹，直接返回代码\n");
             }
         }
-        
+
         if (diagramType != null) {
             String typeSkill = SkillLoader.loadSkill("drawio/" + diagramType);
             if (typeSkill != null && !typeSkill.trim().isEmpty()) {
@@ -325,12 +321,12 @@ public class DrawIOServiceImpl implements DrawIOService {
                 logger.warn("未找到图表类型提示词: drawio/{}", diagramType);
             }
         }
-        
+
         prompt.append("\n请直接返回完整的 AntV Infographic DSL 代码，不要包含任何其他文字说明，不要使用代码块包裹。");
-        
+
         return prompt.toString();
     }
-    
+
     /**
      * 构建用户提示词（生成）
      */
@@ -362,17 +358,17 @@ public class DrawIOServiceImpl implements DrawIOService {
                     break;
             }
         }
-        
+
         // 使用模板加载用户提示词
         Map<String, String> variables = new HashMap<>();
         variables.put("userPrompt", userPrompt);
         variables.put("typeSpecificRequirement", typeSpecificRequirement);
-        
+
         String template = SkillLoader.loadSkillWithTemplate("drawio/user_prompt_template", variables);
         if (template != null && !template.trim().isEmpty()) {
             return template;
         }
-        
+
         // Fallback：如果模板不存在，使用硬编码方式
         StringBuilder prompt = new StringBuilder();
         prompt.append("请根据以下描述生成详细、完整的 AntV Infographic 格式图表代码：\n\n");
@@ -387,7 +383,7 @@ public class DrawIOServiceImpl implements DrawIOService {
         prompt.append("4. 请生成完整的 AntV Infographic DSL 代码，不要使用代码块包裹。");
         return prompt.toString();
     }
-    
+
     /**
      * 构建系统提示词（修改）
      */
@@ -412,26 +408,26 @@ public class DrawIOServiceImpl implements DrawIOService {
                 "6. 不要使用代码块包裹，直接返回代码\n\n" +
                 "请直接返回完整的修改后的 AntV Infographic DSL 代码，不要包含任何其他文字说明。";
     }
-    
+
     /**
      * 构建用户提示词（修改）
      */
     private String buildModifyUserPrompt(String diagramJson, String modifyInstruction) {
         // 只传递代码的关键部分，避免过长
-        String diagramCode = diagramJson.length() > 5000 
-            ? diagramJson.substring(0, 5000) + "..." 
-            : diagramJson;
-        
+        String diagramCode = diagramJson.length() > 5000
+                ? diagramJson.substring(0, 5000) + "..."
+                : diagramJson;
+
         // 使用模板加载用户提示词
         Map<String, String> variables = new HashMap<>();
         variables.put("diagramJson", diagramCode);
         variables.put("modifyInstruction", modifyInstruction);
-        
+
         String template = SkillLoader.loadSkillWithTemplate("drawio/modify_user_prompt_template", variables);
         if (template != null && !template.trim().isEmpty()) {
             return template;
         }
-        
+
         // Fallback：如果模板不存在，使用硬编码方式
         StringBuilder prompt = new StringBuilder();
         prompt.append("现有图表代码：\n");
@@ -443,7 +439,7 @@ public class DrawIOServiceImpl implements DrawIOService {
         prompt.append("\n\n请根据修改指令生成修改后的完整 AntV Infographic DSL 代码，不要使用代码块包裹。");
         return prompt.toString();
     }
-    
+
     /**
      * 推断图表类型（从 AntV Infographic 代码中提取模板名称）
      */
@@ -452,16 +448,16 @@ public class DrawIOServiceImpl implements DrawIOService {
             return null;
         }
         String trimmed = diagramJson.trim();
-        
+
         // 检查是否是 AntV Infographic 格式（以 infographic 开头）
         if (trimmed.startsWith("infographic")) {
             // 从模板名称推断图表类型
             String lowerCase = trimmed.toLowerCase();
-            if (lowerCase.contains("sequence") || lowerCase.contains("horizontal-arrow") || 
-                lowerCase.contains("steps") || lowerCase.contains("stairs")) {
+            if (lowerCase.contains("sequence") || lowerCase.contains("horizontal-arrow") ||
+                    lowerCase.contains("steps") || lowerCase.contains("stairs")) {
                 return "flowchart";
-            } else if (lowerCase.contains("hierarchy") || lowerCase.contains("structure") || 
-                       lowerCase.contains("tree")) {
+            } else if (lowerCase.contains("hierarchy") || lowerCase.contains("structure") ||
+                    lowerCase.contains("tree")) {
                 // 需要进一步判断是架构图还是思维导图
                 if (lowerCase.contains("mindmap")) {
                     return "mindmap";
@@ -470,14 +466,14 @@ public class DrawIOServiceImpl implements DrawIOService {
                 }
             } else if (lowerCase.contains("timeline") || lowerCase.contains("ascending")) {
                 return "sequence";
-            } else if (lowerCase.contains("relation") || lowerCase.contains("dagre") || 
-                       lowerCase.contains("circle")) {
+            } else if (lowerCase.contains("relation") || lowerCase.contains("dagre") ||
+                    lowerCase.contains("circle")) {
                 // 需要进一步判断是 UML 还是网络图
                 // 这里可以根据上下文或默认返回 uml
                 return "uml";
             }
         }
-        
+
         // 如果没有匹配到，尝试从代码内容推断
         // 检查是否包含层级结构（children）
         if (trimmed.contains("children")) {
@@ -487,16 +483,16 @@ public class DrawIOServiceImpl implements DrawIOService {
                 return "architecture";
             }
         }
-        
+
         return null;
     }
-    
+
     /**
      * 从LLM响应中提取 AntV Infographic 代码
      */
     private String extractDiagramJson(String response, String diagramType) {
         String extracted = null;
-        
+
         // 尝试提取代码块
         if (response.contains("```")) {
             int start = response.indexOf("```");
@@ -511,7 +507,7 @@ public class DrawIOServiceImpl implements DrawIOService {
                 extracted = afterStart.trim();
             }
         }
-        
+
         // 如果都没有，检查原始响应是否已经是 AntV Infographic 代码
         if (extracted == null) {
             String trimmed = response.trim();
@@ -523,15 +519,15 @@ public class DrawIOServiceImpl implements DrawIOService {
                 extracted = trimmed;
             }
         }
-        
+
         // 清理和验证 AntV Infographic 代码
         if (extracted != null) {
             extracted = cleanInfographicCode(extracted);
         }
-        
+
         return extracted;
     }
-    
+
     /**
      * 清理 AntV Infographic 代码
      */
@@ -539,13 +535,13 @@ public class DrawIOServiceImpl implements DrawIOService {
         if (code == null || code.isEmpty()) {
             return code;
         }
-        
+
         String cleaned = code.trim();
-        
+
         // 移除可能的代码块标记
         cleaned = cleaned.replaceAll("^```[a-z]*\\s*", "");
         cleaned = cleaned.replaceAll("```\\s*$", "");
-        
+
         // 确保以 infographic 开头
         if (!cleaned.startsWith("infographic")) {
             // 尝试查找 infographic 关键字
@@ -554,29 +550,27 @@ public class DrawIOServiceImpl implements DrawIOService {
                 cleaned = cleaned.substring(infographicIndex).trim();
             }
         }
-        
+
         // 移除多余的空行（保留必要的空行用于格式化）
         cleaned = cleaned.replaceAll("\\n{3,}", "\n\n");
-        
+
         return cleaned.trim();
     }
-    
-    
-    
+
     @Override
     @Transactional
     public DrawIOHistoryResp saveHistory(DrawIOHistoryRequest request, Long userId) {
         try {
-            logger.info("保存历史记录请求 - 用户ID: {}, 提示词: {}", 
-                    userId, 
+            logger.info("保存历史记录请求 - 用户ID: {}, 提示词: {}",
+                    userId,
                     request.getPrompt());
-            
+
             // 检查是否已存在相同的历史记录（避免重复）
             List<DrawIOHistory> existingHistories = drawIOHistoryRepository.findByUserIdAndNotDeleted(userId);
             String promptToSave = request.getPrompt();
             boolean exists = existingHistories.stream()
                     .anyMatch(h -> promptToSave.equals(h.getPrompt()));
-            
+
             if (exists) {
                 // 如果已存在，返回已存在的记录
                 DrawIOHistory existing = existingHistories.stream()
@@ -586,13 +580,15 @@ public class DrawIOServiceImpl implements DrawIOService {
                 if (existing != null) {
                     boolean shouldUpdate = false;
                     if (request.getDiagramJson() != null && !request.getDiagramJson().trim().isEmpty()) {
-                        if (existing.getDiagramJson() == null || !request.getDiagramJson().equals(existing.getDiagramJson())) {
+                        if (existing.getDiagramJson() == null
+                                || !request.getDiagramJson().equals(existing.getDiagramJson())) {
                             existing.setDiagramJson(request.getDiagramJson());
                             shouldUpdate = true;
                         }
                     }
                     if (request.getDiagramType() != null && !request.getDiagramType().trim().isEmpty()) {
-                        if (existing.getDiagramType() == null || !request.getDiagramType().equals(existing.getDiagramType())) {
+                        if (existing.getDiagramType() == null
+                                || !request.getDiagramType().equals(existing.getDiagramType())) {
                             existing.setDiagramType(request.getDiagramType());
                             shouldUpdate = true;
                         }
@@ -603,7 +599,7 @@ public class DrawIOServiceImpl implements DrawIOService {
                     return convertHistoryToResp(existing);
                 }
             }
-            
+
             // 创建新历史记录
             DrawIOHistory history = new DrawIOHistory();
             history.setUserId(userId);
@@ -612,7 +608,7 @@ public class DrawIOServiceImpl implements DrawIOService {
             history.setDiagramJson(request.getDiagramJson());
             SystemDateTimeUtil.setCreateTime(history);
             history.setDeleted(0);
-            
+
             // 保存前检查，如果历史记录超过10条，删除最旧的
             List<DrawIOHistory> allHistories = drawIOHistoryRepository.findByUserIdAndNotDeleted(userId);
             if (allHistories.size() >= 10) {
@@ -624,23 +620,23 @@ public class DrawIOServiceImpl implements DrawIOService {
                     drawIOHistoryRepository.save(oldHistory);
                 }
             }
-            
+
             history = drawIOHistoryRepository.save(history);
-            
-            logger.info("历史记录保存成功 - ID: {}, 用户ID: {}", 
-                    history.getId(), 
+
+            logger.info("历史记录保存成功 - ID: {}, 用户ID: {}",
+                    history.getId(),
                     userId);
-            
+
             return convertHistoryToResp(history);
-            
+
         } catch (Exception e) {
-            logger.error("保存历史记录失败 - 用户ID: {}, 提示词: {}", 
-                    userId, 
+            logger.error("保存历史记录失败 - 用户ID: {}, 提示词: {}",
+                    userId,
                     request.getPrompt(), e);
             throw new BusinessException("保存历史记录失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
-    
+
     @Override
     public List<DrawIOHistoryResp> getHistoryList(Long userId) {
         try {
@@ -650,33 +646,33 @@ public class DrawIOServiceImpl implements DrawIOService {
                     .map(this::convertHistoryToResp)
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            logger.error("获取历史记录列表失败 - 用户ID: {}", 
+            logger.error("获取历史记录列表失败 - 用户ID: {}",
                     userId, e);
             throw new BusinessException("获取历史记录列表失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
-    
+
     @Override
     @Transactional
     public void deleteHistory(Long id, Long userId) {
         try {
             DrawIOHistory history = drawIOHistoryRepository.findByIdAndUserId(id, userId)
                     .orElseThrow(() -> new BusinessException("历史记录不存在或无权限访问", ErrorCode.FORBIDDEN));
-            
+
             history.setDeleted(1);
             drawIOHistoryRepository.save(history);
-            
-            logger.info("历史记录删除成功 - ID: {}, 用户ID: {}", 
-                    id, 
+
+            logger.info("历史记录删除成功 - ID: {}, 用户ID: {}",
+                    id,
                     userId);
         } catch (Exception e) {
-            logger.error("删除历史记录失败 - ID: {}, 用户ID: {}", 
-                    id, 
+            logger.error("删除历史记录失败 - ID: {}, 用户ID: {}",
+                    id,
                     userId, e);
             throw new BusinessException("删除历史记录失败", ErrorCode.DATABASE_ERROR, e);
         }
     }
-    
+
     /**
      * 转换为历史记录响应对象
      */
