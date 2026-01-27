@@ -1,85 +1,19 @@
-# ============================================
-# HikariCP 数据库连接池配置
-# ============================================
-
 spring:
   datasource:
-    # HikariCP 连接池配置
     hikari:
-      # 连接池名称
-      pool-name: DifyAppHikariCP
+      pool-name: DifyAppHikariCP  # 连接池名称
+      maximum-pool-size: 20  # 最大连接数（环境特定配置会覆盖）
+      minimum-idle: 5  # 最小空闲连接数（环境特定配置会覆盖）
+      connection-timeout: 30000  # 连接超时时间（毫秒）
+      idle-timeout: 600000  # 空闲连接超时时间（毫秒，10分钟）
+      max-lifetime: 1800000  # 连接最大存活时间（毫秒，30分钟）
+      validation-timeout: 5000  # 验证超时时间（毫秒）
+      connection-test-query: SELECT 1  # 连接测试查询
+      leak-detection-threshold: 60000  # 泄漏检测阈值（毫秒）
+      allow-pool-suspension: false  # 是否允许连接池挂起
+      read-only: false  # 是否只读
+      auto-commit: true  # 是否自动提交（Spring事务管理会覆盖）
 
-      # 最大连接数（默认10）
-      # 根据数据库服务器性能和并发需求调整
-      # 建议：核心数 * 2 + 有效磁盘数
-      maximum-pool-size: 20
-
-      # 最小空闲连接数（默认10）
-      # 保持一定数量的空闲连接，避免频繁创建/销毁连接
-      minimum-idle: 5
-
-      # 连接超时时间（毫秒，默认30000ms）
-      # 从连接池获取连接的最大等待时间
-      connection-timeout: 30000
-
-      # 空闲连接超时时间（毫秒，默认600000ms = 10分钟）
-      # 空闲连接存活的最大时间，超过此时间将被回收
-      idle-timeout: 600000
-
-      # 连接最大存活时间（毫秒，默认1800000ms = 30分钟）
-      # 连接在池中的最大存活时间，超过此时间将被回收
-      max-lifetime: 1800000
-
-      # 连接测试查询（用于测试连接是否有效）
-      # PostgreSQL 推荐：SELECT 1
-      # MySQL 推荐：SELECT 1
-      connection-test-query: SELECT 1
-
-      # 连接初始化SQL（连接创建后执行的SQL）
-      # 可以设置会话参数，如时区、编码等
-      # connection-init-sql: SET time_zone = '+8:00'
-
-      # 泄漏检测阈值（毫秒，默认0 = 不检测）
-      # 连接使用超过此时间未释放，视为连接泄漏
-      leak-detection-threshold: 60000
-
-      # 验证超时时间（毫秒，默认5000ms）
-      # 测试连接是否有效的超时时间
-      validation-timeout: 5000
-
-      # 是否允许连接在池中挂起（默认false）
-      # 如果连接长时间未被使用，是否允许从池中移除
-      allow-pool-suspension: false
-
-      # 是否只读（默认false）
-      # 设置为true可以提升读取性能
-      read-only: false
-
-      # 是否自动提交（默认true）
-      # Spring事务管理会覆盖此设置
-      auto-commit: true
-
-      # 事务隔离级别（默认使用数据库默认）
-      # READ_UNCOMMITTED, READ_COMMITTED, REPEATABLE_READ, SERIALIZABLE
-      # transaction-isolation: TRANSACTION_READ_COMMITTED
-
-      # 连接属性（可以传递给JDBC驱动）
-      # data-source-properties:
-      #   cachePrepStmts: true
-      #   prepStmtCacheSize: 250
-      #   prepStmtCacheSqlLimit: 2048
-      #   useServerPrepStmts: true
-      #   useLocalSessionState: true
-      #   rewriteBatchedStatements: true
-      #   cacheResultSetMetadata: true
-      #   cacheServerConfiguration: true
-      #   elideSetAutoCommits: true
-      #   maintainTimeStats: false
-
-# ============================================
-# 开发环境特定配置
-# ============================================
-# 开发环境可以使用较小的连接池
 ---
 spring:
   config:
@@ -87,15 +21,10 @@ spring:
       on-profile: dev
   datasource:
     hikari:
-      maximum-pool-size: 10
+      maximum-pool-size: 10  # 开发环境使用较小的连接池
       minimum-idle: 2
-      # 开发环境启用连接泄漏检测
-      leak-detection-threshold: 30000
+      leak-detection-threshold: 30000  # 启用连接泄漏检测（30秒）
 
-# ============================================
-# 生产环境特定配置
-# ============================================
-# 生产环境需要更大的连接池和更严格的配置
 ---
 spring:
   config:
@@ -103,12 +32,8 @@ spring:
       on-profile: prod
   datasource:
     hikari:
-      # 生产环境增加连接池大小
-      maximum-pool-size: 50
+      maximum-pool-size: 50  # 生产环境增加连接池大小
       minimum-idle: 10
-      # 生产环境关闭连接泄漏检测（避免性能影响）
-      leak-detection-threshold: 0
-      # 增加连接最大存活时间（减少连接回收频率）
-      max-lifetime: 3600000  # 1小时
-      # 缩短空闲连接超时时间（快速释放无用连接）
-      idle-timeout: 300000  # 5分钟
+      leak-detection-threshold: 0  # 关闭连接泄漏检测（避免性能影响）
+      max-lifetime: 3600000  # 增加连接最大存活时间（1小时）
+      idle-timeout: 300000  # 缩短空闲连接超时时间（5分钟）

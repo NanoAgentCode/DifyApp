@@ -1,12 +1,10 @@
-# 可观测性监控配置
+spring:
+  profiles:
+    active: dev  # 默认激活开发环境，可通过启动参数覆盖：--spring.profiles.active=prod
+
 observability:
-  # 是否启用监控（默认启用）
-  enabled: true
-  # 监控线程池配置
+  enabled: true  # 是否启用监控
   thread-pool:
-    # 核心线程数
-    core-size: 4
-    # 最大线程数
-    max-size: 8
-    # 队列容量
-    queue-capacity: 500
+    core-size: 4  # 监控线程池核心线程数
+    max-size: 8  # 监控线程池最大线程数
+    queue-capacity: 500  # 监控线程池队列容量

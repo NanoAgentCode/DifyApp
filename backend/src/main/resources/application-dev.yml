@@ -1,51 +1,34 @@
-# ============================================
-# 开发环境配置 - 需要根据环境修改的配置
-# ============================================
-
-# 引入静态配置和HikariCP配置
 spring:
   config:
-    import: 
-      - application-static.yml
-      - application-hikari.yml
-  # 数据源配置（需要根据环境修改）
+    import:
+      - application-static.yml  # 静态配置
+      - application-hikari.yml  # HikariCP连接池配置
   datasource:
     driver-class-name: org.postgresql.Driver
     url: jdbc:postgresql://localhost:15432/difyapp
     username: postgres
     password: 123456
-  # JPA配置（开发环境特定）
   jpa:
     hibernate:
-      ddl-auto: update  # 开发环境使用 update，生产环境应使用 validate
-    show-sql: false  # 开发环境可以设置为 true 查看SQL
-  # Redis配置（需要根据环境修改）
+      ddl-auto: update  # 开发环境使用update，自动更新表结构
+    show-sql: false  # 可设置为true查看SQL
   data:
     redis:
       host: localhost
       port: 6379
-      password: # 可选，如果Redis设置了密码，请在此配置
+      password:  # Redis密码（可选）
 
-# JWT配置（需要根据环境修改密钥）
 jwt:
-  # JWT密钥（生产环境请修改为更安全的密钥，至少32个字符以确保256位安全性）
-  secret: dify-app-secret-key-2024-this-is-a-very-long-secret-key-for-security
+  secret: dify-app-secret-key-2024-this-is-a-very-long-secret-key-for-security  # JWT密钥，生产环境请修改
 
-# MinIO配置（需要根据环境修改）
 minio:
   endpoint: http://localhost:9000
   access-key: rustfsadmin
   secret-key: rustfsadmin
 
-# 可观测性监控配置
 observability:
-  # 是否启用监控（默认启用）
   enabled: true
-  # 监控线程池配置
   thread-pool:
-    # 核心线程数
     core-size: 4
-    # 最大线程数
     max-size: 8
-    # 队列容量
     queue-capacity: 500
