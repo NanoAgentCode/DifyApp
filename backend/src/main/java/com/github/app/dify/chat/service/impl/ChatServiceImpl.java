@@ -16,6 +16,7 @@ import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.util.TokenEstimator;
 import com.github.app.dify.knowledgebase.service.ContextCompressionService;
 import com.github.app.dify.memory.service.UserMemoryService;
+import com.github.app.dify.observability.annotation.LLMTrace;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -258,7 +259,7 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @com.github.app.dify.observability.annotation.LLMTrace(
+    @LLMTrace(
             traceSource = "Chat",
             conversationIdParam = "request.conversationId"
     )
@@ -403,8 +404,7 @@ public class ChatServiceImpl implements ChatService {
 
                         // 保存助手消息（会话已在开始时创建）
                         Long conversationId = conversationIdRef.get();
-                        if (userId != null && conversationId != null && finalAnswer != null
-                                && !finalAnswer.trim().isEmpty()) {
+                        if (userId != null && conversationId != null && !finalAnswer.trim().isEmpty()) {
                             try {
                                 // 流式响应通常无法直接获取token使用信息，使用估算方法
                                 logger.info("流式响应完成，开始估算Token使用量...");
@@ -554,49 +554,99 @@ public class ChatServiceImpl implements ChatService {
             systemMessageBuilder.append("\n\n").append(markdownFormat.trim());
         } else {
             // Fallback：如果文件不存在，使用硬编码（保持向后兼容）
-            systemMessageBuilder.append("\n\n重要：请使用Markdown格式来组织你的回答，包括：\n" +
-                    "- 使用标题（#、##、###）来组织内容结构\n" +
-                    "- 使用列表（-、*、1.）来列举要点\n" +
-                    "- 使用代码块（```）来展示代码或技术内容\n" +
-                    "- 使用**粗体**和*斜体*来强调重要信息\n" +
-                    "- 使用表格来展示结构化数据\n" +
-                    "\n【关键要求】代码块格式（必须严格遵守）：\n" +
-                    "1. 所有代码块必须包含语言标识符，格式为：```语言标识符\n代码内容\n```\n" +
-                    "2. 语言标识符示例：\n" +
-                    "   - JavaScript代码：```javascript\n代码\n```\n" +
-                    "   - Python代码：```python\n代码\n```\n" +
-                    "   - Java代码：```java\n代码\n```\n" +
-                    "   - TypeScript代码：```typescript\n代码\n```\n" +
-                    "   - Go代码：```go\n代码\n```\n" +
-                    "   - Rust代码：```rust\n代码\n```\n" +
-                    "   - C/C++代码：```cpp\n代码\n``` 或 ```c\n代码\n```\n" +
-                    "   - C#代码：```csharp\n代码\n```\n" +
-                    "   - PHP代码：```php\n代码\n```\n" +
-                    "   - Ruby代码：```ruby\n代码\n```\n" +
-                    "   - Swift代码：```swift\n代码\n```\n" +
-                    "   - Kotlin代码：```kotlin\n代码\n```\n" +
-                    "   - SQL代码：```sql\n代码\n```\n" +
-                    "   - HTML代码：```html\n代码\n```\n" +
-                    "   - CSS代码：```css\n代码\n```\n" +
-                    "   - JSON代码：```json\n代码\n```\n" +
-                    "   - XML代码：```xml\n代码\n```\n" +
-                    "   - YAML代码：```yaml\n代码\n```\n" +
-                    "   - Bash/Shell代码：```bash\n代码\n``` 或 ```shell\n代码\n```\n" +
-                    "3. 绝对禁止使用没有语言标识符的代码块（如 ```\n代码\n```），这会导致代码无法正确高亮显示\n" +
-                    "4. 在流式响应中，生成代码块时必须在第一行就包含完整的 ```语言标识符，例如：```javascript\n" +
-                    "5. 代码块中的代码应该完整、可运行，并包含必要的注释\n" +
-                    "6. 如果用户输入包含代码，请确保在回答中正确使用带语言标识符的代码块格式展示\n" +
-                    "\n【关键要求】数学公式格式（必须严格遵守）：\n" +
-                    "1. 所有数学公式必须使用LaTeX格式编写，不要使用占位符或省略公式内容\n" +
-                    "2. 行内公式使用 $...$ 格式，例如：$E = mc^2$ 或 $\\phi = \\frac{1+\\sqrt{5}}{2}$\n" +
-                    "3. 块级公式使用 $$...$$ 格式，例如：\n" +
-                    "   $$F(n) = \\frac{1}{\\sqrt{5}} \\left( \\left( \\frac{1 + \\sqrt{5}}{2} \\right)^n - \\left( \\frac{1 - \\sqrt{5}}{2} \\right)^n \\right)$$\n"
-                    +
-                    "4. 也可以使用 [...] 格式表示块级公式，例如：\n" +
-                    "   [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]\n" +
-                    "5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式\n" +
-                    "6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等\n" +
-                    "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符");
+            systemMessageBuilder.append("""
+                    
+                    
+                    重要：请使用Markdown格式来组织你的回答，包括：
+                    - 使用标题（#、##、###）来组织内容结构
+                    - 使用列表（-、*、1.）来列举要点
+                    - 使用代码块（```）来展示代码或技术内容
+                    - 使用**粗体**和*斜体*来强调重要信息
+                    - 使用表格来展示结构化数据
+                    
+                    【关键要求】代码块格式（必须严格遵守）：
+                    1. 所有代码块必须包含语言标识符，格式为：```语言标识符
+                    代码内容
+                    ```
+                    2. 语言标识符示例：
+                       - JavaScript代码：```javascript
+                    代码
+                    ```
+                       - Python代码：```python
+                    代码
+                    ```
+                       - Java代码：```java
+                    代码
+                    ```
+                       - TypeScript代码：```typescript
+                    代码
+                    ```
+                       - Go代码：```go
+                    代码
+                    ```
+                       - Rust代码：```rust
+                    代码
+                    ```
+                       - C/C++代码：```cpp
+                    代码
+                    ``` 或 ```c
+                    代码
+                    ```
+                       - C#代码：```csharp
+                    代码
+                    ```
+                       - PHP代码：```php
+                    代码
+                    ```
+                       - Ruby代码：```ruby
+                    代码
+                    ```
+                       - Swift代码：```swift
+                    代码
+                    ```
+                       - Kotlin代码：```kotlin
+                    代码
+                    ```
+                       - SQL代码：```sql
+                    代码
+                    ```
+                       - HTML代码：```html
+                    代码
+                    ```
+                       - CSS代码：```css
+                    代码
+                    ```
+                       - JSON代码：```json
+                    代码
+                    ```
+                       - XML代码：```xml
+                    代码
+                    ```
+                       - YAML代码：```yaml
+                    代码
+                    ```
+                       - Bash/Shell代码：```bash
+                    代码
+                    ``` 或 ```shell
+                    代码
+                    ```
+                    3. 绝对禁止使用没有语言标识符的代码块（如 ```
+                    代码
+                    ```），这会导致代码无法正确高亮显示
+                    4. 在流式响应中，生成代码块时必须在第一行就包含完整的 ```语言标识符，例如：```javascript
+                    5. 代码块中的代码应该完整、可运行，并包含必要的注释
+                    6. 如果用户输入包含代码，请确保在回答中正确使用带语言标识符的代码块格式展示
+                    
+                    【关键要求】数学公式格式（必须严格遵守）：
+                    1. 所有数学公式必须使用LaTeX格式编写，不要使用占位符或省略公式内容
+                    2. 行内公式使用 $...$ 格式，例如：$E = mc^2$ 或 $\\phi = \\frac{1+\\sqrt{5}}{2}$
+                    3. 块级公式使用 $$...$$ 格式，例如：
+                       $$F(n) = \\frac{1}{\\sqrt{5}} \\left( \\left( \\frac{1 + \\sqrt{5}}{2} \\right)^n - \\left( \\frac{1 - \\sqrt{5}}{2} \\right)^n \\right)$$
+                    4. 也可以使用 [...] 格式表示块级公式，例如：
+                       [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]
+                    5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式
+                    6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等
+                    7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符""");
         }
 
         // 添加系统消息

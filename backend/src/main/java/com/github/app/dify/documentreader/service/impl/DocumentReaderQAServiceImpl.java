@@ -15,6 +15,7 @@ import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
 import com.github.app.dify.knowledgebase.langchain4j.StreamingChatLanguageModel;
 import com.github.app.dify.knowledgebase.service.ContextCompressionService;
+import com.github.app.dify.observability.annotation.LLMTrace;
 import com.github.app.dify.system.config.DocumentReaderConfig;
 import com.github.app.dify.model.service.ModelConfigService;
 import dev.langchain4j.data.message.AiMessage;
@@ -69,7 +70,7 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
      * 文档问答（非流式）
      */
     @Override
-    @com.github.app.dify.observability.annotation.LLMTrace(
+    @LLMTrace(
             traceSource = "Document Reader QA",
             conversationIdParam = "request.conversationId",
             extractFromReturn = true
@@ -178,7 +179,7 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
      * 文档问答（流式）
      */
     @Override
-    @com.github.app.dify.observability.annotation.LLMTrace(
+    @LLMTrace(
             traceSource = "Document Reader QA",
             conversationIdParam = "request.conversationId"
     )
@@ -417,7 +418,7 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
      */
     private DocumentReader validateDocumentForQA(Long documentId, Long userId) {
         Optional<DocumentReader> docOptional = documentRepository.findByIdAndDeleted(documentId, 0);
-        if (!docOptional.isPresent()) {
+        if (docOptional.isEmpty()) {
             throw new NotFoundException("文档不存在");
         }
 

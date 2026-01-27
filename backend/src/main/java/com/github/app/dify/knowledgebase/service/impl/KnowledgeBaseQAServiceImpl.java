@@ -4,6 +4,7 @@ import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.exception.UnauthorizedException;
 import com.github.app.dify.knowledgebase.domain.QAModel;
+import com.github.app.dify.observability.annotation.LLMTrace;
 import com.github.app.dify.permission.service.UserKnowledgeBaseVisibilityService;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
 import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
@@ -72,7 +73,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
      * 问答（非流式）
      */
     @Override
-    @com.github.app.dify.observability.annotation.LLMTrace(
+    @LLMTrace(
             traceSource = "Knowledge Base QA",
             conversationIdParam = "request.conversationId",
             extractFromReturn = true
@@ -185,35 +186,33 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
 
             // 保存历史记录
             Long conversationId = null;
-            if (userId != null) {
-                try {
-                    Long requestConversationId = null;
-                    if (request.getConversationId() != null && !request.getConversationId().trim().isEmpty()) {
-                        try {
-                            requestConversationId = Long.parseLong(request.getConversationId());
-                        } catch (NumberFormatException e) {
-                            logger.warn("无效的conversationId: {}", request.getConversationId());
-                        }
-                    }
-                    conversationId = chatHistoryService.getOrCreateConversation(
-                            userId, requestConversationId, 2, null, knowledgeBaseId, request.getQuestion());
-                    logger.info("非流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}",
-                            requestConversationId, conversationId);
-                    // 保存用户消息（不需要token信息）
-                    chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
-                    // 保存助手消息（带token信息）
-                    chatHistoryService.saveMessage(conversationId, "assistant", answer,
-                            modelId, promptTokens, completionTokens, totalTokens);
+            try {
+                Long requestConversationId = null;
+                if (request.getConversationId() != null && !request.getConversationId().trim().isEmpty()) {
                     try {
-                        userMemoryService.updateMemoryAsync(userId, request.getQuestion(), answer, modelId,
-                                conversationId, "knowledge_base", knowledgeBaseId);
-                    } catch (Exception e) {
-                        logger.debug("触发异步记忆更新失败（知识库问答）", e);
+                        requestConversationId = Long.parseLong(request.getConversationId());
+                    } catch (NumberFormatException e) {
+                        logger.warn("无效的conversationId: {}", request.getConversationId());
                     }
-                } catch (Exception e) {
-                    logger.error("保存历史记录失败", e);
-                    // 不抛出异常，避免影响主流程
                 }
+                conversationId = chatHistoryService.getOrCreateConversation(
+                        userId, requestConversationId, 2, null, knowledgeBaseId, request.getQuestion());
+                logger.info("非流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}",
+                        requestConversationId, conversationId);
+                // 保存用户消息（不需要token信息）
+                chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
+                // 保存助手消息（带token信息）
+                chatHistoryService.saveMessage(conversationId, "assistant", answer,
+                        modelId, promptTokens, completionTokens, totalTokens);
+                try {
+                    userMemoryService.updateMemoryAsync(userId, request.getQuestion(), answer, modelId,
+                            conversationId, "knowledge_base", knowledgeBaseId);
+                } catch (Exception e) {
+                    logger.debug("触发异步记忆更新失败（知识库问答）", e);
+                }
+            } catch (Exception e) {
+                logger.error("保存历史记录失败", e);
+                // 不抛出异常，避免影响主流程
             }
 
             // 构建响应
@@ -243,7 +242,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
      * 问答（流式）
      */
     @Override
-    @com.github.app.dify.observability.annotation.LLMTrace(
+    @LLMTrace(
             traceSource = "Knowledge Base QA",
             conversationIdParam = "request.conversationId"
     )
@@ -428,8 +427,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
         ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
 
         // 调用LLM生成答案
-        Response<AiMessage> response = chatLanguageModel.generate(messages);
-        return response; // 返回Response对象，以便提取token信息
+        return chatLanguageModel.generate(messages); // 返回Response对象，以便提取token信息
     }
 
     /**
@@ -595,8 +593,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
 
                     // 保存助手消息（会话已在开始时创建）
                     Long conversationId = conversationIdRef.get();
-                    if (userId != null && conversationId != null && finalAnswer != null
-                            && !finalAnswer.trim().isEmpty()) {
+                    if (userId != null && conversationId != null && !finalAnswer.trim().isEmpty()) {
                         try {
                             // 流式响应通常无法直接获取token使用信息
                             // 这里先保存modelId，token信息留空（后续可以通过其他方式补充）
@@ -702,14 +699,14 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
         if (question != null && !question.isEmpty()) {
             long chineseChars = question.chars().filter(ch -> ch >= 0x4E00 && ch <= 0x9FFF).count();
             long otherChars = question.length() - chineseChars;
-            promptTokens = (long) (chineseChars / 1.5 + otherChars / 4);
+            promptTokens = (long) (chineseChars / 1.5 + (double) otherChars / 4);
         }
 
         // 估算completion tokens（回答内容）
         if (answer != null && !answer.isEmpty()) {
             long chineseChars = answer.chars().filter(ch -> ch >= 0x4E00 && ch <= 0x9FFF).count();
             long otherChars = answer.length() - chineseChars;
-            completionTokens = (long) (chineseChars / 1.5 + otherChars / 4);
+            completionTokens = (long) (chineseChars / 1.5 + (double) otherChars / 4);
         }
 
         long totalTokens = promptTokens + completionTokens;
