@@ -1,19 +1,19 @@
-import {createRouter, createWebHistory} from 'vue-router'
-import {ElMessage} from 'element-plus'
-import {validateToken} from '@/api/auth'
+import { createRouter, createWebHistory } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { validateToken } from '@/api/auth'
 
 const routes = [
     {
         path: '/login',
         name: 'Login',
         component: () => import('@/views/auth/Login.vue'),
-        meta: {title: '登录', requiresAuth: false}
+        meta: { title: '登录', requiresAuth: false }
     },
     {
         path: '/register',
         name: 'Register',
         component: () => import('@/views/auth/Register.vue'),
-        meta: {title: '注册', requiresAuth: false}
+        meta: { title: '注册', requiresAuth: false }
     },
     {
         path: '/',
@@ -33,62 +33,62 @@ const routes = [
     {
         path: '/admin',
         component: () => import('@/layouts/AdminLayout.vue'),
-        meta: {requiresAuth: true},
+        meta: { requiresAuth: true },
         redirect: '/admin/chat',
         children: [
             {
                 path: 'chat',
                 name: 'Chat',
                 component: () => import('@/views/Portal.vue'),
-                meta: {title: '智能问答', requiresAuth: true}
+                meta: { title: '智能问答', requiresAuth: true }
             },
             {
                 path: 'apps',
                 name: 'AppList',
                 component: () => import('@/views/admin/AppList.vue'),
-                meta: {title: '应用列表', requiresAuth: true}
+                meta: { title: '应用列表', requiresAuth: true }
             },
             {
                 path: 'apps/create',
                 name: 'AppCreate',
                 component: () => import('@/views/admin/AppForm.vue'),
-                meta: {title: '创建应用', requiresAuth: true}
+                meta: { title: '创建应用', requiresAuth: true }
             },
             {
                 path: 'apps/edit/:id',
                 name: 'AppEdit',
                 component: () => import('@/views/admin/AppForm.vue'),
-                meta: {title: '编辑应用', requiresAuth: true}
+                meta: { title: '编辑应用', requiresAuth: true }
             },
             {
                 path: 'apps/detail/:id',
                 name: 'AppDetail',
                 component: () => import('@/views/admin/AppDetail.vue'),
-                meta: {title: '应用详情', requiresAuth: true}
+                meta: { title: '应用详情', requiresAuth: true }
             },
             {
                 path: 'users',
                 name: 'UserList',
                 component: () => import('@/views/admin/UserList.vue'),
-                meta: {title: '用户管理', requiresAuth: true, requiresAdmin: true}
+                meta: { title: '用户管理', requiresAuth: true, requiresAdmin: true }
             },
             {
                 path: 'kb-qa',
                 name: 'KnowledgeBaseQA',
                 component: () => import('@/views/admin/KnowledgeBaseQA.vue'),
-                meta: {title: '知识问答', requiresAuth: true, requiresAdmin: true}
+                meta: { title: '知识问答', requiresAuth: true, requiresAdmin: true }
             },
             {
                 path: 'knowledge-base',
                 name: 'KnowledgeBaseManagement',
                 component: () => import('@/views/admin/KnowledgeBaseManagement.vue'),
-                meta: {title: '知识管理', requiresAuth: true, requiresAdmin: true}
+                meta: { title: '知识管理', requiresAuth: true, requiresAdmin: true }
             },
             {
                 path: 'knowledge-base/:kbId/documents',
                 name: 'DocumentManagement',
                 component: () => import('@/views/admin/DocumentManagement.vue'),
-                meta: {title: '文档管理', requiresAuth: true, requiresAdmin: true}
+                meta: { title: '文档管理', requiresAuth: true, requiresAdmin: true }
             },
             {
                 path: 'knowledge-base/:kbId/documents/upload',
@@ -102,93 +102,99 @@ const routes = [
                 path: 'chat-history',
                 name: 'AdminChatHistory',
                 component: () => import('@/views/admin/ChatHistory.vue'),
-                meta: {title: '会话历史', requiresAuth: true, requiresAdmin: true}
+                meta: { title: '会话历史', requiresAuth: true, requiresAdmin: true }
             },
             {
                 path: 'models',
                 name: 'ModelManagement',
                 component: () => import('@/views/admin/ModelManagement.vue'),
-                meta: {title: '组件管理', requiresAuth: true, requiresAdmin: true}
+                meta: { title: '组件管理', requiresAuth: true, requiresAdmin: true }
             },
             {
                 path: 'system-config',
                 name: 'SystemConfig',
                 component: () => import('@/views/admin/SystemConfig.vue'),
-                meta: {title: '系统配置', requiresAuth: true, requiresAdmin: true}
+                meta: { title: '系统配置', requiresAuth: true, requiresAdmin: true }
             },
             {
                 path: 'ai-drawio',
                 name: 'AIDrawIO',
                 component: () => import('@/views/admin/AIDrawIO.vue'),
-                meta: {title: '智能框图', requiresAuth: true, requiresAdmin: true}
+                meta: { title: '智能框图', requiresAuth: true, requiresAdmin: true }
             },
             {
                 path: 'statistics',
                 name: 'Statistics',
                 component: () => import('@/views/admin/Statistics.vue'),
-                meta: {title: '数据统计', requiresAuth: true, requiresAdmin: true}
+                meta: { title: '数据统计', requiresAuth: true, requiresAdmin: true }
             },
             {
                 path: 'data-analysis',
                 name: 'DataAnalysis',
                 component: () => import('@/views/admin/DataAnalysis.vue'),
-                meta: {title: '数据分析', requiresAuth: true, requiresAdmin: true}
+                meta: { title: '数据分析', requiresAuth: true, requiresAdmin: true }
             },
             {
                 path: 'user-action-logs',
                 name: 'UserActionLog',
                 component: () => import('@/views/admin/UserActionLog.vue'),
-                meta: {title: '用户行为日志', requiresAuth: true, requiresAdmin: true}
+                meta: { title: '用户行为日志', requiresAuth: true, requiresAdmin: true }
+            },
+            {
+                path: 'observability',
+                name: 'Observability',
+                component: () => import('@/views/observability/LogList.vue'),
+                meta: { title: '日志监控', requiresAuth: true, requiresAdmin: true }
             },
             {
                 path: 'document-reader',
                 name: 'DocumentReaderManagement',
                 component: () => import('@/views/admin/DocumentReaderManagement.vue'),
-                meta: {title: '文档解读', requiresAuth: true}
+                meta: { title: '文档解读', requiresAuth: true }
             },
             {
                 path: 'document-reader/:docId',
                 name: 'DocumentReader',
                 component: () => import('@/views/admin/DocumentReader.vue'),
-                meta: {title: '文档解读', requiresAuth: true}
+                meta: { title: '文档解读', requiresAuth: true }
             },
         ]
     },
     {
         path: '/user',
         component: () => import('@/layouts/UserLayout.vue'),
-        meta: {requiresAuth: true},
+        meta: { requiresAuth: true },
         redirect: '/user/chat',
         children: [
             {
                 path: 'chat',
                 name: 'UserChat',
                 component: () => import('@/views/Portal.vue'),
-                meta: {title: '智能问答', requiresAuth: true}
+                meta: { title: '智能问答', requiresAuth: true }
             },
             {
                 path: 'apps',
                 name: 'UserAppList',
                 component: () => import('@/views/user/AppList.vue'),
-                meta: {title: '智能应用', requiresAuth: true}
+                meta: { title: '智能应用', requiresAuth: true }
             },
             {
                 path: 'kb-qa',
                 name: 'UserKnowledgeBaseQA',
                 component: () => import('@/views/user/KnowledgeBaseQA.vue'),
-                meta: {title: '知识检索', requiresAuth: true}
+                meta: { title: '知识检索', requiresAuth: true }
             },
             {
                 path: 'knowledge-base',
                 name: 'UserKnowledgeBaseManagement',
                 component: () => import('@/views/user/KnowledgeBaseManagement.vue'),
-                meta: {title: '知识管理', requiresAuth: true}
+                meta: { title: '知识管理', requiresAuth: true }
             },
             {
                 path: 'knowledge-base/:kbId/documents',
                 name: 'UserDocumentManagement',
                 component: () => import('@/views/user/DocumentManagement.vue'),
-                meta: {title: '文档管理', requiresAuth: true}
+                meta: { title: '文档管理', requiresAuth: true }
             },
             {
                 path: 'knowledge-base/:kbId/documents/upload',
@@ -202,44 +208,44 @@ const routes = [
                 path: 'chat-history',
                 name: 'UserChatHistory',
                 component: () => import('@/views/user/ChatHistory.vue'),
-                meta: {title: '会话历史', requiresAuth: true}
+                meta: { title: '会话历史', requiresAuth: true }
             },
             {
                 path: 'ai-drawio',
                 name: 'UserAIDrawIO',
                 component: () => import('@/views/user/AIDrawIO.vue'),
-                meta: {title: '智能框图', requiresAuth: true}
+                meta: { title: '智能框图', requiresAuth: true }
             },
             {
                 path: 'document-reader',
                 name: 'UserDocumentReaderManagement',
                 component: () => import('@/views/user/DocumentReaderManagement.vue'),
-                meta: {title: '文档解读', requiresAuth: true}
+                meta: { title: '文档解读', requiresAuth: true }
             },
             {
                 path: 'document-reader/:docId',
                 name: 'UserDocumentReader',
                 component: () => import('@/views/user/DocumentReader.vue'),
-                meta: {title: '文档解读', requiresAuth: true}
+                meta: { title: '文档解读', requiresAuth: true }
             }
         ]
     },
     {
         path: '/app',
         component: () => import('@/layouts/AppLayout.vue'),
-        meta: {requiresAuth: true},
+        meta: { requiresAuth: true },
         children: [
             {
                 path: 'chat/:id',
                 name: 'ChatApp',
                 component: () => import('@/views/app/ChatApp.vue'),
-                meta: {title: '聊天应用', requiresAuth: true}
+                meta: { title: '聊天应用', requiresAuth: true }
             },
             {
                 path: 'workflow/:id',
                 name: 'WorkflowApp',
                 component: () => import('@/views/app/WorkflowApp.vue'),
-                meta: {title: '工作流应用', requiresAuth: true}
+                meta: { title: '工作流应用', requiresAuth: true }
             }
         ]
     }
@@ -292,9 +298,9 @@ router.beforeEach(async (to, from, next) => {
     if (token && requiresAuth) {
         // 检查缓存
         const now = Date.now()
-        const cacheValid = tokenValidationCache.isValid !== null && 
-                          tokenValidationCache.timestamp !== null &&
-                          (now - tokenValidationCache.timestamp) < tokenValidationCache.cacheDuration
+        const cacheValid = tokenValidationCache.isValid !== null &&
+            tokenValidationCache.timestamp !== null &&
+            (now - tokenValidationCache.timestamp) < tokenValidationCache.cacheDuration
 
         if (!cacheValid) {
             // 缓存无效，进行验证

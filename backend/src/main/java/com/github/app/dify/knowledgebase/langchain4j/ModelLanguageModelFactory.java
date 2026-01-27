@@ -23,6 +23,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
 import reactor.netty.http.client.HttpClient;
 import io.netty.channel.ChannelOption;
 import reactor.util.function.Tuples;
@@ -33,56 +34,98 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.github.app.dify.observability.service.LLMTraceService;
+import java.util.UUID;
+
 /**
  * 模型语言模型工厂，根据模型配置动态创建模型实例
  */
 @Component
 public class ModelLanguageModelFactory {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(ModelLanguageModelFactory.class);
-    
+
     // 使用ThreadLocal存储当前请求的图片数据（用于多模态支持）
     private static final ThreadLocal<List<ChatRequest.ImageData>> imageDataContext = new ThreadLocal<>();
-    
+
+    // 使用ThreadLocal存储当前请求的Trace Source
+    private static final ThreadLocal<String> traceSourceContext = new ThreadLocal<>();
+
     @Autowired
     private ObjectMapper objectMapper;
-    
+
+    @Autowired
+    private LLMTraceService llmTraceService;
+
     /**
      * 设置当前请求的图片数据
      */
     public void setImageData(List<ChatRequest.ImageData> imageData) {
         imageDataContext.set(imageData);
     }
-    
+
+    /**
+     * 设置当前请求的Trace Source
+     */
+    public void setTraceSource(String traceSource) {
+        traceSourceContext.set(traceSource);
+    }
+
+    /**
+     * 清除当前请求的Trace Source
+     */
+    public void clearTraceSource() {
+        traceSourceContext.remove();
+    }
+
+    /**
+     * 获取当前请求的Trace Source
+     */
+    public static String getTraceSource() {
+        return traceSourceContext.get();
+    }
+
     /**
      * 清除当前请求的图片数据
      */
     public void clearImageData() {
         imageDataContext.remove();
     }
-    
+
     /**
      * 获取当前请求的图片数据
      */
     private List<com.github.app.dify.chat.req.ChatRequest.ImageData> getImageData() {
         return imageDataContext.get();
     }
-    
+
     /**
      * 创建非流式聊天模型
      */
     public ChatLanguageModel createChatLanguageModel(QAModel qaModel) {
+        String traceSource = getTraceSource();
         return new ChatLanguageModel() {
             private WebClient webClient;
-            
+
             @Override
             public Response<AiMessage> generate(List<ChatMessage> messages) {
+                String traceId = UUID.randomUUID().toString().replace("-", "");
                 try {
                     WebClient client = getWebClient(qaModel);
-                    
+
                     // 构建请求体
                     Map<String, Object> requestBody = buildRequestBody(messages, qaModel);
-                    
+
+                    // 记录开始
+                    String conversationId = null; // 暂时无法获取，或者从 ThreadLocal 获取
+                    try {
+                        String requestJson = objectMapper.writeValueAsString(requestBody);
+                        llmTraceService.recordStart(traceId, qaModel.getModel(), qaModel.getProvider(), conversationId,
+                                requestJson, traceSource);
+                    } catch (Exception e) {
+                        logger.warn("记录LLM Trace Start失败", e);
+                    }
+
                     // 调用LLM API，添加重试机制（增加重试次数和间隔）
                     String responseJson = client.post()
                             .uri("")
@@ -109,24 +152,24 @@ public class ModelLanguageModelFactory {
                                             // 检查 WebClientRequestException（可能包装了 Connection reset）
                                             if (current instanceof org.springframework.web.reactive.function.client.WebClientRequestException) {
                                                 String message = current.getMessage();
-                                                if (message != null && 
-                                                    (message.contains("Connection reset") ||
-                                                     message.contains("connection reset") ||
-                                                     message.contains("Connection refused") ||
-                                                     message.contains("connection refused"))) {
+                                                if (message != null &&
+                                                        (message.contains("Connection reset") ||
+                                                                message.contains("connection reset") ||
+                                                                message.contains("Connection refused") ||
+                                                                message.contains("connection refused"))) {
                                                     logger.warn("检测到连接错误（WebClientRequestException），将重试: {}", message);
                                                     return true;
                                                 }
                                             }
                                             // 检查异常消息中是否包含连接重置相关关键词
                                             String message = current.getMessage();
-                                            if (message != null && 
-                                                (message.contains("Connection reset") ||
-                                                 message.contains("connection reset") ||
-                                                 message.contains("Connection refused") ||
-                                                 message.contains("connection refused") ||
-                                                 message.contains("Broken pipe") ||
-                                                 message.contains("broken pipe"))) {
+                                            if (message != null &&
+                                                    (message.contains("Connection reset") ||
+                                                            message.contains("connection reset") ||
+                                                            message.contains("Connection refused") ||
+                                                            message.contains("connection refused") ||
+                                                            message.contains("Broken pipe") ||
+                                                            message.contains("broken pipe"))) {
                                                 logger.warn("检测到连接错误，将重试: {}", message);
                                                 return true;
                                             }
@@ -135,80 +178,116 @@ public class ModelLanguageModelFactory {
                                         }
                                         return false;
                                     })
-                                    .doBeforeRetry(retrySignal -> 
-                                        logger.info("重试LLM API调用，第{}次重试（总重试次数: {}）", 
-                                                retrySignal.totalRetries() + 1, retrySignal.totalRetriesInARow() + 1)))
+                                    .doBeforeRetry(retrySignal -> logger.info("重试LLM API调用，第{}次重试（总重试次数: {}）",
+                                            retrySignal.totalRetries() + 1, retrySignal.totalRetriesInARow() + 1)))
                             .block();
-                    
+
                     // 解析响应
                     String answer = parseResponse(responseJson);
-                    
+
+                    // 记录结束
+                    try {
+                        // 估算token (简单估算)
+                        int inputTokens = 0; // 暂时不计算
+                        int outputTokens = answer.length();
+                        int totalTokens = inputTokens + outputTokens;
+
+                        llmTraceService.recordEnd(traceId, responseJson, inputTokens, outputTokens, totalTokens);
+                    } catch (Exception e) {
+                        logger.warn("记录LLM Trace End失败", e);
+                    }
+
                     return Response.from(AiMessage.from(answer));
-                    
+
                 } catch (Exception e) {
                     logger.error("调用LLM API失败", e);
+                    try {
+                        llmTraceService.recordError(traceId, e.getMessage(), 0);
+                    } catch (Exception ex) {
+                        logger.warn("记录LLM Trace Error失败", ex);
+                    }
                     throw new BusinessException("调用LLM API失败", ErrorCode.API_CALL_FAILED, e);
                 }
             }
-            
+
             private WebClient getWebClient(QAModel model) {
                 if (webClient == null) {
                     String baseUrl = buildApiUrl(model);
                     ProviderType providerType = ProviderType.fromValue(model.getProvider());
-                    
+
                     // 配置 HttpClient 连接和读取超时
                     HttpClient httpClient = HttpClient.create()
                             .responseTimeout(Duration.ofSeconds(120))
                             .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000); // 30秒连接超时
-                    
+
                     WebClient.Builder builder = WebClient.builder()
                             .baseUrl(baseUrl)
-                            .clientConnector(new org.springframework.http.client.reactive.ReactorClientHttpConnector(httpClient))
+                            .clientConnector(
+                                    new org.springframework.http.client.reactive.ReactorClientHttpConnector(httpClient))
                             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                             .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024));
-                    
-                    if (providerType.requiresApiKey() && model.getApiKey() != null && !model.getApiKey().trim().isEmpty()) {
+
+                    if (providerType.requiresApiKey() && model.getApiKey() != null
+                            && !model.getApiKey().trim().isEmpty()) {
                         builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + model.getApiKey());
                     }
-                    
+
                     webClient = builder.build();
-                    logger.info("ChatLanguageModel WebClient已创建，Provider: {}, URL: {}", providerType.getValue(), baseUrl);
+                    logger.info("ChatLanguageModel WebClient已创建，Provider: {}, URL: {}", providerType.getValue(),
+                            baseUrl);
                 }
                 return webClient;
             }
         };
     }
-    
+
     /**
      * 创建流式聊天模型
      */
     public StreamingChatLanguageModel createStreamingChatLanguageModel(QAModel qaModel) {
+        String traceSource = getTraceSource();
         return new StreamingChatLanguageModel() {
             private WebClient webClient;
-            
+
             @Override
             public Flux<String> generateStream(List<ChatMessage> messages) {
+                String traceId = UUID.randomUUID().toString().replace("-", "");
                 try {
                     WebClient client = getWebClient(qaModel);
-                    
+
                     // 构建请求体（支持多模态）
                     Map<String, Object> requestBody = buildRequestBody(messages, qaModel);
                     requestBody.put("stream", true);
-                    
+
                     // 调用流式LLM API
                     ProviderType providerType = ProviderType.fromValue(qaModel.getProvider());
                     logger.info("发送流式请求 - Provider: {}, Model: {}", providerType.getValue(), qaModel.getModel());
 
+                    // 记录开始
+                    String conversationId = null;
+                    try {
+                        String requestJson = objectMapper.writeValueAsString(requestBody);
+                        llmTraceService.recordStart(traceId, qaModel.getModel(), qaModel.getProvider(), conversationId,
+                                requestJson, traceSource);
+                    } catch (Exception e) {
+                        logger.warn("记录Stream LLM Trace Start失败", e);
+                    }
+
+                    StringBuffer fullResponse = new StringBuffer();
+
                     return client.post()
                             .uri("")
-                            .accept(MediaType.TEXT_EVENT_STREAM, MediaType.APPLICATION_NDJSON, MediaType.APPLICATION_JSON)
+                            .accept(MediaType.TEXT_EVENT_STREAM, MediaType.APPLICATION_NDJSON,
+                                    MediaType.APPLICATION_JSON)
                             .bodyValue(requestBody)
                             .retrieve()
                             .onStatus(HttpStatusCode::isError, response -> {
                                 logger.error("LLM API 返回错误状态: {}", response.statusCode());
                                 return response.bodyToMono(String.class)
-                                        .doOnNext(body -> logger.error("错误响应体: {}", body.length() > 500 ? body.substring(0, 500) + "..." : body))
-                                        .then(Mono.error(new BusinessException("LLM API错误", ErrorCode.API_CALL_FAILED)));
+                                        .doOnNext(body -> logger.error("错误响应体: {}",
+                                                body.length() > 500 ? body.substring(0, 500) + "..." : body))
+                                        .then(Mono
+                                                .error(new BusinessException("LLM API错误", ErrorCode.API_CALL_FAILED)));
                             })
                             .bodyToFlux(DataBuffer.class)
                             .timeout(Duration.ofSeconds(300))
@@ -224,21 +303,22 @@ public class ModelLanguageModelFactory {
                                             }
                                             if (current instanceof org.springframework.web.reactive.function.client.WebClientRequestException) {
                                                 String message = current.getMessage();
-                                                if (message != null && 
-                                                    (message.contains("Connection reset") ||
-                                                     message.contains("connection reset") ||
-                                                     message.contains("Connection refused") ||
-                                                     message.contains("connection refused"))) {
-                                                    logger.warn("流式响应检测到连接错误（WebClientRequestException），将重试: {}", message);
+                                                if (message != null &&
+                                                        (message.contains("Connection reset") ||
+                                                                message.contains("connection reset") ||
+                                                                message.contains("Connection refused") ||
+                                                                message.contains("connection refused"))) {
+                                                    logger.warn("流式响应检测到连接错误（WebClientRequestException），将重试: {}",
+                                                            message);
                                                     return true;
                                                 }
                                             }
                                             String message = current.getMessage();
-                                            if (message != null && 
-                                                (message.contains("Connection reset") ||
-                                                 message.contains("connection reset") ||
-                                                 message.contains("Connection refused") ||
-                                                 message.contains("connection refused"))) {
+                                            if (message != null &&
+                                                    (message.contains("Connection reset") ||
+                                                            message.contains("connection reset") ||
+                                                            message.contains("Connection refused") ||
+                                                            message.contains("connection refused"))) {
                                                 logger.warn("流式响应检测到连接错误，将重试: {}", message);
                                                 return true;
                                             }
@@ -246,9 +326,8 @@ public class ModelLanguageModelFactory {
                                         }
                                         return false;
                                     })
-                                    .doBeforeRetry(retrySignal -> 
-                                        logger.info("重试流式LLM API调用，第{}次重试（总重试次数: {}）", 
-                                                retrySignal.totalRetries() + 1, retrySignal.totalRetriesInARow() + 1)))
+                                    .doBeforeRetry(retrySignal -> logger.info("重试流式LLM API调用，第{}次重试（总重试次数: {}）",
+                                            retrySignal.totalRetries() + 1, retrySignal.totalRetriesInARow() + 1)))
                             .doOnError(error -> {
                                 logger.error("接收流式响应时发生错误", error);
                             })
@@ -290,42 +369,72 @@ public class ModelLanguageModelFactory {
                                     logger.warn("解析流式响应块失败，跳过该行: {}",
                                             line.length() > 100 ? line.substring(0, 100) + "..." : line, e);
                                 }
+                            })
+                            .doOnNext(chunk -> {
+                                if (chunk != null) {
+                                    fullResponse.append(chunk);
+                                }
+                            })
+                            .doOnComplete(() -> {
+                                try {
+                                    int outputTokens = fullResponse.length(); // 简单估算
+                                    llmTraceService.recordEnd(traceId, fullResponse.toString(), 0, outputTokens,
+                                            outputTokens);
+                                } catch (Exception e) {
+                                    logger.warn("记录Stream LLM Trace End失败", e);
+                                }
+                            })
+                            .doOnError(e -> {
+                                try {
+                                    llmTraceService.recordError(traceId, e.getMessage(), 0);
+                                } catch (Exception ex) {
+                                    logger.warn("记录Stream LLM Trace Error失败", ex);
+                                }
+                            })
+                            .doFinally(signalType -> {
+                                if (signalType == SignalType.CANCEL) {
+                                    logger.info("Stream cancelled by client, traceId: {}", traceId);
+                                    // Optionally record as error or just specialized log
+                                }
                             });
-                    
+
                 } catch (Exception e) {
                     logger.error("调用流式LLM API失败", e);
                     return Flux.error(new BusinessException("调用流式LLM API失败", ErrorCode.API_CALL_FAILED, e));
                 }
             }
-            
+
             private WebClient getWebClient(QAModel model) {
                 if (webClient == null) {
                     String baseUrl = buildApiUrl(model);
                     ProviderType providerType = ProviderType.fromValue(model.getProvider());
-                    
+
                     // 配置 HttpClient 连接和读取超时（流式请求需要更长的超时时间）
                     HttpClient httpClient = HttpClient.create()
                             .responseTimeout(Duration.ofSeconds(300))
                             .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000); // 30秒连接超时
-                    
+
                     WebClient.Builder builder = WebClient.builder()
                             .baseUrl(baseUrl)
-                            .clientConnector(new org.springframework.http.client.reactive.ReactorClientHttpConnector(httpClient))
+                            .clientConnector(
+                                    new org.springframework.http.client.reactive.ReactorClientHttpConnector(httpClient))
                             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                             .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024));
-                    
-                    if (providerType.requiresApiKey() && model.getApiKey() != null && !model.getApiKey().trim().isEmpty()) {
+
+                    if (providerType.requiresApiKey() && model.getApiKey() != null
+                            && !model.getApiKey().trim().isEmpty()) {
                         builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + model.getApiKey());
                     }
-                    
+
                     webClient = builder.build();
-                    logger.info("StreamingChatLanguageModel WebClient已创建，Provider: {}, URL: {}", providerType.getValue(), baseUrl);
+                    logger.info("StreamingChatLanguageModel WebClient已创建，Provider: {}, URL: {}",
+                            providerType.getValue(), baseUrl);
                 }
                 return webClient;
             }
         };
     }
-    
+
     /**
      * 构建请求体
      */
@@ -333,30 +442,30 @@ public class ModelLanguageModelFactory {
         // 从ThreadLocal获取图片数据
         List<com.github.app.dify.chat.req.ChatRequest.ImageData> imageDataList = getImageData();
         Map<String, Object> requestBody = new HashMap<>();
-        
+
         // 检查是否支持多模态
-        boolean supportsMultimodal = qaModel != null && 
-                                    Boolean.TRUE.equals(qaModel.getSupportsMultimodal()) &&
-                                    Boolean.TRUE.equals(qaModel.getSupportsVision());
+        boolean supportsMultimodal = qaModel != null &&
+                Boolean.TRUE.equals(qaModel.getSupportsMultimodal()) &&
+                Boolean.TRUE.equals(qaModel.getSupportsVision());
         boolean hasImages = imageDataList != null && !imageDataList.isEmpty();
         boolean useMultimodal = supportsMultimodal && hasImages;
-        
+
         // 转换消息格式
         List<Map<String, Object>> apiMessages = new ArrayList<>();
         for (ChatMessage message : messages) {
             Map<String, Object> apiMessage = new HashMap<>();
-            
+
             if (message instanceof SystemMessage) {
                 apiMessage.put("role", "system");
                 apiMessage.put("content", ((SystemMessage) message).text());
             } else if (message instanceof UserMessage) {
                 apiMessage.put("role", "user");
-                
+
                 // 如果是最后一条用户消息且支持多模态，构建多模态消息
                 if (useMultimodal && message == messages.get(messages.size() - 1)) {
                     // 构建多模态消息格式（OpenAI Vision API格式）
                     List<Map<String, Object>> contentList = new ArrayList<>();
-                    
+
                     // 添加文本内容
                     String textContent = ((UserMessage) message).singleText();
                     if (textContent != null && !textContent.trim().isEmpty()) {
@@ -365,17 +474,17 @@ public class ModelLanguageModelFactory {
                         textItem.put("text", textContent);
                         contentList.add(textItem);
                     }
-                    
+
                     // 添加图片内容
                     int imageCount = 0;
                     if (imageDataList != null) {
                         for (ChatRequest.ImageData imageData : imageDataList) {
-                        Map<String, Object> imageItem = new HashMap<>();
-                        imageItem.put("type", "image_url");
-                        Map<String, String> imageUrl = new HashMap<>();
-                        // 使用base64格式：data:image/png;base64,{base64_data}
-                        imageUrl.put("url", "data:" + imageData.getMimeType() + ";base64," + imageData.getBase64());
-                        imageItem.put("image_url", imageUrl);
+                            Map<String, Object> imageItem = new HashMap<>();
+                            imageItem.put("type", "image_url");
+                            Map<String, String> imageUrl = new HashMap<>();
+                            // 使用base64格式：data:image/png;base64,{base64_data}
+                            imageUrl.put("url", "data:" + imageData.getMimeType() + ";base64," + imageData.getBase64());
+                            imageItem.put("image_url", imageUrl);
                             contentList.add(imageItem);
                             imageCount++;
                         }
@@ -391,23 +500,23 @@ public class ModelLanguageModelFactory {
                 apiMessage.put("role", "assistant");
                 apiMessage.put("content", ((AiMessage) message).text());
             }
-            
+
             apiMessages.add(apiMessage);
         }
-        
+
         requestBody.put("messages", apiMessages);
         requestBody.put("stream", false);
         requestBody.put("temperature", 0.7);
         requestBody.put("max_tokens", 2000);
-        
+
         // 添加模型名称
         if (qaModel != null && qaModel.getModel() != null && !qaModel.getModel().trim().isEmpty()) {
             requestBody.put("model", qaModel.getModel());
         }
-        
+
         return requestBody;
     }
-    
+
     /**
      * 解析非流式响应
      * 支持多种格式：
@@ -420,10 +529,10 @@ public class ModelLanguageModelFactory {
             logger.warn("响应JSON为空");
             return "响应为空";
         }
-        
+
         try {
             com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(responseJson);
-            
+
             // OpenAI格式：{"choices":[{"message":{"content":"answer"}}]}
             if (root.has("choices") && root.get("choices").isArray() && !root.get("choices").isEmpty()) {
                 com.fasterxml.jackson.databind.JsonNode choice = root.get("choices").get(0);
@@ -437,7 +546,7 @@ public class ModelLanguageModelFactory {
                     return choice.get("text").asText();
                 }
             }
-            
+
             // Ollama格式：{"message":{"content":"answer"}}
             if (root.has("message")) {
                 com.fasterxml.jackson.databind.JsonNode message = root.get("message");
@@ -445,20 +554,20 @@ public class ModelLanguageModelFactory {
                     return message.get("content").asText();
                 }
             }
-            
+
             // 通用格式
             if (root.has("text")) {
                 return root.get("text").asText();
             }
-            
+
             if (root.has("content")) {
                 return root.get("content").asText();
             }
-            
-            logger.warn("无法解析LLM响应格式，返回原始JSON（前500字符）: {}", 
+
+            logger.warn("无法解析LLM响应格式，返回原始JSON（前500字符）: {}",
                     responseJson.length() > 500 ? responseJson.substring(0, 500) + "..." : responseJson);
             return responseJson;
-            
+
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             logger.error("解析LLM响应JSON失败: {}", e.getMessage());
             return "解析响应失败: " + e.getMessage();
@@ -467,7 +576,7 @@ public class ModelLanguageModelFactory {
             return "解析响应失败: " + e.getMessage();
         }
     }
-    
+
     /**
      * 解析流式响应块
      * 支持多种格式：
@@ -480,37 +589,37 @@ public class ModelLanguageModelFactory {
         if (line == null || line.trim().isEmpty()) {
             return null;
         }
-        
+
         try {
             String jsonStr = extractJsonString(line);
             if (jsonStr == null || jsonStr.isEmpty()) {
                 return null;
             }
-            
+
             com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(jsonStr);
-            
+
             // 优先处理Ollama新格式：{"message":{"role":"assistant","content":"token"},"done":false}
             String content = extractFromOllamaMessage(root);
             if (content != null) {
                 return content;
             }
-            
+
             // 处理Ollama旧格式：{"response":"token","done":false}
             content = extractFromOllamaResponse(root);
             if (content != null) {
                 return content;
             }
-            
+
             // 处理OpenAI兼容格式：{"choices":[{"delta":{"content":"token"}}]}
             content = extractFromOpenAIChoices(root);
             if (content != null) {
                 return content;
             }
-            
+
             // 处理其他可能的格式
             content = extractFromGenericFields(root);
             return content;
-            
+
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             // JSON解析失败，可能是非JSON行（如空行、注释等），静默跳过
             return null;
@@ -519,13 +628,13 @@ public class ModelLanguageModelFactory {
             return null;
         }
     }
-    
+
     /**
      * 从行中提取JSON字符串
      */
     private String extractJsonString(String line) {
         String trimmed = line.trim();
-        
+
         // SSE格式：data: {...}
         if (trimmed.startsWith("data: ")) {
             String jsonStr = trimmed.substring(6).trim();
@@ -534,15 +643,15 @@ public class ModelLanguageModelFactory {
             }
             return jsonStr;
         }
-        
+
         // 纯JSON行格式：直接是JSON对象
         if (trimmed.startsWith("{")) {
             return trimmed;
         }
-        
+
         return null;
     }
-    
+
     /**
      * 从Ollama message格式中提取content
      * 格式：{"message":{"role":"assistant","content":"token"},"done":false}
@@ -551,24 +660,24 @@ public class ModelLanguageModelFactory {
         if (!root.has("message")) {
             return null;
         }
-        
+
         com.fasterxml.jackson.databind.JsonNode message = root.get("message");
         if (!message.has("content")) {
             return null;
         }
-        
+
         String content = message.get("content").asText();
         boolean done = root.has("done") && root.get("done").asBoolean();
-        
+
         // 如果done为true且content为空，表示流结束
         if (done && content.isEmpty()) {
             return null;
         }
-        
+
         // 返回content（即使done为true，如果content不为空，也应该返回最后一个token）
         return content.isEmpty() ? null : content;
     }
-    
+
     /**
      * 从Ollama旧格式中提取response
      * 格式：{"response":"token","done":false}
@@ -577,17 +686,17 @@ public class ModelLanguageModelFactory {
         if (!root.has("response")) {
             return null;
         }
-        
+
         String response = root.get("response").asText();
         boolean done = root.has("done") && root.get("done").asBoolean();
-        
+
         if (done && response.isEmpty()) {
             return null;
         }
-        
+
         return response.isEmpty() ? null : response;
     }
-    
+
     /**
      * 从OpenAI兼容格式中提取content
      * 格式：{"choices":[{"delta":{"content":"token"}}]}
@@ -596,9 +705,9 @@ public class ModelLanguageModelFactory {
         if (!root.has("choices") || !root.get("choices").isArray() || root.get("choices").isEmpty()) {
             return null;
         }
-        
+
         com.fasterxml.jackson.databind.JsonNode choice = root.get("choices").get(0);
-        
+
         // 优先从delta中获取content
         if (choice.has("delta")) {
             com.fasterxml.jackson.databind.JsonNode delta = choice.get("delta");
@@ -606,15 +715,15 @@ public class ModelLanguageModelFactory {
                 return delta.get("content").asText();
             }
         }
-        
+
         // 如果没有delta，尝试从text字段获取
         if (choice.has("text")) {
             return choice.get("text").asText();
         }
-        
+
         return null;
     }
-    
+
     /**
      * 从通用字段中提取内容
      * 支持：text、content等字段
@@ -624,27 +733,27 @@ public class ModelLanguageModelFactory {
             String text = root.get("text").asText();
             return text.isEmpty() ? null : text;
         }
-        
+
         if (root.has("content")) {
             String content = root.get("content").asText();
             return content.isEmpty() ? null : content;
         }
-        
+
         return null;
     }
-    
+
     /**
      * 根据 provider 类型构建完整的 API URL
      */
     private String buildApiUrl(QAModel qaModel) {
         String apiUrl = qaModel.getApiUrl();
         ProviderType providerType = ProviderType.fromValue(qaModel.getProvider());
-        
+
         // 如果 URL 已经包含路径（包含 /api/ 或 /v1/），则直接使用
         if (apiUrl.contains("/api/") || apiUrl.contains("/v1/")) {
             return apiUrl;
         }
-        
+
         // 根据 provider 类型添加相应的路径
         String path = providerType.getChatPath();
         return apiUrl.endsWith("/") ? apiUrl + path.substring(1) : apiUrl + path;

@@ -76,6 +76,12 @@
             <span>行为日志</span>
           </el-menu-item>
         </el-tooltip>
+        <el-tooltip v-if="isAdmin" content="日志监控" placement="right" :show-after="200">
+          <el-menu-item index="/admin/observability">
+            <el-icon><Monitor /></el-icon>
+            <span>日志监控</span>
+          </el-menu-item>
+        </el-tooltip>
       </template>
     </el-menu>
   </el-aside>
@@ -91,7 +97,8 @@ import {
   Setting,
   User,
   Tools,
-  Document
+  Document,
+  Monitor
 } from '@element-plus/icons-vue'
 
 const props = defineProps({

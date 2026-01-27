@@ -79,7 +79,9 @@ public class DrawIOServiceImpl implements DrawIOService {
             String userPrompt = buildUserPrompt(request.getPrompt(), request.getDiagramType());
 
             // 创建模型实例
+            modelLanguageModelFactory.setTraceSource("DrawIO Generate");
             ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+            modelLanguageModelFactory.clearTraceSource();
 
             // 构建消息
             List<ChatMessage> messages = List.of(
@@ -126,7 +128,9 @@ public class DrawIOServiceImpl implements DrawIOService {
             String userPrompt = buildModifyUserPrompt(request.getDiagramJson(), request.getPrompt());
 
             // 创建模型实例
+            modelLanguageModelFactory.setTraceSource("DrawIO Modify");
             ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+            modelLanguageModelFactory.clearTraceSource();
 
             // 构建消息
             List<ChatMessage> messages = List.of(

@@ -39,24 +39,24 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 @Service
 public class ChatServiceImpl implements ChatService {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(ChatServiceImpl.class);
-    
+
     @Autowired
     private QAModelRepository qaModelRepository;
-    
+
     @Autowired
     private ModelLanguageModelFactory modelLanguageModelFactory;
-    
+
     @Autowired
     private ContextCompressionService contextCompressionService;
-    
+
     @Autowired
     private ChatHistoryService chatHistoryService;
-    
+
     @Autowired
     private McpBrowserSearchService mcpBrowserSearchService;
-    
+
     @Autowired
     private McpTimeService mcpTimeService;
 
@@ -71,27 +71,28 @@ public class ChatServiceImpl implements ChatService {
             if (qaModel == null) {
                 throw new IllegalStateException("未找到可用的问答模型，请先配置模型");
             }
-            
+
             logger.info("使用问答模型: {} (ID: {})", qaModel.getName(), qaModel.getId());
-            
+
+            modelLanguageModelFactory.setTraceSource("Chat");
             // 创建模型实例
-            ChatLanguageModel chatLanguageModel = 
-                    modelLanguageModelFactory.createChatLanguageModel(qaModel);
-            
+            ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+            modelLanguageModelFactory.clearTraceSource();
+
             // 如果启用了MCP支持，直接使用浏览器检索（不再进行检测）
             String browserSearchContext = "";
             if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
                 logger.debug("MCP支持已开启，直接启用浏览器检索 - 查询: {}", request.getQuestion());
                 try {
-                    List<McpBrowserSearchService.SearchResult> searchResults = 
-                            mcpBrowserSearchService.search(request.getQuestion(), 5);
+                    List<McpBrowserSearchService.SearchResult> searchResults = mcpBrowserSearchService
+                            .search(request.getQuestion(), 5);
                     if (searchResults != null && !searchResults.isEmpty()) {
                         browserSearchContext = mcpBrowserSearchService.formatSearchResultsForContext(searchResults);
                         logger.info("浏览器检索完成 - 找到 {} 个结果", searchResults.size());
                         // 记录检索结果详情（仅记录前200字符，避免日志过长）
-                        logger.trace("检索结果预览: {}", 
-                                browserSearchContext.length() > 200 ? 
-                                browserSearchContext.substring(0, 200) + "..." : browserSearchContext);
+                        logger.trace("检索结果预览: {}",
+                                browserSearchContext.length() > 200 ? browserSearchContext.substring(0, 200) + "..."
+                                        : browserSearchContext);
                     } else {
                         logger.debug("浏览器检索未找到结果 - 查询: {}", request.getQuestion());
                         // 即使没有找到结果，也告知LLM已尝试检索
@@ -106,52 +107,51 @@ public class ChatServiceImpl implements ChatService {
             } else {
                 logger.debug("MCP支持已关闭，跳过浏览器检索");
             }
-            
+
             // 构建消息列表（包含历史对话）
             List<ChatMessage> messages = buildMessages(request, browserSearchContext, qaModel, userId);
-            
+
             // 记录历史对话信息
             if (request.getHistory() != null && !request.getHistory().isEmpty()) {
                 logger.debug("使用历史对话，历史消息数量: {}", request.getHistory().size());
             }
             logger.trace("构建的消息列表大小: {}", messages.size());
-            
+
             // 应用上下文压缩策略（转换为KnowledgeBaseQARequest格式以复用压缩逻辑）
             com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest kbRequest = convertToKBQARequest(request);
             messages = contextCompressionService.compressContext(messages, kbRequest);
             logger.debug("压缩后的消息列表大小: {}", messages.size());
-            
-                // 设置图片数据到ThreadLocal（用于多模态支持）
-                try {
-                    if (request.getImages() != null && !request.getImages().isEmpty()) {
-                        modelLanguageModelFactory.setImageData(request.getImages());
-                        logger.debug("已设置图片数据到模型工厂，图片数量: {}", request.getImages().size());
-                    }
-                
+
+            // 设置图片数据到ThreadLocal（用于多模态支持）
+            try {
+                if (request.getImages() != null && !request.getImages().isEmpty()) {
+                    modelLanguageModelFactory.setImageData(request.getImages());
+                    logger.debug("已设置图片数据到模型工厂，图片数量: {}", request.getImages().size());
+                }
+
                 // 调用LLM生成答案
                 Response<AiMessage> response = chatLanguageModel.generate(messages);
                 String answer = response.content().text();
-                
+
                 // 提取token使用信息
                 Long promptTokens = null;
                 Long completionTokens = null;
                 Long totalTokens = null;
-                
+
                 // 尝试从Response中获取token使用信息
                 logger.debug("开始获取Token使用信息...");
                 try {
                     // langchain4j的Response可能包含tokenUsage信息
                     dev.langchain4j.model.output.TokenUsage tokenUsage = response.tokenUsage();
                     logger.debug("调用tokenUsage()方法成功，结果: {}", tokenUsage != null ? "非null" : "null");
-                    
+
                     if (tokenUsage != null) {
-                        promptTokens = tokenUsage.inputTokenCount() != null ? 
-                                (long) tokenUsage.inputTokenCount() : null;
-                        completionTokens = tokenUsage.outputTokenCount() != null ? 
-                                (long) tokenUsage.outputTokenCount() : null;
-                        totalTokens = tokenUsage.totalTokenCount() != null ? 
-                                (long) tokenUsage.totalTokenCount() : null;
-                        logger.info("✓ 从Response获取到Token使用信息 - Prompt: {}, Completion: {}, Total: {}", 
+                        promptTokens = tokenUsage.inputTokenCount() != null ? (long) tokenUsage.inputTokenCount()
+                                : null;
+                        completionTokens = tokenUsage.outputTokenCount() != null ? (long) tokenUsage.outputTokenCount()
+                                : null;
+                        totalTokens = tokenUsage.totalTokenCount() != null ? (long) tokenUsage.totalTokenCount() : null;
+                        logger.info("✓ 从Response获取到Token使用信息 - Prompt: {}, Completion: {}, Total: {}",
                                 promptTokens, completionTokens, totalTokens);
                     } else {
                         logger.warn("Response对象中tokenUsage为null，将使用估算方法");
@@ -161,7 +161,7 @@ public class ChatServiceImpl implements ChatService {
                         promptTokens = estimated[0];
                         completionTokens = estimated[1];
                         totalTokens = estimated[2];
-                        logger.info("✓ 使用估算方法获取Token - Prompt: {}, Completion: {}, Total: {}", 
+                        logger.info("✓ 使用估算方法获取Token - Prompt: {}, Completion: {}, Total: {}",
                                 promptTokens, completionTokens, totalTokens);
                     }
                 } catch (NoSuchMethodError e) {
@@ -172,8 +172,8 @@ public class ChatServiceImpl implements ChatService {
                     promptTokens = estimated[0];
                     completionTokens = estimated[1];
                     totalTokens = estimated[2];
-                    logger.info("✓ 使用估算方法获取Token - Prompt: {}, Completion: {}, Total: {}", 
-                                promptTokens, completionTokens, totalTokens);
+                    logger.info("✓ 使用估算方法获取Token - Prompt: {}, Completion: {}, Total: {}",
+                            promptTokens, completionTokens, totalTokens);
                 } catch (Exception e) {
                     logger.warn("获取Token使用信息时发生异常: {}，将使用估算方法", e.getMessage());
                     logger.debug("Token获取异常详情", e);
@@ -183,13 +183,13 @@ public class ChatServiceImpl implements ChatService {
                     promptTokens = estimated[0];
                     completionTokens = estimated[1];
                     totalTokens = estimated[2];
-                    logger.info("✓ 使用估算方法获取Token - Prompt: {}, Completion: {}, Total: {}", 
-                                promptTokens, completionTokens, totalTokens);
+                    logger.info("✓ 使用估算方法获取Token - Prompt: {}, Completion: {}, Total: {}",
+                            promptTokens, completionTokens, totalTokens);
                 }
-                
-                logger.info("最终Token值 - Prompt: {}, Completion: {}, Total: {}", 
+
+                logger.info("最终Token值 - Prompt: {}, Completion: {}, Total: {}",
                         promptTokens, completionTokens, totalTokens);
-                
+
                 // 构建响应（包含保存历史记录）
                 return buildChatResponse(answer, request, userId, null, qaModel.getId(),
                         promptTokens, completionTokens, totalTokens);
@@ -197,18 +197,18 @@ public class ChatServiceImpl implements ChatService {
                 // 清除ThreadLocal数据
                 modelLanguageModelFactory.clearImageData();
             }
-            
+
         } catch (Exception e) {
             logger.error("智能问答失败", e);
             throw new BusinessException("智能问答失败，请稍后重试", ErrorCode.SYSTEM_BUSY, e);
         }
     }
-    
+
     /**
      * 构建聊天响应
      */
     private ChatResponse buildChatResponse(String answer, ChatRequest request, Long userId, Long conversationId,
-                                          Long modelId, Long promptTokens, Long completionTokens, Long totalTokens) {
+            Long modelId, Long promptTokens, Long completionTokens, Long totalTokens) {
         // 保存历史记录
         if (userId != null && conversationId == null) {
             try {
@@ -222,18 +222,19 @@ public class ChatServiceImpl implements ChatService {
                 }
                 conversationId = chatHistoryService.getOrCreateConversation(
                         userId, requestConversationId, 1, null, null, request.getQuestion());
-                logger.info("非流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}", 
+                logger.info("非流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}",
                         requestConversationId, conversationId);
                 // 保存用户消息（不需要token信息）
                 chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
                 // 保存助手消息（带token信息）
-                logger.info("准备保存助手消息 - conversationId: {}, modelId: {}, tokens: {}/{}/{}", 
+                logger.info("准备保存助手消息 - conversationId: {}, modelId: {}, tokens: {}/{}/{}",
                         conversationId, modelId, promptTokens, completionTokens, totalTokens);
-                chatHistoryService.saveMessage(conversationId, "assistant", answer, 
+                chatHistoryService.saveMessage(conversationId, "assistant", answer,
                         modelId, promptTokens, completionTokens, totalTokens);
                 logger.info("✓ 助手消息已保存");
                 try {
-                    userMemoryService.updateMemoryAsync(userId, request.getQuestion(), answer, modelId, conversationId, "chat", null);
+                    userMemoryService.updateMemoryAsync(userId, request.getQuestion(), answer, modelId, conversationId,
+                            "chat", null);
                 } catch (Exception e) {
                     logger.debug("触发异步记忆更新失败", e);
                 }
@@ -242,17 +243,17 @@ public class ChatServiceImpl implements ChatService {
                 // 不抛出异常，避免影响主流程
             }
         }
-        
+
         // 构建响应
         ChatResponse chatResponse = new ChatResponse();
         chatResponse.setAnswer(answer);
         chatResponse.setConversationId(conversationId);
-        
+
         logger.info("智能问答完成 - 问题: {}", request.getQuestion());
-        
+
         return chatResponse;
     }
-    
+
     @Override
     public Flux<ChatResponse> chatStream(ChatRequest request, Long userId) {
         try {
@@ -261,28 +262,30 @@ public class ChatServiceImpl implements ChatService {
             if (qaModel == null) {
                 return Flux.error(new IllegalStateException("未找到可用的问答模型，请先配置模型"));
             }
-            
+
             logger.info("使用问答模型（流式）: {} (ID: {})", qaModel.getName(), qaModel.getId());
-            
+
+            modelLanguageModelFactory.setTraceSource("Chat");
             // 创建流式模型实例
-            StreamingChatLanguageModel streamingChatLanguageModel = 
-                    modelLanguageModelFactory.createStreamingChatLanguageModel(qaModel);
-            
+            StreamingChatLanguageModel streamingChatLanguageModel = modelLanguageModelFactory
+                    .createStreamingChatLanguageModel(qaModel);
+            modelLanguageModelFactory.clearTraceSource();
+
             // 如果启用了MCP支持，直接使用浏览器检索（不再进行检测）
             String browserSearchContext = "";
             if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
                 logger.info("MCP支持已开启（流式），直接启用浏览器检索 - 查询: {}", request.getQuestion());
                 try {
-                    List<McpBrowserSearchService.SearchResult> searchResults = 
-                            mcpBrowserSearchService.search(request.getQuestion(), 5);
+                    List<McpBrowserSearchService.SearchResult> searchResults = mcpBrowserSearchService
+                            .search(request.getQuestion(), 5);
                     if (searchResults != null && !searchResults.isEmpty()) {
                         browserSearchContext = mcpBrowserSearchService.formatSearchResultsForContext(searchResults);
-                        logger.info("浏览器检索完成（流式） - 找到 {} 个结果，检索内容长度: {} 字符", 
+                        logger.info("浏览器检索完成（流式） - 找到 {} 个结果，检索内容长度: {} 字符",
                                 searchResults.size(), browserSearchContext.length());
                         // 记录检索结果详情（仅记录前200字符，避免日志过长）
-                        logger.debug("检索结果预览（流式）: {}", 
-                                browserSearchContext.length() > 200 ? 
-                                browserSearchContext.substring(0, 200) + "..." : browserSearchContext);
+                        logger.debug("检索结果预览（流式）: {}",
+                                browserSearchContext.length() > 200 ? browserSearchContext.substring(0, 200) + "..."
+                                        : browserSearchContext);
                     } else {
                         logger.warn("浏览器检索未找到结果（流式） - 查询: {}", request.getQuestion());
                         // 即使没有找到结果，也告知LLM已尝试检索
@@ -297,21 +300,21 @@ public class ChatServiceImpl implements ChatService {
             } else {
                 logger.info("MCP支持已关闭（流式），跳过浏览器检索");
             }
-            
+
             // 构建消息列表（包含历史对话）
             List<ChatMessage> messages = buildMessages(request, browserSearchContext, qaModel, userId);
-            
+
             // 应用上下文压缩策略（转换为KnowledgeBaseQARequest格式以复用压缩逻辑）
             com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest kbRequest = convertToKBQARequest(request);
             final List<ChatMessage> finalMessages = contextCompressionService.compressContext(messages, kbRequest);
             logger.debug("压缩后的消息列表大小（流式）: {}", finalMessages.size());
-            
+
             // 设置图片数据到ThreadLocal（用于多模态支持）
             if (request.getImages() != null && !request.getImages().isEmpty()) {
                 modelLanguageModelFactory.setImageData(request.getImages());
                 logger.debug("已设置图片数据到模型工厂（流式），图片数量: {}", request.getImages().size());
             }
-            
+
             // 调用流式LLM生成答案
             logger.info("开始调用流式LLM生成答案 - 消息数量: {}", finalMessages.size());
             Flux<String> tokenFlux = streamingChatLanguageModel.generateStream(finalMessages)
@@ -331,7 +334,7 @@ public class ChatServiceImpl implements ChatService {
                     .doOnError(error -> {
                         logger.error("token流发生错误", error);
                     });
-            
+
             // 在流式响应开始前，先创建或获取会话（这样可以在第一个数据包就返回 conversationId）
             final AtomicReference<Long> conversationIdRef = new AtomicReference<>(null);
             if (userId != null) {
@@ -347,7 +350,7 @@ public class ChatServiceImpl implements ChatService {
                     Long conversationId = chatHistoryService.getOrCreateConversation(
                             userId, requestConversationId, 1, null, null, request.getQuestion());
                     conversationIdRef.set(conversationId);
-                    logger.info("流式响应开始 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}", 
+                    logger.info("流式响应开始 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}",
                             requestConversationId, conversationId);
                     // 先保存用户消息（不需要token信息）
                     chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
@@ -356,10 +359,10 @@ public class ChatServiceImpl implements ChatService {
                     // 不抛出异常，避免影响主流程
                 }
             }
-            
+
             // 使用scan累积答案，并保存最后一个完整答案
             final AtomicReference<String> lastAnswer = new AtomicReference<>("");
-            
+
             return tokenFlux
                     .scan("", (accumulated, token) -> {
                         String newAccumulated = accumulated + token;
@@ -389,27 +392,30 @@ public class ChatServiceImpl implements ChatService {
                     .concatWith(Flux.defer(() -> {
                         String finalAnswer = lastAnswer.get();
                         logger.info("发送最终响应标记，完整答案长度: {}", finalAnswer.length());
-                        
+
                         // 保存助手消息（会话已在开始时创建）
                         Long conversationId = conversationIdRef.get();
-                        if (userId != null && conversationId != null && finalAnswer != null && !finalAnswer.trim().isEmpty()) {
+                        if (userId != null && conversationId != null && finalAnswer != null
+                                && !finalAnswer.trim().isEmpty()) {
                             try {
                                 // 流式响应通常无法直接获取token使用信息，使用估算方法
                                 logger.info("流式响应完成，开始估算Token使用量...");
                                 Long[] estimated = TokenEstimator.estimateTokenUsage(
-                                        finalMessages.toArray(new dev.langchain4j.data.message.ChatMessage[0]), finalAnswer);
+                                        finalMessages.toArray(new dev.langchain4j.data.message.ChatMessage[0]),
+                                        finalAnswer);
                                 Long promptTokens = estimated[0];
                                 Long completionTokens = estimated[1];
                                 Long totalTokens = estimated[2];
-                                logger.info("流式响应Token估算结果 - Prompt: {}, Completion: {}, Total: {}", 
+                                logger.info("流式响应Token估算结果 - Prompt: {}, Completion: {}, Total: {}",
                                         promptTokens, completionTokens, totalTokens);
-                                
-                                chatHistoryService.saveMessage(conversationId, "assistant", finalAnswer, 
+
+                                chatHistoryService.saveMessage(conversationId, "assistant", finalAnswer,
                                         qaModel.getId(), promptTokens, completionTokens, totalTokens);
-                                logger.info("✓ 流式响应完成 - 已保存助手消息到会话: {}, 模型ID: {}, Token: {}/{}/{}", 
+                                logger.info("✓ 流式响应完成 - 已保存助手消息到会话: {}, 模型ID: {}, Token: {}/{}/{}",
                                         conversationId, qaModel.getId(), promptTokens, completionTokens, totalTokens);
                                 try {
-                                    userMemoryService.updateMemoryAsync(userId, request.getQuestion(), finalAnswer, qaModel.getId(), conversationId, "chat", null);
+                                    userMemoryService.updateMemoryAsync(userId, request.getQuestion(), finalAnswer,
+                                            qaModel.getId(), conversationId, "chat", null);
                                 } catch (Exception e) {
                                     logger.debug("触发异步记忆更新失败（流式）", e);
                                 }
@@ -418,7 +424,7 @@ public class ChatServiceImpl implements ChatService {
                                 // 不抛出异常，避免影响主流程
                             }
                         }
-                        
+
                         ChatResponse finalResponse = new ChatResponse();
                         finalResponse.setAnswer(finalAnswer);
                         finalResponse.setFinished(true);
@@ -432,24 +438,25 @@ public class ChatServiceImpl implements ChatService {
                         errorResponse.setFinished(true);
                         return Flux.just(errorResponse);
                     });
-            
+
         } catch (Exception e) {
             logger.error("智能问答失败（流式）", e);
             return Flux.error(new BusinessException("智能问答失败，请稍后重试", ErrorCode.SYSTEM_BUSY, e));
         }
     }
-    
+
     /**
      * 构建消息列表（包含历史对话和浏览器检索结果）
      */
-    private List<ChatMessage> buildMessages(ChatRequest request, String browserSearchContext, QAModel qaModel, Long userId) {
+    private List<ChatMessage> buildMessages(ChatRequest request, String browserSearchContext, QAModel qaModel,
+            Long userId) {
         List<ChatMessage> messages = new ArrayList<>();
-        
+
         // 检查模型是否支持视觉输入
-        boolean supportsVision = qaModel != null && 
-                                Boolean.TRUE.equals(qaModel.getSupportsVision()) &&
-                                Boolean.TRUE.equals(qaModel.getSupportsMultimodal());
-        
+        boolean supportsVision = qaModel != null &&
+                Boolean.TRUE.equals(qaModel.getSupportsVision()) &&
+                Boolean.TRUE.equals(qaModel.getSupportsMultimodal());
+
         String base = SkillLoader.loadSkill("chat/system_prompt");
         StringBuilder systemMessageBuilder = new StringBuilder();
         if (base != null && !base.trim().isEmpty()) {
@@ -463,7 +470,7 @@ public class ChatServiceImpl implements ChatService {
                 systemMessageBuilder.append("你是一个专业的AI助手，能够回答各种问题，特别擅长编程和技术问题。\n\n");
             }
         }
-        
+
         // 如果模型支持视觉输入，添加图片处理说明
         if (supportsVision) {
             String visionCapability = SkillLoader.loadSkill("chat/vision_capability");
@@ -495,7 +502,7 @@ public class ChatServiceImpl implements ChatService {
                 systemMessageBuilder.append("你只能处理文本输入，无法直接处理图片。\n\n");
             }
         }
-        
+
         // 如果启用了MCP支持，添加时间信息和地理位置信息
         int currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
         if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
@@ -514,7 +521,7 @@ public class ChatServiceImpl implements ChatService {
         if (memoryContext != null && !memoryContext.trim().isEmpty()) {
             systemMessageBuilder.append("\n").append(memoryContext).append("\n");
         }
-        
+
         // 如果提供了浏览器检索结果，在系统消息中强调要使用检索结果
         if (browserSearchContext != null && !browserSearchContext.trim().isEmpty()) {
             Map<String, String> variables = new HashMap<>();
@@ -532,7 +539,7 @@ public class ChatServiceImpl implements ChatService {
                 systemMessageBuilder.append("\n5. 如果搜索结果与问题不相关，可以结合你的知识来回答，但要说明信息来源");
             }
         }
-        
+
         // 加载 Markdown 格式要求
         String markdownFormat = SkillLoader.loadSkill("common/markdown_format");
         if (markdownFormat != null && !markdownFormat.trim().isEmpty()) {
@@ -575,17 +582,18 @@ public class ChatServiceImpl implements ChatService {
                     "1. 所有数学公式必须使用LaTeX格式编写，不要使用占位符或省略公式内容\n" +
                     "2. 行内公式使用 $...$ 格式，例如：$E = mc^2$ 或 $\\phi = \\frac{1+\\sqrt{5}}{2}$\n" +
                     "3. 块级公式使用 $$...$$ 格式，例如：\n" +
-                    "   $$F(n) = \\frac{1}{\\sqrt{5}} \\left( \\left( \\frac{1 + \\sqrt{5}}{2} \\right)^n - \\left( \\frac{1 - \\sqrt{5}}{2} \\right)^n \\right)$$\n" +
+                    "   $$F(n) = \\frac{1}{\\sqrt{5}} \\left( \\left( \\frac{1 + \\sqrt{5}}{2} \\right)^n - \\left( \\frac{1 - \\sqrt{5}}{2} \\right)^n \\right)$$\n"
+                    +
                     "4. 也可以使用 [...] 格式表示块级公式，例如：\n" +
                     "   [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]\n" +
                     "5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式\n" +
                     "6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等\n" +
                     "7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符");
         }
-        
+
         // 添加系统消息
         messages.add(SystemMessage.from(systemMessageBuilder.toString()));
-        
+
         // 添加历史对话
         if (request.getHistory() != null && !request.getHistory().isEmpty()) {
             for (ChatRequest.Message historyMsg : request.getHistory()) {
@@ -596,7 +604,7 @@ public class ChatServiceImpl implements ChatService {
                 }
             }
         }
-        
+
         // 构建用户消息：如果有检索结果，将检索结果和问题一起发送
         String userMessageContent;
         if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
@@ -611,9 +619,9 @@ public class ChatServiceImpl implements ChatService {
                     userMessageContent = browserSearchContext + "\n\n---\n\n" + template;
                 } else {
                     // Fallback
-                    userMessageContent = browserSearchContext + 
+                    userMessageContent = browserSearchContext +
                             "\n\n---\n\n" +
-                            "基于以上网络搜索结果，请回答以下问题：\n" + 
+                            "基于以上网络搜索结果，请回答以下问题：\n" +
                             request.getQuestion() +
                             "\n\n【重要要求】\n" +
                             "1. 必须优先使用上述搜索结果中的信息来回答问题\n" +
@@ -640,30 +648,29 @@ public class ChatServiceImpl implements ChatService {
             // MCP支持已关闭，直接使用原始问题
             userMessageContent = request.getQuestion();
         }
-        
+
         // 确保消息内容不为空
         if (userMessageContent == null || userMessageContent.trim().isEmpty()) {
             userMessageContent = "请帮我分析这些内容。";
             logger.warn("用户问题为空，使用默认问题");
         }
-        
+
         // 添加当前问题（包含检索结果）
         messages.add(UserMessage.from(userMessageContent));
-        
+
         return messages;
     }
-    
+
     /**
      * 将ChatRequest转换为KnowledgeBaseQARequest（用于上下文压缩）
      */
     private com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest convertToKBQARequest(ChatRequest request) {
-        com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest kbRequest =
-                new com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest();
+        com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest kbRequest = new com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest();
         kbRequest.setQuestion(request.getQuestion());
         kbRequest.setHistory(convertHistory(request.getHistory()));
         return kbRequest;
     }
-    
+
     /**
      * 转换历史消息格式
      */
@@ -672,18 +679,17 @@ public class ChatServiceImpl implements ChatService {
         if (history == null || history.isEmpty()) {
             return null;
         }
-        
+
         List<com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest.Message> kbHistory = new ArrayList<>();
         for (ChatRequest.Message msg : history) {
-            com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest.Message kbMsg =
-                    new com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest.Message();
+            com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest.Message kbMsg = new com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest.Message();
             kbMsg.setRole(msg.getRole());
             kbMsg.setContent(msg.getContent());
             kbHistory.add(kbMsg);
         }
         return kbHistory;
     }
-    
+
     /**
      * 获取问答模型
      * 如果指定了modelId，则使用指定的模型；否则使用默认模型
@@ -695,7 +701,7 @@ public class ChatServiceImpl implements ChatService {
             if (optional.isPresent()) {
                 QAModel model = optional.get();
                 // 检查模型是否启用且未删除
-                if ((model.getDeleted() == null || model.getDeleted() == 0) 
+                if ((model.getDeleted() == null || model.getDeleted() == 0)
                         && model.getEnabled() != null && model.getEnabled()) {
                     // 检查使用场景
                     if ("chat".equals(model.getUseFor()) || "both".equals(model.getUseFor())) {
@@ -713,16 +719,16 @@ public class ChatServiceImpl implements ChatService {
                     return model;
                 }
             }
-            
+
             // 如果没有默认模型，尝试获取第一个启用的模型
             List<QAModel> enabledModels = qaModelRepository.findByUseFor("chat");
             if (!enabledModels.isEmpty()) {
                 return enabledModels.get(0);
             }
-            
+
             // 如果数据库中没有模型，返回null
             return null;
         }
     }
-    
+
 }

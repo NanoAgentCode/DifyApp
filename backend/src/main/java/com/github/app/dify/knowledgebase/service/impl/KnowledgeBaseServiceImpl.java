@@ -554,7 +554,9 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         }
 
         // 8. 创建 LLM 模型
+        modelLanguageModelFactory.setTraceSource("Knowledge Base Summary");
         ChatLanguageModel chatModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+        modelLanguageModelFactory.clearTraceSource();
 
         String systemPrompt = SkillLoader.loadSkill("knowledge_base/document_summary_system_prompt");
         if (systemPrompt == null || systemPrompt.trim().isEmpty()) {

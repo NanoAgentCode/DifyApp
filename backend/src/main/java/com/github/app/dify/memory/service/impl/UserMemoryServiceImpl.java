@@ -113,7 +113,8 @@ public class UserMemoryServiceImpl implements UserMemoryService {
 
     @Async
     @Override
-    public void updateMemoryAsync(Long userId, String question, String answer, Long modelId, Long conversationId, String scopeType, Long scopeId) {
+    public void updateMemoryAsync(Long userId, String question, String answer, Long modelId, Long conversationId,
+            String scopeType, Long scopeId) {
         if (userId == null) {
             return;
         }
@@ -144,7 +145,9 @@ public class UserMemoryServiceImpl implements UserMemoryService {
                 return;
             }
 
+            modelLanguageModelFactory.setTraceSource("User Memory Extraction");
             ChatLanguageModel model = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+            modelLanguageModelFactory.clearTraceSource();
             String extraction = extractMemoryJson(model, q, a);
             if (extraction == null || extraction.trim().isEmpty()) {
                 return;
@@ -172,7 +175,8 @@ public class UserMemoryServiceImpl implements UserMemoryService {
     }
 
     @Override
-    public List<UserMemoryItemResp> listUserMemory(Long userId, String memoryType, int page, int size, String scopeType, Long scopeId) {
+    public List<UserMemoryItemResp> listUserMemory(Long userId, String memoryType, int page, int size, String scopeType,
+            Long scopeId) {
         if (userId == null) {
             return List.of();
         }
@@ -188,7 +192,8 @@ public class UserMemoryServiceImpl implements UserMemoryService {
             if (type == null || type.isEmpty()) {
                 items = userMemoryRepository.findRecentByUserIdAndScope(userId, scope.type, scope.id, pageable);
             } else if (TYPE_LONG_TERM.equals(type) || TYPE_ENTITY.equals(type)) {
-                items = userMemoryRepository.findRecentByUserIdAndScopeAndType(userId, scope.type, scope.id, type, pageable);
+                items = userMemoryRepository.findRecentByUserIdAndScopeAndType(userId, scope.type, scope.id, type,
+                        pageable);
             } else {
                 items = List.of();
             }
@@ -312,7 +317,8 @@ public class UserMemoryServiceImpl implements UserMemoryService {
                     continue;
                 }
                 String stableKey = key != null && !key.trim().isEmpty() ? key.trim() : sha1Short(content);
-                upsertOne(userId, scope, TYPE_LONG_TERM, stableKey, content.trim(), clampImportance(importance), conversationId);
+                upsertOne(userId, scope, TYPE_LONG_TERM, stableKey, content.trim(), clampImportance(importance),
+                        conversationId);
             }
         }
 
@@ -343,8 +349,10 @@ public class UserMemoryServiceImpl implements UserMemoryService {
         }
     }
 
-    private void upsertOne(Long userId, Scope scope, String type, String key, String content, Integer importance, Long conversationId) {
-        Optional<UserMemory> existing = userMemoryRepository.findActiveByUserIdAndScopeAndTypeAndKey(userId, scope.type, scope.id, type, key);
+    private void upsertOne(Long userId, Scope scope, String type, String key, String content, Integer importance,
+            Long conversationId) {
+        Optional<UserMemory> existing = userMemoryRepository.findActiveByUserIdAndScopeAndTypeAndKey(userId, scope.type,
+                scope.id, type, key);
         UserMemory m;
         if (existing.isPresent()) {
             m = existing.get();
