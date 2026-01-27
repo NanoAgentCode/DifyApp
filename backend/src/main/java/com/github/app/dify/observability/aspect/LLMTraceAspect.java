@@ -2,6 +2,8 @@ package com.github.app.dify.observability.aspect;
 
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
 import com.github.app.dify.observability.annotation.LLMTrace;
+import com.github.app.dify.observability.config.ObservabilityConfig;
+import com.github.app.dify.observability.util.ReflectionCache;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -10,6 +12,7 @@ import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
@@ -18,15 +21,24 @@ import java.lang.reflect.Parameter;
 /**
  * LLM追踪AOP切面
  * 自动提取会话ID并设置到ThreadLocal，用于LLM追踪日志记录
+ * 
+ * 优化点：
+ * 1. 使用反射缓存减少性能开销
+ * 2. 异常隔离：监控失败不影响业务
+ * 3. 支持动态开关
  */
 @Aspect
 @Component
+@ConditionalOnProperty(name = "observability.enabled", havingValue = "true", matchIfMissing = true)
 public class LLMTraceAspect {
 
     private static final Logger logger = LoggerFactory.getLogger(LLMTraceAspect.class);
 
-    @Autowired
+    @Autowired(required = false)
     private ModelLanguageModelFactory modelLanguageModelFactory;
+
+    @Autowired(required = false)
+    private ObservabilityConfig observabilityConfig;
 
     /**
      * 定义切点：所有带@LLMTrace注解的方法
@@ -37,9 +49,21 @@ public class LLMTraceAspect {
 
     /**
      * 环绕通知：提取会话ID并设置到ThreadLocal
+     * 使用异常隔离，确保监控失败不影响业务
      */
     @Around("llmTracePointcut()")
     public Object around(ProceedingJoinPoint joinPoint) throws Throwable {
+        // 检查是否启用监控
+        if (observabilityConfig != null && !observabilityConfig.isEnabled()) {
+            return joinPoint.proceed();
+        }
+
+        // 检查依赖是否注入
+        if (modelLanguageModelFactory == null) {
+            logger.warn("ModelLanguageModelFactory未注入，跳过监控");
+            return joinPoint.proceed();
+        }
+
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
         LLMTrace llmTrace = method.getAnnotation(LLMTrace.class);
@@ -52,34 +76,56 @@ public class LLMTraceAspect {
         String conversationIdParam = llmTrace.conversationIdParam();
         boolean extractFromReturn = llmTrace.extractFromReturn();
 
-        // 设置TraceSource
-        modelLanguageModelFactory.setTraceSource(traceSource);
-
-        // 提取会话ID
-        String conversationId = extractConversationId(joinPoint, method, conversationIdParam);
-        if (conversationId != null) {
-            modelLanguageModelFactory.setConversationId(conversationId);
-            logger.debug("LLMTrace切面提取到会话ID: {}", conversationId);
-        }
-
+        // 使用try-finally确保ThreadLocal被清理，即使出现异常
         try {
-            // 执行目标方法
+            // 设置TraceSource（异常隔离）
+            try {
+                modelLanguageModelFactory.setTraceSource(traceSource);
+            } catch (Exception e) {
+                logger.warn("设置TraceSource失败，继续执行业务逻辑", e);
+            }
+
+            // 提取会话ID（异常隔离）
+            String conversationId = null;
+            try {
+                conversationId = extractConversationId(joinPoint, method, conversationIdParam);
+                if (conversationId != null) {
+                    modelLanguageModelFactory.setConversationId(conversationId);
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("LLMTrace切面提取到会话ID: {}", conversationId);
+                    }
+                }
+            } catch (Exception e) {
+                logger.debug("提取会话ID失败，继续执行业务逻辑", e);
+            }
+
+            // 执行目标方法（这是关键，不能捕获异常）
             Object result = joinPoint.proceed();
 
-            // 如果方法执行后需要从返回值中提取会话ID
+            // 如果方法执行后需要从返回值中提取会话ID（异常隔离）
             if (extractFromReturn && conversationId == null && result != null) {
-                String returnConversationId = extractConversationIdFromReturn(result);
-                if (returnConversationId != null) {
-                    modelLanguageModelFactory.setConversationId(returnConversationId);
-                    logger.debug("LLMTrace切面从返回值提取到会话ID: {}", returnConversationId);
+                try {
+                    String returnConversationId = extractConversationIdFromReturn(result);
+                    if (returnConversationId != null) {
+                        modelLanguageModelFactory.setConversationId(returnConversationId);
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("LLMTrace切面从返回值提取到会话ID: {}", returnConversationId);
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.debug("从返回值提取会话ID失败", e);
                 }
             }
 
             return result;
         } finally {
-            // 清理ThreadLocal
-            modelLanguageModelFactory.clearTraceSource();
-            modelLanguageModelFactory.clearConversationId();
+            // 清理ThreadLocal（必须执行，避免内存泄漏）
+            try {
+                modelLanguageModelFactory.clearTraceSource();
+                modelLanguageModelFactory.clearConversationId();
+            } catch (Exception e) {
+                logger.warn("清理ThreadLocal失败", e);
+            }
         }
     }
 
@@ -143,7 +189,7 @@ public class LLMTraceAspect {
     }
 
     /**
-     * 从对象中提取属性值
+     * 从对象中提取属性值（使用反射缓存优化性能）
      */
     private String extractFromObject(Object obj, String propertyName) {
         if (obj == null) {
@@ -151,25 +197,14 @@ public class LLMTraceAspect {
         }
 
         try {
-            // 尝试通过getter方法获取
-            String getterName = "get" + capitalize(propertyName);
-            Method getter = obj.getClass().getMethod(getterName);
-            Object value = getter.invoke(obj);
+            Object value = ReflectionCache.getPropertyValue(obj, propertyName);
             if (value != null) {
                 return String.valueOf(value);
             }
         } catch (Exception e) {
-            // getter方法不存在或调用失败，尝试其他方式
-            try {
-                // 尝试直接访问字段
-                java.lang.reflect.Field field = obj.getClass().getDeclaredField(propertyName);
-                field.setAccessible(true);
-                Object value = field.get(obj);
-                if (value != null) {
-                    return String.valueOf(value);
-                }
-            } catch (Exception ex) {
-                // 忽略
+            // 忽略异常，避免影响业务
+            if (logger.isTraceEnabled()) {
+                logger.trace("提取属性值失败: {}", e.getMessage());
             }
         }
 
@@ -192,13 +227,4 @@ public class LLMTraceAspect {
         return extractFromObject(result, "conversationId");
     }
 
-    /**
-     * 首字母大写
-     */
-    private String capitalize(String str) {
-        if (str == null || str.isEmpty()) {
-            return str;
-        }
-        return str.substring(0, 1).toUpperCase() + str.substring(1);
-    }
 }

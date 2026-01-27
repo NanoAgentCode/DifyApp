@@ -36,3 +36,16 @@ minio:
   endpoint: http://localhost:9000
   access-key: rustfsadmin
   secret-key: rustfsadmin
+
+# 可观测性监控配置
+observability:
+  # 是否启用监控（默认启用）
+  enabled: true
+  # 监控线程池配置
+  thread-pool:
+    # 核心线程数
+    core-size: 4
+    # 最大线程数
+    max-size: 8
+    # 队列容量
+    queue-capacity: 500
