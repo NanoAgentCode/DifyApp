@@ -32,6 +32,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.github.app.dify.system.util.SystemConverterUtil;
 import com.github.app.dify.system.util.SystemDateTimeUtil;
+import com.github.app.dify.observability.annotation.LLMTrace;
 
 import java.util.HashMap;
 import java.util.List;
@@ -62,6 +63,9 @@ public class DrawIOServiceImpl implements DrawIOService {
     private ModelLanguageModelFactory modelLanguageModelFactory;
 
     @Override
+    @LLMTrace(
+            traceSource = "DrawIO Generate"
+    )
     public DrawIOGenerateResponse generateDiagram(DrawIOGenerateRequest request, Long userId) {
         try {
             logger.info("生成图表请求 - 用户ID: {}, 提示: {}, 类型: {}",
@@ -78,10 +82,8 @@ public class DrawIOServiceImpl implements DrawIOService {
             // 构建用户提示词
             String userPrompt = buildUserPrompt(request.getPrompt(), request.getDiagramType());
 
-            // 创建模型实例
-            modelLanguageModelFactory.setTraceSource("DrawIO Generate");
+            // 创建模型实例（traceSource由AOP切面自动设置）
             ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
-            modelLanguageModelFactory.clearTraceSource();
 
             // 构建消息
             List<ChatMessage> messages = List.of(
@@ -112,6 +114,9 @@ public class DrawIOServiceImpl implements DrawIOService {
     }
 
     @Override
+    @LLMTrace(
+            traceSource = "DrawIO Modify"
+    )
     public DrawIOGenerateResponse modifyDiagram(DrawIOModifyRequest request, Long userId) {
         try {
             logger.info("修改图表请求 - 用户ID: {}, 修改指令: {}",
@@ -127,10 +132,8 @@ public class DrawIOServiceImpl implements DrawIOService {
             // 构建用户提示词
             String userPrompt = buildModifyUserPrompt(request.getDiagramJson(), request.getPrompt());
 
-            // 创建模型实例
-            modelLanguageModelFactory.setTraceSource("DrawIO Modify");
+            // 创建模型实例（traceSource由AOP切面自动设置）
             ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
-            modelLanguageModelFactory.clearTraceSource();
 
             // 构建消息
             List<ChatMessage> messages = List.of(
