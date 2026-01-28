@@ -9,36 +9,53 @@
 
       <!-- 搜索栏 -->
       <div class="search-bar">
-        <el-input
+        <el-select
           v-model="form.model"
-          placeholder="模型名称"
+          placeholder="选择模型"
           clearable
+          filterable
           style="width: 180px"
-          @clear="handleFilter"
-          @keyup.enter="handleFilter"
+          @change="handleFilter"
         >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
+          <el-option
+            v-for="item in modelOptions"
+            :key="item"
+            :label="item"
+            :value="item"
+          />
+        </el-select>
 
-        <el-input
+        <el-select
           v-model="form.provider"
-          placeholder="供应商 (例如: openai)"
+          placeholder="选择供应商"
           clearable
+          filterable
           style="width: 180px; margin-left: 10px"
-          @clear="handleFilter"
-          @keyup.enter="handleFilter"
-        />
+          @change="handleFilter"
+        >
+          <el-option
+            v-for="item in providerOptions"
+            :key="item"
+            :label="item"
+            :value="item"
+          />
+        </el-select>
 
-        <el-input
+        <el-select
           v-model="form.traceSource"
-          placeholder="来源 (例如: Chat)"
+          placeholder="选择来源"
           clearable
+          filterable
           style="width: 180px; margin-left: 10px"
-          @clear="handleFilter"
-          @keyup.enter="handleFilter"
-        />
+          @change="handleFilter"
+        >
+          <el-option
+            v-for="item in traceSourceOptions"
+            :key="item"
+            :label="item"
+            :value="item"
+          />
+        </el-select>
 
         <el-input
           v-model="form.conversationId"
@@ -181,7 +198,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { listTraces, deleteTrace } from '@/api/observability'
+import { listTraces, deleteTrace, getModels, getProviders, getTraceSources } from '@/api/observability'
 import LogDetail from './LogDetail.vue'
 import dayjs from 'dayjs'
 import { Search, RefreshLeft, Clock, Timer, View } from '@element-plus/icons-vue'
@@ -200,6 +217,11 @@ const form = reactive({
   traceSource: '',
   timeRange: []
 })
+
+// 筛选选项列表（从 ES 聚合获取）
+const modelOptions = ref([])
+const providerOptions = ref([])
+const traceSourceOptions = ref([])
 
 const detailRef = ref(null)
 
@@ -223,7 +245,7 @@ const fetchData = async () => {
       total.value = res.data.total
     }
   } catch (error) {
-    console.error(error)
+    console.error('获取数据失败:', error)
   } finally {
     loading.value = false
   }
@@ -255,7 +277,13 @@ const handleCurrentChange = (val) => {
 }
 
 const handleDetail = (row) => {
-  detailRef.value.open(row.id)
+  // 使用 esDocId 作为唯一标识
+  const id = row.esDocId
+  if (!id) {
+    ElMessage.warning('无法获取文档ID')
+    return
+  }
+  detailRef.value.open(id)
 }
 
 const handleDelete = (row) => {
@@ -270,14 +298,18 @@ const handleDelete = (row) => {
   )
     .then(async () => {
       try {
-        await deleteTrace(row.id)
-        ElMessage({
-          type: 'success',
-          message: '删除成功',
-        })
+        // 使用 esDocId 作为唯一标识
+        const id = row.esDocId
+        if (!id) {
+          ElMessage.warning('无法获取文档ID')
+          return
+        }
+        await deleteTrace(id)
+        ElMessage.success('删除成功')
         fetchData()
       } catch (error) {
-        console.error(error)
+        console.error('删除失败:', error)
+        ElMessage.error('删除失败')
       }
     })
     .catch(() => {})
@@ -320,7 +352,32 @@ const getSourceTagStyle = (source) => {
   return { backgroundColor: bg, borderColor: bg, color: text }
 }
 
+// 加载筛选选项（从 ES 聚合获取）
+const loadFilterOptions = async () => {
+  try {
+    // 并行加载所有选项
+    const [modelsRes, providersRes, traceSourcesRes] = await Promise.all([
+      getModels(),
+      getProviders(),
+      getTraceSources()
+    ])
+    
+    if (modelsRes.success) {
+      modelOptions.value = modelsRes.data || []
+    }
+    if (providersRes.success) {
+      providerOptions.value = providersRes.data || []
+    }
+    if (traceSourcesRes.success) {
+      traceSourceOptions.value = traceSourcesRes.data || []
+    }
+  } catch (error) {
+    console.error('加载筛选选项失败:', error)
+  }
+}
+
 onMounted(() => {
+  loadFilterOptions()
   fetchData()
 })
 </script>

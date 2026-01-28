@@ -22,3 +22,24 @@ export function deleteTrace(id) {
         method: 'delete'
     })
 }
+
+export function getModels() {
+    return request({
+        url: '/api/observability/models',
+        method: 'get'
+    })
+}
+
+export function getProviders() {
+    return request({
+        url: '/api/observability/providers',
+        method: 'get'
+    })
+}
+
+export function getTraceSources() {
+    return request({
+        url: '/api/observability/trace-sources',
+        method: 'get'
+    })
+}

@@ -1,13 +1,19 @@
 package com.github.app.dify.observability.domain;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
-import org.hibernate.annotations.GenericGenerator;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
+/**
+ * LLM追踪实体
+ * 
+ * 注意：此实体既用于 JPA 持久化（如果启用），也用于 ES 数据的返回
+ * esDocId 是 ES 文档 ID，不持久化到数据库
+ */
 @Entity
 @Table(name = "llm_trace", indexes = {
         @Index(name = "idx_trace_id", columnList = "trace_id")
@@ -47,7 +53,6 @@ public class LLMTrace {
     @Column(name = "latency")
     private Long latency;
 
-    // 1: success, 0: failed
     @Column(name = "status")
     private Integer status;
 
@@ -70,11 +75,17 @@ public class LLMTrace {
     @Column(name = "error_content", columnDefinition = "TEXT")
     private String errorContent;
 
-    // Additional metadata stored as JSON string
     @Lob
     @Column(name = "meta_data", columnDefinition = "TEXT")
     private String metaData;
 
     @Column(name = "trace_source", length = 64)
     private String traceSource;
+
+    /**
+     * ES 文档 ID（不持久化到数据库，用于前端查询/删除）
+     */
+    @Transient
+    @JsonProperty("esDocId")
+    private String esDocId;
 }

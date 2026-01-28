@@ -342,6 +342,33 @@
             </el-option>
           </el-select>
         </el-form-item>
+        <!-- LLM观测Elasticsearch数据源ID配置特殊处理 -->
+        <el-form-item
+          v-else-if="isObservabilityElasticsearchDataSourceIdConfig"
+          label="Elasticsearch数据源"
+          prop="configValue"
+        >
+          <el-select
+            v-model="form.configValue"
+            placeholder="请选择Elasticsearch数据源"
+            style="width: 100%"
+            filterable
+            :loading="loadingElasticsearchDataSources"
+            @focus="loadElasticsearchDataSources"
+          >
+            <el-option
+              v-for="ds in elasticsearchDataSources"
+              :key="ds.id"
+              :label="`${ds.name} (ID: ${ds.id})`"
+              :value="String(ds.id)"
+            >
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>{{ ds.name }}</span>
+                <span style="color: #909399; font-size: 12px;">ID: {{ ds.id }}</span>
+              </div>
+            </el-option>
+          </el-select>
+        </el-form-item>
         <!-- 文档解读思维导图服务URL配置特殊处理 -->
         <el-form-item 
           v-else-if="isDocumentReaderMindMapServiceUrlConfig"
@@ -495,6 +522,13 @@ const predefinedConfigKeys = [
     label: 'userlog.elasticsearchDataSourceId',
     description: '用户行为日志Elasticsearch数据源ID',
     group: 'userActionLog',
+    type: 'number'
+  },
+  {
+    key: 'observability.elasticsearchDataSourceId',
+    label: 'observability.elasticsearchDataSourceId',
+    description: 'LLM观测Elasticsearch数据源ID',
+    group: 'observability',
     type: 'number'
   },
   {
@@ -688,6 +722,11 @@ const isUserLogElasticsearchDataSourceIdConfig = computed(() => {
   return form.value.configKey === 'userlog.elasticsearchDataSourceId'
 })
 
+// 判断是否是LLM观测Elasticsearch数据源ID配置
+const isObservabilityElasticsearchDataSourceIdConfig = computed(() => {
+  return form.value.configKey === 'observability.elasticsearchDataSourceId'
+})
+
 // 判断是否是数据分析Neo4j数据源ID配置
 const isDataAnalysisNeo4jDataSourceIdConfig = computed(() => {
   return form.value.configKey === 'analysis.neo4j.dataSourceId'
@@ -859,6 +898,12 @@ const groupConfigMap = {
     icon: Monitor,
     order: 3,
     description: '用户行为日志和Elasticsearch相关配置'
+  },
+  'observability': {
+    label: 'LLM观测配置',
+    icon: Monitor,
+    order: 3,
+    description: 'LLM追踪和观测Elasticsearch相关配置'
   },
   'dataAnalysis': {
     label: '数据分析配置',
