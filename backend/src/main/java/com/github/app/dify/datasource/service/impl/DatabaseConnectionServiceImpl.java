@@ -18,7 +18,9 @@ import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.neo4j.driver.Driver;
@@ -222,19 +224,43 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
                     new HttpHost(host, port, "http")
                 );
                 
-                // 配置认证
+                // 配置超时时间（默认30秒连接超时，60秒socket超时）
+                final int connectTimeout = 30000; // 连接超时：30秒
+                final int socketTimeout = 60000;  // Socket超时：60秒
+                final int connectionRequestTimeout = 5000; // 从连接池获取连接超时：5秒
+                
+                restClientBuilder.setRequestConfigCallback(requestConfigBuilder -> {
+                    return requestConfigBuilder
+                        .setConnectTimeout(connectTimeout)
+                        .setSocketTimeout(socketTimeout)
+                        .setConnectionRequestTimeout(connectionRequestTimeout);
+                });
+                
+                // 配置认证和HTTP客户端
                 if (username != null && !username.trim().isEmpty() && password != null && !password.trim().isEmpty()) {
                     final String finalUsername = username;
                     final String finalPassword = password;
                     
-                    restClientBuilder.setHttpClientConfigCallback(httpClientBuilder -> {
+                    restClientBuilder.setHttpClientConfigCallback((HttpAsyncClientBuilder httpClientBuilder) -> {
                         CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
                         credentialsProvider.setCredentials(
                             AuthScope.ANY,
                             new UsernamePasswordCredentials(finalUsername, finalPassword)
                         );
                         httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+                        
+                        // 配置连接池参数
+                        httpClientBuilder.setMaxConnTotal(100); // 最大连接数
+                        httpClientBuilder.setMaxConnPerRoute(10); // 每个路由的最大连接数
+                        
                         logger.debug("配置 Elasticsearch Basic Auth 认证 - 用户名: {}", finalUsername);
+                        return httpClientBuilder;
+                    });
+                } else {
+                    // 即使没有认证，也需要配置连接池参数
+                    restClientBuilder.setHttpClientConfigCallback((HttpAsyncClientBuilder httpClientBuilder) -> {
+                        httpClientBuilder.setMaxConnTotal(100); // 最大连接数
+                        httpClientBuilder.setMaxConnPerRoute(10); // 每个路由的最大连接数
                         return httpClientBuilder;
                     });
                 }

@@ -71,13 +71,13 @@ public class UserActionLogServiceImpl implements UserActionLogService {
                     request.getPageSize()
             );
 
-            List<UserActionLogResp> content = searchResult.getDocuments().stream()
+            List<UserActionLogResp> content = searchResult.documents().stream()
                     .map(this::convertDocumentToResp)
                     .collect(Collectors.toList());
 
             return new PageResponse<>(
                     content,
-                    searchResult.getTotal(),
+                    searchResult.total(),
                     request.getPage(),
                     request.getPageSize()
             );

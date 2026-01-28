@@ -281,6 +281,26 @@ public class ElasticsearchLogService {
             client.index(request);
             logger.debug("用户行为日志已保存到Elasticsearch: id={}, userId={}, module={}", 
                     document.getId(), document.getUserId(), document.getModule());
+        } catch (java.util.concurrent.CancellationException e) {
+            logger.error("保存用户行为日志到Elasticsearch失败：请求被取消（可能是超时或连接问题）", e);
+            // 清除缓存的客户端，下次重新创建
+            synchronized (clientLock) {
+                activeClient = null;
+                activeDataSourceId = null;
+                indexInitialized = false;
+            }
+        } catch (java.lang.RuntimeException e) {
+            if (e.getCause() instanceof java.util.concurrent.CancellationException) {
+                logger.error("保存用户行为日志到Elasticsearch失败：请求执行被取消（可能是超时或连接问题）", e);
+                // 清除缓存的客户端，下次重新创建
+                synchronized (clientLock) {
+                    activeClient = null;
+                    activeDataSourceId = null;
+                    indexInitialized = false;
+                }
+            } else {
+                logger.error("保存用户行为日志到Elasticsearch失败", e);
+            }
         } catch (Exception e) {
             logger.error("保存用户行为日志到Elasticsearch失败", e);
         }
@@ -367,6 +387,28 @@ public class ElasticsearchLogService {
             long total = totalHits != null ? totalHits.value() : 0;
             return new SearchResult(documents, total);
 
+        } catch (java.util.concurrent.CancellationException e) {
+            logger.error("从Elasticsearch搜索用户行为日志失败：请求被取消（可能是超时或连接问题）", e);
+            // 清除缓存的客户端，下次重新创建
+            synchronized (clientLock) {
+                activeClient = null;
+                activeDataSourceId = null;
+                indexInitialized = false;
+            }
+            return new SearchResult(new ArrayList<>(), 0);
+        } catch (java.lang.RuntimeException e) {
+            if (e.getCause() instanceof java.util.concurrent.CancellationException) {
+                logger.error("从Elasticsearch搜索用户行为日志失败：请求执行被取消（可能是超时或连接问题）", e);
+                // 清除缓存的客户端，下次重新创建
+                synchronized (clientLock) {
+                    activeClient = null;
+                    activeDataSourceId = null;
+                    indexInitialized = false;
+                }
+            } else {
+                logger.error("从Elasticsearch搜索用户行为日志失败", e);
+            }
+            return new SearchResult(new ArrayList<>(), 0);
         } catch (Exception e) {
             logger.error("从Elasticsearch搜索用户行为日志失败", e);
             return new SearchResult(new ArrayList<>(), 0);
@@ -427,6 +469,28 @@ public class ElasticsearchLogService {
 
             return actionTypes;
 
+        } catch (java.util.concurrent.CancellationException e) {
+            logger.error("从Elasticsearch获取操作类型失败：请求被取消（可能是超时或连接问题）", e);
+            // 清除缓存的客户端，下次重新创建
+            synchronized (clientLock) {
+                activeClient = null;
+                activeDataSourceId = null;
+                indexInitialized = false;
+            }
+            return new ArrayList<>();
+        } catch (java.lang.RuntimeException e) {
+            if (e.getCause() instanceof java.util.concurrent.CancellationException) {
+                logger.error("从Elasticsearch获取操作类型失败：请求执行被取消（可能是超时或连接问题）", e);
+                // 清除缓存的客户端，下次重新创建
+                synchronized (clientLock) {
+                    activeClient = null;
+                    activeDataSourceId = null;
+                    indexInitialized = false;
+                }
+            } else {
+                logger.error("从Elasticsearch获取操作类型失败", e);
+            }
+            return new ArrayList<>();
         } catch (Exception e) {
             logger.error("从Elasticsearch获取操作类型失败", e);
             return new ArrayList<>();
@@ -465,6 +529,28 @@ public class ElasticsearchLogService {
                 }
             }
             return modules;
+        } catch (java.util.concurrent.CancellationException e) {
+            logger.error("从Elasticsearch获取操作模块失败：请求被取消（可能是超时或连接问题）", e);
+            // 清除缓存的客户端，下次重新创建
+            synchronized (clientLock) {
+                activeClient = null;
+                activeDataSourceId = null;
+                indexInitialized = false;
+            }
+            return new ArrayList<>();
+        } catch (java.lang.RuntimeException e) {
+            if (e.getCause() instanceof java.util.concurrent.CancellationException) {
+                logger.error("从Elasticsearch获取操作模块失败：请求执行被取消（可能是超时或连接问题）", e);
+                // 清除缓存的客户端，下次重新创建
+                synchronized (clientLock) {
+                    activeClient = null;
+                    activeDataSourceId = null;
+                    indexInitialized = false;
+                }
+            } else {
+                logger.error("从Elasticsearch获取操作模块失败", e);
+            }
+            return new ArrayList<>();
         } catch (Exception e) {
             logger.error("从Elasticsearch获取操作模块失败", e);
             return new ArrayList<>();
@@ -472,23 +558,9 @@ public class ElasticsearchLogService {
     }
 
     /**
-     * 搜索结果封装类
-     */
-    public static class SearchResult {
-        private final List<UserActionLogDocument> documents;
-        private final long total;
+         * 搜索结果封装类
+         */
+        public record SearchResult(List<UserActionLogDocument> documents, long total) {
 
-        public SearchResult(List<UserActionLogDocument> documents, long total) {
-            this.documents = documents;
-            this.total = total;
-        }
-
-        public List<UserActionLogDocument> getDocuments() {
-            return documents;
-        }
-
-        public long getTotal() {
-            return total;
-        }
     }
 }
