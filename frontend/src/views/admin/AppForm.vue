@@ -851,8 +851,8 @@ const handleSubmit = async () => {
     delete submitData.themeColor
     
     if (isEdit.value) {
-      // 更新时排除 appId 和 tenantId 字段（API Key 和租户ID不应该被更新）
-      const { appId, tenantId, ...updateData } = submitData
+      // 更新时仅排除 tenantId（租户ID 由后端/权限控制，不可前端修改）；appId（Dify API Key）允许更新并会写入数据库
+      const { tenantId, ...updateData } = submitData
       await updateApp(route.params.id, updateData)
       ElMessage.success('更新成功')
     } else {

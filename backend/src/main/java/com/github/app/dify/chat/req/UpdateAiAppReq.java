@@ -27,6 +27,10 @@ public class UpdateAiAppReq {
     @Size(max = 500, message = "API Base URL长度不能超过500")
     @Schema(description = "Dify API Base URL")
     private String apiBaseUrl;
+
+    @Size(max = 500, message = "Dify API Key长度不能超过500")
+    @Schema(description = "Dify API Key（应用凭证）")
+    private String appId;
     
     @Schema(description = "是否支持流式响应")
     private Boolean streamEnabled;
@@ -90,6 +94,14 @@ public class UpdateAiAppReq {
     
     public void setApiBaseUrl(String apiBaseUrl) {
         this.apiBaseUrl = apiBaseUrl;
+    }
+
+    public String getAppId() {
+        return appId;
+    }
+
+    public void setAppId(String appId) {
+        this.appId = appId;
     }
     
     public Boolean getStreamEnabled() {

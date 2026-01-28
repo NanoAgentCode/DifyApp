@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -45,6 +46,9 @@ public class AiAppServiceImpl implements AiAppService {
     
     @Autowired
     private AiAppRepository aiAppRepository;
+
+    @Autowired(required = false)
+    private CacheManager cacheManager;
     
     @Autowired
     private DifyApiClient difyApiClient;
@@ -147,6 +151,16 @@ public class AiAppServiceImpl implements AiAppService {
         }
         if (req.getApiBaseUrl() != null) {
             aiApp.setApiBaseUrl(req.getApiBaseUrl());
+        }
+        if (req.getAppId() != null && !req.getAppId().trim().isEmpty()) {
+            String oldAppId = aiApp.getAppId();
+            if (!req.getAppId().equals(oldAppId) && cacheManager != null) {
+                var cache = cacheManager.getCache("aiApp");
+                if (cache != null && oldAppId != null) {
+                    cache.evict("apikey:" + oldAppId);
+                }
+            }
+            aiApp.setAppId(req.getAppId().trim());
         }
         if (req.getStreamEnabled() != null) {
             aiApp.setStreamEnabled(req.getStreamEnabled());
