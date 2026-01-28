@@ -27,6 +27,8 @@ import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.AuthTokens;
+import org.neo4j.driver.Config;
+import org.neo4j.driver.exceptions.ServiceUnavailableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -168,8 +170,15 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
             String username = dataSource.getUsername() != null ? dataSource.getUsername() : "";
             password = password != null ? password : "";
             
+            // 配置连接超时和连接池
+            Config config = Config.builder()
+                    .withConnectionTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                    .withMaxConnectionLifetime(30, java.util.concurrent.TimeUnit.MINUTES)
+                    .withMaxConnectionPoolSize(50)
+                    .build();
+            
             logger.info("创建 Neo4j 驱动 - 数据源ID: {}, URI: {}", id, maskConnectionString(uri));
-            return GraphDatabase.driver(uri, AuthTokens.basic(username, password));
+            return GraphDatabase.driver(uri, AuthTokens.basic(username, password), config);
         });
     }
     
@@ -480,18 +489,38 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
      * 测试 Neo4j 连接
      */
     private boolean testNeo4jConnection(DataSource dataSource, boolean passwordEncrypted) {
+        Driver driver = null;
         try {
-            Driver driver = getNeo4jDriverForTest(dataSource, passwordEncrypted);
+            driver = getNeo4jDriverForTest(dataSource, passwordEncrypted);
             try (Session session = driver.session()) {
                 // 执行一个简单的查询来测试连接
                 session.run("RETURN 1 AS test").consume();
+                logger.info("Neo4j 连接测试成功: {}:{}", dataSource.getHost(), dataSource.getPort());
                 return true;
-            } finally {
-                driver.close();
             }
+        } catch (ServiceUnavailableException e) {
+            String errorMsg = String.format(
+                "无法连接到 Neo4j 服务器 %s:%d。请检查：\n" +
+                "1. Neo4j 服务是否正在运行\n" +
+                "2. 主机地址和端口是否正确（默认 Bolt 端口为 7687）\n" +
+                "3. 网络连接是否正常\n" +
+                "4. 防火墙是否允许该端口",
+                dataSource.getHost(), dataSource.getPort()
+            );
+            logger.error("Neo4j 连接测试失败: {}", errorMsg, e);
+            throw new BusinessException(errorMsg, ErrorCode.DATABASE_CONNECTION_ERROR, e);
         } catch (Exception e) {
-            logger.error("Neo4j 连接测试失败", e);
-            return false;
+            String errorMsg = String.format("Neo4j 连接测试失败: %s", e.getMessage());
+            logger.error("Neo4j 连接测试失败: {}:{}", dataSource.getHost(), dataSource.getPort(), e);
+            throw new BusinessException(errorMsg, ErrorCode.DATABASE_CONNECTION_ERROR, e);
+        } finally {
+            if (driver != null) {
+                try {
+                    driver.close();
+                } catch (Exception e) {
+                    logger.warn("关闭 Neo4j 驱动失败", e);
+                }
+            }
         }
     }
     
@@ -534,7 +563,15 @@ public class DatabaseConnectionServiceImpl implements DatabaseConnectionService 
         String username = dataSource.getUsername() != null ? dataSource.getUsername() : "";
         password = password != null ? password : "";
         
-        return GraphDatabase.driver(uri, AuthTokens.basic(username, password));
+        // 配置连接超时（10秒）
+        Config config = Config.builder()
+                .withConnectionTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .withMaxConnectionLifetime(30, java.util.concurrent.TimeUnit.MINUTES)
+                .withMaxConnectionPoolSize(50)
+                .build();
+        
+        logger.debug("创建 Neo4j 驱动: uri={}, username={}", uri, username);
+        return GraphDatabase.driver(uri, AuthTokens.basic(username, password), config);
     }
     
     /**

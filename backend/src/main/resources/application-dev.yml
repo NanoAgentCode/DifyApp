@@ -22,7 +22,7 @@ jwt:
   secret: dify-app-secret-key-2024-this-is-a-very-long-secret-key-for-security  # JWT密钥，生产环境请修改
 
 minio:
-  endpoint: http://localhost:9000
+  endpoint: http://localhost:19000
   access-key: rustfsadmin
   secret-key: rustfsadmin
 
