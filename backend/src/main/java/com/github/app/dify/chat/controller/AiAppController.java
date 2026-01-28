@@ -259,6 +259,12 @@ public class AiAppController extends BaseController {
                     return builder.build();
                 })
                 .onErrorResume(error -> {
+                    // 检测是否是客户端断开连接（正常情况，不记录错误）
+                    if (isClientAbortError(error)) {
+                        logger.debug("客户端中止流式Workflow连接（正常情况，用户可能刷新页面或关闭标签）");
+                        return Flux.empty(); // 返回空流，不发送错误消息
+                    }
+                    
                     logger.error("Controller层：流式Workflow错误恢复: {}", error.getMessage(), error);
                     DifyResponse errorResponse = new DifyResponse();
                     errorResponse.setEvent("error");
@@ -267,6 +273,9 @@ public class AiAppController extends BaseController {
                             .event("error")
                             .data(errorResponse)
                             .build());
+                })
+                .doOnCancel(() -> {
+                    logger.debug("流式Workflow响应被取消（正常情况）");
                 });
     }
     
@@ -296,6 +305,26 @@ public class AiAppController extends BaseController {
                     logger.error("文件上传失败", error);
                     return Mono.just(ResponseEntity.badRequest().build());
                 });
+    }
+    
+    /**
+     * 检测是否是客户端中止连接导致的错误
+     */
+    private boolean isClientAbortError(Throwable error) {
+        if (error == null) return false;
+        String message = error.getMessage();
+        if (message != null) {
+            if (message.contains("ClientAbortException") ||
+                message.contains("你的主机中的软件中止了一个已建立的连接") ||
+                message.contains("Connection reset") ||
+                message.contains("Broken pipe") ||
+                message.contains("Connection closed") ||
+                message.contains("AsyncRequestNotUsableException")) {
+                return true;
+            }
+        }
+        Throwable cause = error.getCause();
+        return cause != null && cause != error && isClientAbortError(cause);
     }
     
 }

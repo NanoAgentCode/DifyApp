@@ -32,9 +32,11 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.apache.catalina.connector.ClientAbortException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -63,6 +65,68 @@ public class GlobalExceptionHandler {
     private HttpServletRequest getCurrentRequest() {
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         return attributes != null ? attributes.getRequest() : null;
+    }
+    
+    /**
+     * 检测是否是流式响应（SSE）
+     */
+    private boolean isStreamingResponse() {
+        HttpServletRequest request = getCurrentRequest();
+        if (request == null) {
+            return false;
+        }
+        String uri = request.getRequestURI();
+        String accept = request.getHeader("Accept");
+        String contentType = request.getContentType();
+        
+        // 检查 URI 是否包含 /stream
+        if (uri != null && uri.contains("/stream")) {
+            return true;
+        }
+        
+        // 检查 Accept 头是否包含 text/event-stream
+        if (accept != null && accept.contains("text/event-stream")) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * 检测是否是客户端中止连接
+     */
+    private boolean isClientAbortException(Exception e) {
+        if (e instanceof ClientAbortException) {
+            return true;
+        }
+        if (e instanceof AsyncRequestNotUsableException) {
+            Throwable cause = e.getCause();
+            if (cause instanceof ClientAbortException) {
+                return true;
+            }
+            if (cause != null && cause.getMessage() != null) {
+                String message = cause.getMessage();
+                if (message.contains("你的主机中的软件中止了一个已建立的连接") ||
+                    message.contains("Connection reset") ||
+                    message.contains("Broken pipe") ||
+                    message.contains("Connection closed")) {
+                    return true;
+                }
+            }
+        }
+        if (e.getCause() instanceof ClientAbortException) {
+            return true;
+        }
+        if (e.getMessage() != null) {
+            String message = e.getMessage();
+            if (message.contains("ClientAbortException") ||
+                message.contains("你的主机中的软件中止了一个已建立的连接") ||
+                message.contains("Connection reset") ||
+                message.contains("Broken pipe")) {
+                return true;
+            }
+        }
+        return false;
     }
     
     /**
@@ -415,6 +479,34 @@ public class GlobalExceptionHandler {
     }
     
     /**
+     * 处理异步请求不可用异常（通常是客户端断开连接）
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public ResponseEntity<ApiResponse<Object>> handleAsyncRequestNotUsableException(AsyncRequestNotUsableException e) {
+        // 检测是否是客户端中止连接
+        if (isClientAbortException(e)) {
+            if (isStreamingResponse()) {
+                // 流式响应中客户端断开连接是正常情况（用户刷新、关闭标签等）
+                logger.debug("客户端中止流式响应连接（正常情况）");
+                return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+            } else {
+                logger.debug("客户端中止连接: {}", e.getMessage());
+                return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+            }
+        }
+        
+        // 如果是流式响应，静默处理
+        if (isStreamingResponse()) {
+            logger.debug("流式响应异步请求不可用: {}", e.getMessage());
+            return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+        }
+        
+        logException("warn", "异步请求不可用: message={}", e, e.getMessage());
+        return buildErrorResponse("请求处理失败，请稍后重试", 
+                ErrorCode.SYSTEM_BUSY, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+    
+    /**
      * 处理数据库访问异常
      */
     @ExceptionHandler(DataAccessException.class)
@@ -499,6 +591,23 @@ public class GlobalExceptionHandler {
             throw e; // 重新抛出，让更具体的处理器处理
         }
         
+        // 检测是否是客户端中止连接
+        if (isClientAbortException(e)) {
+            if (isStreamingResponse()) {
+                logger.debug("客户端中止流式响应连接（正常情况）");
+                return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+            } else {
+                logger.debug("客户端中止连接: {}", e.getMessage());
+                return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+            }
+        }
+        
+        // 检测是否是流式响应
+        if (isStreamingResponse()) {
+            logger.warn("流式响应中发生运行时异常（应由 Controller 层处理）: {}", e.getMessage());
+            return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+        }
+        
         logException("error", "运行时异常: message={}, type={}", e, e.getMessage(), e.getClass().getSimpleName());
         return buildErrorResponse("系统繁忙，请稍后重试", 
                 ErrorCode.SYSTEM_BUSY, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -509,6 +618,24 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleException(Exception e) {
+        // 检测是否是客户端中止连接（用户刷新页面、关闭标签页等）
+        if (isClientAbortException(e)) {
+            // 如果是流式响应，静默处理（客户端断开连接是正常情况）
+            if (isStreamingResponse()) {
+                logger.debug("客户端中止流式响应连接（正常情况，用户可能刷新页面或关闭标签）");
+                return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+            } else {
+                logger.debug("客户端中止连接: {}", e.getMessage());
+                return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+            }
+        }
+        
+        // 检测是否是流式响应
+        if (isStreamingResponse()) {
+            logger.warn("流式响应中发生异常（应由 Controller 层处理）: {}", e.getMessage());
+            return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+        }
+        
         logException("error", "系统异常: message={}, type={}", e, e.getMessage(), e.getClass().getSimpleName());
         
         // 处理网络连接异常
