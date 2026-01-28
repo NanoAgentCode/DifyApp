@@ -26,8 +26,17 @@ public class LLMTrace {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * 请求级链路ID（同一请求的多次LLM调用共享）
+     */
     @Column(name = "trace_id", length = 64)
     private String traceId;
+
+    /**
+     * 调用级ID（每次LLM调用唯一）
+     */
+    @Column(name = "span_id", length = 64)
+    private String spanId;
 
     @Column(name = "conversation_id", length = 64)
     private String conversationId;

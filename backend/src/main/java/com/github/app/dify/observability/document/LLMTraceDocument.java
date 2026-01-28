@@ -9,8 +9,10 @@ import java.time.LocalDateTime;
 /**
  * Elasticsearch LLM追踪文档
  * 
- * 注意：id 字段存储 ES 文档的 _id，不会被序列化到 ES 文档内容中
- * traceId 是业务链路ID，会被存储在 ES 文档内容中
+ * ID 设计：
+ * - id: ES 文档 ID，等于 spanId
+ * - traceId: 请求级链路 ID，同一请求的多次 LLM 调用共享此 ID
+ * - spanId: 调用级 ID，每次 LLM 调用唯一
  */
 @Data
 public class LLMTraceDocument {
@@ -22,9 +24,14 @@ public class LLMTraceDocument {
     private String id;
 
     /**
-     * 业务链路ID（存储在文档内容中，用于关联同一请求的多个追踪）
+     * 请求级链路ID（同一请求的多次LLM调用共享）
      */
     private String traceId;
+
+    /**
+     * 调用级ID（每次LLM调用唯一，等于ES文档ID）
+     */
+    private String spanId;
 
     private String conversationId;
     private String appName;

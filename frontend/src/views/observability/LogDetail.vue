@@ -11,7 +11,16 @@
     </div>
     <template v-else>
       <el-descriptions title="基础信息" :column="2" border>
-        <el-descriptions-item label="Trace ID">{{ trace.traceId || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="链路ID (TraceId)">
+          <el-tooltip :content="trace.traceId" placement="top">
+            <code class="id-code">{{ trace.traceId || '-' }}</code>
+          </el-tooltip>
+        </el-descriptions-item>
+        <el-descriptions-item label="调用ID (SpanId)">
+          <el-tooltip :content="trace.spanId || trace.esDocId" placement="top">
+            <code class="id-code">{{ trace.spanId || trace.esDocId || '-' }}</code>
+          </el-tooltip>
+        </el-descriptions-item>
         <el-descriptions-item label="来源">{{ trace.traceSource || '-' }}</el-descriptions-item>
         <el-descriptions-item label="状态">
           <el-tag :type="trace.status === 1 ? 'success' : 'danger'">
@@ -57,21 +66,15 @@ const trace = ref({})
 
 const open = async (id) => {
   visible.value = true
-  // 重置数据
   trace.value = {}
   try {
-    console.log('查询追踪详情, id:', id)
     const res = await getTrace(id)
-    console.log('查询结果:', res)
     if (res.success && res.data) {
       trace.value = res.data
-      console.log('追踪数据:', trace.value)
     } else {
-      console.warn('查询失败或数据为空:', res)
       ElMessage.warning('获取追踪详情失败: ' + (res.message || '未知错误'))
     }
   } catch (e) {
-    console.error('查询追踪详情异常:', e)
     ElMessage.error('获取追踪详情失败: ' + (e.message || '未知错误'))
   }
 }
@@ -112,5 +115,14 @@ defineExpose({
   white-space: pre-wrap;
   word-wrap: break-word;
   min-height: 100px;
+}
+
+.id-code {
+  font-family: 'Fira Code', 'Courier New', Courier, monospace;
+  font-size: 12px;
+  background: #f5f7fa;
+  padding: 2px 6px;
+  border-radius: 4px;
+  word-break: break-all;
 }
 </style>

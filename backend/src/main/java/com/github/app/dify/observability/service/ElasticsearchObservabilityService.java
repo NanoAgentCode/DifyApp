@@ -165,6 +165,7 @@ public class ElasticsearchObservabilityService {
     private void createIndex(ElasticsearchClient client) throws Exception {
         TypeMapping mapping = TypeMapping.of(m -> m
             .properties("traceId", Property.of(p -> p.keyword(k -> k)))
+            .properties("spanId", Property.of(p -> p.keyword(k -> k)))
             .properties("conversationId", Property.of(p -> p.keyword(k -> k)))
             .properties("appName", Property.of(p -> p.keyword(k -> k)))
             .properties("model", Property.of(p -> p.keyword(k -> k)))
@@ -223,6 +224,38 @@ public class ElasticsearchObservabilityService {
 
             client.index(request);
             logger.info("追踪已保存: docId={}, traceId={}", docId, doc.getTraceId());
+            return docId;
+        } catch (Exception e) {
+            logger.error("保存追踪失败", e);
+            resetClient();
+            return null;
+        }
+    }
+
+    /**
+     * 使用指定ID保存追踪文档
+     * @param docId 指定的文档ID（spanId）
+     * @param doc 文档
+     * @return 文档ID
+     */
+    public String saveWithId(String docId, LLMTraceDocument doc) {
+        ElasticsearchClient client = getClient();
+        if (client == null) {
+            logger.warn("ES客户端不可用，无法保存");
+            return null;
+        }
+
+        try {
+            ensureIndexExists(client);
+
+            IndexRequest<LLMTraceDocument> request = IndexRequest.of(i -> i
+                .index(INDEX_NAME)
+                .id(docId)
+                .document(doc)
+            );
+
+            client.index(request);
+            logger.info("追踪已保存: docId={}, traceId={}, spanId={}", docId, doc.getTraceId(), doc.getSpanId());
             return docId;
         } catch (Exception e) {
             logger.error("保存追踪失败", e);

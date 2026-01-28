@@ -211,12 +211,9 @@ public class ModelLanguageModelFactory {
 
                     // 记录结束
                     try {
-                        // 估算token (简单估算)
-                        int inputTokens = 0; // 暂时不计算
-                        int outputTokens = answer.length();
-                        int totalTokens = inputTokens + outputTokens;
-
-                        llmTraceService.recordEnd(traceId, responseJson, inputTokens, outputTokens, totalTokens);
+                        // 解析 token 使用信息
+                        int[] usage = parseUsage(responseJson);
+                        llmTraceService.recordEnd(traceId, responseJson, usage[0], usage[1], usage[2]);
                     } catch (Exception e) {
                         logger.warn("记录LLM Trace End失败", e);
                     }
@@ -401,9 +398,9 @@ public class ModelLanguageModelFactory {
                             })
                             .doOnComplete(() -> {
                                 try {
-                                    int outputTokens = fullResponse.length(); // 简单估算
-                                    llmTraceService.recordEnd(traceId, fullResponse.toString(), 0, outputTokens,
-                                            outputTokens);
+                                    // 流式响应估算 token（约 4 字符 = 1 token）
+                                    int outputTokens = Math.max(1, fullResponse.length() / 4);
+                                    llmTraceService.recordEnd(traceId, fullResponse.toString(), 0, outputTokens, outputTokens);
                                 } catch (Exception e) {
                                     logger.warn("记录Stream LLM Trace End失败", e);
                                 }
@@ -539,6 +536,52 @@ public class ModelLanguageModelFactory {
         }
 
         return requestBody;
+    }
+
+    /**
+     * 解析响应中的 token 使用信息
+     * 支持格式：
+     * 1. OpenAI格式：{"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}
+     * 2. Ollama格式：{"prompt_eval_count":100,"eval_count":50}
+     * @return int[3] = {inputTokens, outputTokens, totalTokens}
+     */
+    private int[] parseUsage(String responseJson) {
+        int[] result = {0, 0, 0};
+        if (responseJson == null || responseJson.trim().isEmpty()) {
+            return result;
+        }
+        try {
+            com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(responseJson);
+            
+            // OpenAI 格式
+            if (root.has("usage")) {
+                com.fasterxml.jackson.databind.JsonNode usage = root.get("usage");
+                if (usage.has("prompt_tokens")) {
+                    result[0] = usage.get("prompt_tokens").asInt(0);
+                }
+                if (usage.has("completion_tokens")) {
+                    result[1] = usage.get("completion_tokens").asInt(0);
+                }
+                if (usage.has("total_tokens")) {
+                    result[2] = usage.get("total_tokens").asInt(0);
+                } else {
+                    result[2] = result[0] + result[1];
+                }
+                return result;
+            }
+            
+            // Ollama 格式
+            if (root.has("prompt_eval_count") || root.has("eval_count")) {
+                result[0] = root.has("prompt_eval_count") ? root.get("prompt_eval_count").asInt(0) : 0;
+                result[1] = root.has("eval_count") ? root.get("eval_count").asInt(0) : 0;
+                result[2] = result[0] + result[1];
+                return result;
+            }
+            
+        } catch (Exception e) {
+            logger.debug("解析token使用信息失败: {}", e.getMessage());
+        }
+        return result;
     }
 
     /**

@@ -106,9 +106,18 @@
           stripe
           fit
         >
-          <el-table-column prop="traceId" label="Trace ID" width="280" align="center" show-overflow-tooltip>
+          <el-table-column prop="traceId" label="链路ID" width="160" align="center" show-overflow-tooltip>
             <template #default="scope">
-              <code class="trace-id">{{ scope.row.traceId }}</code>
+              <el-tooltip :content="scope.row.traceId" placement="top">
+                <code class="trace-id">{{ formatId(scope.row.traceId) }}</code>
+              </el-tooltip>
+            </template>
+          </el-table-column>
+          <el-table-column prop="spanId" label="调用ID" width="160" align="center" show-overflow-tooltip>
+            <template #default="scope">
+              <el-tooltip :content="scope.row.spanId || scope.row.esDocId" placement="top">
+                <code class="span-id">{{ formatId(scope.row.spanId || scope.row.esDocId) }}</code>
+              </el-tooltip>
             </template>
           </el-table-column>
           <el-table-column prop="createdAt" label="时间" width="180" align="center">
@@ -317,6 +326,12 @@ const handleDelete = (row) => {
 
 const formatTime = (time) => {
   return dayjs(time).format('YYYY-MM-DD HH:mm:ss')
+}
+
+// 格式化 ID，只显示前8位
+const formatId = (id) => {
+  if (!id) return '-'
+  return id.length > 8 ? id.substring(0, 8) + '...' : id
 }
 
 const getLatencyClass = (latency) => {
@@ -555,7 +570,7 @@ onMounted(() => {
   font-weight: 600;
 }
 
-.trace-id {
+.trace-id, .span-id {
   font-family: 'Fira Code', 'Courier New', Courier, monospace;
   font-size: 11px;
   color: var(--color-text-secondary);
@@ -564,6 +579,11 @@ onMounted(() => {
   border-radius: 4px;
   display: inline-block;
   max-width: 100%;
+  cursor: pointer;
+}
+
+.trace-id:hover, .span-id:hover {
+  background: var(--color-bg-hover);
 }
 
 .source-tag {
