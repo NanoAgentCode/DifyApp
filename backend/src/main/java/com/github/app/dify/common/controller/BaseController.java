@@ -41,6 +41,17 @@ public abstract class BaseController {
         }
         return usernameObj.toString();
     }
+
+    /**
+     * 从请求中获取用户角色（1=管理员，2=普通用户等），未设置时返回 null
+     */
+    protected Integer getRole(HttpServletRequest request) {
+        Object roleObj = request.getAttribute("role");
+        if (roleObj instanceof Integer) {
+            return (Integer) roleObj;
+        }
+        return null;
+    }
     
     /**
      * 成功响应（无数据）

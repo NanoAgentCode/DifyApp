@@ -959,12 +959,12 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
 
             // 将哈希转换为UUID格式
             // UUID v5版本号：将第6-7字节的最高4位设置为5
-            hash[6] &= 0x0f; // 清除版本位
-            hash[6] |= 0x50; // 设置版本为5
+            hash[6] = (byte) (hash[6] & 0x0f); // 清除版本位
+            hash[6] = (byte) (hash[6] | 0x50); // 设置版本为5
 
             // UUID v5变体：将第8字节的最高2位设置为10
-            hash[8] &= 0x3f; // 清除变体位
-            hash[8] |= 0x80; // 设置变体为10
+            hash[8] = (byte) (hash[8] & 0x3f); // 清除变体位
+            hash[8] = (byte) (hash[8] | 0x80); // 设置变体为10
 
             // 将字节数组转换为UUID
             long msbResult = 0;

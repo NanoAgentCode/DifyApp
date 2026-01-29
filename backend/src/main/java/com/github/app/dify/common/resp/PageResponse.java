@@ -18,8 +18,8 @@ public class PageResponse<T> {
         this.content = content;
         this.total = total;
         this.page = page;
-        this.pageSize = pageSize;
-        this.totalPages = (int) Math.ceil((double) total / pageSize);
+        this.pageSize = pageSize <= 0 ? 1 : pageSize; // 避免除零
+        this.totalPages = (int) Math.ceil((double) total / this.pageSize);
     }
     
     public List<T> getContent() {

@@ -3,6 +3,7 @@ package com.github.app.dify.chat.controller;
 import com.github.app.dify.common.controller.BaseController;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.NotFoundException;
+import com.github.app.dify.common.util.ServiceHelper;
 import com.github.app.dify.system.config.DifyConfig;
 import com.github.app.dify.chat.req.CreateAiAppReq;
 import com.github.app.dify.chat.req.ChatFlowRequest;
@@ -61,10 +62,8 @@ public class AiAppController extends BaseController {
     @PutMapping("/{id}")
     public ResponseEntity<AiAppResp> updateAiApp(@PathVariable Long id, 
                                                   @Validated @RequestBody UpdateAiAppReq req) {
-        AiAppResp resp = aiAppService.updateAiApp(id, req);
-        if (resp == null) {
-            throw new NotFoundException("AI应用不存在: " + id);
-        }
+        AiAppResp resp = ServiceHelper.checkNotNull(
+                aiAppService.updateAiApp(id, req), "AI应用", id, logger);
         return ResponseEntity.ok(resp);
     }
     
@@ -74,10 +73,8 @@ public class AiAppController extends BaseController {
     @Operation(summary = "根据ID获取AI应用")
     @GetMapping("/{id}")
     public ResponseEntity<AiAppResp> getAiAppById(@PathVariable Long id) {
-        AiAppResp resp = aiAppService.getAiAppById(id);
-        if (resp == null) {
-            throw new NotFoundException("AI应用不存在: " + id);
-        }
+        AiAppResp resp = ServiceHelper.checkNotNull(
+                aiAppService.getAiAppById(id), "AI应用", id, logger);
         return ResponseEntity.ok(resp);
     }
     

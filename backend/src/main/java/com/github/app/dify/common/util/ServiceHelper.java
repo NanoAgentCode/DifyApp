@@ -12,6 +12,26 @@ import java.util.Optional;
 public class ServiceHelper {
 
     /**
+     * 检查值是否为 null，为 null 则抛出 NotFoundException（用于 Controller/Service 返回非 Optional 的场景）
+     *
+     * @param value 可能为 null 的返回值
+     * @param resourceName 资源名称（如"知识库"、"数据源"等）
+     * @param resourceId 资源ID（用于日志与异常信息）
+     * @param logger Logger，可为 null
+     * @param <T> 类型
+     * @return 非 null 的值
+     */
+    public static <T> T checkNotNull(T value, String resourceName, Object resourceId, Logger logger) {
+        if (value == null) {
+            if (logger != null) {
+                logger.warn("{}不存在 - ID: {}", resourceName, resourceId);
+            }
+            throw new NotFoundException(resourceName + "不存在" + (resourceId != null ? ": " + resourceId : ""));
+        }
+        return value;
+    }
+
+    /**
      * 检查Optional是否存在，如果不存在则抛出NotFoundException
      *
      * @param optional Optional对象

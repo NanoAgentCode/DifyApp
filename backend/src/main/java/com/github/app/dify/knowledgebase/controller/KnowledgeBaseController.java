@@ -4,6 +4,7 @@ import com.github.app.dify.common.controller.BaseController;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ForbiddenException;
 import com.github.app.dify.common.exception.NotFoundException;
+import com.github.app.dify.common.util.ServiceHelper;
 import com.github.app.dify.knowledgebase.req.CreateKnowledgeBaseReq;
 import com.github.app.dify.knowledgebase.req.KnowledgeBaseImportRequest;
 import com.github.app.dify.knowledgebase.req.UpdateKnowledgeBaseReq;
@@ -44,8 +45,7 @@ public class KnowledgeBaseController extends BaseController {
      * 检查是否为管理员
      */
     private boolean isAdmin(HttpServletRequest request) {
-        Object roleObj = request.getAttribute("role");
-        return roleObj instanceof Integer && (Integer) roleObj == 1;
+        return Integer.valueOf(1).equals(getRole(request));
     }
     
     /**
@@ -62,8 +62,7 @@ public class KnowledgeBaseController extends BaseController {
         
         Long userId = getUserId(request);
         String username = getUsername(request);
-        Object roleObj = request.getAttribute("role");
-        Integer role = roleObj instanceof Integer ? (Integer) roleObj : null;
+        Integer role = getRole(request);
         
         try {
             KnowledgeBaseResp resp = knowledgeBaseService.createKnowledgeBase(req, userId, username, role, force);
@@ -86,10 +85,8 @@ public class KnowledgeBaseController extends BaseController {
     @PutMapping("/{id}")
     public ResponseEntity<KnowledgeBaseResp> updateKnowledgeBase(@PathVariable Long id,
                                                                  @Validated @RequestBody UpdateKnowledgeBaseReq req) {
-        KnowledgeBaseResp resp = knowledgeBaseService.updateKnowledgeBase(id, req);
-        if (resp == null) {
-            throw new NotFoundException("知识库不存在: " + id);
-        }
+        KnowledgeBaseResp resp = ServiceHelper.checkNotNull(
+                knowledgeBaseService.updateKnowledgeBase(id, req), "知识库", id, logger);
         return ResponseEntity.ok(resp);
     }
     
@@ -99,10 +96,8 @@ public class KnowledgeBaseController extends BaseController {
     @Operation(summary = "根据ID获取知识库")
     @GetMapping("/{id}")
     public ResponseEntity<KnowledgeBaseResp> getKnowledgeBaseById(@PathVariable Long id) {
-        KnowledgeBaseResp resp = knowledgeBaseService.getKnowledgeBaseById(id);
-        if (resp == null) {
-            throw new NotFoundException("知识库不存在: " + id);
-        }
+        KnowledgeBaseResp resp = ServiceHelper.checkNotNull(
+                knowledgeBaseService.getKnowledgeBaseById(id), "知识库", id, logger);
         return ResponseEntity.ok(resp);
     }
     
@@ -132,8 +127,7 @@ public class KnowledgeBaseController extends BaseController {
             @RequestParam(required = false) Integer pageSize,
             HttpServletRequest request) {
         Long currentUserId = getUserId(request);
-        Object roleObj = request.getAttribute("role");
-        Integer userRole = roleObj instanceof Integer ? (Integer) roleObj : null;
+        Integer userRole = getRole(request);
         
         // 如果请求参数中没有userId，使用当前登录用户的ID
         if (userId == null) {
@@ -169,10 +163,8 @@ public class KnowledgeBaseController extends BaseController {
         boolean isAdmin = isAdmin(request);
         
         // 验证用户权限：检查用户是否有权限访问该知识库
-        KnowledgeBaseResp kb = knowledgeBaseService.getKnowledgeBaseById(id);
-        if (kb == null) {
-            throw new NotFoundException("知识库不存在: " + id);
-        }
+        KnowledgeBaseResp kb = ServiceHelper.checkNotNull(
+                knowledgeBaseService.getKnowledgeBaseById(id), "知识库", id, logger);
         
         boolean hasAccess = false;
         if (isAdmin) {
@@ -208,10 +200,8 @@ public class KnowledgeBaseController extends BaseController {
         boolean isAdmin = isAdmin(request);
         
         // 验证用户权限
-        KnowledgeBaseResp kb = knowledgeBaseService.getKnowledgeBaseById(id);
-        if (kb == null) {
-            throw new NotFoundException("知识库不存在: " + id);
-        }
+        KnowledgeBaseResp kb = ServiceHelper.checkNotNull(
+                knowledgeBaseService.getKnowledgeBaseById(id), "知识库", id, logger);
         
         boolean hasAccess = false;
         if (isAdmin) {

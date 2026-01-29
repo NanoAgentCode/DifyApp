@@ -3,6 +3,7 @@ package com.github.app.dify.datasource.controller;
 import com.github.app.dify.common.controller.BaseController;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.NotFoundException;
+import com.github.app.dify.common.util.ServiceHelper;
 import com.github.app.dify.datasource.req.CreateDataSourceReq;
 import com.github.app.dify.datasource.req.UpdateDataSourceReq;
 import com.github.app.dify.datasource.resp.DataSourceResp;
@@ -48,8 +49,7 @@ public class DataSourceController extends BaseController {
         
         Long userId = getUserId(request);
         String username = getUsername(request);
-        Object roleObj = request.getAttribute("role");
-        Integer role = roleObj instanceof Integer ? (Integer) roleObj : null;
+        Integer role = getRole(request);
         
         try {
             DataSourceResp resp = dataSourceService.createDataSource(req, userId, username, role, force);
@@ -73,10 +73,8 @@ public class DataSourceController extends BaseController {
     public ResponseEntity<DataSourceResp> updateDataSource(
             @PathVariable Long id,
             @Validated @RequestBody UpdateDataSourceReq req) {
-        DataSourceResp resp = dataSourceService.updateDataSource(id, req);
-        if (resp == null) {
-            throw new NotFoundException("数据源不存在: " + id);
-        }
+        DataSourceResp resp = ServiceHelper.checkNotNull(
+                dataSourceService.updateDataSource(id, req), "数据源", id, logger);
         return ResponseEntity.ok(resp);
     }
     
@@ -86,10 +84,8 @@ public class DataSourceController extends BaseController {
     @Operation(summary = "根据ID获取数据源")
     @GetMapping("/{id}")
     public ResponseEntity<DataSourceResp> getDataSourceById(@PathVariable Long id) {
-        DataSourceResp resp = dataSourceService.getDataSourceById(id);
-        if (resp == null) {
-            throw new NotFoundException("数据源不存在: " + id);
-        }
+        DataSourceResp resp = ServiceHelper.checkNotNull(
+                dataSourceService.getDataSourceById(id), "数据源", id, logger);
         return ResponseEntity.ok(resp);
     }
     
@@ -119,8 +115,7 @@ public class DataSourceController extends BaseController {
             @RequestParam(required = false) Integer pageSize,
             HttpServletRequest request) {
         Long currentUserId = getUserId(request);
-        Object roleObj = request.getAttribute("role");
-        Integer userRole = roleObj instanceof Integer ? (Integer) roleObj : null;
+        Integer userRole = getRole(request);
         
         if (userId == null) {
             userId = currentUserId;

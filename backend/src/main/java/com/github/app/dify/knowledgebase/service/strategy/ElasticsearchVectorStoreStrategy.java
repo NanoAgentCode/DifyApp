@@ -204,11 +204,13 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
                 (!Objects.equals(currentUsername, lastUsername)) ||
                 (!Objects.equals(currentPassword, lastPassword))) {
 
-            // 关闭旧的客户端
+            // 关闭旧的客户端：关闭底层 Transport（含 RestClient），释放连接
             if (client != null) {
                 try {
-                    // ElasticsearchClient没有close方法，需要关闭底层的RestClient
-                    // 这里我们只清理缓存，让旧的客户端被GC回收
+                    ElasticsearchTransport transport = client._transport();
+                    if (transport instanceof AutoCloseable closeable) {
+                        closeable.close();
+                    }
                 } catch (Exception e) {
                     logger.warn("关闭旧的Elasticsearch客户端失败", e);
                 }
