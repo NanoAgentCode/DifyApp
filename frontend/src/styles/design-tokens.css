@@ -136,6 +136,7 @@
   
   --button-height-sm: 28px;
   --button-height-base: 32px;
+  --button-height-md: 36px;
   --button-height-lg: 40px;
   --button-padding-x-sm: var(--spacing-sm);
   --button-padding-x-base: var(--spacing-md);

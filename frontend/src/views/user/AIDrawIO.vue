@@ -199,9 +199,37 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import {computed, nextTick, onMounted, onUnmounted, ref} from 'vue'
+import {useRouter} from 'vue-router'
+import {ElMessage, ElMessageBox} from 'element-plus'
+import {
+  ArrowLeft,
+  Box,
+  Cloudy,
+  Connection,
+  CreditCard,
+  DataAnalysis,
+  DataBoard,
+  Delete,
+  DocumentChecked,
+  Download,
+  Edit,
+  Folder,
+  FullScreen,
+  InfoFilled,
+  Lock,
+  MagicStick,
+  Menu,
+  OfficeBuilding,
+  Reading,
+  ShoppingBag,
+  ShoppingCart,
+  Upload,
+  User,
+  ZoomIn,
+  ZoomOut,
+} from '@element-plus/icons-vue'
+import {deleteHistory, generateDiagram, getHistoryList, modifyDiagram, saveHistory} from '@/api/drawio'
 
 // 动态导入 AntV Infographic，只在访问 AIDrawIO 页面时才加载
 let Infographic = null
@@ -278,46 +306,6 @@ const loadInfographic = async () => {
   }
   return Infographic
 }
-import {
-  MagicStick,
-  Edit,
-  Delete,
-  DataAnalysis,
-  Download,
-  Upload,
-  Operation,
-  Connection,
-  Share,
-  Timer,
-  Box,
-  UserFilled,
-  Link,
-  Setting,
-  User,
-  ShoppingCart,
-  DocumentChecked,
-  Cloudy,
-  Menu,
-  Folder,
-  Reading,
-  CreditCard,
-  Lock,
-  ShoppingBag,
-  OfficeBuilding,
-  DataBoard,
-  ZoomIn,
-  ZoomOut,
-  FullScreen,
-  ArrowLeft,
-  InfoFilled,
-} from '@element-plus/icons-vue'
-import { 
-  generateDiagram, 
-  modifyDiagram,
-  saveHistory,
-  getHistoryList,
-  deleteHistory
-} from '@/api/drawio'
 
 const router = useRouter()
 
@@ -911,8 +899,7 @@ const handleWheel = (event) => {
   if (event.ctrlKey || event.metaKey) {
     event.preventDefault()
     const delta = event.deltaY > 0 ? -zoomStep : zoomStep
-    const newZoom = Math.max(minZoom, Math.min(maxZoom, zoomLevel.value + delta))
-    zoomLevel.value = newZoom
+    zoomLevel.value = Math.max(minZoom, Math.min(maxZoom, zoomLevel.value + delta))
   }
 }
 
@@ -1065,15 +1052,6 @@ onUnmounted(() => {
   align-items: center;
 }
 
-.header-top .el-button {
-  transition: all var(--transition-base);
-}
-
-.header-top .el-button:hover {
-  color: var(--color-primary);
-  transform: translateX(-2px);
-}
-
 .toolbar-header h3 {
   margin: 0;
   color: var(--color-text-primary);
@@ -1108,19 +1086,10 @@ onUnmounted(() => {
   width: 100%;
 }
 
-.diagram-type-select :deep(.el-input__wrapper) {
-  margin: 0;
-}
-
 .diagram-type-option {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.diagram-type-option .el-icon {
-  font-size: 16px;
-  color: #409eff;
 }
 
 .template-section {
@@ -1156,12 +1125,6 @@ onUnmounted(() => {
   transform: translateX(2px);
 }
 
-.template-item .el-icon {
-  color: #409eff;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
 .ai-input-section {
   margin-bottom: 15px;
   margin-left: 0;
@@ -1171,10 +1134,6 @@ onUnmounted(() => {
 
 .prompt-input {
   margin-bottom: 10px;
-}
-
-.prompt-input :deep(.el-textarea__inner) {
-  margin: 0;
 }
 
 .button-group {
@@ -1212,14 +1171,6 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.management-button .el-icon {
-  margin-right: 6px;
-}
-
-.action-button .el-icon {
-  margin-right: 6px;
 }
 
 .section-title {
@@ -1315,27 +1266,9 @@ onUnmounted(() => {
   color: var(--color-text-primary);
 }
 
-.canvas-title .el-icon {
-  color: var(--color-primary);
-  transition: all var(--transition-base);
-}
-
-.canvas-header:hover .canvas-title .el-icon {
-  transform: scale(1.1);
-}
-
 .canvas-actions {
   display: flex;
   gap: var(--spacing-sm);
-}
-
-.canvas-actions .el-button {
-  transition: all var(--transition-base);
-}
-
-.canvas-actions .el-button:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-xs);
 }
 
 /* ========== AntV Infographic图表容器 ========== */
