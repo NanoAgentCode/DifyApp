@@ -18,7 +18,7 @@ import com.github.app.dify.permission.resp.UserKnowledgeBaseVisibilityResp;
 import com.github.app.dify.permission.service.UserAppVisibilityService;
 import com.github.app.dify.permission.service.UserDataSourceVisibilityService;
 import com.github.app.dify.permission.service.UserKnowledgeBaseVisibilityService;
-import com.github.app.dify.userlog.annotation.UserAction;
+import com.github.app.dify.ops.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.slf4j.Logger;

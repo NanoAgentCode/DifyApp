@@ -6,7 +6,7 @@ import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.knowledgebase.resp.KnowledgeBaseDocumentResp;
 import com.github.app.dify.knowledgebase.service.DocumentVectorizationService;
 import com.github.app.dify.knowledgebase.service.KnowledgeBaseDocumentService;
-import com.github.app.dify.userlog.annotation.UserAction;
+import com.github.app.dify.ops.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;

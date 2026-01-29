@@ -11,7 +11,7 @@ import com.github.app.dify.chat.req.UpdateAiAppReq;
 import com.github.app.dify.chat.resp.AiAppResp;
 import com.github.app.dify.chat.resp.DifyResponse;
 import com.github.app.dify.chat.service.AiAppService;
-import com.github.app.dify.userlog.annotation.UserAction;
+import com.github.app.dify.ops.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -6,7 +6,7 @@ import com.github.app.dify.chat.req.ChatHistoryRequest;
 import com.github.app.dify.chat.resp.*;
 import com.github.app.dify.chat.service.ChatHistoryService;
 import com.github.app.dify.common.resp.PageResponse;
-import com.github.app.dify.userlog.annotation.UserAction;
+import com.github.app.dify.ops.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,90 +1,70 @@
 package com.github.app.dify.system.util;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
-import org.springframework.util.FileCopyUtils;
 
-import java.io.InputStreamReader;
-import java.io.Reader;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-public class SkillLoader {
-    
-    private static final Logger logger = LoggerFactory.getLogger(SkillLoader.class);
-    
-    private static final String SKILL_BASE_PATH = "skills/";
-    
-    private static final Map<String, String> CACHE = new ConcurrentHashMap<>();
-    
-    public static String loadSkill(String skillName) {
-        if (skillName == null || skillName.trim().isEmpty()) {
-            return null;
+/**
+ * 从 classpath skills/ 目录加载 .md 技能模板（系统提示、用户模板等）
+ */
+public final class SkillLoader {
+
+    private static final String SKILLS_PREFIX = "skills/";
+    private static final String SUFFIX = ".md";
+    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\{([^}]+)\\}");
+
+    private SkillLoader() {
+    }
+
+    /**
+     * 加载技能文件内容（UTF-8），路径相对于 skills/，自动补全 .md
+     * 例如 loadSkill("chat/system_prompt") 读取 skills/chat/system_prompt.md
+     *
+     * @param path 相对路径，不含 .md
+     * @return 文件内容，不存在或读失败时返回空字符串
+     */
+    public static String loadSkill(String path) {
+        if (path == null || path.trim().isEmpty()) {
+            return "";
         }
-        String key = skillName.trim();
-        if (CACHE.containsKey(key)) {
-            return CACHE.get(key);
-        }
-        String fileName = key.endsWith(".md") ? key : key + ".md";
-        String path = SKILL_BASE_PATH + fileName;
+        String resourcePath = SKILLS_PREFIX + path.trim() + SUFFIX;
         try {
-            Resource resource = new ClassPathResource(path);
+            ClassPathResource resource = new ClassPathResource(resourcePath);
             if (!resource.exists()) {
-                logger.warn("技能文件不存在: {}", path);
-                return null;
+                return "";
             }
-            try (Reader reader = new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8)) {
-                String content = FileCopyUtils.copyToString(reader);
-                CACHE.put(key, content);
-                return content;
+            try (InputStream is = resource.getInputStream()) {
+                return new String(is.readAllBytes(), StandardCharsets.UTF_8);
             }
         } catch (Exception e) {
-            logger.error("加载技能文件失败: {}", path, e);
-            return null;
+            return "";
         }
     }
-    
+
     /**
-     * 加载技能文件并替换模板变量
-     * @param skillName 技能文件名（不含 .md 后缀）
-     * @param variables 模板变量映射，key 为变量名（不含花括号），value 为替换值
-     * @return 替换后的内容，如果文件不存在返回 null
+     * 加载技能模板并替换占位符 {key} 为 variables 中的值
+     *
+     * @param path     相对路径，不含 .md
+     * @param variables 占位符 key -> 替换值
+     * @return 替换后的内容，不存在或读失败时返回空字符串
      */
-    public static String loadSkillWithTemplate(String skillName, Map<String, String> variables) {
-        String content = loadSkill(skillName);
-        if (content == null || variables == null || variables.isEmpty()) {
-            return content;
+    public static String loadSkillWithTemplate(String path, Map<String, ?> variables) {
+        String raw = loadSkill(path);
+        if (raw.isEmpty() || variables == null || variables.isEmpty()) {
+            return raw;
         }
-        
-        // 替换模板变量 {variableName}
-        String result = content;
-        for (Map.Entry<String, String> entry : variables.entrySet()) {
-            String placeholder = "{" + entry.getKey() + "}";
-            result = result.replace(placeholder, entry.getValue() != null ? entry.getValue() : "");
+        Matcher m = PLACEHOLDER_PATTERN.matcher(raw);
+        StringBuilder sb = new StringBuilder();
+        while (m.find()) {
+            String key = m.group(1);
+            Object value = variables.get(key);
+            m.appendReplacement(sb, Matcher.quoteReplacement(value != null ? value.toString() : ""));
         }
-        
-        return result;
-    }
-    
-    /**
-     * 清除缓存（用于开发环境，当提示词文件更新后可以清除缓存重新加载）
-     */
-    public static void clearCache() {
-        CACHE.clear();
-        logger.info("技能文件缓存已清除");
-    }
-    
-    /**
-     * 清除指定技能的缓存
-     */
-    public static void clearCache(String skillName) {
-        if (skillName != null) {
-            CACHE.remove(skillName.trim());
-            logger.info("技能文件缓存已清除: {}", skillName);
-        }
+        m.appendTail(sb);
+        return sb.toString();
     }
 }
-

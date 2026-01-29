@@ -4,7 +4,7 @@ import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.exception.UnauthorizedException;
 import com.github.app.dify.knowledgebase.domain.QAModel;
-import com.github.app.dify.observability.annotation.LLMTrace;
+import com.github.app.dify.ops.observability.annotation.LLMTrace;
 import com.github.app.dify.permission.service.UserKnowledgeBaseVisibilityService;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
 import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;

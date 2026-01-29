@@ -18,7 +18,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * - knowledgebase: 知识库模块
  * - documentreader: 文档解读模块
  * - system: 系统配置模块
- * - statistics: 数据统计模块
+ * - ops: 可观测与运维（observability 追踪、userlog 用户操作日志）
+ * - analytics: 统计与分析（analysis 数据分析、statistics 数据统计）
  * - mcp: MCP服务集成模块（浏览器搜索、时间服务等）
  * - model: 模型配置模块（问答模型、向量化模型配置管理）
  * - datasource: 数据源管理模块（数据源配置、连接管理、表结构管理）

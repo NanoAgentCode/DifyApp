@@ -34,7 +34,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import com.github.app.dify.observability.service.LLMTraceService;
+import com.github.app.dify.ops.observability.service.LLMTraceService;
 import java.util.UUID;
 
 /**

@@ -1,87 +1,39 @@
 package com.github.app.dify.system.config;
 
-import io.minio.MinioClient;
-import com.github.app.dify.common.exception.BusinessException;
-import com.github.app.dify.common.exception.ErrorCode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
 /**
- * MinIO配置类
+ * MinIO 存储配置（绑定 minio.*）
  */
-@Configuration
-@ConfigurationProperties(prefix = "minio")
+@Component
 public class MinioConfig {
-    
-    private static final Logger logger = LoggerFactory.getLogger(MinioConfig.class);
-    
-    private String endpoint = "http://10.11.24.201:9000";
-    private String accessKey = "minioadmin";
-    private String secretKey = "minioadmin";
-    private String bucketName = "knowledge-base";
-    
-    @Bean
-    public MinioClient minioClient() {
-        try {
-            MinioClient client = MinioClient.builder()
-                    .endpoint(endpoint)
-                    .credentials(accessKey, secretKey)
-                    .build();
-            
-            // 检查并创建bucket
-            boolean found = client.bucketExists(io.minio.BucketExistsArgs.builder()
-                    .bucket(bucketName)
-                    .build());
-            
-            if (!found) {
-                client.makeBucket(io.minio.MakeBucketArgs.builder()
-                        .bucket(bucketName)
-                        .build());
-                logger.info("MinIO bucket '{}' 创建成功", bucketName);
-            } else {
-                logger.info("MinIO bucket '{}' 已存在", bucketName);
-            }
-            
-            logger.info("MinIO客户端初始化成功，endpoint: {}", endpoint);
-            return client;
-        } catch (Exception e) {
-            logger.error("MinIO客户端初始化失败", e);
-            throw new BusinessException("MinIO客户端初始化失败", ErrorCode.CONFIG_ERROR, e);
-        }
-    }
-    
-    public String getEndpoint() {
-        return endpoint;
-    }
-    
-    public void setEndpoint(String endpoint) {
-        this.endpoint = endpoint;
-    }
-    
-    public String getAccessKey() {
-        return accessKey;
-    }
-    
-    public void setAccessKey(String accessKey) {
-        this.accessKey = accessKey;
-    }
-    
-    public String getSecretKey() {
-        return secretKey;
-    }
-    
-    public void setSecretKey(String secretKey) {
-        this.secretKey = secretKey;
-    }
-    
+
+    @Value("${minio.bucket-name:knowledge-base}")
+    private String bucketName;
+
+    @Value("${minio.endpoint:http://localhost:19000}")
+    private String endpoint;
+
+    @Value("${minio.access-key:}")
+    private String accessKey;
+
+    @Value("${minio.secret-key:}")
+    private String secretKey;
+
     public String getBucketName() {
         return bucketName;
     }
-    
-    public void setBucketName(String bucketName) {
-        this.bucketName = bucketName;
+
+    public String getEndpoint() {
+        return endpoint;
+    }
+
+    public String getAccessKey() {
+        return accessKey;
+    }
+
+    public String getSecretKey() {
+        return secretKey;
     }
 }
-

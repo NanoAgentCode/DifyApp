@@ -8,7 +8,7 @@ import com.github.app.dify.datasource.req.UpdateDataSourceReq;
 import com.github.app.dify.datasource.resp.DataSourceResp;
 import com.github.app.dify.datasource.service.DataSourceService;
 import com.github.app.dify.datasource.service.DatabaseSchemaService;
-import com.github.app.dify.userlog.annotation.UserAction;
+import com.github.app.dify.ops.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;

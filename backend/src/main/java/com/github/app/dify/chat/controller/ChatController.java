@@ -10,7 +10,7 @@ import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.util.RequestHelper;
 import com.github.app.dify.common.util.SSEResponseUtil;
 import com.github.app.dify.knowledgebase.repository.QAModelRepository;
-import com.github.app.dify.userlog.annotation.UserAction;
+import com.github.app.dify.ops.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;

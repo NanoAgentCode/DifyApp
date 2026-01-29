@@ -4,7 +4,7 @@ import com.github.app.dify.common.controller.BaseController;
 import com.github.app.dify.common.exception.ForbiddenException;
 import com.github.app.dify.memory.service.UserMemoryService;
 import com.github.app.dify.memory.resp.UserMemoryItemResp;
-import com.github.app.dify.userlog.annotation.UserAction;
+import com.github.app.dify.ops.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;

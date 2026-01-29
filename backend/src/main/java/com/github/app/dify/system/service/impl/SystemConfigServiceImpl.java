@@ -1,213 +1,28 @@
 package com.github.app.dify.system.service.impl;
 
-import com.github.app.dify.system.config.DifyConfig;
-import com.github.app.dify.system.config.OcrConfig;
 import com.github.app.dify.system.domain.SystemConfig;
 import com.github.app.dify.system.repository.SystemConfigRepository;
-import com.github.app.dify.system.req.UpdateSystemConfigReq;
-import com.github.app.dify.system.resp.SystemConfigResp;
 import com.github.app.dify.system.service.SystemConfigService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import com.github.app.dify.system.util.SystemConverterUtil;
-import com.github.app.dify.system.util.SystemDateTimeUtil;
-import java.util.List;
+
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
- * 系统配置服务实现
+ * 系统配置服务实现（从 SYSTEM_CONFIG 表按 key 读取）
  */
 @Service
 public class SystemConfigServiceImpl implements SystemConfigService {
-    
-    private static final Logger logger = LoggerFactory.getLogger(SystemConfigServiceImpl.class);
-    
-    // Dify 配置键前缀
-    private static final String DIFY_CONFIG_PREFIX = "dify.api.";
-    
-    // OCR 配置键前缀
-    private static final String OCR_CONFIG_PREFIX = "ocr.service.";
-    
+
     @Autowired
     private SystemConfigRepository systemConfigRepository;
-    
-    @Autowired
-    private ApplicationContext applicationContext;
-    
+
     @Override
     public String getConfigValue(String configKey) {
-        Optional<SystemConfig> optional = systemConfigRepository.findByConfigKeyAndNotDeleted(configKey);
+        if (configKey == null || configKey.trim().isEmpty()) {
+            return null;
+        }
+        Optional<SystemConfig> optional = systemConfigRepository.findByConfigKeyAndNotDeleted(configKey.trim());
         return optional.map(SystemConfig::getConfigValue).orElse(null);
     }
-    
-    @Override
-    public SystemConfigResp getConfigByKey(String configKey) {
-        Optional<SystemConfig> optional = systemConfigRepository.findByConfigKeyAndNotDeleted(configKey);
-        return optional.map(SystemConverterUtil::convertToResp).orElse(null);
-    }
-    
-    @Override
-    public List<SystemConfigResp> getConfigsByGroup(String configGroup) {
-        List<SystemConfig> configs = systemConfigRepository.findByConfigGroupAndNotDeleted(configGroup);
-        return configs.stream().map(SystemConverterUtil::convertToResp).collect(Collectors.toList());
-    }
-    
-    @Override
-    public List<SystemConfigResp> getAllConfigs() {
-        List<SystemConfig> configs = systemConfigRepository.findAllNotDeleted();
-        return configs.stream().map(SystemConverterUtil::convertToResp).collect(Collectors.toList());
-    }
-    
-    @Override
-    @Transactional
-    public SystemConfigResp setOrUpdateConfig(UpdateSystemConfigReq req, Long userId, String username) {
-        // 先查找未删除的配置
-        Optional<SystemConfig> optional = systemConfigRepository.findByConfigKeyAndNotDeleted(req.getConfigKey());
-        
-        SystemConfig config;
-        if (optional.isPresent()) {
-            // 更新现有配置
-            config = optional.get();
-            logger.info("更新系统配置 - 键: {}, 用户: {}", req.getConfigKey(), username);
-        } else {
-            // 如果未删除的配置不存在，检查是否存在已删除的配置
-            Optional<SystemConfig> deletedOptional = systemConfigRepository.findByConfigKey(req.getConfigKey());
-            if (deletedOptional.isPresent()) {
-                // 恢复已删除的配置
-                config = deletedOptional.get();
-                config.setDeleted(0);
-                logger.info("恢复已删除的系统配置 - 键: {}, 用户: {}", req.getConfigKey(), username);
-            } else {
-                // 创建新配置
-                config = new SystemConfig();
-                config.setConfigKey(req.getConfigKey());
-                SystemDateTimeUtil.setCreateTime(config);
-                config.setCreator(username);
-                config.setCreatorId(userId);
-                config.setDeleted(0);
-                logger.info("创建系统配置 - 键: {}, 用户: {}", req.getConfigKey(), username);
-            }
-        }
-        
-        // 更新字段
-        if (req.getConfigValue() != null) {
-            config.setConfigValue(req.getConfigValue());
-        }
-        if (req.getDescription() != null) {
-            config.setDescription(req.getDescription());
-        }
-        if (req.getConfigGroup() != null) {
-            config.setConfigGroup(req.getConfigGroup());
-        }
-        if (req.getConfigType() != null) {
-            config.setConfigType(req.getConfigType());
-        }
-        
-        SystemDateTimeUtil.setUpdateTime(config);
-        
-        config = systemConfigRepository.save(config);
-        
-        logger.info("系统配置保存成功 - 键: {}, ID: {}", config.getConfigKey(), config.getId());
-        
-        // 如果更新的是 Dify 相关配置，重新加载 DifyConfig
-        if (config.getConfigKey() != null && config.getConfigKey().startsWith(DIFY_CONFIG_PREFIX)) {
-            reloadDifyConfig();
-        }
-        
-        // 如果更新的是 OCR 相关配置，重新加载 OcrConfig
-        if (config.getConfigKey() != null && config.getConfigKey().startsWith(OCR_CONFIG_PREFIX)) {
-            reloadOcrConfig();
-        }
-        
-        // 如果更新的是文档解读相关配置，重新加载 DocumentReaderConfig
-        if (config.getConfigKey() != null && config.getConfigKey().startsWith("documentReader.")) {
-            reloadDocumentReaderConfig();
-        }
-        
-        return SystemConverterUtil.convertToResp(config);
-    }
-    
-    @Override
-    @Transactional
-    public void deleteConfig(String configKey) {
-        Optional<SystemConfig> optional = systemConfigRepository.findByConfigKeyAndNotDeleted(configKey);
-        if (optional.isPresent()) {
-            SystemConfig config = optional.get();
-            config.setDeleted(1);
-            SystemDateTimeUtil.setUpdateTime(config);
-            systemConfigRepository.save(config);
-            logger.info("删除系统配置 - 键: {}", configKey);
-        } else {
-            logger.warn("要删除的配置不存在 - 键: {}", configKey);
-        }
-    }
-    
-    /**
-     * 重新加载 Dify 配置
-     */
-    private void reloadDifyConfig() {
-        try {
-            DifyConfig difyConfig = applicationContext.getBean(DifyConfig.class);
-            if (difyConfig != null) {
-                difyConfig.reload();
-                logger.info("Dify 配置已重新加载");
-            }
-        } catch (Exception e) {
-            // DifyConfig 可能不存在，忽略错误
-            logger.debug("重新加载 Dify 配置失败（可能 DifyConfig 未初始化）: {}", e.getMessage());
-        }
-    }
-    
-    /**
-     * 重新加载 OCR 配置
-     */
-    private void reloadOcrConfig() {
-        try {
-            // 重新加载 OcrConfig
-            OcrConfig ocrConfig = applicationContext.getBean(OcrConfig.class);
-            if (ocrConfig != null) {
-                ocrConfig.reload();
-                logger.info("OCR 配置已重新加载");
-            }
-            
-            // 重新初始化 OcrServiceImpl 的 RestTemplate
-            try {
-                com.github.app.dify.chat.service.OcrService ocrService = 
-                    applicationContext.getBean(com.github.app.dify.chat.service.OcrService.class);
-                if (ocrService instanceof com.github.app.dify.chat.service.impl.OcrServiceImpl) {
-                    ((com.github.app.dify.chat.service.impl.OcrServiceImpl) ocrService).reload();
-                    logger.info("OCR 服务 RestTemplate 已重新初始化");
-                }
-            } catch (Exception e) {
-                logger.debug("重新初始化 OCR 服务失败（可能 OcrService 未初始化）: {}", e.getMessage());
-            }
-        } catch (Exception e) {
-            // OcrConfig 可能不存在，忽略错误
-            logger.debug("重新加载 OCR 配置失败（可能 OcrConfig 未初始化）: {}", e.getMessage());
-        }
-    }
-    
-    /**
-     * 重新加载文档解读配置
-     */
-    private void reloadDocumentReaderConfig() {
-        try {
-            com.github.app.dify.system.config.DocumentReaderConfig documentReaderConfig = 
-                applicationContext.getBean(com.github.app.dify.system.config.DocumentReaderConfig.class);
-            if (documentReaderConfig != null) {
-                documentReaderConfig.reload();
-                logger.info("文档解读配置已重新加载");
-            }
-        } catch (Exception e) {
-            // DocumentReaderConfig 可能不存在，忽略错误
-            logger.debug("重新加载文档解读配置失败（可能 DocumentReaderConfig 未初始化）: {}", e.getMessage());
-        }
-    }
-    
 }
-

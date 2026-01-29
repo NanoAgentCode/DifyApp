@@ -1,212 +1,53 @@
 package com.github.app.dify.system.config;
 
-import com.github.app.dify.system.service.SystemConfigService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import jakarta.annotation.PostConstruct;
-
 /**
- * 文档解读配置
- * 从系统配置表读取配置，如果系统配置表中没有，则使用默认值
+ * 文档解读模块配置（默认 QA 模型、向量库、思维导图服务等）
  */
 @Component
 public class DocumentReaderConfig {
-    
-    private static final Logger logger = LoggerFactory.getLogger(DocumentReaderConfig.class);
-    
-    // 配置键
-    private static final String CONFIG_KEY_DEFAULT_QA_MODEL_ID = "documentReader.defaultQAModelId";
-    private static final String CONFIG_KEY_DEFAULT_EMBEDDING_MODEL_ID = "documentReader.defaultEmbeddingModelId";
-    private static final String CONFIG_KEY_VECTOR_STORE_TYPE = "documentReader.vectorStoreType";
-    private static final String CONFIG_KEY_VECTOR_DATABASE_ID = "documentReader.vectorDatabaseId";
-    private static final String CONFIG_KEY_TOP_K = "documentReader.topK";
-    private static final String CONFIG_KEY_MIND_MAP_SERVICE_URL = "documentReader.mindMapServiceUrl";
-    
-    // 默认值
-    private static final String DEFAULT_VECTOR_STORE_TYPE = "pgvector";
-    private static final Integer DEFAULT_TOP_K = 5;
-    
-    @Autowired(required = false)
-    private SystemConfigService systemConfigService;
-    
-    // 配置值
+
+    @Value("${document-reader.default-qa-model-id:#{null}}")
     private Long defaultQAModelId;
+
+    @Value("${document-reader.default-embedding-model-id:#{null}}")
     private Long defaultEmbeddingModelId;
-    private String vectorStoreType;
+
+    @Value("${document-reader.vector-database-id:#{null}}")
     private Long vectorDatabaseId;
-    private Integer topK;
+
+    @Value("${document-reader.vector-store-type:pgvector}")
+    private String vectorStoreType;
+
+    @Value("${document-reader.mind-map-service-url:}")
     private String mindMapServiceUrl;
-    
-    @PostConstruct
-    public void init() {
-        if (systemConfigService != null) {
-            loadConfigFromSystemConfig();
-        } else {
-            logger.warn("SystemConfigService 未注入，使用默认文档解读配置");
-            useDefaultConfig();
-        }
-    }
-    
-    /**
-     * 从系统配置表加载配置
-     */
-    private void loadConfigFromSystemConfig() {
-        try {
-            // 加载默认问答模型ID
-            String qaModelIdStr = systemConfigService.getConfigValue(CONFIG_KEY_DEFAULT_QA_MODEL_ID);
-            if (qaModelIdStr != null && !qaModelIdStr.trim().isEmpty()) {
-                try {
-                    this.defaultQAModelId = Long.parseLong(qaModelIdStr.trim());
-                    logger.info("从系统配置加载文档解读默认问答模型ID: {}", this.defaultQAModelId);
-                } catch (NumberFormatException e) {
-                    logger.warn("系统配置中的文档解读默认问答模型ID格式错误: {}, 使用null", qaModelIdStr);
-                }
-            }
-            
-            // 加载默认向量化模型ID
-            String embeddingModelIdStr = systemConfigService.getConfigValue(CONFIG_KEY_DEFAULT_EMBEDDING_MODEL_ID);
-            if (embeddingModelIdStr != null && !embeddingModelIdStr.trim().isEmpty()) {
-                try {
-                    this.defaultEmbeddingModelId = Long.parseLong(embeddingModelIdStr.trim());
-                    logger.info("从系统配置加载文档解读默认向量化模型ID: {}", this.defaultEmbeddingModelId);
-                } catch (NumberFormatException e) {
-                    logger.warn("系统配置中的文档解读默认向量化模型ID格式错误: {}, 使用null", embeddingModelIdStr);
-                }
-            }
-            
-            // 优先加载向量库实例ID（如果配置了实例ID，将优先使用实例配置）
-            String vectorDatabaseIdStr = systemConfigService.getConfigValue(CONFIG_KEY_VECTOR_DATABASE_ID);
-            if (vectorDatabaseIdStr != null && !vectorDatabaseIdStr.trim().isEmpty()) {
-                try {
-                    this.vectorDatabaseId = Long.parseLong(vectorDatabaseIdStr.trim());
-                    logger.info("从系统配置加载文档解读向量库实例ID: {} (优先使用实例配置)", this.vectorDatabaseId);
-                } catch (NumberFormatException e) {
-                    logger.warn("系统配置中的文档解读向量库实例ID格式错误: {}, 使用null", vectorDatabaseIdStr);
-                }
-            }
-            
-            // 加载向量库类型（作为后备选项，当没有配置vectorDatabaseId时使用）
-            String vectorStoreTypeStr = systemConfigService.getConfigValue(CONFIG_KEY_VECTOR_STORE_TYPE);
-            if (vectorStoreTypeStr != null && !vectorStoreTypeStr.trim().isEmpty()) {
-                this.vectorStoreType = vectorStoreTypeStr.trim().toLowerCase();
-                if (this.vectorDatabaseId != null) {
-                    logger.info("从系统配置加载文档解读向量库类型: {} (已配置实例ID，类型作为后备)", this.vectorStoreType);
-                } else {
-                    logger.info("从系统配置加载文档解读向量库类型: {} (未配置实例ID，使用类型查找默认配置)", this.vectorStoreType);
-                }
-            } else {
-                this.vectorStoreType = DEFAULT_VECTOR_STORE_TYPE;
-                if (this.vectorDatabaseId != null) {
-                    logger.info("使用默认文档解读向量库类型: {} (已配置实例ID，类型作为后备)", this.vectorStoreType);
-                } else {
-                    logger.info("使用默认文档解读向量库类型: {} (未配置实例ID，使用类型查找默认配置)", this.vectorStoreType);
-                }
-            }
-            
-            // 加载Top-K
-            String topKStr = systemConfigService.getConfigValue(CONFIG_KEY_TOP_K);
-            if (topKStr != null && !topKStr.trim().isEmpty()) {
-                try {
-                    this.topK = Integer.parseInt(topKStr.trim());
-                    logger.info("从系统配置加载文档解读Top-K: {}", this.topK);
-                } catch (NumberFormatException e) {
-                    logger.warn("系统配置中的文档解读Top-K格式错误: {}, 使用默认值: {}", topKStr, DEFAULT_TOP_K);
-                    this.topK = DEFAULT_TOP_K;
-                }
-            } else {
-                this.topK = DEFAULT_TOP_K;
-                logger.info("使用默认文档解读Top-K: {}", this.topK);
-            }
-            
-            // 加载思维导图服务URL（服务位于mindmap目录，默认端口6066）
-            String mindMapServiceUrlStr = systemConfigService.getConfigValue(CONFIG_KEY_MIND_MAP_SERVICE_URL);
-            if (mindMapServiceUrlStr != null && !mindMapServiceUrlStr.trim().isEmpty()) {
-                this.mindMapServiceUrl = mindMapServiceUrlStr.trim();
-                logger.info("从系统配置加载文档解读思维导图服务URL: {} (服务位于mindmap目录)", this.mindMapServiceUrl);
-            } else {
-                this.mindMapServiceUrl = "http://localhost:6066";
-                logger.info("使用默认思维导图服务URL: {} (服务位于mindmap目录，默认端口6066)", this.mindMapServiceUrl);
-            }
-            
-        } catch (Exception e) {
-            logger.error("从系统配置加载文档解读配置失败，使用默认值", e);
-            useDefaultConfig();
-        }
-    }
-    
-    /**
-     * 使用默认配置
-     */
-    private void useDefaultConfig() {
-        this.defaultQAModelId = null;
-        this.defaultEmbeddingModelId = null;
-        this.vectorStoreType = DEFAULT_VECTOR_STORE_TYPE;
-        this.vectorDatabaseId = null;
-        this.topK = DEFAULT_TOP_K;
-        this.mindMapServiceUrl = "http://localhost:6066"; // 思维导图服务位于mindmap目录，默认端口6066
-    }
-    
-    /**
-     * 重新加载配置（当配置更新时调用）
-     */
-    public void reload() {
-        if (systemConfigService != null) {
-            loadConfigFromSystemConfig();
-        } else {
-            useDefaultConfig();
-        }
-    }
-    
-    // Getters
+
+    @Value("${document-reader.top-k:10}")
+    private Integer topK;
+
     public Long getDefaultQAModelId() {
         return defaultQAModelId;
     }
-    
+
     public Long getDefaultEmbeddingModelId() {
         return defaultEmbeddingModelId;
     }
-    
-    public String getVectorStoreType() {
-        return vectorStoreType;
-    }
-    
+
     public Long getVectorDatabaseId() {
         return vectorDatabaseId;
     }
-    
-    public Integer getTopK() {
-        return topK;
+
+    public String getVectorStoreType() {
+        return vectorStoreType;
     }
-    
+
     public String getMindMapServiceUrl() {
         return mindMapServiceUrl;
     }
-    
-    // 配置键常量（供外部使用）
-    public static String getConfigKeyDefaultQAModelId() {
-        return CONFIG_KEY_DEFAULT_QA_MODEL_ID;
-    }
-    
-    public static String getConfigKeyDefaultEmbeddingModelId() {
-        return CONFIG_KEY_DEFAULT_EMBEDDING_MODEL_ID;
-    }
-    
-    public static String getConfigKeyVectorStoreType() {
-        return CONFIG_KEY_VECTOR_STORE_TYPE;
-    }
-    
-    public static String getConfigKeyVectorDatabaseId() {
-        return CONFIG_KEY_VECTOR_DATABASE_ID;
-    }
-    
-    public static String getConfigKeyTopK() {
-        return CONFIG_KEY_TOP_K;
-    }
-    
-    public static String getConfigKeyMindMapServiceUrl() {
-        return CONFIG_KEY_MIND_MAP_SERVICE_URL;
+
+    public Integer getTopK() {
+        return topK;
     }
 }
