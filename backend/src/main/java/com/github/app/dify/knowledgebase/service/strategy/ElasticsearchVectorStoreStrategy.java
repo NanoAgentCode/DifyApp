@@ -208,9 +208,7 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
             if (client != null) {
                 try {
                     ElasticsearchTransport transport = client._transport();
-                    if (transport instanceof AutoCloseable closeable) {
-                        closeable.close();
-                    }
+                    transport.close();
                 } catch (Exception e) {
                     logger.warn("关闭旧的Elasticsearch客户端失败", e);
                 }
