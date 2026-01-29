@@ -4,7 +4,12 @@
       <!-- 左侧工具栏 -->
       <el-aside width="300px" class="toolbar-panel">
         <div class="toolbar-header">
-          <h3>智能框图助手</h3>
+          <h3 class="toolbar-title">
+            智能框图助手
+            <el-tooltip content="模型配置在系统配置中设置" placement="top">
+              <el-icon class="title-tip-icon"><InfoFilled /></el-icon>
+            </el-tooltip>
+          </h3>
           <div class="header-top">
             <el-button link @click="handleBack" size="small">
               <el-icon><ArrowLeft /></el-icon>
@@ -35,7 +40,6 @@
             </el-option>
           </el-select>
         </div>
-
 
         <!-- 快速模板 -->
         <div class="template-section" v-if="selectedDiagramType !== 'custom'">
@@ -305,6 +309,7 @@ import {
   ZoomOut,
   FullScreen,
   ArrowLeft,
+  InfoFilled,
 } from '@element-plus/icons-vue'
 import { 
   generateDiagram, 
@@ -1080,6 +1085,18 @@ onUnmounted(() => {
   background-clip: text;
 }
 
+.toolbar-header h3.toolbar-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.toolbar-header .title-tip-icon {
+  -webkit-text-fill-color: #909399;
+  color: #909399;
+  cursor: help;
+  font-size: 14px;
+}
+
 .diagram-type-section {
   margin-bottom: 15px;
   margin-left: 0;
@@ -1104,13 +1121,6 @@ onUnmounted(() => {
 .diagram-type-option .el-icon {
   font-size: 16px;
   color: #409eff;
-}
-
-.model-section {
-  margin-bottom: 15px;
-  margin-left: 0;
-  margin-right: 0;
-  flex-shrink: 0;
 }
 
 .template-section {
