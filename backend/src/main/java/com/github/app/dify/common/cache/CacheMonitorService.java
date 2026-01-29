@@ -119,7 +119,7 @@ public class CacheMonitorService {
      */
     public Long clearCache(String cacheName) {
         Set<String> keys = redisTemplate.keys(cacheName + ":*");
-        if (keys != null && !keys.isEmpty()) {
+        if (!keys.isEmpty()) {
             return redisTemplate.delete(keys);
         }
         return 0L;
@@ -130,7 +130,7 @@ public class CacheMonitorService {
      */
     public Long clearAllCache() {
         Set<String> keys = redisTemplate.keys("*");
-        if (keys != null && !keys.isEmpty()) {
+        if (!keys.isEmpty()) {
             return redisTemplate.delete(keys);
         }
         return 0L;
@@ -221,17 +221,15 @@ public class CacheMonitorService {
      * 使指定知识库的 RAG 检索缓存失效（文档新增/更新/删除/重索引后调用，避免返回旧结果）
      * 兼容 Spring Redis 两种常见 key 格式：rag::rag:kb:{id}:* 与 rag:rag:kb:{id}:*
      */
-    public Long evictRagCacheForKnowledgeBase(Long knowledgeBaseId) {
+    public void evictRagCacheForKnowledgeBase(Long knowledgeBaseId) {
         if (knowledgeBaseId == null) {
-            return 0L;
+            return;
         }
-        long deleted = 0L;
         for (String pattern : new String[]{"rag::rag:kb:" + knowledgeBaseId + ":*", "rag:rag:kb:" + knowledgeBaseId + ":*"}) {
             Set<String> keys = redisTemplate.keys(pattern);
-            if (keys != null && !keys.isEmpty()) {
-                deleted += redisTemplate.delete(keys);
+            if (!keys.isEmpty()) {
+                redisTemplate.delete(keys);
             }
         }
-        return deleted;
     }
 }

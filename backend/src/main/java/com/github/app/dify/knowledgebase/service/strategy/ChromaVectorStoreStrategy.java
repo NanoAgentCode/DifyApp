@@ -366,7 +366,6 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
                         throw new BusinessException("Chroma接口调用失败", ErrorCode.DATABASE_CONNECTION_ERROR, e);
                     }
                     // 其他 HTTP 错误，继续抛出
-                    lastException = e;
                     throw e;
                 } catch (Exception e) {
                     lastException = e;

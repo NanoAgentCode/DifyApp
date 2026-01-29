@@ -317,7 +317,7 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
         try {
             // 先尝试使用dense_vector类型（Elasticsearch 7.3+支持）
             // 如果失败，将使用float数组作为后备方案
-            String mappingJson = null;
+            String mappingJson;
 
             try {
                 // 尝试使用dense_vector类型

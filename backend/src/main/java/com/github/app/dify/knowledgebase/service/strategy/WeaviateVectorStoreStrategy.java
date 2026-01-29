@@ -209,6 +209,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
             client = builder.build();
             clientCache.put(knowledgeBaseId, client);
             lastUrlCache.put(knowledgeBaseId, currentUrl);
+            assert currentApiKey != null;
             lastApiKeyCache.put(knowledgeBaseId, currentApiKey);
 
             logger.debug("为知识库创建Weaviate WebClient - 知识库ID: {}, 类型: {}, URL: {}",
@@ -228,7 +229,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
             return knowledgeBaseRepository.findById(knowledgeBaseId)
                     .map(kb -> {
                         String type = kb.getVectorStoreType();
-                        if (type != null && "weaviate".equalsIgnoreCase(type)) {
+                        if ("weaviate".equalsIgnoreCase(type)) {
                             return type;
                         }
                         return "weaviate"; // 默认
@@ -331,26 +332,26 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
             // Weaviate不支持long类型，使用number类型（可以存储大整数）
             Map<String, Object> docIdProp = new HashMap<>();
             docIdProp.put("name", "documentId");
-            docIdProp.put("dataType", Arrays.asList("number"));
+            docIdProp.put("dataType", List.of("number"));
             properties.add(docIdProp);
 
             // chunk_index属性
             Map<String, Object> chunkIndexProp = new HashMap<>();
             chunkIndexProp.put("name", "chunkIndex");
-            chunkIndexProp.put("dataType", Arrays.asList("int"));
+            chunkIndexProp.put("dataType", List.of("int"));
             properties.add(chunkIndexProp);
 
             // text属性
             Map<String, Object> textProp = new HashMap<>();
             textProp.put("name", "text");
-            textProp.put("dataType", Arrays.asList("text"));
+            textProp.put("dataType", List.of("text"));
             properties.add(textProp);
 
             // knowledge_base_id属性
             // Weaviate不支持long类型，使用number类型（可以存储大整数）
             Map<String, Object> kbIdProp = new HashMap<>();
             kbIdProp.put("name", "knowledgeBaseId");
-            kbIdProp.put("dataType", Arrays.asList("number"));
+            kbIdProp.put("dataType", List.of("number"));
             properties.add(kbIdProp);
 
             classDefinition.put("properties", properties);
@@ -630,12 +631,12 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                             Map<String, Object> additional = (Map<String, Object>) obj.get("_additional");
                             if (additional != null) {
                                 Object certaintyObj = additional.get("certainty");
-                                if (certaintyObj != null && certaintyObj instanceof Number) {
+                                if (certaintyObj instanceof Number) {
                                     result.setScore(((Number) certaintyObj).doubleValue());
                                 } else {
                                     // 如果没有certainty，尝试使用distance（距离越小，相似度越高）
                                     Object distanceObj = additional.get("distance");
-                                    if (distanceObj != null && distanceObj instanceof Number) {
+                                    if (distanceObj instanceof Number) {
                                         double distance = ((Number) distanceObj).doubleValue();
                                         // 将距离转换为相似度（假设使用余弦距离，范围0-2）
                                         result.setScore(Math.max(0.0, 1.0 - (distance / 2.0)));
@@ -998,7 +999,4 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
         return sb.toString();
     }
 
-    /**
-     * 检索结果
-     */
 }

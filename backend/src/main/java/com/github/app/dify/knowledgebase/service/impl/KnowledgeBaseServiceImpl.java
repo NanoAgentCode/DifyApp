@@ -174,6 +174,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             throw new IllegalArgumentException("知识库ID不能为0，0保留给文档解读使用");
         }
 
+        assert id != null;
         KnowledgeBase knowledgeBase = ServiceHelper.checkExistsAndGet(
                 knowledgeBaseRepository.findById(id), "知识库", id, logger);
 
@@ -373,7 +374,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
 
                         return false;
                     })
-                    .collect(Collectors.toList());
+                    .toList();
         }
 
         // 转换为响应对象
@@ -523,7 +524,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
                 .map(RagRetrievalService.RetrievalResult::getText)
                 .distinct()
                 .limit(20)
-                .collect(Collectors.toList());
+                .toList();
 
         // 6. 构建用于生成摘要的文本内容
         StringBuilder contentBuilder = new StringBuilder();
@@ -568,18 +569,19 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         modelLanguageModelFactory.clearTraceSource();
 
         String systemPrompt = SkillLoader.loadSkill("knowledge_base/document_summary_system_prompt");
-        if (systemPrompt == null || systemPrompt.trim().isEmpty()) {
+        if (systemPrompt.trim().isEmpty()) {
             // 使用 fallback
             String fallback = SkillLoader.loadSkill("knowledge_base/document_summary_system_prompt_fallback");
-            if (fallback != null && !fallback.trim().isEmpty()) {
+            if (!fallback.trim().isEmpty()) {
                 systemPrompt = fallback;
             } else {
                 // 最后的默认提示词
-                systemPrompt = "你是一个专业的文档摘要生成助手。请根据提供的知识库信息，生成一段简洁、准确、全面的摘要。摘要应该：\n" +
-                        "1. 概括知识库的主要内容和主题\n" +
-                        "2. 突出知识库的核心知识点\n" +
-                        "3. 语言简洁明了，控制在200字以内\n" +
-                        "4. 使用中文回答";
+                systemPrompt = """
+                        你是一个专业的文档摘要生成助手。请根据提供的知识库信息，生成一段简洁、准确、全面的摘要。摘要应该：
+                        1. 概括知识库的主要内容和主题
+                        2. 突出知识库的核心知识点
+                        3. 语言简洁明了，控制在200字以内
+                        4. 使用中文回答""";
             }
         }
 
@@ -589,7 +591,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         String userPromptTemplate = SkillLoader
                 .loadSkillWithTemplate("knowledge_base/document_summary_user_prompt_template", variables);
         String userPrompt;
-        if (userPromptTemplate != null && !userPromptTemplate.trim().isEmpty()) {
+        if (!userPromptTemplate.trim().isEmpty()) {
             userPrompt = userPromptTemplate;
         } else {
             // Fallback

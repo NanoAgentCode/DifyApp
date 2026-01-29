@@ -98,6 +98,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
             webClient = builder.build();
             webClientCache.put(knowledgeBaseId, webClient);
             lastUrlCache.put(knowledgeBaseId, currentUrl);
+            assert currentApiKey != null;
             lastApiKeyCache.put(knowledgeBaseId, currentApiKey);
             logger.debug("重新创建Qdrant WebClient - 知识库ID: {}, URL: {}", knowledgeBaseId, currentUrl);
         }
@@ -125,6 +126,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
             
             // 从知识库读取vectorDatabaseId
             if (knowledgeBaseRepository != null) {
+                assert knowledgeBaseId != null;
                 Optional<KnowledgeBase> kb = knowledgeBaseRepository.findById(knowledgeBaseId);
                 if (kb.isPresent() && kb.get().getVectorDatabaseId() != null) {
                     Long vectorDatabaseId = kb.get().getVectorDatabaseId();
@@ -292,7 +294,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
                         knowledgeBaseId, collectionName);
                 deleteCollection(collectionName, knowledgeBaseId);
                 ensureCollection(knowledgeBaseId, vectorSize);
-                useNamedVectors = false; // 重新创建后使用单向量格式
+                // 重新创建后使用单向量格式
             }
             
             for (int i = 0; i < vectors.size(); i++) {
@@ -414,7 +416,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
         String collectionName = getCollectionName(knowledgeBaseId);
         
         // 先检查集合是否存在
-        if (!collectionExists(collectionName, knowledgeBaseId)) {
+        if (collectionExists(collectionName, knowledgeBaseId)) {
             logger.warn("Qdrant集合不存在 - 知识库ID: {}, 集合名: {}, 返回空结果", 
                     knowledgeBaseId, collectionName);
             return new ArrayList<>();
@@ -603,18 +605,18 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
                     .timeout(Duration.ofMillis(timeout))
                     .block();
             
-            return response != null;
+            return response == null;
         } catch (WebClientResponseException e) {
             // 404表示集合不存在，这是正常情况
             if (e.getStatusCode().value() == 404) {
-                return false;
+                return true;
             }
             logger.warn("检查集合存在性失败 - 集合名: {}, HTTP状态: {}", collectionName, e.getStatusCode());
-            return false;
+            return true;
         } catch (Exception e) {
             // 其他异常，记录日志但返回false
             logger.warn("检查集合存在性失败 - 集合名: {}", collectionName, e);
-            return false;
+            return true;
         }
     }
     
@@ -626,7 +628,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
         String collectionName = getCollectionName(knowledgeBaseId);
         
         // 先检查集合是否存在，如果不存在则无需删除
-        if (!collectionExists(collectionName, knowledgeBaseId)) {
+        if (collectionExists(collectionName, knowledgeBaseId)) {
             logger.info("集合不存在，跳过删除操作 - 知识库ID: {}, 文档ID: {}, 集合名: {}", 
                     knowledgeBaseId, documentId, collectionName);
             return;
@@ -683,12 +685,8 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
                                             knowledgeBaseId, documentId, collectionName, clientResponse.statusCode(), errorBody);
                                     
                                     // 如果是400错误且集合为空，可能是没有匹配的点，这是正常情况
-                                    if (clientResponse.statusCode().value() == 400 && pointsCount == 0) {
-                                        logger.warn("集合为空，删除操作可能失败，但这是正常情况 - 知识库ID: {}, 文档ID: {}", 
-                                                knowledgeBaseId, documentId);
-                                        return Mono.empty(); // 返回空，不抛出异常
-                                    }
-                                    
+                                    clientResponse.statusCode().value();
+
                                     return Mono.error(new BusinessException(errorMsg, ErrorCode.DATABASE_CONNECTION_ERROR));
                                 });
                             })

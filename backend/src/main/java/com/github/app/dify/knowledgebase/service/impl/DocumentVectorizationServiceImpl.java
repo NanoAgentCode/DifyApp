@@ -396,14 +396,12 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
         
         try {
             // 将InputStream写入临时文件（流式写入，避免内存溢出）
-            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile)) {
+            try (inputStream; java.io.FileOutputStream fos = new java.io.FileOutputStream(tempFile)) {
                 byte[] buffer = new byte[8192];
                 int bytesRead;
                 while ((bytesRead = inputStream.read(buffer)) != -1) {
                     fos.write(buffer, 0, bytesRead);
                 }
-            } finally {
-                inputStream.close();
             }
             
             // 从临时文件创建MultipartFile
@@ -548,15 +546,7 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
             java.nio.file.Files.copy(tempFile.toPath(), dest.toPath(), 
                     java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         }
-        
-        /**
-         * 清理临时文件
-         */
-        public void cleanup() {
-            if (tempFile != null && tempFile.exists()) {
-                tempFile.delete();
-            }
-        }
+
     }
     
     /**

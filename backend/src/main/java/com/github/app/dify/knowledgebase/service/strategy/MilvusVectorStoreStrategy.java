@@ -132,6 +132,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
             clientCache.put(knowledgeBaseId, client);
             lastHostCache.put(knowledgeBaseId, host);
             lastPortCache.put(knowledgeBaseId, port);
+            assert currentApiKey != null;
             lastApiKeyCache.put(knowledgeBaseId, currentApiKey);
             
             logger.debug("为知识库创建Milvus客户端 - 知识库ID: {}, 类型: {}, 主机: {}, 端口: {}", 
@@ -569,7 +570,8 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
                     java.lang.reflect.Method getResultsMethod = data.getClass().getMethod("getResults");
                     Object searchResultsData = getResultsMethod.invoke(data);
 
-                    logger.debug("搜索结果数据类型: {}", searchResultsData != null ? searchResultsData.getClass().getName() : "null");
+                    String clazzName = searchResultsData != null ? searchResultsData.getClass().getName() : "null";
+                    logger.debug("搜索结果数据类型: {}", clazzName);
                     
                     // 尝试创建 SearchResultsWrapper
                     // 由于 SDK 版本差异，尝试多种构造函数
@@ -610,7 +612,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
                                 try {
                                     java.lang.reflect.Constructor<SearchResultsWrapper> constructor = 
                                         SearchResultsWrapper.class.getConstructor(io.milvus.grpc.SearchResultData.class);
-                                    wrapper = constructor.newInstance((io.milvus.grpc.SearchResultData) searchResultsData);
+                                    wrapper = constructor.newInstance(searchResultsData);
                                     logger.debug("成功使用 SearchResultData 构造函数创建 SearchResultsWrapper");
                                     created = true;
                                 } catch (NoSuchMethodException e) {
@@ -621,8 +623,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
                             }
                             
                             // 如果 SearchResultData 构造函数不存在，尝试从 SearchResultData 构建 SearchResults
-                            if (!created && searchResultsData instanceof io.milvus.grpc.SearchResultData) {
-                                io.milvus.grpc.SearchResultData resultData = (io.milvus.grpc.SearchResultData) searchResultsData;
+                            if (!created && searchResultsData instanceof io.milvus.grpc.SearchResultData resultData) {
                                 try {
                                     // 尝试使用 SearchResults 构造函数
                                     java.lang.reflect.Constructor<SearchResultsWrapper> constructor = 
@@ -636,7 +637,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
                                         java.lang.reflect.Method getResultsFromDataMethod = resultData.getClass().getMethod("getResults");
                                         Object resultsObj = getResultsFromDataMethod.invoke(resultData);
                                         if (resultsObj instanceof io.milvus.grpc.SearchResults) {
-                                            wrapper = constructor.newInstance((io.milvus.grpc.SearchResults) resultsObj);
+                                            wrapper = constructor.newInstance(resultsObj);
                                             logger.debug("成功从 SearchResultData 提取 SearchResults 并创建 SearchResultsWrapper");
                                             created = true;
                                         }
@@ -654,15 +655,12 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
                     
                     if (!created) {
                         throw new BusinessException("无法创建 SearchResultsWrapper。数据类型: " +
-                                (searchResultsData != null ? searchResultsData.getClass().getName() : "null") +
+                                clazzName +
                                 "，可用构造函数: " + Arrays.toString(constructors), ErrorCode.DATABASE_CONNECTION_ERROR);
                     }
                     
                     // 使用 wrapper 处理搜索结果
-                    if (wrapper == null) {
-                        throw new BusinessException("SearchResultsWrapper 创建成功但为null", ErrorCode.DATABASE_CONNECTION_ERROR);
-                    }
-                    
+
                     int rowCount = wrapper.getIDScore(0).size();
                     for (int i = 0; i < rowCount; i++) {
                         VectorStoreStrategy.SearchResult result = new VectorStoreStrategy.SearchResult();
@@ -674,7 +672,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
                         
                         // 从结果中获取字段值 - 使用正确的 API
                         try {
-                            List<?> textList = (List<?>) wrapper.getFieldWrapper("text").getFieldData();
+                            List<?> textList = wrapper.getFieldWrapper("text").getFieldData();
                             if (textList != null && i < textList.size()) {
                                 result.setText(textList.get(i).toString());
                             }
@@ -683,7 +681,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
                         }
                         
                         try {
-                            List<?> docIdList = (List<?>) wrapper.getFieldWrapper("document_id").getFieldData();
+                            List<?> docIdList = wrapper.getFieldWrapper("document_id").getFieldData();
                             if (docIdList != null && i < docIdList.size()) {
                                 result.setDocumentId(((Number) docIdList.get(i)).longValue());
                             }
@@ -692,7 +690,7 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
                         }
                         
                         try {
-                            List<?> chunkIndexList = (List<?>) wrapper.getFieldWrapper("chunk_index").getFieldData();
+                            List<?> chunkIndexList = wrapper.getFieldWrapper("chunk_index").getFieldData();
                             if (chunkIndexList != null && i < chunkIndexList.size()) {
                                 result.setChunkIndex(((Number) chunkIndexList.get(i)).intValue());
                             }
