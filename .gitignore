@@ -61,3 +61,5 @@ rustfs/data/
 /.shared/ui-ux-pro-max/data/ux-guidelines.csv
 /.shared/ui-ux-pro-max/data/stacks/vue.csv
 .env
+/skills_service/__pycache__/
+/skills_service/data/
