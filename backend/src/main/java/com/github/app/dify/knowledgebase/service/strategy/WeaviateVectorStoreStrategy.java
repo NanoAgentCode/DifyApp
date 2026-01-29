@@ -94,7 +94,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                     .retrieve()
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                     })
-                    .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
+                    .timeout(Duration.ofMillis(getTimeout()))
                     .block();
 
             List<VectorStoreStrategy.SearchResult> results = new ArrayList<>();
@@ -244,7 +244,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
     /**
      * 获取指定知识库的超时时间
      */
-    private int getTimeout(Long knowledgeBaseId) {
+    private int getTimeout() {
         com.github.app.dify.knowledgebase.domain.VectorDatabase config = configHelper.getConfigByType("weaviate");
         if (config != null && config.getTimeout() != null) {
             return config.getTimeout();
@@ -267,7 +267,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
             }
 
             // 创建类
-            createClass(knowledgeBaseId, className, vectorSize);
+            createClass(knowledgeBaseId, className);
 
             logger.info("创建Weaviate类成功 - 知识库ID: {}, 类名: {}, 向量维度: {}",
                     knowledgeBaseId, className, vectorSize);
@@ -297,7 +297,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                             })
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                     })
-                    .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
+                    .timeout(Duration.ofMillis(getTimeout()))
                     .block();
 
             return response != null;
@@ -316,7 +316,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
     /**
      * 创建类
      */
-    private void createClass(Long knowledgeBaseId, String className, int vectorSize) {
+    private void createClass(Long knowledgeBaseId, String className) {
         try {
             Map<String, Object> classDefinition = new HashMap<>();
             classDefinition.put("class", className);
@@ -384,7 +384,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                                 });
                             })
                     .bodyToMono(String.class)
-                    .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
+                    .timeout(Duration.ofMillis(getTimeout()))
                     .block();
 
         } catch (Exception e) {
@@ -485,7 +485,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                                     })
                             .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {
                             })
-                            .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
+                            .timeout(Duration.ofMillis(getTimeout()))
                             .block();
 
                     // 检查响应中是否有错误
@@ -606,7 +606,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                             })
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                     })
-                    .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
+                    .timeout(Duration.ofMillis(getTimeout()))
                     .block();
 
             List<VectorStoreStrategy.SearchResult> results = new ArrayList<>();
@@ -727,7 +727,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                     .retrieve()
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                     })
-                    .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
+                    .timeout(Duration.ofMillis(getTimeout()))
                     .block();
 
             List<String> objectIds = new ArrayList<>();
@@ -798,7 +798,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                                             });
                                         })
                                 .bodyToMono(String.class)
-                                .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
+                                .timeout(Duration.ofMillis(getTimeout()))
                                 .block();
                     } catch (WebClientResponseException e) {
                         // 如果是404，说明对象不存在，这是正常情况
@@ -847,7 +847,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                                     })
                             .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
                             })
-                            .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
+                            .timeout(Duration.ofMillis(getTimeout()))
                             .block();
 
                     if (deleteResponse != null && deleteResponse.containsKey("data")) {
@@ -888,7 +888,7 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
                                                         ErrorCode.DATABASE_CONNECTION_ERROR));
                                             })
                                     .bodyToMono(String.class)
-                                    .timeout(Duration.ofMillis(getTimeout(knowledgeBaseId)))
+                                    .timeout(Duration.ofMillis(getTimeout()))
                                     .block();
                         } catch (Exception ex) {
                             logger.debug("删除对象失败 - 对象ID: {}", objectId, ex);

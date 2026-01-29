@@ -242,9 +242,7 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
                     } else if (finalApiKey != null && !finalApiKey.trim().isEmpty()) {
                         // 使用API Key认证
                         httpClientBuilder
-                                .addInterceptorLast((org.apache.http.HttpRequestInterceptor) (request, context) -> {
-                                    request.addHeader("Authorization", "ApiKey " + finalApiKey);
-                                });
+                                .addInterceptorLast((org.apache.http.HttpRequestInterceptor) (request, context) -> request.addHeader("Authorization", "ApiKey " + finalApiKey));
                         logger.debug("配置Elasticsearch API Key认证");
                     }
 
