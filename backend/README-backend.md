@@ -20,6 +20,8 @@ DifyApp 后端是一个基于 Java 的企业级后端应用，提供用户认证
 - **实体架构优化**：统一的 BaseEntity 设计，移除中间层实体，简化继承结构
 - **完善的填充逻辑**：所有实体类自动填充 BaseEntity 字段，确保数据完整性
 - **记忆管理增强**：用户端和管理端记忆管理界面优化，清空功能细化
+- **认证与 Web 配置**：JWT 拦截器在 WebMvcConfig 中注册，排除登录/注册/系统配置等公共接口；提供 `/api/system-config/value/{key}`、`/api/system-config/group/{group}` 等接口供前端按 key 或分组获取配置
+- **缓存与一致性**：AI 应用删除时同步清除按 apikey 的缓存；知识库文档向量化/重索引/删除后触发 RAG 缓存失效；知识库向量库或类型变更时 VectorStoreFactory 缓存失效；各 VectorStore 策略使用 ConcurrentHashMap、Elasticsearch 客户端在切换时正确关闭
 
 ## 技术栈
 
