@@ -95,11 +95,6 @@ public class AiAppServiceImpl implements AiAppService {
             aiApp.setFileUploadEnabled(false);
         }
         
-        // 如果没有设置输入框显示，默认为true（默认显示）
-        if (aiApp.getInputEnabled() == null) {
-            aiApp.setInputEnabled(true);
-        }
-        
         // 确保 inputs 字段被正确设置（即使为 null 也要显式设置）
         if (req.getInputs() != null) {
             aiApp.setInputs(req.getInputs());
@@ -167,9 +162,6 @@ public class AiAppServiceImpl implements AiAppService {
         }
         if (req.getFileUploadEnabled() != null) {
             aiApp.setFileUploadEnabled(req.getFileUploadEnabled());
-        }
-        if (req.getInputEnabled() != null) {
-            aiApp.setInputEnabled(req.getInputEnabled());
         }
         if (req.getIcon() != null) {
             aiApp.setIcon(req.getIcon());

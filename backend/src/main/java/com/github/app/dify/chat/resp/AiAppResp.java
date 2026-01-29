@@ -59,9 +59,6 @@ public class AiAppResp {
     @Schema(description = "是否需要上传文件")
     private Boolean fileUploadEnabled;
     
-    @Schema(description = "是否显示文本输入框")
-    private Boolean inputEnabled;
-    
     @Schema(description = "主题色")
     private String themeColor;
     
@@ -200,14 +197,6 @@ public class AiAppResp {
     
     public void setFileUploadEnabled(Boolean fileUploadEnabled) {
         this.fileUploadEnabled = fileUploadEnabled;
-    }
-    
-    public Boolean getInputEnabled() {
-        return inputEnabled;
-    }
-    
-    public void setInputEnabled(Boolean inputEnabled) {
-        this.inputEnabled = inputEnabled;
     }
     
     public String getThemeColor() {

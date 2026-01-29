@@ -105,7 +105,7 @@
       </div>
     </el-dialog>
 
-        <div v-if="isInputEnabled || isFileUploadEnabled" class="chat-input">
+        <div class="chat-input">
         <div class="chat-input-main">
           <div v-if="extraInputFields.length" class="extra-inputs">
             <el-form :model="extraInputs" :label-width="extraFormLabelWidth">
@@ -226,7 +226,6 @@
           </div>
 
         <el-input
-          v-if="isInputEnabled"
           v-model="inputText"
           type="textarea"
           :rows="2"
@@ -316,7 +315,6 @@ const extraInputFields = ref([])
 const extraFormLabelWidth = ref('140px')
 const extraStaticInputs = ref({})
 
-const isInputEnabled = computed(() => appInfo.value?.inputEnabled !== false)
 const isFileUploadEnabled = computed(() => appInfo.value?.fileUploadEnabled === true)
 
 const hasUploadingFiles = computed(() => (fileList.value || []).some(f => f.status === 'uploading'))

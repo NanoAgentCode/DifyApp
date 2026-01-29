@@ -82,14 +82,6 @@
             <div class="form-item-tip">开启后用户可以在工作流中上传文件</div>
           </el-form-item>
 
-          <el-form-item label="是否显示文本输入框">
-            <el-switch 
-              v-model="form.inputEnabled" 
-              active-text="开启"
-              inactive-text="关闭"
-            />
-            <div class="form-item-tip">开启后显示文本输入框，关闭后隐藏输入框</div>
-          </el-form-item>
         </el-card>
 
         <!-- 输入字段配置 -->
@@ -449,7 +441,6 @@ const form = reactive({
   apiBaseUrl: '',
   streamEnabled: false,
   fileUploadEnabled: false,
-  inputEnabled: true,
   icon: '',
   sort: 0,
   tenantId: 1,

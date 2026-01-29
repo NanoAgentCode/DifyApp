@@ -9,7 +9,6 @@
           :key="field.key"
           :label="field.label || field.key"
           :required="field.required"
-          v-if="appInfo?.inputEnabled === true"
           :style="field.style || {}"
         >
           <!-- 文本输入 -->
@@ -107,7 +106,6 @@
             v-for="(value, key) in inputs"
             :key="key"
             :label="key"
-            v-if="appInfo?.inputEnabled === true"
           >
             <!-- 简单字符串输入 -->
             <el-input

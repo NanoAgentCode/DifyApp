@@ -153,7 +153,7 @@ COMMENT ON COLUMN "AI_APP".app_id IS 'Dify API_KEY，需要唯一';
 COMMENT ON COLUMN "AI_APP".api_base_url IS 'Dify API Base URL';
 COMMENT ON COLUMN "AI_APP".stream_enabled IS '是否支持流式响应';
 COMMENT ON COLUMN "AI_APP".file_upload_enabled IS '是否需要上传文件';
-COMMENT ON COLUMN "AI_APP".input_enabled IS '是否显示文本输入框';
+COMMENT ON COLUMN "AI_APP".input_enabled IS '已废弃，表单由输入字段配置控制，保留列兼容旧数据';
 COMMENT ON COLUMN "AI_APP".theme_color IS '主题色';
 
 -- 创建索引

@@ -38,9 +38,6 @@ public class CreateAiAppReq {
     @Schema(description = "是否需要上传文件")
     private Boolean fileUploadEnabled;
     
-    @Schema(description = "是否显示文本输入框")
-    private Boolean inputEnabled;
-    
     @Size(max = 255, message = "应用图标长度不能超过255")
     @Schema(description = "应用图标")
     private String icon;
@@ -114,14 +111,6 @@ public class CreateAiAppReq {
     
     public void setFileUploadEnabled(Boolean fileUploadEnabled) {
         this.fileUploadEnabled = fileUploadEnabled;
-    }
-    
-    public Boolean getInputEnabled() {
-        return inputEnabled;
-    }
-    
-    public void setInputEnabled(Boolean inputEnabled) {
-        this.inputEnabled = inputEnabled;
     }
     
     public String getIcon() {
