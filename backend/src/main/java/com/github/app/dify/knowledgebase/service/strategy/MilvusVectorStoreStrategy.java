@@ -46,11 +46,11 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
     @Autowired
     private com.github.app.dify.knowledgebase.util.VectorDatabaseConfigHelper configHelper;
     
-    // 为每个知识库缓存Milvus客户端（因为不同知识库可能使用不同的配置）
-    private final Map<Long, MilvusServiceClient> clientCache = new HashMap<>();
-    private final Map<Long, String> lastHostCache = new HashMap<>();
-    private final Map<Long, Integer> lastPortCache = new HashMap<>();
-    private final Map<Long, String> lastApiKeyCache = new HashMap<>();
+    // 为每个知识库缓存Milvus客户端（ConcurrentHashMap 保证多线程安全）
+    private final java.util.concurrent.ConcurrentHashMap<Long, MilvusServiceClient> clientCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<Long, String> lastHostCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<Long, Integer> lastPortCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<Long, String> lastApiKeyCache = new java.util.concurrent.ConcurrentHashMap<>();
     
     /**
      * 获取指定知识库的Milvus客户端

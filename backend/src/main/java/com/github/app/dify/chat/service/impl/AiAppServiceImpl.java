@@ -227,6 +227,7 @@ public class AiAppServiceImpl implements AiAppService {
     
     /**
      * 删除AI应用
+     * 需同时清除按 id 和按 apikey 的缓存，否则软删除后 getAiAppByApiKey 仍可能返回已删应用
      */
     @Transactional
     @CacheEvict(value = "aiApp", key = "#id")
@@ -238,7 +239,14 @@ public class AiAppServiceImpl implements AiAppService {
         }
         
         AiApp aiApp = optional.get();
+        String appId = aiApp.getAppId();
         ChatSoftDeleteUtil.softDelete(aiApp, aiAppRepository);
+        if (appId != null && cacheManager != null) {
+            var cache = cacheManager.getCache("aiApp");
+            if (cache != null) {
+                cache.evict("apikey:" + appId);
+            }
+        }
     }
     
     /**

@@ -152,12 +152,12 @@ public class ElasticsearchVectorStoreStrategy implements VectorStoreStrategy {
     @Autowired
     private com.github.app.dify.knowledgebase.util.VectorDatabaseConfigHelper configHelper;
 
-    // 为每个知识库缓存Elasticsearch客户端
-    private final Map<Long, ElasticsearchClient> clientCache = new HashMap<>();
-    private final Map<Long, String> lastUrlCache = new HashMap<>();
-    private final Map<Long, String> lastApiKeyCache = new HashMap<>();
-    private final Map<Long, String> lastUsernameCache = new HashMap<>();
-    private final Map<Long, String> lastPasswordCache = new HashMap<>();
+    // 为每个知识库缓存Elasticsearch客户端（ConcurrentHashMap 保证多线程安全）
+    private final java.util.concurrent.ConcurrentHashMap<Long, ElasticsearchClient> clientCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<Long, String> lastUrlCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<Long, String> lastApiKeyCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<Long, String> lastUsernameCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<Long, String> lastPasswordCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * 获取指定知识库的Elasticsearch客户端

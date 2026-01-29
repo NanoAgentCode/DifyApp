@@ -73,6 +73,9 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     @Autowired(required = false)
     private ModelLanguageModelFactory modelLanguageModelFactory;
 
+    @Autowired(required = false)
+    private com.github.app.dify.knowledgebase.langchain4j.VectorStoreFactory vectorStoreFactory;
+
     @Override
     @Transactional
     public KnowledgeBaseResp createKnowledgeBase(CreateKnowledgeBaseReq req, Long userId, String username, Integer role,
@@ -223,6 +226,12 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
 
         KnowledgeBaseDateTimeUtil.setUpdateTime(knowledgeBase);
         knowledgeBase = knowledgeBaseRepository.save(knowledgeBase);
+
+        if (req.getVectorDatabaseId() != null || (req.getVectorStoreType() != null && !req.getVectorStoreType().trim().isEmpty())) {
+            if (vectorStoreFactory != null) {
+                vectorStoreFactory.invalidateEmbeddingStore(id);
+            }
+        }
 
         ServiceHelper.logUpdateSuccess(logger, "知识库", knowledgeBase.getId());
 

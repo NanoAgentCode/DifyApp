@@ -7,6 +7,7 @@ import com.github.app.dify.knowledgebase.repository.KnowledgeBaseDocumentReposit
 import com.github.app.dify.knowledgebase.service.DocumentVectorizationService;
 import com.github.app.dify.knowledgebase.service.FileStorageService;
 import com.github.app.dify.knowledgebase.service.VectorStoreService;
+import com.github.app.dify.common.cache.CacheMonitorService;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
 import dev.langchain4j.data.document.Document;
@@ -52,6 +53,9 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
     
     @Autowired(required = false)
     private FileStorageService fileStorageService;
+
+    @Autowired(required = false)
+    private CacheMonitorService cacheMonitorService;
     
     /**
      * 异步向量化文档
@@ -228,7 +232,9 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
             doc.setVectorizedError(null);
             doc.setUpdateTime(new java.util.Date());
             documentRepository.save(doc);
-            
+            if (cacheMonitorService != null) {
+                cacheMonitorService.evictRagCacheForKnowledgeBase(knowledgeBaseId);
+            }
             logger.info("文档向量化完成 - 知识库ID: {}, 文档ID: {}, segment数量: {}", 
                     knowledgeBaseId, documentId, segments.size());
             
@@ -303,6 +309,9 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
             logger.info("开始删除旧向量数据 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
             long deleteStartTime = System.currentTimeMillis();
             deleteDocumentVectors(knowledgeBaseId, documentId);
+            if (cacheMonitorService != null) {
+                cacheMonitorService.evictRagCacheForKnowledgeBase(knowledgeBaseId);
+            }
             long deleteDuration = System.currentTimeMillis() - deleteStartTime;
             logger.info("旧向量数据删除完成 - 知识库ID: {}, 文档ID: {}, 耗时: {} 毫秒", 
                     knowledgeBaseId, documentId, deleteDuration);
@@ -572,7 +581,9 @@ public class DocumentVectorizationServiceImpl implements DocumentVectorizationSe
                 // 回退到原有方法
                 vectorStoreService.deleteDocumentVectors(knowledgeBaseId, documentId);
             }
-            
+            if (cacheMonitorService != null) {
+                cacheMonitorService.evictRagCacheForKnowledgeBase(knowledgeBaseId);
+            }
             logger.info("删除文档向量成功 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId);
         } catch (Exception e) {
             logger.error("删除文档向量失败 - 知识库ID: {}, 文档ID: {}", knowledgeBaseId, documentId, e);

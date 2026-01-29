@@ -44,8 +44,8 @@ public class ChromaVectorStoreStrategy implements VectorStoreStrategy {
     private String defaultTenant = "default_tenant";
     private String defaultDatabase = "default_database";
     
-    // 集合名称到 collection_id 的缓存
-    private final Map<String, String> collectionIdCache = new HashMap<>();
+    // 集合名称到 collection_id 的缓存（ConcurrentHashMap 保证多线程安全）
+    private final java.util.concurrent.ConcurrentHashMap<String, String> collectionIdCache = new java.util.concurrent.ConcurrentHashMap<>();
     
     /**
      * 获取默认的 tenant 和 database

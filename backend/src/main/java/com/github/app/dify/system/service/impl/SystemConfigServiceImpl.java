@@ -6,6 +6,8 @@ import com.github.app.dify.system.service.SystemConfigService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -24,5 +26,13 @@ public class SystemConfigServiceImpl implements SystemConfigService {
         }
         Optional<SystemConfig> optional = systemConfigRepository.findByConfigKeyAndNotDeleted(configKey.trim());
         return optional.map(SystemConfig::getConfigValue).orElse(null);
+    }
+
+    @Override
+    public List<SystemConfig> getConfigsByGroup(String configGroup) {
+        if (configGroup == null || configGroup.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        return systemConfigRepository.findByConfigGroupAndNotDeleted(configGroup.trim());
     }
 }

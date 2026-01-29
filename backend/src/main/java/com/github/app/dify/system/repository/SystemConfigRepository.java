@@ -3,6 +3,7 @@ package com.github.app.dify.system.repository;
 import com.github.app.dify.system.domain.SystemConfig;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -17,6 +18,15 @@ public interface SystemConfigRepository extends JpaRepository<SystemConfig, Long
 
     default Optional<SystemConfig> findByConfigKeyAndNotDeleted(String configKey) {
         return findByConfigKeyAndDeleted(configKey, 0);
+    }
+
+    /**
+     * 按配置分组查询未删除的配置
+     */
+    List<SystemConfig> findByConfigGroupAndDeleted(String configGroup, Integer deleted);
+
+    default List<SystemConfig> findByConfigGroupAndNotDeleted(String configGroup) {
+        return findByConfigGroupAndDeleted(configGroup, 0);
     }
 
     /**

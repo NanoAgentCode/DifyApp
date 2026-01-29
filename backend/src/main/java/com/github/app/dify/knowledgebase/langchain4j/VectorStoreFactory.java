@@ -182,6 +182,21 @@ public class VectorStoreFactory {
                 knowledgeBaseId, vectorStoreType, embeddingStoreCache.size());
         return embeddingStore;
     }
+
+    /**
+     * 使指定知识库的 EmbeddingStore 缓存失效（知识库向量配置变更时调用，避免使用旧连接/类型）
+     * @param knowledgeBaseId 知识库ID
+     */
+    public void invalidateEmbeddingStore(Long knowledgeBaseId) {
+        if (knowledgeBaseId == null) {
+            return;
+        }
+        EmbeddingStore<TextSegment> removed = embeddingStoreCache.remove(knowledgeBaseId);
+        if (removed != null) {
+            logger.info("已使 EmbeddingStore 缓存失效 - 知识库ID: {}, 当前缓存数量: {}", 
+                    knowledgeBaseId, embeddingStoreCache.size());
+        }
+    }
     
     /**
      * 获取知识库的向量存储类型

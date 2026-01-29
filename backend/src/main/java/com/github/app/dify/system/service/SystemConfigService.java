@@ -1,5 +1,9 @@
 package com.github.app.dify.system.service;
 
+import com.github.app.dify.system.domain.SystemConfig;
+
+import java.util.List;
+
 /**
  * 系统配置服务（按 key 读取配置值，如 userlog.elasticsearchDataSourceId、observability.elasticsearchDataSourceId）
  */
@@ -9,4 +13,9 @@ public interface SystemConfigService {
      * 根据配置键获取配置值，未配置或已删除时返回 null
      */
     String getConfigValue(String configKey);
+
+    /**
+     * 根据配置分组获取未删除的配置列表（如 help、theme）
+     */
+    List<SystemConfig> getConfigsByGroup(String configGroup);
 }

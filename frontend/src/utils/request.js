@@ -44,16 +44,26 @@ request.interceptors.request.use(
 )
 
 
-// 清理认证信息并跳转登录
+// 登录失效时仅执行一次重定向，避免多个接口同时 401 时重复弹窗和多次跳转
+let isRedirectingToLogin = false
+
+// 清理认证信息并跳转登录（全局：登录失效时重定向到登录页）
 const clearAuthAndRedirect = () => {
+  if (isRedirectingToLogin) return
+  isRedirectingToLogin = true
+
   localStorage.removeItem('token')
   localStorage.removeItem('userInfo')
   if (window.clearTokenCache) {
     window.clearTokenCache()
   }
-  const currentPath = router.currentRoute.value.path
+  const currentPath = router.currentRoute.value?.path || window.location.pathname
   if (currentPath !== '/login' && currentPath !== '/register') {
-    router.push('/login')
+    router.push('/login').finally(() => {
+      setTimeout(() => { isRedirectingToLogin = false }, 1000)
+    })
+  } else {
+    isRedirectingToLogin = false
   }
 }
 
@@ -73,10 +83,12 @@ request.interceptors.response.use(
     // 统一提取错误消息（优先使用message字段，兼容error字段）
     const errorMessage = responseData?.message || responseData?.error || responseData?.msg
     
-    // 处理401未授权错误
+    // 处理401未授权：全局重定向到登录页，仅提示一次
     if (status === 401) {
+      if (!isRedirectingToLogin) {
+        ElMessage.error(errorMessage || '登录已过期，请重新登录')
+      }
       clearAuthAndRedirect()
-      ElMessage.error(errorMessage || '登录已过期，请重新登录')
       return Promise.reject(error)
     }
     

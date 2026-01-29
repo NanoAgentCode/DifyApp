@@ -161,9 +161,9 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
     private com.github.app.dify.knowledgebase.util.VectorDatabaseConfigHelper configHelper;
 
     // 为每个知识库缓存WebClient（因为不同知识库可能使用不同的配置）
-    private final Map<Long, WebClient> clientCache = new HashMap<>();
-    private final Map<Long, String> lastUrlCache = new HashMap<>();
-    private final Map<Long, String> lastApiKeyCache = new HashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<Long, WebClient> clientCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<Long, String> lastUrlCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<Long, String> lastApiKeyCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * 获取指定知识库的WebClient
