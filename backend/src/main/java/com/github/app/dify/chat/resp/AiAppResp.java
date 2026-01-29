@@ -1,13 +1,19 @@
 package com.github.app.dify.chat.resp;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.Date;
 /**
  * AI应用响应
  */
+@Setter
+@Getter
 @Schema(description = "AI应用响应")
 public class AiAppResp {
-    
+
+    // Getters and Setters
     @Schema(description = "应用编号")
     private Long id;
     
@@ -61,149 +67,5 @@ public class AiAppResp {
     
     @Schema(description = "主题色")
     private String themeColor;
-    
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-    
-    public void setId(Long id) {
-        this.id = id;
-    }
-    
-    public String getName() {
-        return name;
-    }
-    
-    public void setName(String name) {
-        this.name = name;
-    }
-    
-    public String getDescription() {
-        return description;
-    }
-    
-    public void setDescription(String description) {
-        this.description = description;
-    }
-    
-    public Integer getType() {
-        return type;
-    }
-    
-    public void setType(Integer type) {
-        this.type = type;
-    }
-    
-    public Integer getStatus() {
-        return status;
-    }
-    
-    public void setStatus(Integer status) {
-        this.status = status;
-    }
-    
-    public String getInputs() {
-        return inputs;
-    }
-    
-    public void setInputs(String inputs) {
-        this.inputs = inputs;
-    }
-    
-    public String getIcon() {
-        return icon;
-    }
-    
-    public void setIcon(String icon) {
-        this.icon = icon;
-    }
-    
-    public Integer getSort() {
-        return sort;
-    }
-    
-    public void setSort(Integer sort) {
-        this.sort = sort;
-    }
-    
-    public String getCreator() {
-        return creator;
-    }
-    
-    public void setCreator(String creator) {
-        this.creator = creator;
-    }
-    
-    public Date getCreateTime() {
-        return createTime;
-    }
-    
-    public void setCreateTime(Date createTime) {
-        this.createTime = createTime;
-    }
-    
-    public String getUpdater() {
-        return updater;
-    }
-    
-    public void setUpdater(String updater) {
-        this.updater = updater;
-    }
-    
-    public Date getUpdateTime() {
-        return updateTime;
-    }
-    
-    public void setUpdateTime(Date updateTime) {
-        this.updateTime = updateTime;
-    }
-    
-    public Integer getTenantId() {
-        return tenantId;
-    }
-    
-    public void setTenantId(Integer tenantId) {
-        this.tenantId = tenantId;
-    }
-    
-    public String getAppId() {
-        return appId;
-    }
-    
-    public void setAppId(String appId) {
-        this.appId = appId;
-    }
-    
-    public String getApiBaseUrl() {
-        return apiBaseUrl;
-    }
-    
-    public void setApiBaseUrl(String apiBaseUrl) {
-        this.apiBaseUrl = apiBaseUrl;
-    }
-    
-    public Boolean getStreamEnabled() {
-        return streamEnabled;
-    }
-    
-    public void setStreamEnabled(Boolean streamEnabled) {
-        this.streamEnabled = streamEnabled;
-    }
-    
-    public Boolean getFileUploadEnabled() {
-        return fileUploadEnabled;
-    }
-    
-    public void setFileUploadEnabled(Boolean fileUploadEnabled) {
-        this.fileUploadEnabled = fileUploadEnabled;
-    }
-    
-    public String getThemeColor() {
-        return themeColor;
-    }
-    
-    public void setThemeColor(String themeColor) {
-        this.themeColor = themeColor;
-    }
+
 }

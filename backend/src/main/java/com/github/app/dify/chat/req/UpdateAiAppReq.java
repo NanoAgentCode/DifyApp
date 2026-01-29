@@ -3,13 +3,19 @@ package com.github.app.dify.chat.req;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * 更新AI应用请求
  */
+@Setter
+@Getter
 @Schema(description = "更新AI应用请求")
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class UpdateAiAppReq {
-    
+
+    // Getters and Setters
     @Size(max = 100, message = "应用名称长度不能超过100")
     @Schema(description = "应用名称")
     private String name;
@@ -51,101 +57,5 @@ public class UpdateAiAppReq {
     
     @Schema(description = "应用配置JSON")
     private String inputs;
-    
-    // Getters and Setters
-    public String getName() {
-        return name;
-    }
-    
-    public void setName(String name) {
-        this.name = name;
-    }
-    
-    public String getDescription() {
-        return description;
-    }
-    
-    public void setDescription(String description) {
-        this.description = description;
-    }
-    
-    public Integer getType() {
-        return type;
-    }
-    
-    public void setType(Integer type) {
-        this.type = type;
-    }
-    
-    public Integer getStatus() {
-        return status;
-    }
-    
-    public void setStatus(Integer status) {
-        this.status = status;
-    }
-    
-    public String getApiBaseUrl() {
-        return apiBaseUrl;
-    }
-    
-    public void setApiBaseUrl(String apiBaseUrl) {
-        this.apiBaseUrl = apiBaseUrl;
-    }
 
-    public String getAppId() {
-        return appId;
-    }
-
-    public void setAppId(String appId) {
-        this.appId = appId;
-    }
-    
-    public Boolean getStreamEnabled() {
-        return streamEnabled;
-    }
-    
-    public void setStreamEnabled(Boolean streamEnabled) {
-        this.streamEnabled = streamEnabled;
-    }
-    
-    public Boolean getFileUploadEnabled() {
-        return fileUploadEnabled;
-    }
-    
-    public void setFileUploadEnabled(Boolean fileUploadEnabled) {
-        this.fileUploadEnabled = fileUploadEnabled;
-    }
-    
-    public String getIcon() {
-        return icon;
-    }
-    
-    public void setIcon(String icon) {
-        this.icon = icon;
-    }
-    
-    public Integer getSort() {
-        return sort;
-    }
-    
-    public void setSort(Integer sort) {
-        this.sort = sort;
-    }
-    
-    public String getThemeColor() {
-        return themeColor;
-    }
-    
-    public void setThemeColor(String themeColor) {
-        this.themeColor = themeColor;
-    }
-    
-    public String getInputs() {
-        return inputs;
-    }
-    
-    public void setInputs(String inputs) {
-        this.inputs = inputs;
-    }
 }

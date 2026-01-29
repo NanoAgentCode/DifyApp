@@ -409,14 +409,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Delete, DocumentCopy, Download, Picture, ArrowLeft } from '@element-plus/icons-vue'
+import {computed, onMounted, reactive, ref} from 'vue'
+import {useRoute, useRouter} from 'vue-router'
+import {ElMessage} from 'element-plus'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
-import { createApp, updateApp, getAppDetail } from '@/api/aiApp'
-import { builtInIcons, getIconById } from '@/utils/icons'
-import { useErrorHandler } from '@/composables/useErrorHandler'
+import {ArrowLeft, Delete, DocumentCopy, Download, Picture, Plus} from '@element-plus/icons-vue'
+import {createApp, getAppDetail, updateApp} from '@/api/aiApp'
+import {builtInIcons, getIconById} from '@/utils/icons'
+import {useErrorHandler} from '@/composables/useErrorHandler'
 
 const { handleError } = useErrorHandler()
 
@@ -608,7 +608,7 @@ const isOldFormat = (obj) => {
     typeof v === 'boolean' || 
     v === null ||
     Array.isArray(v) ||
-    (typeof v === 'object' && v !== null && !v.hasOwnProperty('type'))
+    (typeof v === 'object' && true && !v.hasOwnProperty('type'))
   )
 }
 
@@ -787,8 +787,7 @@ const fetchAppDetail = async () => {
       if (res.icon) {
         if (res.icon.startsWith('icon:')) {
           // 内置图标格式：icon:iconId
-          const iconId = res.icon.substring(5)
-          selectedIcon.value = iconId
+          selectedIcon.value = res.icon.substring(5)
           customIconUrl.value = ''
         } else {
           // 自定义图标URL
@@ -902,16 +901,6 @@ onMounted(() => {
 }
 
 /* ========== 表单区域 ========== */
-:deep(.el-card) {
-  border-radius: var(--card-border-radius);
-  box-shadow: var(--card-shadow);
-  border: 1px solid var(--color-border-lighter);
-  transition: box-shadow var(--transition-base);
-}
-
-:deep(.el-card:hover) {
-  box-shadow: var(--card-shadow-hover);
-}
 
 .form-section {
   margin-bottom: var(--spacing-lg);
@@ -925,43 +914,10 @@ onMounted(() => {
   box-shadow: var(--shadow-sm);
 }
 
-.form-section :deep(.el-card__header) {
-  background-color: var(--color-bg-tertiary);
-  padding: var(--spacing-md) var(--card-padding);
-  border-bottom: 1px solid var(--color-border-lighter);
-}
-
 .section-title {
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
-}
-
-.form-section :deep(.el-card__body) {
-  padding: var(--card-padding);
-  background: var(--color-bg-primary);
-}
-
-.form-section :deep(.el-form-item) {
-  margin-bottom: var(--spacing-lg);
-}
-
-.form-section :deep(.el-form-item__label) {
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
-}
-
-.form-section :deep(.el-input__wrapper) {
-  border-radius: var(--radius-md);
-  transition: all var(--transition-base);
-}
-
-.form-section :deep(.el-input__wrapper:hover) {
-  box-shadow: var(--shadow-xs);
-}
-
-.form-section :deep(.el-input__wrapper.is-focus) {
-  box-shadow: var(--shadow-primary);
 }
 
 .form-item-tip {
@@ -981,21 +937,6 @@ onMounted(() => {
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
-.form-actions :deep(.el-form-item__content) {
-  justify-content: center;
-}
-
-.form-actions .el-button {
-  margin: 0 var(--spacing-sm);
-  min-width: 100px;
-  transition: all var(--transition-base);
-}
-
-.form-actions .el-button:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-}
-
 /* ========== 输入字段配置 ========== */
 .input-fields-config {
   width: 100%;
@@ -1008,15 +949,6 @@ onMounted(() => {
   padding-bottom: var(--spacing-md);
   border-bottom: 1px solid var(--color-border-lighter);
   flex-wrap: wrap;
-}
-
-.config-header .el-button {
-  transition: all var(--transition-base);
-}
-
-.config-header .el-button:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-xs);
 }
 
 .final-json-preview {
@@ -1092,15 +1024,6 @@ onMounted(() => {
   margin: 0;
   height: auto;
   padding: 0;
-}
-
-.icon-radio-item :deep(.el-radio__input) {
-  margin-right: 12px;
-}
-
-.icon-radio-item :deep(.el-radio__label) {
-  padding: 0;
-  width: 100%;
 }
 
 .icon-radio-content {

@@ -195,7 +195,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { UploadFilled, Document, Picture, Check, Close } from '@element-plus/icons-vue'
 
 const props = defineProps({
