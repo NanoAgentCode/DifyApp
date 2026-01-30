@@ -81,10 +81,11 @@ rag:
 
 mcp:
   browser-search:
-    tavily-api-key: ""  # Tavily API密钥（推荐）
+    tavily-api-key: "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"  # Tavily API密钥（推荐）
     serp-api-key: ""  # SerpAPI密钥
     serp-engine: "google"  # SerpAPI搜索引擎
     bing-api-key: ""  # Bing API密钥
+    brave-api-key: "BSAeNj62s0-lwgv6Ck0pVnZ7n_lX4rM"  # 2000次/月（https://brave.com/search/api）
     searxng-base-url: "http://localhost:10086"  # 本地搜索服务地址
     timeout: 10  # 请求超时时间（秒）
     default-max-results: 5  # 默认最大结果数

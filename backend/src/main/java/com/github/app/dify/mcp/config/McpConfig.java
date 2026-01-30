@@ -82,6 +82,12 @@ public class McpConfig {
         private String bingApiKey = "";
         
         /**
+         * Brave Search API密钥（Brave 官方网页搜索 API）
+         * 官网：https://brave.com/search/api
+         */
+        private String braveApiKey = "";
+        
+        /**
          * 请求超时时间（秒）
          */
         private int timeout = 10;
@@ -140,6 +146,14 @@ public class McpConfig {
         
         public void setBingApiKey(String bingApiKey) {
             this.bingApiKey = bingApiKey;
+        }
+        
+        public String getBraveApiKey() {
+            return braveApiKey;
+        }
+        
+        public void setBraveApiKey(String braveApiKey) {
+            this.braveApiKey = braveApiKey;
         }
         
         public int getTimeout() {

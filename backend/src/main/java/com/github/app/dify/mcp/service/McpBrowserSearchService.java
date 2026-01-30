@@ -17,7 +17,7 @@ import java.util.List;
 /**
  * MCP浏览器检索服务
  * 支持多种搜索API，自动选择最优方案并支持降级
- * 支持的API：Tavily（推荐）、SerpAPI、Bing、SearX-NG（降级）
+ * 支持的API：Tavily（推荐）、Brave Search、SerpAPI、Bing、SearX-NG（降级）
  */
 @Service
 public class McpBrowserSearchService {
