@@ -5,8 +5,6 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Size;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import java.util.Date;
-
 /**
  * 系统配置表（通用配置存储）
  * @TableName SYSTEM_CONFIG

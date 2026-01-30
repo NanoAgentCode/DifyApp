@@ -292,7 +292,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
             conversation = conversationRepository.findByIdAndUserId(conversationId, userId);
         }
         
-        if (!conversation.isPresent() || 
+        if (conversation.isEmpty() ||
             (conversation.get().getDeleted() != null && conversation.get().getDeleted() == 1)) {
             throw new BusinessException("会话不存在或已删除", ErrorCode.CONVERSATION_NOT_FOUND);
         }
@@ -308,7 +308,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         // 验证会话是否存在且属于该用户（管理员除外）
         if (!isAdmin) {
             Optional<ChatConversation> conversation = conversationRepository.findByIdAndUserId(conversationId, userId);
-            if (!conversation.isPresent() || 
+            if (conversation.isEmpty() ||
                 (conversation.get().getDeleted() != null && conversation.get().getDeleted() == 1)) {
                 throw new BusinessException("会话不存在或已删除", ErrorCode.CONVERSATION_NOT_FOUND);
             }
@@ -333,7 +333,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
             conversation = conversationRepository.findByIdAndUserId(conversationId, userId);
         }
         
-        if (!conversation.isPresent() || 
+        if (conversation.isEmpty() ||
             (conversation.get().getDeleted() != null && conversation.get().getDeleted() == 1)) {
             throw new BusinessException("会话不存在或已删除", ErrorCode.CONVERSATION_NOT_FOUND);
         }
@@ -357,7 +357,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
             conversation = conversationRepository.findByIdAndUserId(conversationId, userId);
         }
         
-        if (!conversation.isPresent() || 
+        if (conversation.isEmpty() ||
             (conversation.get().getDeleted() != null && conversation.get().getDeleted() == 1)) {
             throw new BusinessException("会话不存在或已删除", ErrorCode.CONVERSATION_NOT_FOUND);
         }
@@ -557,9 +557,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         
         // 获取用户名 - 性能优化：可以考虑批量查询，但单个会话查询影响不大
         Optional<User> user = userRepository.findById(conversation.getUserId());
-        if (user.isPresent()) {
-            response.setUsername(user.get().getUsername());
-        }
+        user.ifPresent(value -> response.setUsername(value.getUsername()));
         
         // 获取应用名称
         if (conversation.getAppId() != null) {
@@ -584,18 +582,18 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
     
     /**
      * 批量转换会话实体为响应对象（性能优化：避免N+1查询）
-     * 
+     * <p>
      * 优化策略：
      * 1. 批量查询所有用户信息
      * 2. 批量查询所有应用信息
      * 3. 批量查询所有知识库信息
      * 4. 批量查询所有会话的消息数
      * 5. 在内存中组装响应对象
-     * 
+     * <p>
      * 性能提升：
      * 优化前：N个会话需要执行 4N 次额外查询
      * 优化后：N个会话只需要 5 次查询（1次会话 + 4次批量查询）
-     * 
+     * <p>
      * 示例：20条会话
      * - 优化前：200ms (会话) + 80次额外查询 × 10ms = 1000ms
      * - 优化后：200ms (会话) + 4次批量查询 × 20ms = 280ms
@@ -690,7 +688,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         
         return responses;
     }
-    
+
     /**
      * 转换消息实体为响应对象
      */

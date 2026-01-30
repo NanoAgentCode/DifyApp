@@ -2,7 +2,6 @@ package com.github.app.dify.chat.controller;
 
 import com.github.app.dify.common.controller.BaseController;
 import com.github.app.dify.common.exception.BusinessException;
-import com.github.app.dify.common.exception.NotFoundException;
 import com.github.app.dify.common.util.ServiceHelper;
 import com.github.app.dify.system.config.DifyConfig;
 import com.github.app.dify.chat.req.CreateAiAppReq;

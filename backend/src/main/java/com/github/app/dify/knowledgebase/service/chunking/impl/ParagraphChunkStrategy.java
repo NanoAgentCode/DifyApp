@@ -89,33 +89,6 @@ public class ParagraphChunkStrategy implements ChunkStrategy {
     }
     
     /**
-     * 拆分大段落
-     */
-    private List<String> splitLargeParagraph(String paragraph, int maxSize) {
-        List<String> result = new ArrayList<>();
-        int start = 0;
-        
-        while (start < paragraph.length()) {
-            int end = Math.min(start + maxSize, paragraph.length());
-            String chunk = paragraph.substring(start, end);
-            
-            // 尝试在句子边界截断
-            if (end < paragraph.length()) {
-                int sentenceEnd = findLastSentenceEnd(chunk);
-                if (sentenceEnd > maxSize * 0.5) {
-                    chunk = chunk.substring(0, sentenceEnd + 1);
-                    end = start + sentenceEnd + 1;
-                }
-            }
-            
-            result.add(chunk.trim());
-            start = end;
-        }
-        
-        return result;
-    }
-    
-    /**
      * 段落信息（包含内容和位置）
      */
     private static class ParagraphInfo {
