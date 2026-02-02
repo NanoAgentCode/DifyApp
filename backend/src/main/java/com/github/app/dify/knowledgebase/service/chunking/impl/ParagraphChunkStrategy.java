@@ -59,14 +59,14 @@ public class ParagraphChunkStrategy implements ChunkStrategy {
             } else {
                 // 大段落需要拆分
                 List<ParagraphInfo> splitParagraphs = splitLargeParagraphWithPosition(
-                        trimmed, paraInfo.startIndex, chunkSize);
+                        trimmed, paraInfo.startIndex, chunkSize, chunkOverlap);
                 processedParagraphs.addAll(splitParagraphs);
             }
         }
 
-        // 合并小段落（同时保持位置信息）
-        List<ParagraphInfo> mergedParagraphs = mergeSmallParagraphsWithPosition(
-                processedParagraphs, chunkSize);
+        // 合并段落（同时保持位置信息，支持 overlap）
+        List<ParagraphInfo> mergedParagraphs = mergeParagraphsWithOverlap(
+                processedParagraphs, chunkSize, chunkOverlap);
 
         // 生成分块结果（优化：使用记录的位置信息）
         List<ChunkResult> chunks = new ArrayList<>();
@@ -154,30 +154,46 @@ public class ParagraphChunkStrategy implements ChunkStrategy {
      * 拆分大段落（同时保持位置信息）
      */
     private List<ParagraphInfo> splitLargeParagraphWithPosition(
-            String paragraph, int baseStartIndex, int maxSize) {
+            String paragraph, int baseStartIndex, int maxSize, int overlap) {
         List<ParagraphInfo> result = new ArrayList<>();
         int start = 0;
 
         while (start < paragraph.length()) {
             int end = Math.min(start + maxSize, paragraph.length());
-            String chunk = paragraph.substring(start, end);
 
             // 尝试在句子边界截断
             if (end < paragraph.length()) {
-                int sentenceEnd = findLastSentenceEnd(chunk);
+                String potentialChunk = paragraph.substring(start, end);
+                int sentenceEnd = findLastSentenceEnd(potentialChunk);
                 if (sentenceEnd > maxSize * 0.5) {
-                    chunk = chunk.substring(0, sentenceEnd + 1);
                     end = start + sentenceEnd + 1;
                 }
             }
 
+            String chunk = paragraph.substring(start, end);
             String trimmed = chunk.trim();
             if (!trimmed.isEmpty()) {
-                int trimmedStart = baseStartIndex + start;
-                int trimmedEnd = baseStartIndex + start + trimmed.length();
-                result.add(new ParagraphInfo(trimmed, trimmedStart, trimmedEnd));
+                // 计算实际内容的起始和结束位置
+                int actualStart = start;
+                while (actualStart < end && Character.isWhitespace(paragraph.charAt(actualStart))) {
+                    actualStart++;
+                }
+                int actualEnd = end;
+                while (actualEnd > actualStart && Character.isWhitespace(paragraph.charAt(actualEnd - 1))) {
+                    actualEnd--;
+                }
+
+                result.add(new ParagraphInfo(paragraph.substring(actualStart, actualEnd),
+                        baseStartIndex + actualStart, baseStartIndex + actualEnd));
             }
-            start = end;
+
+            if (end >= paragraph.length()) {
+                break;
+            }
+
+            // 移动到下一个起始位置（支持 overlap）
+            // 确保至少前进一个字符，避免死循环
+            start = Math.max(start + 1, end - overlap);
         }
 
         return result;
@@ -186,39 +202,58 @@ public class ParagraphChunkStrategy implements ChunkStrategy {
     /**
      * 合并小段落（同时保持位置信息）
      */
-    private List<ParagraphInfo> mergeSmallParagraphsWithPosition(
-            List<ParagraphInfo> paragraphs, int targetSize) {
+    private List<ParagraphInfo> mergeParagraphsWithOverlap(
+            List<ParagraphInfo> paragraphs, int targetSize, int overlap) {
         List<ParagraphInfo> result = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        int currentStart = -1;
-        int currentEnd = -1;
+        int i = 0;
 
-        for (ParagraphInfo paraInfo : paragraphs) {
-            if (current.length() + paraInfo.content.length() + 2 <= targetSize) {
-                // 可以合并
-                if (current.length() > 0) {
-                    current.append("\n\n");
+        while (i < paragraphs.size()) {
+            StringBuilder currentContent = new StringBuilder();
+            int currentStart = paragraphs.get(i).startIndex;
+            int currentEnd = -1;
+
+            int j = i;
+            while (j < paragraphs.size()) {
+                ParagraphInfo p = paragraphs.get(j);
+                int separatorLen = currentContent.length() > 0 ? 2 : 0; // "\n\n"
+
+                if (currentContent.length() > 0 &&
+                        currentContent.length() + separatorLen + p.content.length() > targetSize) {
+                    break;
                 }
-                current.append(paraInfo.content);
-                if (currentStart == -1) {
-                    currentStart = paraInfo.startIndex;
+
+                if (currentContent.length() > 0) {
+                    currentContent.append("\n\n");
                 }
-                currentEnd = paraInfo.endIndex;
-            } else {
-                // 不能合并，保存当前段落
-                if (current.length() > 0) {
-                    result.add(new ParagraphInfo(current.toString(), currentStart, currentEnd));
-                    current = new StringBuilder();
-                    currentStart = -1;
-                }
-                current.append(paraInfo.content);
-                currentStart = paraInfo.startIndex;
-                currentEnd = paraInfo.endIndex;
+                currentContent.append(p.content);
+                currentEnd = p.endIndex;
+                j++;
             }
-        }
 
-        if (current.length() > 0) {
-            result.add(new ParagraphInfo(current.toString(), currentStart, currentEnd));
+            result.add(new ParagraphInfo(currentContent.toString(), currentStart, currentEnd));
+
+            if (j >= paragraphs.size()) {
+                break;
+            }
+
+            // 下一个 chunk 的起始点（支持 overlap）
+            if (overlap > 0) {
+                int nextI = j;
+                int currentOverlap = 0;
+                // 至少向前推进一步，避免死循环
+                while (nextI > i + 1) {
+                    int pLen = paragraphs.get(nextI - 1).content.length();
+                    int sLen = 2; // "\n\n"
+                    if (currentOverlap + pLen + sLen > overlap) {
+                        break;
+                    }
+                    currentOverlap += pLen + sLen;
+                    nextI--;
+                }
+                i = nextI;
+            } else {
+                i = j;
+            }
         }
 
         return result;

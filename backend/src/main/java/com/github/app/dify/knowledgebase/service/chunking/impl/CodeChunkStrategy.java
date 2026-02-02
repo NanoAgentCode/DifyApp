@@ -161,7 +161,7 @@ public class CodeChunkStrategy implements ChunkStrategy {
                 chunkStartIndex = lineInfo.startIndex;
             }
 
-            currentChunk.append(line).append("\n");
+            currentChunk.append(line);
 
             // 如果chunk太大，强制分割
             if (currentChunk.length() > chunkSize) {
@@ -201,12 +201,10 @@ public class CodeChunkStrategy implements ChunkStrategy {
     private static class LineInfo {
         String content;
         int startIndex;
-        int endIndex;
 
-        LineInfo(String content, int startIndex, int endIndex) {
+        LineInfo(String content, int startIndex) {
             this.content = content;
             this.startIndex = startIndex;
-            this.endIndex = endIndex;
         }
     }
 
@@ -226,7 +224,7 @@ public class CodeChunkStrategy implements ChunkStrategy {
             int newlineIndex = text.indexOf('\n', start);
             int end = (newlineIndex != -1) ? newlineIndex + 1 : textLength;
             String line = text.substring(start, end);
-            lines.add(new LineInfo(line, start, end));
+            lines.add(new LineInfo(line, start));
             start = end;
         }
 

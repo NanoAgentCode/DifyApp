@@ -18,136 +18,150 @@ import java.util.regex.Pattern;
  */
 @Component
 public class SentenceChunkStrategy implements ChunkStrategy {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(SentenceChunkStrategy.class);
-    
+
     // 句子结束标点：中英文句号、问号、感叹号
     private static final Pattern SENTENCE_END = Pattern.compile("[。！？.!?]\\s*");
-    
+
     @Override
     public String getName() {
         return "sentence";
     }
-    
+
     @Override
     public boolean supports(String fileType, String contentType) {
         // 支持文本类型的内容
         return ContentStructure.ContentType.TEXT.equals(contentType) || contentType == null;
     }
-    
+
     @Override
     public List<ChunkResult> chunk(String text, ChunkConfig config) {
         if (text == null || text.trim().isEmpty()) {
             return new ArrayList<>();
         }
-        
+
         int chunkSize = config.getChunkSize();
         int chunkOverlap = config.getChunkOverlap();
-        
-        // 分割句子
-        List<String> sentences = splitSentences(text);
-        
-        // 合并句子以接近目标chunkSize
-        List<String> mergedChunks = mergeSentences(sentences, chunkSize);
-        
-        // 生成分块结果（优化：直接使用分割时的位置信息，避免重复查找）
+
+        // 分割句子并记录位置信息
+        List<SentenceInfo> sentenceInfos = splitSentencesWithInfo(text);
+
+        // 合并句子为分块，支持 overlap
         List<ChunkResult> chunks = new ArrayList<>();
-        int currentIndex = 0;
         int chunkIndex = 0;
-        
-        for (String chunk : mergedChunks) {
-            // 优化：使用 trim() 后的内容，但保持原始位置
-            String trimmedChunk = chunk.trim();
-            int startIndex = currentIndex;
-            // 跳过前导空白
-            while (startIndex < text.length() && 
-                   Character.isWhitespace(text.charAt(startIndex))) {
-                startIndex++;
+        int i = 0;
+
+        while (i < sentenceInfos.size()) {
+            StringBuilder currentContent = new StringBuilder();
+            int startIndex = sentenceInfos.get(i).startIndex;
+            int lastEndIndex = startIndex;
+
+            int j = i;
+            while (j < sentenceInfos.size()) {
+                SentenceInfo s = sentenceInfos.get(j);
+                // 检查加上这个句子是否超出 chunkSize
+                if (currentContent.length() > 0 && currentContent.length() + s.content.length() + 1 > chunkSize) {
+                    break;
+                }
+
+                if (currentContent.length() > 0) {
+                    currentContent.append(" ");
+                }
+                currentContent.append(s.content);
+                lastEndIndex = s.endIndex;
+                j++;
             }
-            int endIndex = startIndex + trimmedChunk.length();
-            
+
             ChunkResult result = new ChunkResult();
-            result.setContent(trimmedChunk);
-            result.setChunkIndex(chunkIndex);
+            result.setContent(currentContent.toString());
+            result.setChunkIndex(chunkIndex++);
             result.setStartIndex(startIndex);
-            result.setEndIndex(endIndex);
+            result.setEndIndex(lastEndIndex);
             result.setContentType(ContentStructure.ContentType.TEXT);
             chunks.add(result);
-            
-            // 移动到下一个chunk的起始位置（考虑重叠）
-            currentIndex = endIndex - config.getChunkOverlap();
-            if (currentIndex < startIndex) {
-                currentIndex = endIndex;
+
+            if (j >= sentenceInfos.size()) {
+                break;
             }
-            chunkIndex++;
+
+            // 移动到下一个chunk的起始句子（支持重叠）
+            if (chunkOverlap > 0) {
+                // 回退若干个句子以满足重叠要求
+                int nextI = j;
+                int overlapLength = 0;
+                // 至少向前推进一个句子，避免死循环
+                while (nextI > i + 1) {
+                    int sLen = sentenceInfos.get(nextI - 1).content.length();
+                    // 如果加上当前句子会超出重叠大小，则停止回退
+                    if (overlapLength + sLen + 1 > chunkOverlap) {
+                        break;
+                    }
+                    overlapLength += sLen + 1;
+                    nextI--;
+                }
+                i = nextI;
+            } else {
+                i = j;
+            }
         }
-        
-        logger.debug("句子分块完成 - 句子数: {}, chunk数量: {}", sentences.size(), chunks.size());
-        
+
+        logger.debug("句子分块完成 - 句子数: {}, chunk数量: {}", sentenceInfos.size(), chunks.size());
+
         return chunks;
     }
-    
+
     /**
-     * 分割句子
+     * 分割句子并记录位置信息
      */
-    private List<String> splitSentences(String text) {
-        List<String> sentences = new ArrayList<>();
+    private List<SentenceInfo> splitSentencesWithInfo(String text) {
+        List<SentenceInfo> sentences = new ArrayList<>();
         Matcher matcher = SENTENCE_END.matcher(text);
         int lastEnd = 0;
-        
+
         while (matcher.find()) {
             int end = matcher.end();
-            String sentence = text.substring(lastEnd, end).trim();
-            if (!sentence.isEmpty()) {
-                sentences.add(sentence);
+            String fullMatch = text.substring(lastEnd, end);
+            String trimmed = fullMatch.trim();
+            if (!trimmed.isEmpty()) {
+                // 计算实际内容的起始位置（跳过前导空格）
+                int actualStart = lastEnd;
+                while (actualStart < end && Character.isWhitespace(text.charAt(actualStart))) {
+                    actualStart++;
+                }
+                sentences.add(new SentenceInfo(trimmed, actualStart, actualStart + trimmed.length()));
             }
             lastEnd = end;
         }
-        
-        // 处理最后一段（可能没有句号）
+
+        // 处理最后一段
         if (lastEnd < text.length()) {
-            String lastSentence = text.substring(lastEnd).trim();
-            if (!lastSentence.isEmpty()) {
-                sentences.add(lastSentence);
+            String fullMatch = text.substring(lastEnd);
+            String trimmed = fullMatch.trim();
+            if (!trimmed.isEmpty()) {
+                int actualStart = lastEnd;
+                while (actualStart < text.length() && Character.isWhitespace(text.charAt(actualStart))) {
+                    actualStart++;
+                }
+                sentences.add(new SentenceInfo(trimmed, actualStart, actualStart + trimmed.length()));
             }
         }
-        
+
         return sentences;
     }
-    
+
     /**
-     * 合并句子以接近目标大小
+     * 句子信息内部类
      */
-    private List<String> mergeSentences(List<String> sentences, int targetSize) {
-        List<String> result = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        
-        for (String sentence : sentences) {
-            if (current.length() + sentence.length() + 1 <= targetSize) {
-                // 可以合并
-                if (current.length() > 0) {
-                    current.append(" ");
-                }
-                current.append(sentence);
-            } else {
-                // 不能合并，保存当前chunk
-                if (current.length() > 0) {
-                    result.add(current.toString());
-                    current = new StringBuilder();
-                }
-                // 如果单个句子就超过目标大小，直接添加
-                if (sentence.length() > targetSize) {
-                    result.add(sentence);
-                } else {
-                    current.append(sentence);
-                }
-            }
+    private static class SentenceInfo {
+        final String content;
+        final int startIndex;
+        final int endIndex;
+
+        SentenceInfo(String content, int startIndex, int endIndex) {
+            this.content = content;
+            this.startIndex = startIndex;
+            this.endIndex = endIndex;
         }
-        
-        if (current.length() > 0) {
-            result.add(current.toString());
-        }
-        
-        return result;
     }
 }
