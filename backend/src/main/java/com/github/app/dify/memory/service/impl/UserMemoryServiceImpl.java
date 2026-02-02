@@ -30,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -53,6 +54,8 @@ public class UserMemoryServiceImpl implements UserMemoryService {
     private static final int MAX_CONTEXT_ITEMS_LONG_TERM = 8;
     private static final int MAX_CONTEXT_ITEMS_ENTITY = 8;
     private static final int MAX_CONTEXT_CHARS_PER_ITEM = 400;
+    /** 记忆上下文总字符数上限，避免挤占对话与系统提示空间 */
+    private static final int MAX_CONTEXT_TOTAL_CHARS = 4096;
 
     @Autowired
     private UserMemoryRepository userMemoryRepository;
@@ -89,25 +92,50 @@ public class UserMemoryServiceImpl implements UserMemoryService {
 
         StringBuilder sb = new StringBuilder();
         sb.append("【用户记忆】\n");
+        int totalChars = sb.length();
+        final int footerReserve = 256;
+        int contentBudget = Math.max(0, MAX_CONTEXT_TOTAL_CHARS - footerReserve);
+
         if (!pickedLong.isEmpty()) {
             sb.append("【长期记忆】\n");
+            totalChars = sb.length();
             for (UserMemory m : pickedLong) {
-                String line = safeOneLine(m.getContent());
-                if (!line.isEmpty()) {
-                    sb.append("- ").append(trimToMax(line, MAX_CONTEXT_CHARS_PER_ITEM)).append("\n");
+                if (totalChars >= contentBudget) {
+                    break;
                 }
+                String line = safeOneLine(m.getContent());
+                if (line.isEmpty()) {
+                    continue;
+                }
+                String item = "- " + trimToMax(line, MAX_CONTEXT_CHARS_PER_ITEM) + "\n";
+                if (totalChars + item.length() > contentBudget) {
+                    break;
+                }
+                sb.append(item);
+                totalChars += item.length();
             }
         }
-        if (!pickedEnt.isEmpty()) {
+        if (totalChars < contentBudget && !pickedEnt.isEmpty()) {
             sb.append("【实体记忆】\n");
+            totalChars = sb.length();
             for (UserMemory m : pickedEnt) {
-                String line = safeOneLine(m.getContent());
-                if (!line.isEmpty()) {
-                    sb.append("- ").append(trimToMax(line, MAX_CONTEXT_CHARS_PER_ITEM)).append("\n");
+                if (totalChars >= contentBudget) {
+                    break;
                 }
+                String line = safeOneLine(m.getContent());
+                if (line.isEmpty()) {
+                    continue;
+                }
+                String item = "- " + trimToMax(line, MAX_CONTEXT_CHARS_PER_ITEM) + "\n";
+                if (totalChars + item.length() > contentBudget) {
+                    break;
+                }
+                sb.append(item);
+                totalChars += item.length();
             }
         }
         sb.append("\n请在不暴露记忆原文来源的前提下，利用以上信息进行个性化回答；若记忆与问题无关，请忽略。");
+        sb.append("若多条记忆涉及同一类偏好、习惯或计划（如饮食、运动等），以列表中靠前的表述为准（靠前的为更新后的表述），旧表述视为已被取代，不要依据旧表述做推荐。");
         return sb.toString();
     }
 
@@ -253,7 +281,8 @@ public class UserMemoryServiceImpl implements UserMemoryService {
                 + "只记录稳定、可复用的信息（偏好、背景、常用技术栈、项目上下文、重要实体及其属性）。"
                 + "不要记录一次性内容、临时验证码、敏感信息（密码、token、身份证、银行卡等）。"
                 + "如果没有可保存内容，返回空JSON对象 {}。"
-                + "输出必须是纯JSON，不要使用Markdown，不要使用代码块。";
+                + "输出必须是纯JSON，不要使用Markdown，不要使用代码块。"
+                + "重要：对于用户偏好、习惯、计划（如饮食偏好、运动习惯、作息、饮食计划等），key 必须使用稳定的维度名（如 diet_preference、饮食偏好、运动习惯），同一维度只输出一条；当用户更新了同一偏好/习惯时，新内容会覆盖旧内容，因此请用当前表述作为该 key 的 content。";
         messages.add(SystemMessage.from(system));
 
         String user = "{\n"
@@ -269,7 +298,7 @@ public class UserMemoryServiceImpl implements UserMemoryService {
                 + "    {\"type\": \"\", \"name\": \"\", \"attributes\": {}}\n"
                 + "  ]\n"
                 + "}\n"
-                + "约束：importance 取 0-5；key 应短且稳定；entities 的 attributes 只能是对象。";
+                + "约束：importance 取 0-5；key 应短且稳定，同一偏好/习惯维度使用同一 key；entities 的 attributes 只能是对象。";
         messages.add(UserMessage.from(user));
 
         Response<AiMessage> resp = model.generate(messages);
@@ -420,12 +449,23 @@ public class UserMemoryServiceImpl implements UserMemoryService {
         return new Scope(SCOPE_CHAT, null);
     }
 
+    /** 按重要度降序、更新时间降序排序，用于挑选记忆时的优先级 */
+    private static final Comparator<UserMemory> IMPORTANCE_THEN_RECENCY = Comparator
+            .<UserMemory>comparingInt(m -> m.getImportance() != null ? m.getImportance() : 0)
+            .reversed()
+            .thenComparing(UserMemory::getUpdateTime, Comparator.nullsLast(Comparator.reverseOrder()));
+
     private List<UserMemory> pickBest(List<UserMemory> candidates, List<String> tokens, int max) {
         if (candidates == null || candidates.isEmpty()) {
             return List.of();
         }
+        if (max <= 0) {
+            return List.of();
+        }
         if (tokens == null || tokens.isEmpty()) {
-            return candidates.subList(0, Math.min(max, candidates.size()));
+            List<UserMemory> copy = new ArrayList<>(candidates);
+            copy.sort(IMPORTANCE_THEN_RECENCY);
+            return copy.subList(0, Math.min(max, copy.size()));
         }
         List<UserMemory> matched = new ArrayList<>();
         List<UserMemory> rest = new ArrayList<>();
@@ -448,6 +488,8 @@ public class UserMemoryServiceImpl implements UserMemoryService {
                 rest.add(m);
             }
         }
+        matched.sort(IMPORTANCE_THEN_RECENCY);
+        rest.sort(IMPORTANCE_THEN_RECENCY);
         List<UserMemory> out = new ArrayList<>();
         for (UserMemory m : matched) {
             if (out.size() >= max) {
