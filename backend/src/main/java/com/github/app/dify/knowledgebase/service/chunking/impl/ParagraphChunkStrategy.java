@@ -17,43 +17,43 @@ import java.util.regex.Pattern;
  */
 @Component
 public class ParagraphChunkStrategy implements ChunkStrategy {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(ParagraphChunkStrategy.class);
-    
+
     // 段落分隔符：双换行、单换行+空行等
     private static final Pattern PARAGRAPH_SEPARATOR = Pattern.compile("\\n\\s*\\n");
-    
+
     @Override
     public String getName() {
         return "paragraph";
     }
-    
+
     @Override
     public boolean supports(String fileType, String contentType) {
         // 支持文本类型的内容
         return ContentStructure.ContentType.TEXT.equals(contentType) || contentType == null;
     }
-    
+
     @Override
     public List<ChunkResult> chunk(String text, ChunkConfig config) {
         if (text == null || text.trim().isEmpty()) {
             return new ArrayList<>();
         }
-        
+
         int chunkSize = config.getChunkSize();
         int chunkOverlap = config.getChunkOverlap();
-        
+
         // 优化：使用更高效的方式分割段落，同时记录位置信息
         List<ParagraphInfo> paragraphInfos = splitParagraphsWithPosition(text);
         List<ParagraphInfo> processedParagraphs = new ArrayList<>();
-        
+
         // 处理段落：合并小段落，拆分大段落
         for (ParagraphInfo paraInfo : paragraphInfos) {
             String trimmed = paraInfo.content.trim();
             if (trimmed.isEmpty()) {
                 continue;
             }
-            
+
             if (trimmed.length() <= chunkSize) {
                 processedParagraphs.add(new ParagraphInfo(trimmed, paraInfo.startIndex, paraInfo.endIndex));
             } else {
@@ -63,15 +63,15 @@ public class ParagraphChunkStrategy implements ChunkStrategy {
                 processedParagraphs.addAll(splitParagraphs);
             }
         }
-        
+
         // 合并小段落（同时保持位置信息）
         List<ParagraphInfo> mergedParagraphs = mergeSmallParagraphsWithPosition(
                 processedParagraphs, chunkSize);
-        
+
         // 生成分块结果（优化：使用记录的位置信息）
         List<ChunkResult> chunks = new ArrayList<>();
         int chunkIndex = 0;
-        
+
         for (ParagraphInfo paraInfo : mergedParagraphs) {
             ChunkResult chunk = new ChunkResult();
             chunk.setContent(paraInfo.content);
@@ -82,12 +82,12 @@ public class ParagraphChunkStrategy implements ChunkStrategy {
             chunks.add(chunk);
             chunkIndex++;
         }
-        
+
         logger.debug("段落分块完成 - 段落数: {}, chunk数量: {}", processedParagraphs.size(), chunks.size());
-        
+
         return chunks;
     }
-    
+
     /**
      * 段落信息（包含内容和位置）
      */
@@ -95,14 +95,14 @@ public class ParagraphChunkStrategy implements ChunkStrategy {
         String content;
         int startIndex;
         int endIndex;
-        
+
         ParagraphInfo(String content, int startIndex, int endIndex) {
             this.content = content;
             this.startIndex = startIndex;
             this.endIndex = endIndex;
         }
     }
-    
+
     /**
      * 分割段落（优化：避免使用 split() 创建大数组，同时记录位置信息）
      */
@@ -111,21 +111,19 @@ public class ParagraphChunkStrategy implements ChunkStrategy {
         if (text == null || text.isEmpty()) {
             return paragraphs;
         }
-        
+
         int start = 0;
         int textLength = text.length();
-        
+        java.util.regex.Matcher matcher = PARAGRAPH_SEPARATOR.matcher(text);
+
         while (start < textLength) {
-            // 查找段落分隔符（双换行）
-            int doubleNewline = text.indexOf("\n\n", start);
-            
             int end;
-            if (doubleNewline != -1) {
-                end = doubleNewline + 2;
+            if (matcher.find(start)) {
+                end = matcher.end();
             } else {
                 end = textLength;
             }
-            
+
             String paragraph = text.substring(start, end);
             String trimmed = paragraph.trim();
             if (!trimmed.isEmpty()) {
@@ -140,18 +138,18 @@ public class ParagraphChunkStrategy implements ChunkStrategy {
                 }
                 paragraphs.add(new ParagraphInfo(trimmed, trimmedStart, trimmedEnd));
             }
-            
+
             start = end;
         }
-        
+
         // 如果没有找到段落分隔符，整个文本作为一个段落
         if (paragraphs.isEmpty()) {
             paragraphs.add(new ParagraphInfo(text.trim(), 0, text.length()));
         }
-        
+
         return paragraphs;
     }
-    
+
     /**
      * 拆分大段落（同时保持位置信息）
      */
@@ -159,11 +157,11 @@ public class ParagraphChunkStrategy implements ChunkStrategy {
             String paragraph, int baseStartIndex, int maxSize) {
         List<ParagraphInfo> result = new ArrayList<>();
         int start = 0;
-        
+
         while (start < paragraph.length()) {
             int end = Math.min(start + maxSize, paragraph.length());
             String chunk = paragraph.substring(start, end);
-            
+
             // 尝试在句子边界截断
             if (end < paragraph.length()) {
                 int sentenceEnd = findLastSentenceEnd(chunk);
@@ -172,7 +170,7 @@ public class ParagraphChunkStrategy implements ChunkStrategy {
                     end = start + sentenceEnd + 1;
                 }
             }
-            
+
             String trimmed = chunk.trim();
             if (!trimmed.isEmpty()) {
                 int trimmedStart = baseStartIndex + start;
@@ -181,10 +179,10 @@ public class ParagraphChunkStrategy implements ChunkStrategy {
             }
             start = end;
         }
-        
+
         return result;
     }
-    
+
     /**
      * 合并小段落（同时保持位置信息）
      */
@@ -194,7 +192,7 @@ public class ParagraphChunkStrategy implements ChunkStrategy {
         StringBuilder current = new StringBuilder();
         int currentStart = -1;
         int currentEnd = -1;
-        
+
         for (ParagraphInfo paraInfo : paragraphs) {
             if (current.length() + paraInfo.content.length() + 2 <= targetSize) {
                 // 可以合并
@@ -218,28 +216,26 @@ public class ParagraphChunkStrategy implements ChunkStrategy {
                 currentEnd = paraInfo.endIndex;
             }
         }
-        
+
         if (current.length() > 0) {
             result.add(new ParagraphInfo(current.toString(), currentStart, currentEnd));
         }
-        
+
         return result;
     }
-    
+
     /**
      * 查找最后一个句子结束位置
      */
     private int findLastSentenceEnd(String text) {
         int lastChinesePunct = Math.max(
                 Math.max(text.lastIndexOf('。'), text.lastIndexOf('！')),
-                text.lastIndexOf('？')
-        );
-        
+                text.lastIndexOf('？'));
+
         int lastEnglishPunct = Math.max(
                 Math.max(text.lastIndexOf('.'), text.lastIndexOf('!')),
-                text.lastIndexOf('?')
-        );
-        
+                text.lastIndexOf('?'));
+
         return Math.max(lastChinesePunct, lastEnglishPunct);
     }
 }

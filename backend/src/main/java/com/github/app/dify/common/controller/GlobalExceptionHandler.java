@@ -56,9 +56,9 @@ import java.util.stream.Collectors;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
-    
+
     /**
      * 获取当前请求信息
      */
@@ -66,7 +66,7 @@ public class GlobalExceptionHandler {
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         return attributes != null ? attributes.getRequest() : null;
     }
-    
+
     /**
      * 检测是否是流式响应（SSE）
      */
@@ -77,21 +77,20 @@ public class GlobalExceptionHandler {
         }
         String uri = request.getRequestURI();
         String accept = request.getHeader("Accept");
-        String contentType = request.getContentType();
-        
+
         // 检查 URI 是否包含 /stream
         if (uri != null && uri.contains("/stream")) {
             return true;
         }
-        
+
         // 检查 Accept 头是否包含 text/event-stream
         if (accept != null && accept.contains("text/event-stream")) {
             return true;
         }
-        
+
         return false;
     }
-    
+
     /**
      * 检测是否是客户端中止连接
      */
@@ -107,9 +106,9 @@ public class GlobalExceptionHandler {
             if (cause != null && cause.getMessage() != null) {
                 String message = cause.getMessage();
                 if (message.contains("你的主机中的软件中止了一个已建立的连接") ||
-                    message.contains("Connection reset") ||
-                    message.contains("Broken pipe") ||
-                    message.contains("Connection closed")) {
+                        message.contains("Connection reset") ||
+                        message.contains("Broken pipe") ||
+                        message.contains("Connection closed")) {
                     return true;
                 }
             }
@@ -120,15 +119,15 @@ public class GlobalExceptionHandler {
         if (e.getMessage() != null) {
             String message = e.getMessage();
             if (message.contains("ClientAbortException") ||
-                message.contains("你的主机中的软件中止了一个已建立的连接") ||
-                message.contains("Connection reset") ||
-                message.contains("Broken pipe")) {
+                    message.contains("你的主机中的软件中止了一个已建立的连接") ||
+                    message.contains("Connection reset") ||
+                    message.contains("Broken pipe")) {
                 return true;
             }
         }
         return false;
     }
-    
+
     /**
      * 构建标准化的错误响应
      */
@@ -140,7 +139,7 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity.status(httpStatus).body(response);
     }
-    
+
     /**
      * 记录异常日志
      */
@@ -152,13 +151,13 @@ public class GlobalExceptionHandler {
             Object usernameObj = request.getAttribute("username");
             String userId = userIdObj != null ? String.valueOf(userIdObj) : "N/A";
             String username = usernameObj != null ? String.valueOf(usernameObj) : "N/A";
-            requestInfo = String.format("[Method=%s] [URI=%s] [UserID=%s] [Username=%s] ", 
-                    request.getMethod(), 
+            requestInfo = String.format("[Method=%s] [URI=%s] [UserID=%s] [Username=%s] ",
+                    request.getMethod(),
                     request.getRequestURI(),
                     userId,
                     username);
         }
-        
+
         String logMessage = requestInfo + message;
         switch (level.toLowerCase()) {
             case "error":
@@ -195,7 +194,7 @@ public class GlobalExceptionHandler {
                 }
         }
     }
-    
+
     /**
      * 处理业务异常
      */
@@ -207,7 +206,7 @@ public class GlobalExceptionHandler {
         logException("warn", "业务异常: code={}, message={}", e, code, e.getMessage());
         return buildErrorResponse(message, code, HttpStatus.valueOf(httpStatus));
     }
-    
+
     /**
      * 处理未找到异常
      */
@@ -219,7 +218,7 @@ public class GlobalExceptionHandler {
         logException("warn", "资源未找到: code={}, message={}", e, code, e.getMessage());
         return buildErrorResponse(message, code, HttpStatus.valueOf(httpStatus));
     }
-    
+
     /**
      * 处理未授权异常
      */
@@ -231,7 +230,7 @@ public class GlobalExceptionHandler {
         logException("warn", "未授权: code={}, message={}", e, code, e.getMessage());
         return buildErrorResponse(message, code, HttpStatus.valueOf(httpStatus));
     }
-    
+
     /**
      * 处理禁止访问异常
      */
@@ -243,7 +242,7 @@ public class GlobalExceptionHandler {
         logException("warn", "禁止访问: code={}, message={}", e, code, e.getMessage());
         return buildErrorResponse(message, code, HttpStatus.valueOf(httpStatus));
     }
-    
+
     /**
      * 处理Spring Security访问拒绝异常
      */
@@ -253,29 +252,30 @@ public class GlobalExceptionHandler {
         logException("warn", "访问拒绝: message={}", e, e.getMessage());
         return buildErrorResponse(message, ErrorCode.FORBIDDEN, HttpStatus.FORBIDDEN);
     }
-    
+
     /**
      * 处理参数验证异常
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationException(MethodArgumentNotValidException e) {
+    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationException(
+            MethodArgumentNotValidException e) {
         logException("warn", "参数验证失败", e);
         Map<String, String> errors = new HashMap<>();
         StringBuilder errorMessage = new StringBuilder("参数验证失败：");
         boolean first = true;
-        
+
         for (org.springframework.validation.ObjectError error : e.getBindingResult().getAllErrors()) {
             String fieldName = error instanceof FieldError ? ((FieldError) error).getField() : error.getObjectName();
             String message = error.getDefaultMessage();
             errors.put(fieldName, message);
-            
+
             if (!first) {
                 errorMessage.append("；");
             }
             errorMessage.append(fieldName).append(": ").append(message);
             first = false;
         }
-        
+
         ApiResponse<Map<String, String>> response = ApiResponse.error(errorMessage.toString(), ErrorCode.BAD_REQUEST);
         response.setData(errors);
         HttpServletRequest request = getCurrentRequest();
@@ -284,7 +284,7 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity.badRequest().body(response);
     }
-    
+
     /**
      * 处理参数绑定异常
      */
@@ -298,60 +298,65 @@ public class GlobalExceptionHandler {
         String message = ErrorUtil.toUserMessage(errorMessage, "参数错误");
         return buildErrorResponse(message, ErrorCode.BAD_REQUEST, HttpStatus.BAD_REQUEST);
     }
-    
+
     /**
      * 处理缺少请求参数异常
      */
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<ApiResponse<Object>> handleMissingServletRequestParameterException(MissingServletRequestParameterException e) {
+    public ResponseEntity<ApiResponse<Object>> handleMissingServletRequestParameterException(
+            MissingServletRequestParameterException e) {
         logException("warn", "缺少请求参数: parameterName={}", e, e.getParameterName());
         String message = "缺少必需的请求参数: " + e.getParameterName();
         return buildErrorResponse(message, ErrorCode.BAD_REQUEST, HttpStatus.BAD_REQUEST);
     }
-    
+
     /**
      * 处理参数类型不匹配异常
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ApiResponse<Object>> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException e) {
-        logException("warn", "参数类型不匹配: parameterName={}, requiredType={}", e, e.getName(), 
+    public ResponseEntity<ApiResponse<Object>> handleMethodArgumentTypeMismatchException(
+            MethodArgumentTypeMismatchException e) {
+        logException("warn", "参数类型不匹配: parameterName={}, requiredType={}", e, e.getName(),
                 e.getRequiredType() != null ? e.getRequiredType().getSimpleName() : "未知类型");
-        String message = "参数类型不匹配: " + e.getName() + " 应该是 " + 
+        String message = "参数类型不匹配: " + e.getName() + " 应该是 " +
                 (e.getRequiredType() != null ? e.getRequiredType().getSimpleName() : "未知类型");
         return buildErrorResponse(message, ErrorCode.BAD_REQUEST, HttpStatus.BAD_REQUEST);
     }
-    
+
     /**
      * 处理请求方法不支持异常
      */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<ApiResponse<Object>> handleHttpRequestMethodNotSupportedException(HttpRequestMethodNotSupportedException e) {
+    public ResponseEntity<ApiResponse<Object>> handleHttpRequestMethodNotSupportedException(
+            HttpRequestMethodNotSupportedException e) {
         logException("warn", "请求方法不支持: method={}, supported={}", e, e.getMethod(), e.getSupportedMethods());
-        String message = String.format("请求方法 '%s' 不支持，支持的请求方法: %s", 
+        String message = String.format("请求方法 '%s' 不支持，支持的请求方法: %s",
                 e.getMethod(), String.join(", ", e.getSupportedMethods()));
         return buildErrorResponse(message, ErrorCode.METHOD_NOT_ALLOWED, HttpStatus.METHOD_NOT_ALLOWED);
     }
-    
+
     /**
      * 处理媒体类型不支持异常
      */
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
-    public ResponseEntity<ApiResponse<Object>> handleHttpMediaTypeNotSupportedException(HttpMediaTypeNotSupportedException e) {
+    public ResponseEntity<ApiResponse<Object>> handleHttpMediaTypeNotSupportedException(
+            HttpMediaTypeNotSupportedException e) {
         logException("warn", "媒体类型不支持: contentType={}", e, e.getContentType());
-        String message = String.format("不支持的内容类型 '%s'，支持的类型: %s", 
+        String message = String.format("不支持的内容类型 '%s'，支持的类型: %s",
                 e.getContentType(), String.join(", ", e.getSupportedMediaTypes().stream()
                         .map(Object::toString).collect(Collectors.toList())));
         return buildErrorResponse(message, ErrorCode.BAD_REQUEST, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
     }
-    
+
     /**
      * 处理请求体不可读异常（包括JSON解析异常）
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiResponse<Object>> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
+    public ResponseEntity<ApiResponse<Object>> handleHttpMessageNotReadableException(
+            HttpMessageNotReadableException e) {
         logException("warn", "请求体不可读: message={}", e, e.getMessage());
         String message = "请求体格式错误或不可读";
-        
+
         // 处理JSON解析异常
         Throwable cause = e.getCause();
         if (cause instanceof JsonParseException) {
@@ -361,10 +366,10 @@ public class GlobalExceptionHandler {
         } else if (cause != null) {
             message += ": " + cause.getMessage();
         }
-        
+
         return buildErrorResponse(message, ErrorCode.BAD_REQUEST, HttpStatus.BAD_REQUEST);
     }
-    
+
     /**
      * 处理路径变量缺失异常
      */
@@ -374,7 +379,7 @@ public class GlobalExceptionHandler {
         String message = "缺少必需的路径变量: " + e.getVariableName();
         return buildErrorResponse(message, ErrorCode.BAD_REQUEST, HttpStatus.BAD_REQUEST);
     }
-    
+
     /**
      * 处理请求头缺失异常
      */
@@ -384,7 +389,7 @@ public class GlobalExceptionHandler {
         String message = "缺少必需的请求头: " + e.getHeaderName();
         return buildErrorResponse(message, ErrorCode.BAD_REQUEST, HttpStatus.BAD_REQUEST);
     }
-    
+
     /**
      * 处理绑定异常
      */
@@ -394,19 +399,19 @@ public class GlobalExceptionHandler {
         Map<String, String> errors = new HashMap<>();
         StringBuilder errorMessage = new StringBuilder("参数验证失败：");
         boolean first = true;
-        
+
         for (FieldError error : e.getFieldErrors()) {
             String fieldName = error.getField();
             String message = error.getDefaultMessage();
             errors.put(fieldName, message);
-            
+
             if (!first) {
                 errorMessage.append("；");
             }
             errorMessage.append(fieldName).append(": ").append(message);
             first = false;
         }
-        
+
         ApiResponse<Map<String, String>> response = ApiResponse.error(errorMessage.toString(), ErrorCode.BAD_REQUEST);
         response.setData(errors);
         HttpServletRequest request = getCurrentRequest();
@@ -415,29 +420,30 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity.badRequest().body(response);
     }
-    
+
     /**
      * 处理约束违反异常（@Validated）
      */
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ApiResponse<Map<String, String>>> handleConstraintViolationException(ConstraintViolationException e) {
+    public ResponseEntity<ApiResponse<Map<String, String>>> handleConstraintViolationException(
+            ConstraintViolationException e) {
         logException("warn", "约束验证失败", e);
         Map<String, String> errors = new HashMap<>();
         StringBuilder errorMessage = new StringBuilder("参数验证失败：");
         boolean first = true;
-        
+
         for (ConstraintViolation<?> violation : e.getConstraintViolations()) {
             String path = violation.getPropertyPath().toString();
             String message = violation.getMessage();
             errors.put(path, message);
-            
+
             if (!first) {
                 errorMessage.append("；");
             }
             errorMessage.append(path).append(": ").append(message);
             first = false;
         }
-        
+
         ApiResponse<Map<String, String>> response = ApiResponse.error(errorMessage.toString(), ErrorCode.BAD_REQUEST);
         response.setData(errors);
         HttpServletRequest request = getCurrentRequest();
@@ -446,7 +452,7 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity.badRequest().body(response);
     }
-    
+
     /**
      * 处理文件上传大小超限异常
      */
@@ -454,10 +460,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Object>> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException e) {
         logException("warn", "文件上传大小超限: maxSize={}", e, e.getMaxUploadSize());
         String maxSizeMB = e.getMaxUploadSize() / (1024 * 1024) + "MB";
-        return buildErrorResponse("上传文件大小超过限制（最大 " + maxSizeMB + "）", 
+        return buildErrorResponse("上传文件大小超过限制（最大 " + maxSizeMB + "）",
                 ErrorCode.FILE_TOO_LARGE, HttpStatus.PAYLOAD_TOO_LARGE);
     }
-    
+
     /**
      * 处理无处理器异常（404）
      */
@@ -467,17 +473,17 @@ public class GlobalExceptionHandler {
         String message = String.format("请求的资源不存在: %s %s", e.getHttpMethod(), e.getRequestURL());
         return buildErrorResponse(message, ErrorCode.NOT_FOUND, HttpStatus.NOT_FOUND);
     }
-    
+
     /**
      * 处理异步请求超时异常
      */
     @ExceptionHandler(AsyncRequestTimeoutException.class)
     public ResponseEntity<ApiResponse<Object>> handleAsyncRequestTimeoutException(AsyncRequestTimeoutException e) {
         logException("warn", "异步请求超时", e);
-        return buildErrorResponse("请求处理超时，请稍后重试或使用流式接口", 
+        return buildErrorResponse("请求处理超时，请稍后重试或使用流式接口",
                 ErrorCode.REQUEST_TIMEOUT, HttpStatus.REQUEST_TIMEOUT);
     }
-    
+
     /**
      * 处理异步请求不可用异常（通常是客户端断开连接）
      */
@@ -488,31 +494,31 @@ public class GlobalExceptionHandler {
             if (isStreamingResponse()) {
                 // 流式响应中客户端断开连接是正常情况（用户刷新、关闭标签等）
                 logger.debug("客户端中止流式响应连接（正常情况）");
-                return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(null);
             } else {
                 logger.debug("客户端中止连接: {}", e.getMessage());
-                return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(null);
             }
         }
-        
+
         // 如果是流式响应，静默处理
         if (isStreamingResponse()) {
             logger.debug("流式响应异步请求不可用: {}", e.getMessage());
-            return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+            return ResponseEntity.status(HttpStatus.NO_CONTENT).body(null);
         }
-        
+
         logException("warn", "异步请求不可用: message={}", e, e.getMessage());
-        return buildErrorResponse("请求处理失败，请稍后重试", 
+        return buildErrorResponse("请求处理失败，请稍后重试",
                 ErrorCode.SYSTEM_BUSY, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    
+
     /**
      * 处理数据库访问异常
      */
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ApiResponse<Object>> handleDataAccessException(DataAccessException e) {
         logException("error", "数据库访问异常: message={}", e, e.getMessage());
-        
+
         // 处理数据完整性违反异常（如外键约束、唯一约束等）
         if (e instanceof DataIntegrityViolationException) {
             DataIntegrityViolationException dive = (DataIntegrityViolationException) e;
@@ -525,31 +531,31 @@ public class GlobalExceptionHandler {
             }
             return buildErrorResponse(message, ErrorCode.DATABASE_ERROR, HttpStatus.INTERNAL_SERVER_ERROR);
         }
-        
+
         // 处理重复键异常
         if (e instanceof DuplicateKeyException) {
-            return buildErrorResponse("数据已存在，不能重复添加", 
+            return buildErrorResponse("数据已存在，不能重复添加",
                     ErrorCode.DATA_ALREADY_EXISTS, HttpStatus.BAD_REQUEST);
         }
-        
-        return buildErrorResponse("数据库操作失败，请稍后重试", 
+
+        return buildErrorResponse("数据库操作失败，请稍后重试",
                 ErrorCode.DATABASE_ERROR, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    
+
     /**
      * 处理SQL异常
      */
     @ExceptionHandler(SQLException.class)
     public ResponseEntity<ApiResponse<Object>> handleSQLException(SQLException e) {
-        logException("error", "SQL异常: sqlState={}, errorCode={}, message={}", e, 
+        logException("error", "SQL异常: sqlState={}, errorCode={}, message={}", e,
                 e.getSQLState(), e.getErrorCode(), e.getMessage());
-        
+
         // 处理SQL超时
         if (e instanceof SQLTimeoutException) {
-            return buildErrorResponse("数据库操作超时，请稍后重试", 
+            return buildErrorResponse("数据库操作超时，请稍后重试",
                     ErrorCode.DATABASE_TIMEOUT, HttpStatus.REQUEST_TIMEOUT);
         }
-        
+
         // 处理完整性约束违反
         if (e instanceof SQLIntegrityConstraintViolationException) {
             String message = "数据完整性约束违反";
@@ -559,60 +565,60 @@ public class GlobalExceptionHandler {
             }
             return buildErrorResponse(message, ErrorCode.DATABASE_ERROR, HttpStatus.BAD_REQUEST);
         }
-        
+
         // 根据SQL状态码判断错误类型
         String sqlState = e.getSQLState();
         if (sqlState != null) {
             if (sqlState.startsWith("23")) { // 完整性约束违反
-                return buildErrorResponse("数据完整性约束违反", 
+                return buildErrorResponse("数据完整性约束违反",
                         ErrorCode.DATABASE_ERROR, HttpStatus.BAD_REQUEST);
             } else if (sqlState.startsWith("08")) { // 连接异常
-                return buildErrorResponse("数据库连接失败，请稍后重试", 
+                return buildErrorResponse("数据库连接失败，请稍后重试",
                         ErrorCode.DATABASE_CONNECTION_ERROR, HttpStatus.SERVICE_UNAVAILABLE);
             } else if (sqlState.startsWith("40")) { // 事务回滚
-                return buildErrorResponse("事务处理失败，请稍后重试", 
+                return buildErrorResponse("事务处理失败，请稍后重试",
                         ErrorCode.DATABASE_ERROR, HttpStatus.INTERNAL_SERVER_ERROR);
             }
         }
-        
-        return buildErrorResponse("数据库操作失败，请稍后重试", 
+
+        return buildErrorResponse("数据库操作失败，请稍后重试",
                 ErrorCode.DATABASE_ERROR, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    
+
     /**
      * 处理运行时异常
      */
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiResponse<Object>> handleRuntimeException(RuntimeException e) {
         // 跳过已处理的异常类型
-        if (e instanceof BusinessException || 
-            e instanceof IllegalArgumentException ||
-            e instanceof DataAccessException) {
+        if (e instanceof BusinessException ||
+                e instanceof IllegalArgumentException ||
+                e instanceof DataAccessException) {
             throw e; // 重新抛出，让更具体的处理器处理
         }
-        
+
         // 检测是否是客户端中止连接
         if (isClientAbortException(e)) {
             if (isStreamingResponse()) {
                 logger.debug("客户端中止流式响应连接（正常情况）");
-                return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(null);
             } else {
                 logger.debug("客户端中止连接: {}", e.getMessage());
-                return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(null);
             }
         }
-        
+
         // 检测是否是流式响应
         if (isStreamingResponse()) {
             logger.warn("流式响应中发生运行时异常（应由 Controller 层处理）: {}", e.getMessage());
-            return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+            return ResponseEntity.status(HttpStatus.NO_CONTENT).body(null);
         }
-        
+
         logException("error", "运行时异常: message={}, type={}", e, e.getMessage(), e.getClass().getSimpleName());
-        return buildErrorResponse("系统繁忙，请稍后重试", 
+        return buildErrorResponse("系统繁忙，请稍后重试",
                 ErrorCode.SYSTEM_BUSY, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-    
+
     /**
      * 处理所有其他异常
      */
@@ -623,40 +629,40 @@ public class GlobalExceptionHandler {
             // 如果是流式响应，静默处理（客户端断开连接是正常情况）
             if (isStreamingResponse()) {
                 logger.debug("客户端中止流式响应连接（正常情况，用户可能刷新页面或关闭标签）");
-                return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(null);
             } else {
                 logger.debug("客户端中止连接: {}", e.getMessage());
-                return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(null);
             }
         }
-        
+
         // 检测是否是流式响应
         if (isStreamingResponse()) {
             logger.warn("流式响应中发生异常（应由 Controller 层处理）: {}", e.getMessage());
-            return ResponseEntity.<ApiResponse<Object>>status(HttpStatus.NO_CONTENT).body(null);
+            return ResponseEntity.status(HttpStatus.NO_CONTENT).body(null);
         }
-        
+
         logException("error", "系统异常: message={}, type={}", e, e.getMessage(), e.getClass().getSimpleName());
-        
+
         // 处理网络连接异常
         if (e instanceof ConnectException) {
-            return buildErrorResponse("无法连接到服务，请检查网络连接", 
+            return buildErrorResponse("无法连接到服务，请检查网络连接",
                     ErrorCode.SERVICE_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE);
         }
-        
+
         // 处理Socket超时异常
         if (e instanceof SocketTimeoutException) {
-            return buildErrorResponse("请求超时，请稍后重试", 
+            return buildErrorResponse("请求超时，请稍后重试",
                     ErrorCode.GATEWAY_TIMEOUT, HttpStatus.GATEWAY_TIMEOUT);
         }
-        
+
         // 处理JSON解析异常（如果未被HttpMessageNotReadableException捕获）
         if (e instanceof JsonParseException || e instanceof JsonMappingException) {
-            return buildErrorResponse("JSON格式错误: " + e.getMessage(), 
+            return buildErrorResponse("JSON格式错误: " + e.getMessage(),
                     ErrorCode.BAD_REQUEST, HttpStatus.BAD_REQUEST);
         }
 
-        return buildErrorResponse("系统异常，请稍后重试", 
+        return buildErrorResponse("系统异常，请稍后重试",
                 ErrorCode.INTERNAL_SERVER_ERROR, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

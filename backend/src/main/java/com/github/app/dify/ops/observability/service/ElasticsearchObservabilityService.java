@@ -142,14 +142,16 @@ public class ElasticsearchObservabilityService {
             if (m.find()) {
                 try {
                     return Long.parseLong(m.group(1));
-                } catch (NumberFormatException ignored) {}
+                } catch (NumberFormatException ignored) {
+                }
             }
             return null;
         }
     }
 
     private void ensureIndexExists(ElasticsearchClient client) {
-        if (indexInitialized) return;
+        if (indexInitialized)
+            return;
 
         try {
             boolean exists = client.indices().exists(ExistsRequest.of(e -> e.index(INDEX_NAME))).value();
@@ -164,36 +166,33 @@ public class ElasticsearchObservabilityService {
 
     private void createIndex(ElasticsearchClient client) throws Exception {
         TypeMapping mapping = TypeMapping.of(m -> m
-            .properties("traceId", Property.of(p -> p.keyword(k -> k)))
-            .properties("spanId", Property.of(p -> p.keyword(k -> k)))
-            .properties("conversationId", Property.of(p -> p.keyword(k -> k)))
-            .properties("appName", Property.of(p -> p.keyword(k -> k)))
-            .properties("model", Property.of(p -> p.keyword(k -> k)))
-            .properties("provider", Property.of(p -> p.keyword(k -> k)))
-            .properties("traceSource", Property.of(p -> p.keyword(k -> k)))
-            .properties("status", Property.of(p -> p.integer(i -> i)))
-            .properties("inputTokens", Property.of(p -> p.integer(i -> i)))
-            .properties("outputTokens", Property.of(p -> p.integer(i -> i)))
-            .properties("totalTokens", Property.of(p -> p.integer(i -> i)))
-            .properties("latency", Property.of(p -> p.long_(l -> l)))
-            .properties("requestContent", Property.of(p -> p.text(t -> t)))
-            .properties("responseContent", Property.of(p -> p.text(t -> t)))
-            .properties("errorContent", Property.of(p -> p.text(t -> t)))
-            .properties("metaData", Property.of(p -> p.text(t -> t)))
-            .properties("createdAt", Property.of(p -> p.date(d -> d.format("yyyy-MM-dd'T'HH:mm:ss"))))
-            .properties("finishedAt", Property.of(p -> p.date(d -> d.format("yyyy-MM-dd'T'HH:mm:ss"))))
-        );
+                .properties("traceId", Property.of(p -> p.keyword(k -> k)))
+                .properties("spanId", Property.of(p -> p.keyword(k -> k)))
+                .properties("conversationId", Property.of(p -> p.keyword(k -> k)))
+                .properties("appName", Property.of(p -> p.keyword(k -> k)))
+                .properties("model", Property.of(p -> p.keyword(k -> k)))
+                .properties("provider", Property.of(p -> p.keyword(k -> k)))
+                .properties("traceSource", Property.of(p -> p.keyword(k -> k)))
+                .properties("status", Property.of(p -> p.integer(i -> i)))
+                .properties("inputTokens", Property.of(p -> p.integer(i -> i)))
+                .properties("outputTokens", Property.of(p -> p.integer(i -> i)))
+                .properties("totalTokens", Property.of(p -> p.integer(i -> i)))
+                .properties("latency", Property.of(p -> p.long_(l -> l)))
+                .properties("requestContent", Property.of(p -> p.text(t -> t)))
+                .properties("responseContent", Property.of(p -> p.text(t -> t)))
+                .properties("errorContent", Property.of(p -> p.text(t -> t)))
+                .properties("metaData", Property.of(p -> p.text(t -> t)))
+                .properties("createdAt", Property.of(p -> p.date(d -> d.format("yyyy-MM-dd'T'HH:mm:ss"))))
+                .properties("finishedAt", Property.of(p -> p.date(d -> d.format("yyyy-MM-dd'T'HH:mm:ss")))));
 
         IndexSettings settings = IndexSettings.of(s -> s
-            .numberOfShards("1")
-            .numberOfReplicas("0")
-        );
+                .numberOfShards("1")
+                .numberOfReplicas("0"));
 
         client.indices().create(CreateIndexRequest.of(c -> c
-            .index(INDEX_NAME)
-            .mappings(mapping)
-            .settings(settings)
-        ));
+                .index(INDEX_NAME)
+                .mappings(mapping)
+                .settings(settings)));
         logger.info("索引已创建: {}", INDEX_NAME);
     }
 
@@ -201,6 +200,7 @@ public class ElasticsearchObservabilityService {
 
     /**
      * 保存追踪文档
+     * 
      * @return 生成的 ES 文档 ID
      */
     public String save(LLMTraceDocument doc) {
@@ -217,10 +217,9 @@ public class ElasticsearchObservabilityService {
             String docId = UUID.randomUUID().toString();
 
             IndexRequest<LLMTraceDocument> request = IndexRequest.of(i -> i
-                .index(INDEX_NAME)
-                .id(docId)
-                .document(doc)
-            );
+                    .index(INDEX_NAME)
+                    .id(docId)
+                    .document(doc));
 
             client.index(request);
             logger.info("追踪已保存: docId={}, traceId={}", docId, doc.getTraceId());
@@ -234,8 +233,9 @@ public class ElasticsearchObservabilityService {
 
     /**
      * 使用指定ID保存追踪文档
+     * 
      * @param docId 指定的文档ID（spanId）
-     * @param doc 文档
+     * @param doc   文档
      * @return 文档ID
      */
     public String saveWithId(String docId, LLMTraceDocument doc) {
@@ -249,10 +249,9 @@ public class ElasticsearchObservabilityService {
             ensureIndexExists(client);
 
             IndexRequest<LLMTraceDocument> request = IndexRequest.of(i -> i
-                .index(INDEX_NAME)
-                .id(docId)
-                .document(doc)
-            );
+                    .index(INDEX_NAME)
+                    .id(docId)
+                    .document(doc));
 
             client.index(request);
             logger.info("追踪已保存: docId={}, traceId={}, spanId={}", docId, doc.getTraceId(), doc.getSpanId());
@@ -282,9 +281,9 @@ public class ElasticsearchObservabilityService {
             ensureIndexExists(client);
 
             var response = client.get(g -> g.index(INDEX_NAME).id(docId), LLMTraceDocument.class);
+            LLMTraceDocument doc = response.source();
 
-            if (response.found() && response.source() != null) {
-                LLMTraceDocument doc = response.source();
+            if (response.found() && doc != null) {
                 doc.setId(docId);
                 logger.debug("查询成功: docId={}", docId);
                 return doc;
@@ -316,16 +315,16 @@ public class ElasticsearchObservabilityService {
             ensureIndexExists(client);
 
             SearchRequest request = SearchRequest.of(s -> s
-                .index(INDEX_NAME)
-                .query(q -> q.term(t -> t.field("traceId").value(traceId)))
-                .size(1)
-                .sort(sort -> sort.field(f -> f.field("createdAt").order(SortOrder.Desc)))
-            );
+                    .index(INDEX_NAME)
+                    .query(q -> q.term(t -> t.field("traceId").value(traceId)))
+                    .size(1)
+                    .sort(sort -> sort.field(f -> f.field("createdAt").order(SortOrder.Desc))));
 
             SearchResponse<LLMTraceDocument> response = client.search(request, LLMTraceDocument.class);
 
-            if (!response.hits().hits().isEmpty()) {
-                Hit<LLMTraceDocument> hit = response.hits().hits().get(0);
+            var hitsMetadata = response.hits();
+            if (hitsMetadata != null && !hitsMetadata.hits().isEmpty()) {
+                Hit<LLMTraceDocument> hit = hitsMetadata.hits().get(0);
                 LLMTraceDocument doc = hit.source();
                 if (doc != null) {
                     doc.setId(hit.id());
@@ -358,10 +357,9 @@ public class ElasticsearchObservabilityService {
             ensureIndexExists(client);
 
             IndexRequest<LLMTraceDocument> request = IndexRequest.of(i -> i
-                .index(INDEX_NAME)
-                .id(docId)
-                .document(doc)
-            );
+                    .index(INDEX_NAME)
+                    .id(docId)
+                    .document(doc));
 
             client.index(request);
             logger.info("追踪已更新: docId={}", docId);
@@ -409,8 +407,8 @@ public class ElasticsearchObservabilityService {
      * 搜索追踪
      */
     public SearchResult search(String model, String provider, String traceSource,
-                               String conversationId, LocalDateTime startTime, LocalDateTime endTime,
-                               int page, int pageSize) {
+            String conversationId, LocalDateTime startTime, LocalDateTime endTime,
+            int page, int pageSize) {
         ElasticsearchClient client = getClient();
         if (client == null) {
             return new SearchResult(new ArrayList<>(), 0);
@@ -432,7 +430,8 @@ public class ElasticsearchObservabilityService {
                 mustQueries.add(Query.of(q -> q.term(t -> t.field("traceSource").value(traceSource))));
             }
             if (conversationId != null && !conversationId.isEmpty()) {
-                mustQueries.add(Query.of(q -> q.wildcard(w -> w.field("conversationId").value("*" + conversationId + "*"))));
+                mustQueries.add(
+                        Query.of(q -> q.wildcard(w -> w.field("conversationId").value("*" + conversationId + "*"))));
             }
             if (startTime != null || endTime != null) {
                 final LocalDateTime finalStart = startTime;
@@ -455,25 +454,33 @@ public class ElasticsearchObservabilityService {
             }
 
             SearchRequest request = SearchRequest.of(s -> s
-                .index(INDEX_NAME)
-                .query(q -> q.bool(boolBuilder.build()))
-                .from((page - 1) * pageSize)
-                .size(pageSize)
-                .sort(sort -> sort.field(f -> f.field("createdAt").order(SortOrder.Desc)))
-            );
+                    .index(INDEX_NAME)
+                    .query(q -> q.bool(boolBuilder.build()))
+                    .from((page - 1) * pageSize)
+                    .size(pageSize)
+                    .sort(sort -> sort.field(f -> f.field("createdAt").order(SortOrder.Desc))));
 
             SearchResponse<LLMTraceDocument> response = client.search(request, LLMTraceDocument.class);
 
             List<LLMTraceDocument> docs = new ArrayList<>();
-            for (Hit<LLMTraceDocument> hit : response.hits().hits()) {
-                LLMTraceDocument doc = hit.source();
-                if (doc != null) {
-                    doc.setId(hit.id());  // 关键：设置 ES 文档 ID
-                    docs.add(doc);
+            var hitsMetadata = response.hits();
+            long total = 0;
+
+            if (hitsMetadata != null) {
+                for (Hit<LLMTraceDocument> hit : hitsMetadata.hits()) {
+                    LLMTraceDocument doc = hit.source();
+                    if (doc != null) {
+                        doc.setId(hit.id()); // 关键：设置 ES 文档 ID
+                        docs.add(doc);
+                    }
+                }
+
+                var totalHits = hitsMetadata.total();
+                if (totalHits != null) {
+                    total = totalHits.value();
                 }
             }
 
-            long total = response.hits().total() != null ? response.hits().total().value() : 0;
             return new SearchResult(docs, total);
 
         } catch (Exception e) {
@@ -507,10 +514,9 @@ public class ElasticsearchObservabilityService {
             ensureIndexExists(client);
 
             SearchRequest request = SearchRequest.of(s -> s
-                .index(INDEX_NAME)
-                .size(0)
-                .aggregations(field + "s", a -> a.terms(t -> t.field(field).size(1000)))
-            );
+                    .index(INDEX_NAME)
+                    .size(0)
+                    .aggregations(field + "s", a -> a.terms(t -> t.field(field).size(1000))));
 
             SearchResponse<LLMTraceDocument> response = client.search(request, LLMTraceDocument.class);
 
@@ -547,5 +553,6 @@ public class ElasticsearchObservabilityService {
     /**
      * 搜索结果
      */
-    public record SearchResult(List<LLMTraceDocument> documents, long total) {}
+    public record SearchResult(List<LLMTraceDocument> documents, long total) {
+    }
 }

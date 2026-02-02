@@ -18,32 +18,32 @@ import java.util.regex.Pattern;
  */
 @Component
 public class CodeChunkStrategy implements ChunkStrategy {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(CodeChunkStrategy.class);
-    
+
     // Markdown代码块模式：```language ... ```
     private static final Pattern MARKDOWN_CODE_BLOCK = Pattern.compile(
             "```(\\w+)?\\n([\\s\\S]*?)```", Pattern.MULTILINE);
-    
+
     // 代码文件扩展名
     private static final String[] CODE_EXTENSIONS = {
             "java", "js", "javascript", "ts", "typescript", "py", "python",
             "cpp", "c", "h", "hpp", "cs", "go", "rust", "rb", "ruby",
             "php", "swift", "kt", "kotlin", "scala", "sh", "bash", "sql"
     };
-    
+
     @Override
     public String getName() {
         return "code";
     }
-    
+
     @Override
     public boolean supports(String fileType, String contentType) {
         // 支持代码文件或代码类型内容
         if (ContentStructure.ContentType.CODE.equals(contentType)) {
             return true;
         }
-        
+
         if (fileType != null) {
             String lowerType = fileType.toLowerCase();
             for (String ext : CODE_EXTENSIONS) {
@@ -52,28 +52,26 @@ public class CodeChunkStrategy implements ChunkStrategy {
                 }
             }
         }
-        
+
         return false;
     }
-    
+
     @Override
     public List<ChunkResult> chunk(String text, ChunkConfig config) {
         if (text == null || text.trim().isEmpty()) {
             return new ArrayList<>();
         }
-        
-        int chunkSize = config.getChunkSize();
-        
+
         // 检测是否为Markdown代码块
         Matcher codeBlockMatcher = MARKDOWN_CODE_BLOCK.matcher(text);
         if (codeBlockMatcher.find()) {
             return chunkMarkdownCodeBlocks(text, config);
         }
-        
+
         // 否则按代码文件处理（按函数/类边界分块）
         return chunkCodeFile(text, config);
     }
-    
+
     /**
      * 分块Markdown代码块
      */
@@ -81,19 +79,19 @@ public class CodeChunkStrategy implements ChunkStrategy {
         List<ChunkResult> chunks = new ArrayList<>();
         Matcher matcher = MARKDOWN_CODE_BLOCK.matcher(text);
         int chunkIndex = 0;
-        
+
         while (matcher.find()) {
             String language = matcher.group(1);
             String code = matcher.group(2);
             int startIndex = matcher.start();
             int endIndex = matcher.end();
-            
+
             // 如果代码块太大，需要拆分
             if (code.length() > config.getChunkSize()) {
                 List<String> splitCode = splitLargeCode(code, config.getChunkSize());
                 for (String part : splitCode) {
                     ChunkResult chunk = new ChunkResult();
-                    chunk.setContent("```" + (language != null ? language : "") + "\n" + 
+                    chunk.setContent("```" + (language != null ? language : "") + "\n" +
                             part + "\n```");
                     chunk.setChunkIndex(chunkIndex++);
                     chunk.setStartIndex(startIndex);
@@ -113,10 +111,10 @@ public class CodeChunkStrategy implements ChunkStrategy {
                 chunks.add(chunk);
             }
         }
-        
+
         return chunks;
     }
-    
+
     /**
      * 分块代码文件（按函数/类边界）
      * 优化：避免使用 split() 创建大数组
@@ -124,7 +122,7 @@ public class CodeChunkStrategy implements ChunkStrategy {
     private List<ChunkResult> chunkCodeFile(String text, ChunkConfig config) {
         List<ChunkResult> chunks = new ArrayList<>();
         int chunkSize = config.getChunkSize();
-        
+
         // 简单的实现：按空行和函数/类定义分块
         // 更复杂的实现可以使用AST解析器
         // 优化：使用更高效的方式分割行，同时记录位置信息
@@ -132,7 +130,7 @@ public class CodeChunkStrategy implements ChunkStrategy {
         StringBuilder currentChunk = new StringBuilder();
         int chunkIndex = 0;
         int chunkStartIndex = 0;
-        
+
         // 预编译正则表达式（优化：避免每次调用都编译）
         Pattern definitionPattern = Pattern.compile(
                 ".*\\b(class|interface|function|def|public|private|protected)\\s+\\w+.*");
@@ -180,7 +178,7 @@ public class CodeChunkStrategy implements ChunkStrategy {
                 chunkStartIndex = lineInfo.startIndex;
             }
         }
-        
+
         // 处理最后一个chunk
         if (!currentChunk.isEmpty()) {
             ChunkResult chunk = new ChunkResult();
@@ -191,12 +189,12 @@ public class CodeChunkStrategy implements ChunkStrategy {
             chunk.setContentType(ContentStructure.ContentType.CODE);
             chunks.add(chunk);
         }
-        
+
         logger.debug("代码文件分块完成 - chunk数量: {}", chunks.size());
-        
+
         return chunks;
     }
-    
+
     /**
      * 行信息（包含内容和位置）
      */
@@ -204,14 +202,14 @@ public class CodeChunkStrategy implements ChunkStrategy {
         String content;
         int startIndex;
         int endIndex;
-        
+
         LineInfo(String content, int startIndex, int endIndex) {
             this.content = content;
             this.startIndex = startIndex;
             this.endIndex = endIndex;
         }
     }
-    
+
     /**
      * 分割文本为行（优化：避免使用 split() 创建大数组，同时记录位置信息）
      */
@@ -220,10 +218,10 @@ public class CodeChunkStrategy implements ChunkStrategy {
         if (text == null || text.isEmpty()) {
             return lines;
         }
-        
+
         int start = 0;
         int textLength = text.length();
-        
+
         while (start < textLength) {
             int newlineIndex = text.indexOf('\n', start);
             int end = (newlineIndex != -1) ? newlineIndex + 1 : textLength;
@@ -231,10 +229,10 @@ public class CodeChunkStrategy implements ChunkStrategy {
             lines.add(new LineInfo(line, start, end));
             start = end;
         }
-        
+
         return lines;
     }
-    
+
     /**
      * 拆分大代码块
      */
@@ -255,11 +253,11 @@ public class CodeChunkStrategy implements ChunkStrategy {
             }
             current.append(line);
         }
-        
+
         if (!current.isEmpty()) {
             result.add(current.toString());
         }
-        
+
         return result;
     }
 }
