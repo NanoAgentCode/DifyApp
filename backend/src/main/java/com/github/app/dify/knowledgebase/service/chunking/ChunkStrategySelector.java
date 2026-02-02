@@ -64,9 +64,6 @@ public class ChunkStrategySelector {
     private static final Logger logger = LoggerFactory.getLogger(ChunkStrategySelector.class);
 
     @Autowired
-    private FixedSizeChunkStrategy fixedSizeStrategy;
-
-    @Autowired
     private ParagraphChunkStrategy paragraphStrategy;
 
     @Autowired
@@ -77,6 +74,9 @@ public class ChunkStrategySelector {
 
     @Autowired
     private TableChunkStrategy tableStrategy;
+
+    @Autowired
+    private RecursiveChunkStrategy recursiveStrategy;
 
     @Autowired
     private ContentAnalyzer contentAnalyzer;
@@ -163,13 +163,13 @@ public class ChunkStrategySelector {
 
         // 6. 纯文本文件
         if ("txt".equals(lowerFileType)) {
-            logger.debug("选择段落分块策略 - 文件类型: {}", fileType);
-            return List.of(paragraphStrategy);
+            logger.debug("选择递归分块策略 - 文件类型: {}", fileType);
+            return List.of(recursiveStrategy);
         }
 
-        // 7. 默认策略：固定大小分块
-        logger.debug("使用默认固定大小分块策略 - 文件类型: {}", fileType);
-        return List.of(fixedSizeStrategy);
+        // 7. 默认策略：递归分块
+        logger.debug("使用默认递归分块策略 - 文件类型: {}", fileType);
+        return List.of(recursiveStrategy);
     }
 
     /**
@@ -293,8 +293,8 @@ public class ChunkStrategySelector {
             strategies.add(headingStrategy);
         }
 
-        // 总是包含段落策略用于普通文本
-        strategies.add(paragraphStrategy);
+        // 总是包含递归策略用于普通文本
+        strategies.add(recursiveStrategy);
 
         return strategies;
     }
