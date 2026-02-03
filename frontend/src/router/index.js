@@ -147,6 +147,12 @@ const routes = [
                 meta: { title: '日志监控', requiresAuth: true, requiresAdmin: true }
             },
             {
+                path: 'memos',
+                name: 'AdminMemos',
+                component: () => import('@/views/MemoList.vue'),
+                meta: { title: '备忘录', requiresAuth: true }
+            },
+            {
                 path: 'document-reader',
                 name: 'DocumentReaderManagement',
                 component: () => import('@/views/admin/DocumentReaderManagement.vue'),
@@ -227,6 +233,12 @@ const routes = [
                 name: 'UserDocumentReader',
                 component: () => import('@/views/user/DocumentReader.vue'),
                 meta: { title: '文档解读', requiresAuth: true }
+            },
+            {
+                path: 'memos',
+                name: 'UserMemos',
+                component: () => import('@/views/MemoList.vue'),
+                meta: { title: '备忘录', requiresAuth: true }
             }
         ]
     },

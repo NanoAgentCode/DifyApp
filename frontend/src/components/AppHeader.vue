@@ -37,6 +37,7 @@
             <el-dropdown-menu>
               <el-dropdown-item @click="handleCommand('changePassword')">修改密码</el-dropdown-item>
               <el-dropdown-item @click="handleCommand('memory')">记忆管理</el-dropdown-item>
+              <el-dropdown-item @click="handleCommand('memo')">备忘录</el-dropdown-item>
               <el-dropdown-item divided @click="handleCommand('logout')">退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -121,6 +122,12 @@ const toggleCollapse = (event) => {
 // 处理下拉菜单命令
 const handleCommand = (command) => {
   emit('command', command)
+
+  if (command === 'memo') {
+    const path = userInfo.value?.role === 1 ? '/admin/memos' : '/user/memos'
+    router.push(path)
+    return
+  }
   
   if (command === 'logout') {
     ElMessageBox.confirm('确定要退出登录吗？', '提示', {

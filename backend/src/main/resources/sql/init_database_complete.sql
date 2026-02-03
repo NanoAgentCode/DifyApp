@@ -880,6 +880,37 @@ COMMENT ON COLUMN "PROMPT".deleted IS '是否删除：0-未删除，1-已删除'
 CREATE INDEX idx_prompt_deleted ON "PROMPT"(deleted);
 
 -- ============================================
+-- 21. 创建备忘录表 (MEMO)
+-- ============================================
+DROP TABLE IF EXISTS "MEMO" CASCADE;
+
+CREATE TABLE "MEMO" (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    content TEXT NOT NULL,
+    remind_at TIMESTAMP NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    interval_minutes INTEGER NULL,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted INTEGER DEFAULT 0
+);
+
+COMMENT ON TABLE "MEMO" IS '备忘录表';
+COMMENT ON COLUMN "MEMO".id IS '备忘录编号';
+COMMENT ON COLUMN "MEMO".user_id IS '用户ID';
+COMMENT ON COLUMN "MEMO".content IS '提醒内容';
+COMMENT ON COLUMN "MEMO".remind_at IS '提醒时间';
+COMMENT ON COLUMN "MEMO".status IS '状态：pending-待提醒，done-已提醒，cancelled-已取消';
+COMMENT ON COLUMN "MEMO".interval_minutes IS '周期提醒间隔（分钟），NULL 表示一次性';
+COMMENT ON COLUMN "MEMO".create_time IS '创建时间';
+COMMENT ON COLUMN "MEMO".update_time IS '更新时间';
+COMMENT ON COLUMN "MEMO".deleted IS '是否删除：0-未删除，1-已删除';
+
+CREATE INDEX idx_memo_user_deleted ON "MEMO"(user_id, deleted);
+CREATE INDEX idx_memo_remind_at_status ON "MEMO"(remind_at, status);
+
+-- ============================================
 -- 第六部分：初始化数据
 -- ============================================
 

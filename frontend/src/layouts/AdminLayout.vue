@@ -106,6 +106,9 @@ import { getKnowledgeBaseList } from '@/api/knowledgeBase'
 import { getAvailableQAModels, getAvailableQAModelsForRAG } from '@/api/model'
 import { getConfigValue, setOrUpdateConfig, getConfigsByGroup } from '@/api/systemConfig'
 import { logger } from '@/utils/logger'
+import { useMemoReminder } from '@/composables/useMemoReminder'
+
+useMemoReminder()
 
 const route = useRoute()
 const router = useRouter()

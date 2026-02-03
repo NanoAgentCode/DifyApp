@@ -329,6 +329,44 @@ EXCEPTION
         RAISE NOTICE '更新user_id时出错（可能是DOCUMENT_READER表不在当前数据库）：%', SQLERRM;
 END $$;
 
+-- 7. 备忘录表 (MEMO) 迁移
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'MEMO'
+    ) THEN
+        CREATE TABLE "MEMO" (
+            id BIGSERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            content TEXT NOT NULL,
+            remind_at TIMESTAMP NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            interval_minutes INTEGER NULL,
+            create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            deleted INTEGER DEFAULT 0
+        );
+        COMMENT ON TABLE "MEMO" IS '备忘录表';
+        CREATE INDEX idx_memo_user_deleted ON "MEMO"(user_id, deleted);
+        CREATE INDEX idx_memo_remind_at_status ON "MEMO"(remind_at, status);
+        RAISE NOTICE '已创建备忘录表 MEMO';
+    ELSE
+        RAISE NOTICE '表 MEMO 已存在，跳过';
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'MEMO' AND column_name = 'interval_minutes'
+        ) THEN
+            ALTER TABLE "MEMO" ADD COLUMN interval_minutes INTEGER NULL;
+            COMMENT ON COLUMN "MEMO".interval_minutes IS '周期提醒间隔（分钟），NULL 表示一次性';
+            RAISE NOTICE '已为 MEMO 表添加 interval_minutes 列';
+        END IF;
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE WARNING '备忘录表迁移失败：%', SQLERRM;
+END $$;
+
 -- ============================================
 -- 迁移完成
 -- ============================================

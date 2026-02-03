@@ -27,6 +27,12 @@
             <span>智能问答</span>
           </el-menu-item>
         </el-tooltip>
+        <el-tooltip content="备忘录" placement="right" :show-after="200">
+          <el-menu-item index="/user/memos">
+            <el-icon><Bell /></el-icon>
+            <span>备忘录</span>
+          </el-menu-item>
+        </el-tooltip>
       </template>
 
       <!-- 管理员端菜单 -->
@@ -82,6 +88,12 @@
             <span>日志监控</span>
           </el-menu-item>
         </el-tooltip>
+        <el-tooltip content="备忘录" placement="right" :show-after="200">
+          <el-menu-item index="/admin/memos">
+            <el-icon><Bell /></el-icon>
+            <span>备忘录</span>
+          </el-menu-item>
+        </el-tooltip>
       </template>
     </el-menu>
   </el-aside>
@@ -98,7 +110,8 @@ import {
   User,
   Tools,
   Document,
-  Monitor
+  Monitor,
+  Bell
 } from '@element-plus/icons-vue'
 
 const props = defineProps({

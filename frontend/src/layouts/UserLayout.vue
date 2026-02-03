@@ -42,6 +42,9 @@ import HelpDialog from '@/components/HelpDialog.vue'
 import AppHeader from '@/components/AppHeader.vue'
 import UserMemoryDialog from '@/components/UserMemoryDialog.vue'
 import { getConfigsByGroup } from '@/api/systemConfig'
+import { useMemoReminder } from '@/composables/useMemoReminder'
+
+useMemoReminder()
 
 const route = useRoute()
 const router = useRouter()
