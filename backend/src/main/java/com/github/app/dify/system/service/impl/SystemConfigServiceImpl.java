@@ -5,8 +5,10 @@ import com.github.app.dify.system.repository.SystemConfigRepository;
 import com.github.app.dify.system.service.SystemConfigService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,6 +17,9 @@ import java.util.Optional;
  */
 @Service
 public class SystemConfigServiceImpl implements SystemConfigService {
+
+    private static final int NOT_DELETED = 0;
+    private static final int DELETED = 1;
 
     @Autowired
     private SystemConfigRepository systemConfigRepository;
@@ -34,5 +39,63 @@ public class SystemConfigServiceImpl implements SystemConfigService {
             return Collections.emptyList();
         }
         return systemConfigRepository.findByConfigGroupAndNotDeleted(configGroup.trim());
+    }
+
+    @Override
+    public List<SystemConfig> getAllConfigs() {
+        return systemConfigRepository.findByDeletedOrderByConfigGroupAscConfigKeyAsc(NOT_DELETED);
+    }
+
+    @Override
+    public Optional<SystemConfig> getConfigByKey(String configKey) {
+        if (configKey == null || configKey.trim().isEmpty()) {
+            return Optional.empty();
+        }
+        return systemConfigRepository.findByConfigKeyAndNotDeleted(configKey.trim());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SystemConfig saveOrUpdate(SystemConfig config, Long creatorId, String creator) {
+        if (config == null || config.getConfigKey() == null || config.getConfigKey().trim().isEmpty()) {
+            throw new IllegalArgumentException("配置键不能为空");
+        }
+        String key = config.getConfigKey().trim();
+        Date now = new Date();
+        Optional<SystemConfig> existing = systemConfigRepository.findByConfigKeyAndNotDeleted(key);
+        if (existing.isPresent()) {
+            SystemConfig entity = existing.get();
+            entity.setConfigValue(config.getConfigValue());
+            entity.setConfigGroup(config.getConfigGroup());
+            entity.setConfigType(config.getConfigType());
+            entity.setDescription(config.getDescription());
+            entity.setUpdateTime(now);
+            return systemConfigRepository.save(entity);
+        }
+        SystemConfig entity = new SystemConfig();
+        entity.setConfigKey(key);
+        entity.setConfigValue(config.getConfigValue());
+        entity.setConfigGroup(config.getConfigGroup());
+        entity.setConfigType(config.getConfigType());
+        entity.setDescription(config.getDescription());
+        entity.setCreator(creator);
+        entity.setCreatorId(creatorId);
+        entity.setCreateTime(now);
+        entity.setUpdateTime(now);
+        entity.setDeleted(NOT_DELETED);
+        return systemConfigRepository.save(entity);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteByKey(String configKey) {
+        if (configKey == null || configKey.trim().isEmpty()) {
+            return;
+        }
+        systemConfigRepository.findByConfigKeyAndNotDeleted(configKey.trim()).ifPresent(entity -> {
+            entity.setDeleted(DELETED);
+            entity.setUpdateTime(new Date());
+            systemConfigRepository.save(entity);
+        });
     }
 }

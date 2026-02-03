@@ -33,4 +33,9 @@ public interface SystemConfigRepository extends JpaRepository<SystemConfig, Long
      * 按配置键查询（含已删除）
      */
     Optional<SystemConfig> findByConfigKey(String configKey);
+
+    /**
+     * 按删除状态查询，按分组、配置键排序（管理端列表用）
+     */
+    List<SystemConfig> findByDeletedOrderByConfigGroupAscConfigKeyAsc(Integer deleted);
 }
