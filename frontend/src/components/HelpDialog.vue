@@ -610,6 +610,7 @@ const handleConfig = () => {
   font-size: 18px;
   font-weight: 600;
   margin: 0 0 8px 0;
+  color: white;
 }
 
 .chat-body {

@@ -1,14 +1,29 @@
 <template>
   <div>
-    <!-- 顶部系统图标占位 -->
-    <div class="top-logo-placeholder" :class="{ 'logo-collapsed': isCollapsed }">
+    <!-- 顶部系统图标占位（点击回到主页） -->
+    <div
+      class="top-logo-placeholder"
+      :class="{ 'logo-collapsed': isCollapsed }"
+      role="button"
+      tabindex="0"
+      :title="'回到主页'"
+      @click="handleGoToHome"
+      @keydown.enter="handleGoToHome"
+    >
       <img src="/logo.svg" alt="系统图标" class="top-logo-img" />
     </div>
     
     <!-- 顶部导航栏 -->
     <div class="app-header" :class="{ 'header-collapsed': isCollapsed }">
       <div class="header-left">
-        <div class="system-icon">
+        <div
+          class="system-icon"
+          role="button"
+          tabindex="0"
+          title="回到主页"
+          @click="handleGoToHome"
+          @keydown.enter="handleGoToHome"
+        >
           <img src="/logo.svg" alt="系统图标" class="system-logo" />
         </div>
       </div>
@@ -108,6 +123,13 @@ const getUserInfo = () => {
   return null
 }
 
+// 回到主页（根据角色跳转）
+const handleGoToHome = () => {
+  const info = getUserInfo()
+  const isAdmin = info?.role === 1
+  router.push(isAdmin ? '/admin/chat' : '/user/chat')
+}
+
 // 切换收起/展开
 const toggleCollapse = (event) => {
   if (event) {
@@ -180,6 +202,7 @@ onMounted(() => {
   box-shadow: none;
   backdrop-filter: blur(10px);
   border: none;
+  cursor: pointer;
 }
 
 .top-logo-placeholder:hover {
@@ -249,6 +272,7 @@ onMounted(() => {
   transition: all var(--transition-base);
   position: relative;
   z-index: 2;
+  cursor: pointer;
 }
 
 .system-icon:hover {
