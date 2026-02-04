@@ -18,6 +18,10 @@ public final class MemoTimeParser {
 
     // 数字：阿拉伯数字或中文数字（一 二 两 三 四 五 六 七 八 九 十 十一… 三十…）
     private static final String NUM = "(\\d+|[一二两三四五六七八九十百]+)";
+
+    // 时间前缀：早上|上午|下午|晚上|凌晨...
+    private static final String TIME_PREFIX = "(?:早上|上午|中午|下午|晚上|凌晨)?";
+
     // (\d+|[一二两三四五六七八九十百]+)\s*分钟\s*[以之]?后
     private static final Pattern MINUTES_LATER = Pattern.compile(NUM + "\\s*分钟\\s*[以之]?后");
     // (\d+|[一二两三四五六七八九十百]+)\s*小时\s*[以之]?后
@@ -27,19 +31,17 @@ public final class MemoTimeParser {
     // (\d+|[一二两三四五六七八九十百]+)\s*天\s*[以之]?后
     private static final Pattern DAYS_LATER = Pattern.compile(NUM + "\\s*天\\s*[以之]?后");
 
-    // 明天[早上|上午|下午|晚上]?(\d{1,2})点?(\d{0,2})分?
-    private static final Pattern TOMORROW_TIME = Pattern.compile("明天(?:早上|上午|下午|晚上)?\\s*(\\d{1,2})点?(\\d{0,2})分?");
-    // 今天\s*(\d{1,2})点?(\d{0,2})分?
-    private static final Pattern TODAY_TIME = Pattern.compile("今天\\s*(\\d{1,2})点?(\\d{0,2})分?");
-    // 后天\s*(\d{1,2})点?(\d{0,2})分?
-    private static final Pattern DAY_AFTER_TIME = Pattern.compile("后天\\s*(\\d{1,2})点?(\\d{0,2})分?");
+    // (今天|明天|后天)? TIME_PREFIX (\d+)点 (半|(\d+)分)?
+    private static final Pattern FULL_TIME_PATTERN = Pattern.compile(
+            "(今天|明天|后天)?\\s*" + TIME_PREFIX + "\\s*" + NUM + "\\s*点\\s*(半|(?:" + NUM + "\\s*分?))?");
 
     // 每X分钟 / 每X小时（周期性）
     private static final Pattern EVERY_MINUTES = Pattern.compile("每\\s*" + NUM + "\\s*分钟");
     private static final Pattern EVERY_HOURS = Pattern.compile("每\\s*" + NUM + "\\s*小时");
 
     // 提醒|备忘|记一下|记着 等关键词后的内容
-    private static final Pattern REMIND_PREFIX = Pattern.compile("^(?:提醒我?|备忘|记一下|记着|到时提醒)\\s*[:：]?\\s*", Pattern.CASE_INSENSITIVE);
+    private static final Pattern REMIND_PREFIX = Pattern.compile("^(?:提醒我?|备忘|记一下|记着|到时提醒)\\s*[:：]?\\s*",
+            Pattern.CASE_INSENSITIVE);
 
     /**
      * 从自然语言中解析出提醒时间和内容。
@@ -92,7 +94,7 @@ public final class MemoTimeParser {
             contentOnly = removeTimePhrase(s, m.group(0), contentOnly);
         }
 
-        // 2) X分钟后（支持阿拉伯数字与中文数字，如 3分钟、三分钟后）
+        // 2) X分钟后
         if (remindAt == null) {
             m = MINUTES_LATER.matcher(s);
             if (m.find()) {
@@ -104,7 +106,7 @@ public final class MemoTimeParser {
             }
         }
 
-        // 2) X小时后
+        // 2b) X小时后
         if (remindAt == null) {
             m = HOURS_LATER.matcher(s);
             if (m.find()) {
@@ -128,47 +130,54 @@ public final class MemoTimeParser {
             }
         }
 
-        // 4) 明天 X点X分
+        // 4) 综合时间解析 (今天|明天|后天)? (早上|上午|下午|晚上)? X点 (半|Y分)?
         if (remindAt == null) {
-            m = TOMORROW_TIME.matcher(s);
+            m = FULL_TIME_PATTERN.matcher(s);
             if (m.find()) {
-                int hour = Integer.parseInt(m.group(1));
-                int minute = m.group(2) != null && !m.group(2).isEmpty() ? Integer.parseInt(m.group(2)) : 0;
-                if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
-                    LocalDate tomorrow = LocalDate.now(ZONE).plusDays(1);
-                    remindAt = tomorrow.atTime(hour, minute).atZone(ZONE);
-                    contentOnly = removeTimePhrase(s, m.group(0), contentOnly);
-                }
-            }
-        }
+                String dayPart = m.group(1);
+                Integer hour = parseNumber(m.group(2));
+                String minutePart = m.group(3);
 
-        // 5) 今天 X点X分
-        if (remindAt == null) {
-            m = TODAY_TIME.matcher(s);
-            if (m.find()) {
-                int hour = Integer.parseInt(m.group(1));
-                int minute = m.group(2) != null && !m.group(2).isEmpty() ? Integer.parseInt(m.group(2)) : 0;
-                if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
-                    LocalDate today = LocalDate.now(ZONE);
-                    remindAt = today.atTime(hour, minute).atZone(ZONE);
-                    if (remindAt.isBefore(ZonedDateTime.now(ZONE))) {
-                        remindAt = remindAt.plusDays(1);
+                if (hour != null) {
+                    // 处理上下午带来的 24 小时转换
+                    if (s.contains("下午") || s.contains("晚上")) {
+                        if (hour < 12)
+                            hour += 12;
+                    } else if (s.contains("凌晨") || s.contains("早上") || s.contains("上午")) {
+                        if (hour == 12)
+                            hour = 0;
                     }
-                    contentOnly = removeTimePhrase(s, m.group(0), contentOnly);
-                }
-            }
-        }
 
-        // 6) 后天 X点X分
-        if (remindAt == null) {
-            m = DAY_AFTER_TIME.matcher(s);
-            if (m.find()) {
-                int hour = Integer.parseInt(m.group(1));
-                int minute = m.group(2) != null && !m.group(2).isEmpty() ? Integer.parseInt(m.group(2)) : 0;
-                if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
-                    LocalDate dayAfter = LocalDate.now(ZONE).plusDays(2);
-                    remindAt = dayAfter.atTime(hour, minute).atZone(ZONE);
-                    contentOnly = removeTimePhrase(s, m.group(0), contentOnly);
+                    int minute = 0;
+                    if (minutePart != null) {
+                        if (minutePart.equals("半")) {
+                            minute = 30;
+                        } else {
+                            // 去掉可能的“分”后缀再解析
+                            String minStr = minutePart.replace("分", "").trim();
+                            Integer parsedMin = parseNumber(minStr);
+                            if (parsedMin != null)
+                                minute = parsedMin;
+                        }
+                    }
+
+                    if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+                        LocalDate baseDate = LocalDate.now(ZONE);
+                        if ("明天".equals(dayPart)) {
+                            baseDate = baseDate.plusDays(1);
+                        } else if ("后天".equals(dayPart)) {
+                            baseDate = baseDate.plusDays(2);
+                        }
+
+                        remindAt = baseDate.atTime(hour, minute).atZone(ZONE);
+
+                        // 如果没有指定日期且时间已过，则默认为明天
+                        if (dayPart == null && remindAt.isBefore(ZonedDateTime.now(ZONE))) {
+                            remindAt = remindAt.plusDays(1);
+                        }
+
+                        contentOnly = removeTimePhrase(s, m.group(0), contentOnly);
+                    }
                 }
             }
         }
@@ -180,8 +189,7 @@ public final class MemoTimeParser {
 
     private static String removeTimePhrase(String full, String timePhrase, String contentFallback) {
         String without = full.replace(timePhrase, "").trim();
-        without = without.replaceFirst("^提醒我?\\s*", "").trim();
-        without = without.replaceFirst("^[：:]\\s*", "").trim();
+        without = REMIND_PREFIX.matcher(without).replaceFirst("").trim();
         return without.isEmpty() ? contentFallback : without;
     }
 
@@ -200,7 +208,8 @@ public final class MemoTimeParser {
     }
 
     private static Integer parseChineseNumber(String s) {
-        if (s == null || s.isEmpty()) return null;
+        if (s == null || s.isEmpty())
+            return null;
         int n = 0;
         int curr = 0;
         for (int i = 0; i < s.length(); i++) {
@@ -208,23 +217,43 @@ public final class MemoTimeParser {
             switch (c) {
                 case '零':
                     break;
-                case '一': curr = 1; break;
+                case '一':
+                    curr = 1;
+                    break;
                 case '二':
-                case '两': curr = 2; break;
-                case '三': curr = 3; break;
-                case '四': curr = 4; break;
-                case '五': curr = 5; break;
-                case '六': curr = 6; break;
-                case '七': curr = 7; break;
-                case '八': curr = 8; break;
-                case '九': curr = 9; break;
+                case '两':
+                    curr = 2;
+                    break;
+                case '三':
+                    curr = 3;
+                    break;
+                case '四':
+                    curr = 4;
+                    break;
+                case '五':
+                    curr = 5;
+                    break;
+                case '六':
+                    curr = 6;
+                    break;
+                case '七':
+                    curr = 7;
+                    break;
+                case '八':
+                    curr = 8;
+                    break;
+                case '九':
+                    curr = 9;
+                    break;
                 case '十':
-                    if (curr == 0) curr = 1;
+                    if (curr == 0)
+                        curr = 1;
                     n += curr * 10;
                     curr = 0;
                     break;
                 case '百':
-                    if (curr == 0) curr = 1;
+                    if (curr == 0)
+                        curr = 1;
                     n += curr * 100;
                     curr = 0;
                     break;
