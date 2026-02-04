@@ -444,9 +444,7 @@ const handleStreamResponse = async (question, requestConversationId, userId, his
   let reader = null
   let response = null
   
-  // 使用 requestAnimationFrame 优化更新，保持流畅度
-  let rafId = null
-  let pendingContent = null
+  let memoNotified = false
   
   const scheduleUpdate = (content) => {
     pendingContent = content
@@ -547,6 +545,12 @@ const handleStreamResponse = async (question, requestConversationId, userId, his
               if (json.conversationId) {
                 conversationId.value = json.conversationId.toString()
                 console.log('流式响应中更新 conversationId:', conversationId.value)
+              }
+              
+              // 自动创建备忘录提醒
+              if (json.memoId && !memoNotified) {
+                memoNotified = true
+                ElMessage.success('已为您创建备忘录提醒')
               }
               
               // 更新答案内容（使用 requestAnimationFrame 优化）
@@ -662,6 +666,11 @@ const handleNormalResponse = async (question, requestConversationId, userId, his
     if (response.conversationId) {
       conversationId.value = response.conversationId.toString()
       console.log('非流式响应完成，更新 conversationId:', conversationId.value)
+    }
+
+    // 自动创建备忘录提醒
+    if (response.memoId) {
+      ElMessage.success('已为您创建备忘录提醒')
     }
     
     await nextTick()

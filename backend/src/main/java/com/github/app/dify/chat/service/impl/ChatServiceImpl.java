@@ -64,12 +64,11 @@ public class ChatServiceImpl implements ChatService {
     @Autowired
     private UserMemoryService userMemoryService;
 
+    @Autowired
+    private com.github.app.dify.memo.service.MemoService memoService;
+
     @Override
-    @LLMTrace(
-            traceSource = "Chat",
-            conversationIdParam = "request.conversationId",
-            extractFromReturn = true
-    )
+    @LLMTrace(traceSource = "Chat", conversationIdParam = "request.conversationId", extractFromReturn = true)
     public ChatResponse chat(ChatRequest request, Long userId) {
         try {
             // 获取模型配置
@@ -79,6 +78,10 @@ public class ChatServiceImpl implements ChatService {
             }
 
             logger.info("使用问答模型: {} (ID: {})", qaModel.getName(), qaModel.getId());
+
+            // 意图识别：尝试创建备忘录
+            com.github.app.dify.memo.resp.MemoResp memo = tryCreateMemo(userId, request.getQuestion());
+            Long memoId = memo != null ? memo.getId() : null;
 
             // 创建模型实例（会话ID由AOP切面自动设置）
             ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
@@ -113,7 +116,7 @@ public class ChatServiceImpl implements ChatService {
             }
 
             // 构建消息列表（包含历史对话）
-            List<ChatMessage> messages = buildMessages(request, browserSearchContext, qaModel, userId);
+            List<ChatMessage> messages = buildMessages(request, browserSearchContext, qaModel, userId, memo);
 
             // 记录历史对话信息
             if (request.getHistory() != null && !request.getHistory().isEmpty()) {
@@ -195,8 +198,10 @@ public class ChatServiceImpl implements ChatService {
                         promptTokens, completionTokens, totalTokens);
 
                 // 构建响应（包含保存历史记录）
-                return buildChatResponse(answer, request, userId, null, qaModel.getId(),
+                ChatResponse chatResponse = buildChatResponse(answer, request, userId, null, qaModel.getId(),
                         promptTokens, completionTokens, totalTokens);
+                chatResponse.setMemoId(memoId);
+                return chatResponse;
             } finally {
                 // 清除ThreadLocal数据
                 modelLanguageModelFactory.clearImageData();
@@ -259,10 +264,7 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @LLMTrace(
-            traceSource = "Chat",
-            conversationIdParam = "request.conversationId"
-    )
+    @LLMTrace(traceSource = "Chat", conversationIdParam = "request.conversationId")
     public Flux<ChatResponse> chatStream(ChatRequest request, Long userId) {
         try {
             // 获取模型配置
@@ -272,6 +274,10 @@ public class ChatServiceImpl implements ChatService {
             }
 
             logger.info("使用问答模型（流式）: {} (ID: {})", qaModel.getName(), qaModel.getId());
+
+            // 意图识别：尝试创建备忘录
+            com.github.app.dify.memo.resp.MemoResp memo = tryCreateMemo(userId, request.getQuestion());
+            final Long memoId = memo != null ? memo.getId() : null;
 
             // 在流式响应开始前，先创建或获取会话（这样可以在第一个数据包就返回 conversationId）
             final AtomicReference<Long> conversationIdRef = new AtomicReference<>(null);
@@ -292,7 +298,7 @@ public class ChatServiceImpl implements ChatService {
                             requestConversationId, conversationId);
                     // 先保存用户消息（不需要token信息）
                     chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
-                    
+
                     // 更新ThreadLocal中的会话ID（因为AOP在方法开始时执行，此时会话可能还未创建）
                     modelLanguageModelFactory.setConversationId(conversationId.toString());
                 } catch (Exception e) {
@@ -336,7 +342,7 @@ public class ChatServiceImpl implements ChatService {
             }
 
             // 构建消息列表（包含历史对话）
-            List<ChatMessage> messages = buildMessages(request, browserSearchContext, qaModel, userId);
+            List<ChatMessage> messages = buildMessages(request, browserSearchContext, qaModel, userId, memo);
 
             // 应用上下文压缩策略（转换为KnowledgeBaseQARequest格式以复用压缩逻辑）
             com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest kbRequest = convertToKBQARequest(request);
@@ -386,6 +392,7 @@ public class ChatServiceImpl implements ChatService {
                         response.setFinished(false);
                         // 在流式响应过程中，也包含 conversationId，这样前端可以立即更新
                         response.setConversationId(conversationIdRef.get());
+                        response.setMemoId(memoId);
                         return response;
                     })
                     .doOnNext(response -> {
@@ -437,6 +444,7 @@ public class ChatServiceImpl implements ChatService {
                         finalResponse.setAnswer(finalAnswer);
                         finalResponse.setFinished(true);
                         finalResponse.setConversationId(conversationId);
+                        finalResponse.setMemoId(memoId);
                         return Flux.just(finalResponse);
                     }))
                     .onErrorResume(error -> {
@@ -457,7 +465,7 @@ public class ChatServiceImpl implements ChatService {
      * 构建消息列表（包含历史对话和浏览器检索结果）
      */
     private List<ChatMessage> buildMessages(ChatRequest request, String browserSearchContext, QAModel qaModel,
-            Long userId) {
+            Long userId, com.github.app.dify.memo.resp.MemoResp memo) {
         List<ChatMessage> messages = new ArrayList<>();
 
         // 检查模型是否支持视觉输入
@@ -511,6 +519,21 @@ public class ChatServiceImpl implements ChatService {
             }
         }
 
+        // 备忘录意图确认：如果后端已经创建了备忘录，告知AI，以便它能给出正确的反馈
+        if (memo != null) {
+            Map<String, String> variables = new HashMap<>();
+            variables.put("remindTime",
+                    new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(memo.getRemindAt()));
+            variables.put("content", memo.getContent());
+            String memoSuccessHint = SkillLoader.loadSkillWithTemplate("chat/memo_success_hint", variables);
+            if (memoSuccessHint != null && !memoSuccessHint.trim().isEmpty()) {
+                systemMessageBuilder.append("\n\n").append(memoSuccessHint.trim());
+            } else {
+                // Fallback
+                systemMessageBuilder.append("\n\n【系统提醒操作成功】你已成功为用户创建了备忘录提醒。请在回复中自然地告知用户已完成该操作，并简要确认提醒内容和时间。");
+            }
+        }
+
         // 如果启用了MCP支持，添加时间信息和地理位置信息
         int currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
         if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
@@ -554,99 +577,100 @@ public class ChatServiceImpl implements ChatService {
             systemMessageBuilder.append("\n\n").append(markdownFormat.trim());
         } else {
             // Fallback：如果文件不存在，使用硬编码（保持向后兼容）
-            systemMessageBuilder.append("""
-                    
-                    
-                    重要：请使用Markdown格式来组织你的回答，包括：
-                    - 使用标题（#、##、###）来组织内容结构
-                    - 使用列表（-、*、1.）来列举要点
-                    - 使用代码块（```）来展示代码或技术内容
-                    - 使用**粗体**和*斜体*来强调重要信息
-                    - 使用表格来展示结构化数据
-                    
-                    【关键要求】代码块格式（必须严格遵守）：
-                    1. 所有代码块必须包含语言标识符，格式为：```语言标识符
-                    代码内容
-                    ```
-                    2. 语言标识符示例：
-                       - JavaScript代码：```javascript
-                    代码
-                    ```
-                       - Python代码：```python
-                    代码
-                    ```
-                       - Java代码：```java
-                    代码
-                    ```
-                       - TypeScript代码：```typescript
-                    代码
-                    ```
-                       - Go代码：```go
-                    代码
-                    ```
-                       - Rust代码：```rust
-                    代码
-                    ```
-                       - C/C++代码：```cpp
-                    代码
-                    ``` 或 ```c
-                    代码
-                    ```
-                       - C#代码：```csharp
-                    代码
-                    ```
-                       - PHP代码：```php
-                    代码
-                    ```
-                       - Ruby代码：```ruby
-                    代码
-                    ```
-                       - Swift代码：```swift
-                    代码
-                    ```
-                       - Kotlin代码：```kotlin
-                    代码
-                    ```
-                       - SQL代码：```sql
-                    代码
-                    ```
-                       - HTML代码：```html
-                    代码
-                    ```
-                       - CSS代码：```css
-                    代码
-                    ```
-                       - JSON代码：```json
-                    代码
-                    ```
-                       - XML代码：```xml
-                    代码
-                    ```
-                       - YAML代码：```yaml
-                    代码
-                    ```
-                       - Bash/Shell代码：```bash
-                    代码
-                    ``` 或 ```shell
-                    代码
-                    ```
-                    3. 绝对禁止使用没有语言标识符的代码块（如 ```
-                    代码
-                    ```），这会导致代码无法正确高亮显示
-                    4. 在流式响应中，生成代码块时必须在第一行就包含完整的 ```语言标识符，例如：```javascript
-                    5. 代码块中的代码应该完整、可运行，并包含必要的注释
-                    6. 如果用户输入包含代码，请确保在回答中正确使用带语言标识符的代码块格式展示
-                    
-                    【关键要求】数学公式格式（必须严格遵守）：
-                    1. 所有数学公式必须使用LaTeX格式编写，不要使用占位符或省略公式内容
-                    2. 行内公式使用 $...$ 格式，例如：$E = mc^2$ 或 $\\phi = \\frac{1+\\sqrt{5}}{2}$
-                    3. 块级公式使用 $$...$$ 格式，例如：
-                       $$F(n) = \\frac{1}{\\sqrt{5}} \\left( \\left( \\frac{1 + \\sqrt{5}}{2} \\right)^n - \\left( \\frac{1 - \\sqrt{5}}{2} \\right)^n \\right)$$
-                    4. 也可以使用 [...] 格式表示块级公式，例如：
-                       [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]
-                    5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式
-                    6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等
-                    7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符""");
+            systemMessageBuilder
+                    .append("""
+
+
+                            重要：请使用Markdown格式来组织你的回答，包括：
+                            - 使用标题（#、##、###）来组织内容结构
+                            - 使用列表（-、*、1.）来列举要点
+                            - 使用代码块（```）来展示代码或技术内容
+                            - 使用**粗体**和*斜体*来强调重要信息
+                            - 使用表格来展示结构化数据
+
+                            【关键要求】代码块格式（必须严格遵守）：
+                            1. 所有代码块必须包含语言标识符，格式为：```语言标识符
+                            代码内容
+                            ```
+                            2. 语言标识符示例：
+                               - JavaScript代码：```javascript
+                            代码
+                            ```
+                               - Python代码：```python
+                            代码
+                            ```
+                               - Java代码：```java
+                            代码
+                            ```
+                               - TypeScript代码：```typescript
+                            代码
+                            ```
+                               - Go代码：```go
+                            代码
+                            ```
+                               - Rust代码：```rust
+                            代码
+                            ```
+                               - C/C++代码：```cpp
+                            代码
+                            ``` 或 ```c
+                            代码
+                            ```
+                               - C#代码：```csharp
+                            代码
+                            ```
+                               - PHP代码：```php
+                            代码
+                            ```
+                               - Ruby代码：```ruby
+                            代码
+                            ```
+                               - Swift代码：```swift
+                            代码
+                            ```
+                               - Kotlin代码：```kotlin
+                            代码
+                            ```
+                               - SQL代码：```sql
+                            代码
+                            ```
+                               - HTML代码：```html
+                            代码
+                            ```
+                               - CSS代码：```css
+                            代码
+                            ```
+                               - JSON代码：```json
+                            代码
+                            ```
+                               - XML代码：```xml
+                            代码
+                            ```
+                               - YAML代码：```yaml
+                            代码
+                            ```
+                               - Bash/Shell代码：```bash
+                            代码
+                            ``` 或 ```shell
+                            代码
+                            ```
+                            3. 绝对禁止使用没有语言标识符的代码块（如 ```
+                            代码
+                            ```），这会导致代码无法正确高亮显示
+                            4. 在流式响应中，生成代码块时必须在第一行就包含完整的 ```语言标识符，例如：```javascript
+                            5. 代码块中的代码应该完整、可运行，并包含必要的注释
+                            6. 如果用户输入包含代码，请确保在回答中正确使用带语言标识符的代码块格式展示
+
+                            【关键要求】数学公式格式（必须严格遵守）：
+                            1. 所有数学公式必须使用LaTeX格式编写，不要使用占位符或省略公式内容
+                            2. 行内公式使用 $...$ 格式，例如：$E = mc^2$ 或 $\\phi = \\frac{1+\\sqrt{5}}{2}$
+                            3. 块级公式使用 $$...$$ 格式，例如：
+                               $$F(n) = \\frac{1}{\\sqrt{5}} \\left( \\left( \\frac{1 + \\sqrt{5}}{2} \\right)^n - \\left( \\frac{1 - \\sqrt{5}}{2} \\right)^n \\right)$$
+                            4. 也可以使用 [...] 格式表示块级公式，例如：
+                               [ f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x-a)^n ]
+                            5. 绝对禁止使用占位符（如 <!--KATEX_FORMULA_X--> 或类似格式），必须写出完整的LaTeX公式
+                            6. 公式中的特殊字符需要使用反斜杠转义，例如：\\frac{分子}{分母}、\\sqrt{内容}、\\sum_{i=1}^{n} 等
+                            7. 如果回答涉及数学、物理、工程等领域的公式，必须使用上述格式完整写出，不要省略或使用占位符""");
         }
 
         // 添加系统消息
@@ -787,6 +811,28 @@ public class ChatServiceImpl implements ChatService {
             // 如果数据库中没有模型，返回null
             return null;
         }
+    }
+
+    /**
+     * 尝试根据自然语言创建备忘录
+     * 如果解析失败（不是提醒意图），则返回null
+     */
+    private com.github.app.dify.memo.resp.MemoResp tryCreateMemo(Long userId, String question) {
+        if (userId == null || question == null || question.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            logger.info("尝试进行意图识别(备忘录): {}", question);
+            com.github.app.dify.memo.resp.MemoResp memoResp = memoService.create(userId, question);
+            if (memoResp != null) {
+                logger.info("成功识别并创建备忘录, id: {}", memoResp.getId());
+                return memoResp;
+            }
+        } catch (Exception e) {
+            // 解析失败或创建失败，不影响主流程
+            logger.debug("未识别到备忘录意图或创建失败: {}", e.getMessage());
+        }
+        return null;
     }
 
 }

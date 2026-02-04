@@ -792,6 +792,10 @@ const handleNormalChat = async (requestData) => {
   
   updateConversationId(res, conversationId)
   
+  if (res.memoId) {
+    ElMessage.success('已为您创建备忘录提醒')
+  }
+
   messages.value.push({
     role: 'assistant',
     content: extractContent(res, ['answer'], '无响应'),
@@ -848,6 +852,8 @@ const handleStreamChat = async (requestData) => {
     }
   }
 
+  let memoNotified = false
+
   try {
     const response = await fetch(getFullAPIUrl(`/api/ai-apps/${route.params.id}/chat/stream`), {
       method: 'POST',
@@ -870,6 +876,12 @@ const handleStreamChat = async (requestData) => {
         // 更新对话ID
         if (json.conversation_id || json.conversationId) {
           conversationId.value = json.conversation_id || json.conversationId
+        }
+
+        // 自动创建备忘录提醒
+        if (json.memoId && !memoNotified) {
+          memoNotified = true
+          ElMessage.success('已为您创建备忘录提醒')
         }
         
         // 处理错误事件
