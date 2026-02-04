@@ -8,6 +8,8 @@ import com.github.app.dify.memo.repository.MemoRepository;
 import com.github.app.dify.memo.resp.MemoResp;
 import com.github.app.dify.memo.service.MemoService;
 import com.github.app.dify.memo.util.MemoTimeParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,7 @@ import java.util.stream.Collectors;
 @Service
 public class MemoServiceImpl implements MemoService {
 
+    private static final Logger logger = LoggerFactory.getLogger(MemoServiceImpl.class);
     private static final int NOT_DELETED = 0;
     private static final int DEFAULT_PAGE_SIZE = 50;
 
@@ -41,6 +44,9 @@ public class MemoServiceImpl implements MemoService {
     @Override
     public List<MemoResp> listDue(Long userId) {
         List<Memo> list = memoRepository.findDueByUserId(userId, new Date());
+        if (!list.isEmpty()) {
+            logger.info("用户 {} 有 {} 个待提醒项到期", userId, list.size());
+        }
         return list.stream().map(this::toResp).collect(Collectors.toList());
     }
 
@@ -70,6 +76,7 @@ public class MemoServiceImpl implements MemoService {
         m.setCreateTime(now);
         m.setUpdateTime(now);
         m = memoRepository.save(m);
+        logger.info("创建备忘录: id={}, content={}, remindAt={}", m.getId(), m.getContent(), m.getRemindAt());
         return toResp(m);
     }
 
