@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -44,7 +45,7 @@ public class MemoScheduler {
             logger.warn("未注入 memoReminderScheduler，备忘录定时提醒未启动");
             return;
         }
-        future = taskScheduler.scheduleAtFixedRate(this::tick, PERIOD_MS);
+        future = taskScheduler.scheduleAtFixedRate(this::tick, Duration.ofMillis(PERIOD_MS));
         logger.info("备忘录定时提醒线程已启动，扫描间隔 {} 秒", PERIOD_MS / 1000);
     }
 
@@ -67,7 +68,8 @@ public class MemoScheduler {
                         Date nextRemindAt = addMinutes(m.getRemindAt(), m.getIntervalMinutes());
                         int updated = memoRepository.updateRemindAtById(m.getId(), nextRemindAt);
                         if (updated > 0) {
-                            logger.debug("备忘录周期已推进下次提醒: id={}, content={}, next={}", m.getId(), m.getContent(), nextRemindAt);
+                            logger.debug("备忘录周期已推进下次提醒: id={}, content={}, next={}", m.getId(), m.getContent(),
+                                    nextRemindAt);
                         }
                     } else {
                         int updated = memoRepository.markDoneById(m.getId());
