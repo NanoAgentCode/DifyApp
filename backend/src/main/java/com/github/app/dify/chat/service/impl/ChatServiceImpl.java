@@ -38,6 +38,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -561,19 +563,22 @@ public class ChatServiceImpl implements ChatService {
             systemMessageBuilder.append("\n").append(memoryContext).append("\n");
         }
 
-        // 如果提供了浏览器检索结果，在系统消息中强调要使用检索结果
+        // 如果提供了浏览器检索结果，在系统消息中强调要使用检索结果与时效性说明
+        String retrievalTime = null;
         if (browserSearchContext != null && !browserSearchContext.trim().isEmpty()) {
+            retrievalTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy年M月d日 HH:mm"));
             Map<String, String> variables = new HashMap<>();
             variables.put("currentYear", String.valueOf(currentYear));
+            variables.put("retrievalTime", retrievalTime);
             String browserSearchSystem = SkillLoader.loadSkillWithTemplate(SkillPaths.CHAT_BROWSER_SEARCH_SYSTEM, variables);
             if (browserSearchSystem != null && !browserSearchSystem.trim().isEmpty()) {
                 systemMessageBuilder.append("\n\n").append(browserSearchSystem.trim());
             } else {
                 // Fallback
                 systemMessageBuilder.append("\n\n【重要提示】当用户问题中包含网络搜索结果时，你必须：");
-                systemMessageBuilder.append("\n1. 优先使用搜索结果中的信息来回答问题");
-                systemMessageBuilder.append("\n2. 在回答中明确引用搜索结果中的内容，并标注来源链接");
-                systemMessageBuilder.append("\n3. 当前年份是").append(currentYear).append("年，请根据信息的时效性自行判断是否需要提醒用户信息可能已过期");
+                systemMessageBuilder.append("\n1. 优先使用搜索结果中的信息来回答问题，并明确引用、标注来源链接");
+                systemMessageBuilder.append("\n2. 本次检索时间为 ").append(retrievalTime != null ? retrievalTime : "见用户消息").append("；回答涉及行情、价格、指数等数据时须说明检索时间，并若数据无明确日期或可能已过期须提醒用户通过实时渠道核实");
+                systemMessageBuilder.append("\n3. 当前年份是").append(currentYear).append("年，请根据信息的时效性自行判断并必要时提醒用户信息可能已过期");
                 systemMessageBuilder.append("\n4. 如果搜索结果与问题相关，必须基于搜索结果来回答，不要仅依赖你的训练数据");
                 systemMessageBuilder.append("\n5. 如果搜索结果与问题不相关，可以结合你的知识来回答，但要说明信息来源");
             }
@@ -700,16 +705,22 @@ public class ChatServiceImpl implements ChatService {
         if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
             // MCP支持已开启
             if (browserSearchContext != null && !browserSearchContext.trim().isEmpty()) {
-                // 使用模板构建用户消息
+                // 使用模板构建用户消息，并注入检索时间以强化时效性说明
+                if (retrievalTime == null) {
+                    retrievalTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy年M月d日 HH:mm"));
+                }
+                String retrievalHeader = "【以下搜索结果检索时间：" + retrievalTime + "；搜索结果为当时快照，其中的价格、指数等数据可能非实时，回答时请据此判断并必要时提醒用户。】";
                 Map<String, String> variables = new HashMap<>();
                 variables.put("question", request.getQuestion());
                 variables.put("currentYear", String.valueOf(currentYear));
+                variables.put("retrievalTime", retrievalTime);
                 String template = SkillLoader.loadSkillWithTemplate("chat/browser_search_user_template", variables);
                 if (template != null && !template.trim().isEmpty()) {
-                    userMessageContent = browserSearchContext + "\n\n---\n\n" + template;
+                    userMessageContent = retrievalHeader + "\n\n" + browserSearchContext + "\n\n---\n\n" + template;
                 } else {
                     // Fallback
-                    userMessageContent = browserSearchContext +
+                    String header = retrievalTime != null ? "【检索时间：" + retrievalTime + "】\n\n" : "";
+                    userMessageContent = header + browserSearchContext +
                             "\n\n---\n\n" +
                             "基于以上网络搜索结果，请回答以下问题：\n" +
                             request.getQuestion() +
