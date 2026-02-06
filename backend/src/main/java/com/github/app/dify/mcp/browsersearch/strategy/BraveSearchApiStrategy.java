@@ -1,8 +1,8 @@
-package com.github.app.dify.mcp.service.strategy;
+package com.github.app.dify.mcp.browsersearch.strategy;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.github.app.dify.mcp.config.McpConfig;
-import com.github.app.dify.mcp.service.McpBrowserSearchService.SearchResult;
+import com.github.app.dify.mcp.browsersearch.BrowserSearchConfig;
+import com.github.app.dify.mcp.browsersearch.McpBrowserSearchService.SearchResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +17,6 @@ import java.util.Map;
  * Brave Search API 策略实现
  * 使用 Brave 官方 Web Search API
  * 官网：https://brave.com/search/api
- * 文档：https://api.search.brave.com/res/v1/web/search
  */
 @Component
 public class BraveSearchApiStrategy extends BaseSearchApiStrategy {
@@ -25,7 +24,7 @@ public class BraveSearchApiStrategy extends BaseSearchApiStrategy {
     private static final String BRAVE_WEB_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search";
 
     @Autowired
-    private McpConfig mcpConfig;
+    private BrowserSearchConfig browserSearchConfig;
 
     @Override
     public String getType() {
@@ -39,14 +38,14 @@ public class BraveSearchApiStrategy extends BaseSearchApiStrategy {
 
     @Override
     public boolean isAvailable() {
-        String apiKey = mcpConfig.getBrowserSearch().getBraveApiKey();
+        String apiKey = browserSearchConfig.getBraveApiKey();
         return isApiKeyValid(apiKey);
     }
 
     @Override
     protected List<SearchResult> performSearch(String query, int maxResults) throws Exception {
-        String apiKey = mcpConfig.getBrowserSearch().getBraveApiKey();
-        int timeout = mcpConfig.getBrowserSearch().getTimeout();
+        String apiKey = browserSearchConfig.getBraveApiKey();
+        int timeout = browserSearchConfig.getTimeout();
         String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
         int count = Math.min(Math.max(maxResults, 1), 20);
         String apiUrl = String.format("%s?q=%s&count=%d", BRAVE_WEB_SEARCH_URL, encodedQuery, count);

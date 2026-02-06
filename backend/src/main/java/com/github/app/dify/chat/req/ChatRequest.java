@@ -30,7 +30,10 @@ public class ChatRequest {
     
     @Schema(description = "是否启用浏览器检索（MCP协议）")
     private Boolean enableBrowserSearch;
-    
+
+    @Schema(description = "是否注入当前时间信息（MCP时间服务），默认 true；与浏览器检索解耦，关闭检索时仍可提供时间")
+    private Boolean enableTimeInfo;
+
     @Schema(description = "图片OCR识别结果（由后端自动填充，前端无需传递）")
     private String ocrText;
     
@@ -92,7 +95,15 @@ public class ChatRequest {
     public void setEnableBrowserSearch(Boolean enableBrowserSearch) {
         this.enableBrowserSearch = enableBrowserSearch;
     }
-    
+
+    public Boolean getEnableTimeInfo() {
+        return enableTimeInfo;
+    }
+
+    public void setEnableTimeInfo(Boolean enableTimeInfo) {
+        this.enableTimeInfo = enableTimeInfo;
+    }
+
     public String getOcrText() {
         return ocrText;
     }

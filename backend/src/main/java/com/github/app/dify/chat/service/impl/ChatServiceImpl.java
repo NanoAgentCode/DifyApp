@@ -4,8 +4,9 @@ import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
 import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
 import com.github.app.dify.knowledgebase.langchain4j.StreamingChatLanguageModel;
-import com.github.app.dify.mcp.service.McpBrowserSearchService;
-import com.github.app.dify.mcp.service.McpTimeService;
+import com.github.app.dify.mcp.browsersearch.McpBrowserSearchService;
+import com.github.app.dify.mcp.time.McpTimeService;
+import com.github.app.dify.mcp.location.McpLocationService;
 import com.github.app.dify.knowledgebase.repository.QAModelRepository;
 import com.github.app.dify.chat.req.ChatRequest;
 import com.github.app.dify.chat.resp.ChatResponse;
@@ -18,6 +19,7 @@ import com.github.app.dify.knowledgebase.service.ContextCompressionService;
 import com.github.app.dify.memory.service.UserMemoryService;
 import com.github.app.dify.ops.observability.annotation.LLMTrace;
 import com.github.app.dify.system.util.SkillLoader;
+import com.github.app.dify.system.util.SkillPaths;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -26,6 +28,7 @@ import dev.langchain4j.model.output.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import java.util.ArrayList;
@@ -33,6 +36,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -61,6 +68,13 @@ public class ChatServiceImpl implements ChatService {
     @Autowired
     private McpTimeService mcpTimeService;
 
+    @Autowired(required = false)
+    private McpLocationService mcpLocationService;
+
+    @Autowired(required = false)
+    @Qualifier("applicationTaskExecutor")
+    private Executor taskExecutor;
+
     @Autowired
     private UserMemoryService userMemoryService;
 
@@ -79,6 +93,13 @@ public class ChatServiceImpl implements ChatService {
 
             logger.info("使用问答模型: {} (ID: {})", qaModel.getName(), qaModel.getId());
 
+            // 并行：若启用浏览器检索则异步执行，同时进行意图识别与模型准备，以缩短首 token 延迟
+            CompletableFuture<String> searchFuture = null;
+            if (Boolean.TRUE.equals(request.getEnableBrowserSearch()) && taskExecutor != null) {
+                logger.debug("MCP 浏览器检索已并行启动 - 查询: {}", request.getQuestion());
+                searchFuture = CompletableFuture.supplyAsync(() -> doBrowserSearch(request), taskExecutor);
+            }
+
             // 意图识别：尝试创建备忘录
             com.github.app.dify.memo.resp.MemoResp memo = tryCreateMemo(userId, request.getQuestion());
             Long memoId = memo != null ? memo.getId() : null;
@@ -86,33 +107,20 @@ public class ChatServiceImpl implements ChatService {
             // 创建模型实例（会话ID由AOP切面自动设置）
             ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
 
-            // 如果启用了MCP支持，直接使用浏览器检索（不再进行检测）
             String browserSearchContext = "";
-            if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
-                logger.debug("MCP支持已开启，直接启用浏览器检索 - 查询: {}", request.getQuestion());
+            if (searchFuture != null) {
                 try {
-                    List<McpBrowserSearchService.SearchResult> searchResults = mcpBrowserSearchService
-                            .search(request.getQuestion(), 5);
-                    if (searchResults != null && !searchResults.isEmpty()) {
-                        browserSearchContext = mcpBrowserSearchService.formatSearchResultsForContext(searchResults);
-                        logger.info("浏览器检索完成 - 找到 {} 个结果", searchResults.size());
-                        // 记录检索结果详情（仅记录前200字符，避免日志过长）
-                        logger.trace("检索结果预览: {}",
-                                browserSearchContext.length() > 200 ? browserSearchContext.substring(0, 200) + "..."
-                                        : browserSearchContext);
-                    } else {
-                        logger.debug("浏览器检索未找到结果 - 查询: {}", request.getQuestion());
-                        // 即使没有找到结果，也告知LLM已尝试检索
-                        browserSearchContext = "【网络搜索提示】已启用MCP支持（浏览器检索功能），但未找到与问题相关的搜索结果。\n\n" +
-                                "问题：" + request.getQuestion() + "\n\n" +
-                                "请基于你的知识来回答这个问题。如果问题涉及实时信息或最新动态，请说明需要访问相关网站获取最新信息。";
+                    browserSearchContext = searchFuture.get(15, TimeUnit.SECONDS);
+                    if (browserSearchContext != null && !browserSearchContext.isEmpty()) {
+                        logger.info("浏览器检索完成（并行） - 内容长度: {} 字符", browserSearchContext.length());
                     }
+                } catch (TimeoutException e) {
+                    logger.warn("浏览器检索超时（15s），继续使用原始问题 - 查询: {}", request.getQuestion());
                 } catch (Exception e) {
                     logger.error("浏览器检索失败，继续使用原始问题 - 查询: {}", request.getQuestion(), e);
-                    // 不抛出异常，继续使用原始问题
                 }
-            } else {
-                logger.debug("MCP支持已关闭，跳过浏览器检索");
+            } else if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
+                browserSearchContext = doBrowserSearch(request);
             }
 
             // 构建消息列表（包含历史对话）
@@ -267,6 +275,13 @@ public class ChatServiceImpl implements ChatService {
     @LLMTrace(traceSource = "Chat", conversationIdParam = "request.conversationId")
     public Flux<ChatResponse> chatStream(ChatRequest request, Long userId) {
         try {
+            // 并行：若启用浏览器检索则异步执行，与后续步骤同时进行以缩短首 token 延迟
+            CompletableFuture<String> searchFuture = null;
+            if (Boolean.TRUE.equals(request.getEnableBrowserSearch()) && taskExecutor != null) {
+                logger.debug("MCP 浏览器检索已并行启动（流式） - 查询: {}", request.getQuestion());
+                searchFuture = CompletableFuture.supplyAsync(() -> doBrowserSearch(request), taskExecutor);
+            }
+
             // 获取模型配置
             QAModel qaModel = getQAModel(request.getModelId());
             if (qaModel == null) {
@@ -311,34 +326,20 @@ public class ChatServiceImpl implements ChatService {
             StreamingChatLanguageModel streamingChatLanguageModel = modelLanguageModelFactory
                     .createStreamingChatLanguageModel(qaModel);
 
-            // 如果启用了MCP支持，直接使用浏览器检索（不再进行检测）
             String browserSearchContext = "";
-            if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
-                logger.info("MCP支持已开启（流式），直接启用浏览器检索 - 查询: {}", request.getQuestion());
+            if (searchFuture != null) {
                 try {
-                    List<McpBrowserSearchService.SearchResult> searchResults = mcpBrowserSearchService
-                            .search(request.getQuestion(), 5);
-                    if (searchResults != null && !searchResults.isEmpty()) {
-                        browserSearchContext = mcpBrowserSearchService.formatSearchResultsForContext(searchResults);
-                        logger.info("浏览器检索完成（流式） - 找到 {} 个结果，检索内容长度: {} 字符",
-                                searchResults.size(), browserSearchContext.length());
-                        // 记录检索结果详情（仅记录前200字符，避免日志过长）
-                        logger.debug("检索结果预览（流式）: {}",
-                                browserSearchContext.length() > 200 ? browserSearchContext.substring(0, 200) + "..."
-                                        : browserSearchContext);
-                    } else {
-                        logger.warn("浏览器检索未找到结果（流式） - 查询: {}", request.getQuestion());
-                        // 即使没有找到结果，也告知LLM已尝试检索
-                        browserSearchContext = "【网络搜索提示】已启用MCP支持（浏览器检索功能），但未找到与问题相关的搜索结果。\n\n" +
-                                "问题：" + request.getQuestion() + "\n\n" +
-                                "请基于你的知识来回答这个问题。如果问题涉及实时信息或最新动态，请说明需要访问相关网站获取最新信息。";
+                    browserSearchContext = searchFuture.get(15, TimeUnit.SECONDS);
+                    if (browserSearchContext != null && !browserSearchContext.isEmpty()) {
+                        logger.info("浏览器检索完成（流式并行） - 内容长度: {} 字符", browserSearchContext.length());
                     }
+                } catch (TimeoutException e) {
+                    logger.warn("浏览器检索超时（流式，15s），继续使用原始问题 - 查询: {}", request.getQuestion());
                 } catch (Exception e) {
                     logger.error("浏览器检索失败（流式），继续使用原始问题 - 查询: {}", request.getQuestion(), e);
-                    // 不抛出异常，继续使用原始问题
                 }
-            } else {
-                logger.info("MCP支持已关闭（流式），跳过浏览器检索");
+            } else if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
+                browserSearchContext = doBrowserSearch(request);
             }
 
             // 构建消息列表（包含历史对话）
@@ -473,13 +474,13 @@ public class ChatServiceImpl implements ChatService {
                 Boolean.TRUE.equals(qaModel.getSupportsVision()) &&
                 Boolean.TRUE.equals(qaModel.getSupportsMultimodal());
 
-        String base = SkillLoader.loadSkill("chat/system_prompt");
+        String base = SkillLoader.loadSkill(SkillPaths.CHAT_SYSTEM_PROMPT);
         StringBuilder systemMessageBuilder = new StringBuilder();
         if (base != null && !base.trim().isEmpty()) {
             systemMessageBuilder.append(base.trim()).append("\n\n");
         } else {
             // 使用 fallback
-            String fallback = SkillLoader.loadSkill("chat/system_prompt_fallback");
+            String fallback = SkillLoader.loadSkill(SkillPaths.CHAT_SYSTEM_PROMPT_FALLBACK);
             if (fallback != null && !fallback.trim().isEmpty()) {
                 systemMessageBuilder.append(fallback.trim()).append("\n\n");
             } else {
@@ -489,7 +490,7 @@ public class ChatServiceImpl implements ChatService {
 
         // 如果模型支持视觉输入，添加图片处理说明
         if (supportsVision) {
-            String visionCapability = SkillLoader.loadSkill("chat/vision_capability");
+            String visionCapability = SkillLoader.loadSkill(SkillPaths.CHAT_VISION_CAPABILITY);
             if (visionCapability != null && !visionCapability.trim().isEmpty()) {
                 systemMessageBuilder.append(visionCapability.trim()).append("\n\n");
             } else {
@@ -508,7 +509,7 @@ public class ChatServiceImpl implements ChatService {
             }
         } else {
             // 模型不支持视觉输入，智能问答不支持图片处理
-            String noVision = SkillLoader.loadSkill("chat/no_vision_capability");
+            String noVision = SkillLoader.loadSkill(SkillPaths.CHAT_NO_VISION_CAPABILITY);
             if (noVision != null && !noVision.trim().isEmpty()) {
                 systemMessageBuilder.append(noVision.trim()).append("\n\n");
             } else {
@@ -525,7 +526,7 @@ public class ChatServiceImpl implements ChatService {
             variables.put("remindTime",
                     new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(memo.getRemindAt()));
             variables.put("content", memo.getContent());
-            String memoSuccessHint = SkillLoader.loadSkillWithTemplate("chat/memo_success_hint", variables);
+            String memoSuccessHint = SkillLoader.loadSkillWithTemplate(SkillPaths.CHAT_MEMO_SUCCESS_HINT, variables);
             if (memoSuccessHint != null && !memoSuccessHint.trim().isEmpty()) {
                 systemMessageBuilder.append("\n\n").append(memoSuccessHint.trim());
             } else {
@@ -534,18 +535,25 @@ public class ChatServiceImpl implements ChatService {
             }
         }
 
-        // 如果启用了MCP支持，添加时间信息和地理位置信息
+        // 时间信息：与浏览器检索解耦，enableTimeInfo 为 true 或未设置时注入完整时间，否则仅注入年份
         int currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
-        if (Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
-            // 获取当前时间信息（用于时效性判断）
+        boolean injectTimeInfo = Boolean.TRUE.equals(request.getEnableTimeInfo())
+                || Boolean.TRUE.equals(request.getEnableBrowserSearch());
+        if (injectTimeInfo) {
             String currentTimeInfo = mcpTimeService.getFormattedTimeInfo();
             McpTimeService.TimeInfo timeInfo = mcpTimeService.getCurrentTime();
             currentYear = timeInfo.getYear();
             systemMessageBuilder.append(currentTimeInfo);
         } else {
-            // MCP支持关闭时，只提供基本的年份信息（不告知用户MCP已关闭）
             systemMessageBuilder.append("【当前时间信息】\n");
             systemMessageBuilder.append(String.format("当前年份：%d年\n", currentYear));
+        }
+
+        if (injectTimeInfo && mcpLocationService != null) {
+            String locationInfo = mcpLocationService.getFormattedLocationInfo();
+            if (locationInfo != null && !locationInfo.trim().isEmpty()) {
+                systemMessageBuilder.append("\n").append(locationInfo.trim());
+            }
         }
 
         String memoryContext = userMemoryService.buildMemoryContext(userId, request.getQuestion(), "chat", null);
@@ -557,7 +565,7 @@ public class ChatServiceImpl implements ChatService {
         if (browserSearchContext != null && !browserSearchContext.trim().isEmpty()) {
             Map<String, String> variables = new HashMap<>();
             variables.put("currentYear", String.valueOf(currentYear));
-            String browserSearchSystem = SkillLoader.loadSkillWithTemplate("chat/browser_search_system", variables);
+            String browserSearchSystem = SkillLoader.loadSkillWithTemplate(SkillPaths.CHAT_BROWSER_SEARCH_SYSTEM, variables);
             if (browserSearchSystem != null && !browserSearchSystem.trim().isEmpty()) {
                 systemMessageBuilder.append("\n\n").append(browserSearchSystem.trim());
             } else {
@@ -572,7 +580,7 @@ public class ChatServiceImpl implements ChatService {
         }
 
         // 加载 Markdown 格式要求
-        String markdownFormat = SkillLoader.loadSkill("common/markdown_format");
+        String markdownFormat = SkillLoader.loadSkill(SkillPaths.COMMON_MARKDOWN_FORMAT);
         if (markdownFormat != null && !markdownFormat.trim().isEmpty()) {
             systemMessageBuilder.append("\n\n").append(markdownFormat.trim());
         } else {
@@ -810,6 +818,28 @@ public class ChatServiceImpl implements ChatService {
 
             // 如果数据库中没有模型，返回null
             return null;
+        }
+    }
+
+    /**
+     * 执行浏览器检索并返回用于上下文的字符串（供并行或同步调用）
+     */
+    private String doBrowserSearch(ChatRequest request) {
+        if (!Boolean.TRUE.equals(request.getEnableBrowserSearch())) {
+            return "";
+        }
+        try {
+            List<McpBrowserSearchService.SearchResult> searchResults =
+                    mcpBrowserSearchService.search(request.getQuestion(), 5);
+            if (searchResults != null && !searchResults.isEmpty()) {
+                return mcpBrowserSearchService.formatSearchResultsForContext(searchResults);
+            }
+            return "【网络搜索提示】已启用MCP支持（浏览器检索功能），但未找到与问题相关的搜索结果。\n\n"
+                    + "问题：" + request.getQuestion() + "\n\n"
+                    + "请基于你的知识来回答这个问题。如果问题涉及实时信息或最新动态，请说明需要访问相关网站获取最新信息。";
+        } catch (Exception e) {
+            logger.error("浏览器检索失败 - 查询: {}", request.getQuestion(), e);
+            return "";
         }
     }
 

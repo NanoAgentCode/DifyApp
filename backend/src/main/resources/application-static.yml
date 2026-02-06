@@ -7,6 +7,8 @@ logging:
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
 
 spring:
+  config:
+    import: application-mcp-rag.yml  # MCP 与 RAG 配置（独立文件）
   output:
     ansi:
       enabled: always  # 控制台ANSI颜色输出
@@ -67,33 +69,3 @@ jwt:
 
 minio:
   bucket-name: knowledge-base  # 默认存储桶名称
-
-rag:
-  chunk-size: 500  # 文档分块大小
-  chunk-overlap: 50  # 分块重叠大小
-  top-k: 10  # 检索返回的top K结果
-  similarity-threshold: 0.3  # 相似度阈值
-  enable-context-compression: true  # 启用上下文压缩
-  compression-strategy: sliding_window  # 压缩策略
-  max-history-rounds: 10  # 最大历史对话轮数
-  max-history-tokens: 2000  # 最大历史token数
-  enable-summary: false  # 是否启用摘要
-
-mcp:
-  browser-search:
-    tavily-api-key: "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"  # Tavily API密钥（推荐）
-    serp-api-key: ""  # SerpAPI密钥
-    serp-engine: "google"  # SerpAPI搜索引擎
-    bing-api-key: ""  # Bing API密钥
-    brave-api-key: "BSAeNj62s0-lwgv6Ck0pVnZ7n_lX4rM"  # 2000次/月（https://brave.com/search/api）
-    searxng-base-url: "http://localhost:10086"  # 本地搜索服务地址
-    timeout: 10  # 请求超时时间（秒）
-    default-max-results: 5  # 默认最大结果数
-    enable-query-optimization: true  # 启用查询优化
-    default-engines: "duckduckgo,brave"  # 默认搜索引擎
-  time:
-    default-time-zone: Asia/Shanghai  # 默认时区
-    cache-seconds: 1  # 缓存时间（秒）
-  realtime-info-detector:
-    enabled: true  # 是否启用实时信息检测器
-    confidence-threshold: 0.3  # 置信度阈值
