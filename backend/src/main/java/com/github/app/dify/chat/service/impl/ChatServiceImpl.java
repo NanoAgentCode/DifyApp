@@ -478,12 +478,12 @@ public class ChatServiceImpl implements ChatService {
 
         String base = SkillLoader.loadSkill(SkillPaths.CHAT_SYSTEM_PROMPT);
         StringBuilder systemMessageBuilder = new StringBuilder();
-        if (base != null && !base.trim().isEmpty()) {
+        if (!base.trim().isEmpty()) {
             systemMessageBuilder.append(base.trim()).append("\n\n");
         } else {
             // 使用 fallback
             String fallback = SkillLoader.loadSkill(SkillPaths.CHAT_SYSTEM_PROMPT_FALLBACK);
-            if (fallback != null && !fallback.trim().isEmpty()) {
+            if (!fallback.trim().isEmpty()) {
                 systemMessageBuilder.append(fallback.trim()).append("\n\n");
             } else {
                 systemMessageBuilder.append("你是一个专业的AI助手，能够回答各种问题，特别擅长编程和技术问题。\n\n");
@@ -493,7 +493,7 @@ public class ChatServiceImpl implements ChatService {
         // 如果模型支持视觉输入，添加图片处理说明
         if (supportsVision) {
             String visionCapability = SkillLoader.loadSkill(SkillPaths.CHAT_VISION_CAPABILITY);
-            if (visionCapability != null && !visionCapability.trim().isEmpty()) {
+            if (!visionCapability.trim().isEmpty()) {
                 systemMessageBuilder.append(visionCapability.trim()).append("\n\n");
             } else {
                 // Fallback
@@ -512,7 +512,7 @@ public class ChatServiceImpl implements ChatService {
         } else {
             // 模型不支持视觉输入，智能问答不支持图片处理
             String noVision = SkillLoader.loadSkill(SkillPaths.CHAT_NO_VISION_CAPABILITY);
-            if (noVision != null && !noVision.trim().isEmpty()) {
+            if (!noVision.trim().isEmpty()) {
                 systemMessageBuilder.append(noVision.trim()).append("\n\n");
             } else {
                 // Fallback
@@ -529,7 +529,7 @@ public class ChatServiceImpl implements ChatService {
                     new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(memo.getRemindAt()));
             variables.put("content", memo.getContent());
             String memoSuccessHint = SkillLoader.loadSkillWithTemplate(SkillPaths.CHAT_MEMO_SUCCESS_HINT, variables);
-            if (memoSuccessHint != null && !memoSuccessHint.trim().isEmpty()) {
+            if (!memoSuccessHint.trim().isEmpty()) {
                 systemMessageBuilder.append("\n\n").append(memoSuccessHint.trim());
             } else {
                 // Fallback
@@ -571,13 +571,13 @@ public class ChatServiceImpl implements ChatService {
             variables.put("currentYear", String.valueOf(currentYear));
             variables.put("retrievalTime", retrievalTime);
             String browserSearchSystem = SkillLoader.loadSkillWithTemplate(SkillPaths.CHAT_BROWSER_SEARCH_SYSTEM, variables);
-            if (browserSearchSystem != null && !browserSearchSystem.trim().isEmpty()) {
+            if (!browserSearchSystem.trim().isEmpty()) {
                 systemMessageBuilder.append("\n\n").append(browserSearchSystem.trim());
             } else {
                 // Fallback
                 systemMessageBuilder.append("\n\n【重要提示】当用户问题中包含网络搜索结果时，你必须：");
                 systemMessageBuilder.append("\n1. 优先使用搜索结果中的信息来回答问题，并明确引用、标注来源链接");
-                systemMessageBuilder.append("\n2. 本次检索时间为 ").append(retrievalTime != null ? retrievalTime : "见用户消息").append("；回答涉及行情、价格、指数等数据时须说明检索时间，并若数据无明确日期或可能已过期须提醒用户通过实时渠道核实");
+                systemMessageBuilder.append("\n2. 本次检索时间为 ").append(retrievalTime).append("；回答涉及行情、价格、指数等数据时须说明检索时间，并若数据无明确日期或可能已过期须提醒用户通过实时渠道核实");
                 systemMessageBuilder.append("\n3. 当前年份是").append(currentYear).append("年，请根据信息的时效性自行判断并必要时提醒用户信息可能已过期");
                 systemMessageBuilder.append("\n4. 如果搜索结果与问题相关，必须基于搜索结果来回答，不要仅依赖你的训练数据");
                 systemMessageBuilder.append("\n5. 如果搜索结果与问题不相关，可以结合你的知识来回答，但要说明信息来源");
@@ -586,7 +586,7 @@ public class ChatServiceImpl implements ChatService {
 
         // 加载 Markdown 格式要求
         String markdownFormat = SkillLoader.loadSkill(SkillPaths.COMMON_MARKDOWN_FORMAT);
-        if (markdownFormat != null && !markdownFormat.trim().isEmpty()) {
+        if (!markdownFormat.trim().isEmpty()) {
             systemMessageBuilder.append("\n\n").append(markdownFormat.trim());
         } else {
             // Fallback：如果文件不存在，使用硬编码（保持向后兼容）
@@ -706,20 +706,17 @@ public class ChatServiceImpl implements ChatService {
             // MCP支持已开启
             if (browserSearchContext != null && !browserSearchContext.trim().isEmpty()) {
                 // 使用模板构建用户消息，并注入检索时间以强化时效性说明
-                if (retrievalTime == null) {
-                    retrievalTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy年M月d日 HH:mm"));
-                }
                 String retrievalHeader = "【以下搜索结果检索时间：" + retrievalTime + "；搜索结果为当时快照，其中的价格、指数等数据可能非实时，回答时请据此判断并必要时提醒用户。】";
                 Map<String, String> variables = new HashMap<>();
                 variables.put("question", request.getQuestion());
                 variables.put("currentYear", String.valueOf(currentYear));
                 variables.put("retrievalTime", retrievalTime);
                 String template = SkillLoader.loadSkillWithTemplate("chat/browser_search_user_template", variables);
-                if (template != null && !template.trim().isEmpty()) {
+                if (!template.trim().isEmpty()) {
                     userMessageContent = retrievalHeader + "\n\n" + browserSearchContext + "\n\n---\n\n" + template;
                 } else {
                     // Fallback
-                    String header = retrievalTime != null ? "【检索时间：" + retrievalTime + "】\n\n" : "";
+                    String header = "【检索时间：" + retrievalTime + "】\n\n";
                     userMessageContent = header + browserSearchContext +
                             "\n\n---\n\n" +
                             "基于以上网络搜索结果，请回答以下问题：\n" +
@@ -736,7 +733,7 @@ public class ChatServiceImpl implements ChatService {
                 Map<String, String> variables = new HashMap<>();
                 variables.put("question", request.getQuestion());
                 String template = SkillLoader.loadSkillWithTemplate("chat/browser_search_no_results", variables);
-                if (template != null && !template.trim().isEmpty()) {
+                if (!template.trim().isEmpty()) {
                     userMessageContent = template;
                 } else {
                     // Fallback
