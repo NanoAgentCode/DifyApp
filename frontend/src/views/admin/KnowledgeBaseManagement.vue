@@ -113,11 +113,13 @@
             <el-tag 
               v-if="getEmbeddingModelName(row.embeddingModelId)" 
               size="small"
-              :style="getModelStyle(row.embeddingModelId)"
+              effect="plain"
+              class="kb-embedding-model-tag"
+              :style="getModelPlainStyle(row.embeddingModelId)"
             >
               {{ getEmbeddingModelName(row.embeddingModelId) }}
             </el-tag>
-            <span v-else style="color: #909399; font-size: 12px;">-</span>
+            <span v-else class="kb-cell-empty">-</span>
           </template>
         </el-table-column>
         <el-table-column label="向量存储" width="180" align="center">
@@ -274,15 +276,11 @@
               :label="model.name"
               :value="model.id"
             >
-              <div style="display: flex; justify-content: space-between; align-items: center; width: 100%">
-                <el-tag 
-                  size="small"
-                  :style="getModelStyle(model.id)"
-                  style="flex-shrink: 0"
-                >
+              <div class="kb-embedding-option-row">
+                <el-tag size="small" effect="plain" class="kb-embedding-option-tag kb-embedding-model-tag" :style="getModelPlainStyle(model.id)">
                   {{ model.name }}
                 </el-tag>
-                <el-tag v-if="model.isDefault" type="primary" size="small" style="margin-left: 8px; flex-shrink: 0">
+                <el-tag v-if="model.isDefault" type="primary" size="small" class="kb-embedding-default-tag">
                   默认
                 </el-tag>
               </div>
@@ -398,7 +396,10 @@
         <el-descriptions-item label="向量化模型" :span="2">
           <el-tag 
             v-if="getEmbeddingModelName(currentKB.embeddingModelId)" 
-            :style="getModelStyle(currentKB.embeddingModelId)"
+            size="small"
+            effect="plain"
+            class="kb-embedding-model-tag"
+            :style="getModelPlainStyle(currentKB.embeddingModelId)"
           >
             {{ getEmbeddingModelName(currentKB.embeddingModelId) }}
           </el-tag>
@@ -638,7 +639,7 @@ import {
   previewZipFile
 } from '@/api/knowledgeBase'
 import { getModelConfig } from '@/api/model'
-import { getModelStyle } from '@/utils/modelColor'
+import { getModelPlainStyle } from '@/utils/modelColor'
 import { getVectorDatabaseList } from '@/api/vectorDatabase'
 
 const knowledgeBases = ref([])
@@ -1612,7 +1613,7 @@ const getVectorDatabaseDocumentCount = (db) => {
 }
 
 :deep(.vector-store-select-dropdown .el-select-dropdown__item) {
-  padding: 8px 20px 8px 20px !important;
+  padding: var(--spacing-sm) var(--spacing-lg) !important;
   height: auto;
   min-height: 48px;
   overflow: visible !important;
@@ -1627,6 +1628,31 @@ const getVectorDatabaseDocumentCount = (db) => {
 :deep(.vector-store-select-dropdown .el-select-dropdown__item .el-tag) {
   flex-shrink: 0 !important;
   white-space: nowrap !important;
+}
+
+.kb-embedding-option-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.kb-embedding-option-tag,
+.kb-embedding-default-tag {
+  flex-shrink: 0;
+}
+
+.kb-embedding-default-tag {
+  margin-left: var(--spacing-sm);
+}
+
+.kb-cell-empty {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.kb-embedding-model-tag {
+  font-weight: var(--tag-font-weight);
 }
 
 /* ========== 页面容器 ========== */

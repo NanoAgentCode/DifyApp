@@ -6,7 +6,6 @@ import { ref, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { chat } from '@/api/chat'
 import { getAvailableQAModels } from '@/api/model'
-import { getModelStyle } from '@/utils/modelColor'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { logger } from '@/utils/logger'
 
@@ -58,13 +57,6 @@ export function useChat(options = {}) {
       logger.error('加载模型列表失败:', error)
       ElMessage.error('加载模型列表失败')
     }
-  }
-
-  /**
-   * 获取模型样式
-   */
-  const getModelStyleById = (modelId) => {
-    return getModelStyle(modelId)
   }
 
   /**
@@ -293,7 +285,6 @@ export function useChat(options = {}) {
     
     // 方法
     loadModels,
-    getModelStyleById,
     handleSend,
     clearHistory,
     newConversation,

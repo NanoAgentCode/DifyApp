@@ -11,7 +11,6 @@ import { getVectorDatabaseList } from '@/api/vectorDatabase'
 import { getConversationMessages, getConversation } from '@/api/chat'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { renderMarkdown, cleanupMarkdown } from '@/composables/useMarkdown'
-import { getModelStyle } from '@/utils/modelColor'
 import { logger } from '@/utils/logger'
 
 export function useKnowledgeBaseQA(options = {}) {
@@ -796,7 +795,6 @@ export function useKnowledgeBaseQA(options = {}) {
     scrollToBottom,
     loadConversationHistory,
     renderMarkdown, // 暴露 renderMarkdown
-    getModelStyle, // 暴露 getModelStyle
     cleanup: cleanupMarkdown // 暴露清理函数
   }
 }

@@ -39,7 +39,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { getModelColor, getModelPlainStyle } from '@/utils/modelColor'
+import { getModelPlainStyle } from '@/utils/modelColor'
 
 const props = defineProps({
   modelValue: {

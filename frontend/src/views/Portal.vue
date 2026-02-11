@@ -450,8 +450,8 @@
           </div>
 
           <!-- 联网搜索开关（仅在普通对话模式下显示，即没有选择知识库和文档时） -->
-          <div v-if="!selectedKnowledgeBase && !selectedDocument" class="control-item" style="display: flex; align-items: center; gap: 8px; padding: 0 12px;">
-            <span style="font-size: 14px; color: #606266; white-space: nowrap;">联网搜索</span>
+          <div v-if="!selectedKnowledgeBase && !selectedDocument" class="control-item portal-browser-search">
+            <span class="portal-browser-search-label">联网搜索</span>
             <el-switch
               v-model="enableBrowserSearch"
               :disabled="sending"
@@ -3918,6 +3918,19 @@ onUnmounted(() => {
 .portal-model-selector {
   display: flex;
   align-items: center;
+}
+
+.portal-browser-search {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-md);
+}
+
+.portal-browser-search-label {
+  font-size: var(--font-size-base);
+  color: var(--color-text-regular);
+  white-space: nowrap;
 }
 
 .control-item {

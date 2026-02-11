@@ -38,7 +38,7 @@
             >
               <el-table-column prop="name" label="模型名称" min-width="150" show-overflow-tooltip>
                 <template #default="{ row }">
-                  <div style="display: flex; align-items: center; gap: 8px;">
+                  <div class="model-name-cell">
                     <span>{{ row.name }}</span>
                     <el-tag v-if="row.supportsMultimodal && row.supportsVision" type="success" size="small">
                       多模态
@@ -1522,7 +1522,7 @@ const formatPromptTime = (time) => {
 @keyframes tabFadeIn {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.98);
+    transform: translateY(var(--spacing-sm)) scale(0.98);
   }
   to {
     opacity: 1;
@@ -1538,8 +1538,8 @@ const formatPromptTime = (time) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  gap: 12px;
+  margin-bottom: var(--spacing-lg);
+  gap: var(--spacing-md);
 }
 
 .config-section {
@@ -1561,12 +1561,12 @@ const formatPromptTime = (time) => {
 }
 
 :deep(.el-form-item) {
-  margin-bottom: 24px;
+  margin-bottom: var(--spacing-lg);
 }
 
 :deep(.el-input-group__prepend) {
-  background-color: #f5f7fa;
-  color: #909399;
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
   border-right: none;
 }
 
@@ -1574,11 +1574,17 @@ const formatPromptTime = (time) => {
   border-left: none;
 }
 
+.model-name-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
 .action-buttons {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
   flex-wrap: wrap;
 }
 
@@ -1624,12 +1630,12 @@ const formatPromptTime = (time) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  gap: 12px;
+  margin-bottom: var(--spacing-lg);
+  gap: var(--spacing-md);
 }
 
 .prompt-section .table-container {
-  margin-top: 20px;
+  margin-top: var(--spacing-lg);
 }
 
 .content-preview {
