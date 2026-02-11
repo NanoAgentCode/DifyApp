@@ -440,27 +440,14 @@
       <div class="input-controls-float">
         <!-- 左侧控制按钮 -->
         <div class="input-left-controls">
-          <el-dropdown @command="handleModelChange" trigger="click">
-            <div class="control-item">
-              <el-icon><Connection /></el-icon>
-              <span>{{ selectedModelName || 'DS V3.2' }}</span>
-              <el-icon class="arrow"><ArrowDown /></el-icon>
-            </div>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item
-                  v-for="model in availableModels"
-                  :key="model.id"
-                  :command="model.id"
-                >
-                  <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span>{{ model.name }}</span>
-                    <el-tag v-if="model.isDefault" type="primary" size="small">默认</el-tag>
-                  </div>
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+          <div class="portal-model-selector">
+            <ModelSelector
+              v-model="selectedModelId"
+              :models="availableModels"
+              placeholder="选择模型"
+              :disabled="sending"
+            />
+          </div>
 
           <!-- 联网搜索开关（仅在普通对话模式下显示，即没有选择知识库和文档时） -->
           <div v-if="!selectedKnowledgeBase && !selectedDocument" class="control-item" style="display: flex; align-items: center; gap: 8px; padding: 0 12px;">
@@ -567,7 +554,6 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowRight,
-  Connection,
   Paperclip,
   Promotion,
   Delete,
@@ -596,6 +582,7 @@ import { knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
 import { getDocumentList } from '@/api/documentReader'
 import { documentQAStream } from '@/api/documentReader'
 import MessageList from '@/components/chat/MessageList.vue'
+import ModelSelector from '@/components/chat/ModelSelector.vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import UserMemoryDialog from '@/components/UserMemoryDialog.vue'
 import AppHeader from '@/components/AppHeader.vue'
@@ -1190,12 +1177,6 @@ const conversationMode = computed(() => {
     return 'chat'
   }
 })
-
-// 处理模型切换
-const handleModelChange = (modelId) => {
-  selectedModelId.value = modelId
-}
-
 
 // 处理知识库选择（保留用于其他可能的调用）
 const handleKnowledgeBaseSelect = (kbId) => {
@@ -3930,8 +3911,13 @@ onUnmounted(() => {
 .input-left-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
   flex-shrink: 0;
+}
+
+.portal-model-selector {
+  display: flex;
+  align-items: center;
 }
 
 .control-item {

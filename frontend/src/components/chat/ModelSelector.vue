@@ -1,10 +1,12 @@
 <template>
   <el-select
     v-model="modelId"
-    placeholder="选择模型"
-    style="width: 200px"
+    :placeholder="placeholder"
+    class="model-selector-select"
+    popper-class="model-selector-dropdown"
     size="small"
     clearable
+    filterable
     :disabled="disabled"
     @change="handleChange"
   >
@@ -15,17 +17,18 @@
       :value="model.id"
     >
       <template #default>
-        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%">
-          <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0">
-            <el-tag 
+        <div class="model-selector-option">
+          <div class="model-selector-option-main">
+            <el-tag
               size="small"
-              :style="getModelStyle(model.id)"
-              style="flex-shrink: 0"
+              effect="plain"
+              class="model-selector-tag"
+              :style="getModelPlainStyle(model.id)"
             >
               {{ model.name }}
             </el-tag>
           </div>
-          <el-tag v-if="model.isDefault" type="primary" size="small" style="margin-left: 8px; flex-shrink: 0">
+          <el-tag v-if="model.isDefault" type="primary" size="small" class="model-selector-default-tag">
             默认
           </el-tag>
         </div>
@@ -36,7 +39,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { getModelStyle } from '@/utils/modelColor'
+import { getModelColor } from '@/utils/modelColor'
 
 const props = defineProps({
   modelValue: {
@@ -46,6 +49,10 @@ const props = defineProps({
   models: {
     type: Array,
     default: () => []
+  },
+  placeholder: {
+    type: String,
+    default: '选择模型'
   },
   disabled: {
     type: Boolean,
@@ -65,5 +72,57 @@ const modelId = computed({
 const handleChange = (value) => {
   emit('change', value)
 }
+
+/** 标签不填充背景，仅边框与文字色（使用设计令牌） */
+function getModelPlainStyle(modelId) {
+  const { text } = getModelColor(modelId)
+  return {
+    backgroundColor: 'var(--tag-plain-bg)',
+    color: text,
+    border: `var(--tag-border-width) var(--tag-border-style) ${text}`
+  }
+}
 </script>
+
+<style scoped>
+.model-selector-select {
+  width: 200px;
+}
+
+.model-selector-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  min-height: 24px;
+}
+
+.model-selector-option-main {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+.model-selector-tag,
+.model-selector-default-tag {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  font-weight: var(--tag-font-weight);
+}
+
+.model-selector-default-tag {
+  margin-left: var(--spacing-sm);
+}
+</style>
+
+<!-- 下拉为 teleported，需单独样式使选项行内标签垂直居中 -->
+<style>
+.model-selector-dropdown .el-select-dropdown__item {
+  display: flex;
+  align-items: center;
+}
+</style>
 

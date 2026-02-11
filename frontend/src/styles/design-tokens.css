@@ -149,6 +149,12 @@
   --table-header-bg: var(--color-bg-secondary);
   --table-row-hover-bg: var(--color-bg-hover);
   --table-border-color: var(--color-border-light);
+
+  /* 标签（如模型选择器内：不填充、不加粗、描边） */
+  --tag-plain-bg: transparent;
+  --tag-font-weight: var(--font-weight-normal);
+  --tag-border-width: 1px;
+  --tag-border-style: solid;
 }
 
 /* ========== 深色模式支持 (预留) ========== */

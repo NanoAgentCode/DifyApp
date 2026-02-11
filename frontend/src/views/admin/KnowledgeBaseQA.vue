@@ -139,23 +139,13 @@
                 </div>
               </div>
               <!-- 问答模型选择 -->
-              <div class="model-selector" style="margin-top: 10px;">
-                <el-select
+              <div class="model-selector">
+                <ModelSelector
                   v-model="selectedModelId"
-                  placeholder="选择问答模型"
-                  size="small"
-                  style="width: 200px;"
+                  :models="availableQAModels"
+                  placeholder="选择问答模型（可搜索）"
                   :disabled="sending || !isKnowledgeBaseActive(selectedKB.status) || !isEmbeddingModelEnabled(selectedKB.embeddingModelId) || !isVectorStoreTypeEnabled(selectedKB.vectorStoreType)"
-                >
-                  <el-option
-                    v-for="model in availableQAModels"
-                    :key="model.id"
-                    :label="model.name"
-                    :value="model.id"
-                  >
-                    <span :style="getModelStyle(model.id)">{{ model.name }}</span>
-                  </el-option>
-                </el-select>
+                />
               </div>
               <!-- 向量化模型禁用提示 -->
               <el-alert
@@ -331,7 +321,7 @@ import {
   Refresh,
   ArrowLeft
 } from '@element-plus/icons-vue'
-import { getModelStyle } from '@/utils/modelColor'
+import ModelSelector from '@/components/chat/ModelSelector.vue'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { useTypewriter } from '@/composables/useTypewriter'
 import { useKnowledgeBaseQA } from '@/composables/useKnowledgeBaseQA'
@@ -540,6 +530,10 @@ html {
   overflow: hidden;
 }
 
+.model-selector {
+  margin-top: var(--spacing-sm);
+}
+
 .knowledge-base-qa :deep(.el-card__body) {
   flex: 1;
   display: flex;
@@ -568,16 +562,10 @@ html {
 }
 
 .kb-management-btn {
-  border: 1px solid var(--el-border-color, #dcdfe6);
-  border-color: var(--el-color-primary, #409eff);
-  color: var(--el-color-primary, #409eff);
-  transition: all 0.3s ease;
+  transition: all var(--transition-base);
 }
 
 .kb-management-btn:hover {
-  border-color: var(--color-primary-light-1);
-  background-color: var(--color-bg-active);
-  color: var(--color-primary-light-1);
   transform: translateY(-1px);
   box-shadow: var(--shadow-primary);
 }
