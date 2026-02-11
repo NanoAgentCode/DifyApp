@@ -346,6 +346,11 @@ defineExpose({
   overflow-wrap: break-word;
 }
 
+/* 响应内容（助手消息）白色背景 */
+.message-item.assistant .message-text {
+  background: #fff;
+}
+
 .message-item.user .message-text {
   background: #409eff;
   color: white;
