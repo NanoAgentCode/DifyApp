@@ -35,8 +35,7 @@ const loadConfigFromDB = async () => {
   try {
     // 加载帮助配置组的所有配置
     const configs = await getConfigsByGroup('help')
-    console.log('从数据库加载的配置:', configs)
-    
+
     // 查找知识库ID配置
     const kbConfig = configs.find(c => c.configKey === 'help.knowledgeBaseId')
     if (kbConfig && kbConfig.configValue) {

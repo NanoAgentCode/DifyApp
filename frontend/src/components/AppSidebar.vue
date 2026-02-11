@@ -141,13 +141,6 @@ const activeMenu = computed(() => {
   return route.path
 })
 
-// 判断当前是否在智能问答页面（Portal页面）
-const isOnChatPage = computed(() => {
-  const chatPath = props.type === 'user' ? '/user/chat' : '/admin/chat'
-  // 使用 startsWith 匹配，因为路由可能包含查询参数或其他路径
-  return route.path === chatPath || route.path.startsWith(chatPath + '/') || route.path.startsWith(chatPath + '?')
-})
-
 const isAdmin = computed(() => {
   if (props.type !== 'admin') return false
   return userInfo.value && userInfo.value.role === 1

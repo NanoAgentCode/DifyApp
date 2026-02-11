@@ -520,11 +520,5 @@ export function renderMarkdownLight(content) {
   }
 }
 
-/**
- * 清理 Markdown 渲染相关的资源
- */
-export function cleanupMarkdown() {
-  // 可以在这里清理渲染相关的资源
-}
-
-
+/** 清理 Markdown 渲染相关资源（当前为占位，供 useKnowledgeBaseQA 等调用） */
+export function cleanupMarkdown() {}

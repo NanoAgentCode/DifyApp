@@ -15,23 +15,12 @@
     
     <!-- 顶部导航栏 -->
     <div class="app-header" :class="{ 'header-collapsed': isCollapsed }">
-      <div class="header-left">
-        <div
-          class="system-icon"
-          role="button"
-          tabindex="0"
-          title="回到主页"
-          @click="handleGoToHome"
-          @keydown.enter="handleGoToHome"
-        >
-          <img src="/logo.svg" alt="系统图标" class="system-logo" />
-        </div>
-      </div>
+      <div class="header-left" aria-hidden="true"></div>
       <!-- 标题居中显示 -->
       <div class="header-center">
         <h2 class="header-title">NanoAgent Workbench</h2>
-        <div class="collapse-button-wrapper" @click.stop.prevent="toggleCollapse" :title="isCollapsed ? '展开顶部' : '收起顶部'">
-          <button 
+        <div class="collapse-button-wrapper" :title="isCollapsed ? '展开顶部' : '收起顶部'">
+          <button
             type="button"
             class="collapse-header-button"
             @click.stop.prevent="toggleCollapse"
@@ -259,34 +248,6 @@ onMounted(() => {
   position: relative;
 }
 
-.system-icon {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
-  border-radius: 0;
-  padding: 0;
-  transition: all var(--transition-base);
-  position: relative;
-  z-index: 2;
-  cursor: pointer;
-}
-
-.system-icon:hover {
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
-  transform: none;
-}
-
-.system-logo {
-  width: 34.2px;
-  height: 34.2px;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-}
-
 /* ========== 中间区域（标题和收起按钮） ========== */
 .header-center {
   position: absolute;
@@ -296,26 +257,20 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  z-index: calc(var(--z-fixed) + 100) !important;
-  pointer-events: none; /* 让容器不拦截点击，但子元素可以 */
+  z-index: calc(var(--z-fixed) + 100);
+  pointer-events: none;
   width: auto;
   height: auto;
 }
 
 .header-center > * {
-  pointer-events: auto; /* 恢复子元素的点击事件 */
-}
-
-.header-center > .collapse-button-wrapper {
-  pointer-events: auto !important;
-  z-index: 99999 !important;
-  position: relative;
+  pointer-events: auto;
 }
 
 .collapse-button-wrapper {
   position: relative;
-  z-index: 99999 !important;
-  pointer-events: auto !important;
+  z-index: 99999;
+  pointer-events: auto;
 }
 
 /* ========== 标题居中 ========== */
@@ -502,16 +457,6 @@ onMounted(() => {
 
   .header-center {
     gap: var(--spacing-xs);
-  }
-
-  .system-icon {
-    width: 32px;
-    height: 32px;
-  }
-
-  .system-logo {
-    width: 24px;
-    height: 24px;
   }
 }
 

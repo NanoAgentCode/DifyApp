@@ -81,8 +81,7 @@ const loadConfigFromDB = async () => {
   try {
     // 加载帮助配置组的所有配置
     const configs = await getConfigsByGroup('help')
-    console.log('从数据库加载的配置:', configs)
-    
+
     // 查找知识库ID配置
     const kbConfig = configs.find(c => c.configKey === 'help.knowledgeBaseId')
     if (kbConfig && kbConfig.configValue) {
@@ -254,25 +253,11 @@ const handlePasswordChangeSuccess = () => {
 
 /* 路由切换过渡动画使用全局样式（定义在 App.vue 中） */
 
-/* 小屏幕适配 (1024x768及以下) */
+/* 小屏幕适配 (1024px及以下) */
 @media (max-width: 1024px) {
-  .header {
-    padding: 0 12px;
-    height: 50px;
-  }
-
-  .header-left h2 {
-    font-size: 16px;
-  }
-
-  .user-info {
-    font-size: 14px;
-    padding: 4px 8px;
-  }
-
   .main {
     height: calc(100vh - 50px);
-    margin-top: 50px !important; /* 小屏幕header高度为50px */
+    margin-top: 50px !important;
   }
 
   .main-content {
@@ -282,10 +267,6 @@ const handlePasswordChangeSuccess = () => {
 
 /* 超小屏幕适配 (768px及以下) */
 @media (max-width: 768px) {
-  .header-left h2 {
-    font-size: 14px;
-  }
-
   .main-content {
     padding: 8px;
   }
