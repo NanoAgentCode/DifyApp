@@ -39,7 +39,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { getModelColor } from '@/utils/modelColor'
+import { getModelColor, getModelPlainStyle } from '@/utils/modelColor'
 
 const props = defineProps({
   modelValue: {
@@ -73,15 +73,6 @@ const handleChange = (value) => {
   emit('change', value)
 }
 
-/** 标签不填充背景，仅边框与文字色（使用设计令牌） */
-function getModelPlainStyle(modelId) {
-  const { text } = getModelColor(modelId)
-  return {
-    backgroundColor: 'var(--tag-plain-bg)',
-    color: text,
-    border: `var(--tag-border-width) var(--tag-border-style) ${text}`
-  }
-}
 </script>
 
 <style scoped>

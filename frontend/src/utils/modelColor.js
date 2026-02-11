@@ -66,3 +66,17 @@ export function getModelStyle(modelId) {
   }
 }
 
+/**
+ * 描边标签样式（不填充、使用设计令牌，与 design-tokens 中 --tag-* 一致）
+ * @param {number|string} modelId - 模型ID
+ * @returns {Object} 样式对象
+ */
+export function getModelPlainStyle(modelId) {
+  const { text } = getModelColor(modelId)
+  return {
+    backgroundColor: 'var(--tag-plain-bg)',
+    color: text,
+    border: `var(--tag-border-width) var(--tag-border-style) ${text}`
+  }
+}
+

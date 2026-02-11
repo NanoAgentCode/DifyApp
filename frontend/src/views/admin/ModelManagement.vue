@@ -55,7 +55,7 @@
               </el-table-column>
               <el-table-column label="模型标识" min-width="200">
                 <template #default="{ row }">
-                  <el-tag size="small" :style="getModelStyle(row.id)">
+                  <el-tag size="small" effect="plain" class="model-ident-tag" :style="getModelPlainStyle(row.id)">
                     {{ row.model }}
                   </el-tag>
                 </template>
@@ -183,7 +183,7 @@
               </el-table-column>
               <el-table-column label="模型标识" min-width="200">
                 <template #default="{ row }">
-                  <el-tag size="small" :style="getModelStyle(row.id)">
+                  <el-tag size="small" effect="plain" class="model-ident-tag" :style="getModelPlainStyle(row.id)">
                     {{ row.model }}
                   </el-tag>
                 </template>
@@ -612,7 +612,7 @@ import {
   Search
 } from '@element-plus/icons-vue'
 import { getModelConfig, updateModelConfig, testModelConnection } from '@/api/model'
-import { getModelStyle } from '@/utils/modelColor'
+import { getModelStyle, getModelPlainStyle } from '@/utils/modelColor'
 import VectorDatabaseManagement from './VectorDatabaseManagement.vue'
 import DataSourceManagement from './DataSourceManagement.vue'
 import {
@@ -1460,6 +1460,10 @@ const formatPromptTime = (time) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.model-ident-tag {
+  font-weight: var(--tag-font-weight);
 }
 
 :deep(.el-card) {
