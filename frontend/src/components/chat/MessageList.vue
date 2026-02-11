@@ -4,7 +4,7 @@
       <div
         v-for="(message, index) in messages"
         :key="getMessageKey(message, index)"
-        :class="['message-item', message.type, { 'is-streaming': message.isLoading && message.content }]"
+        :class="['message-item', message.type, { 'is-streaming': sending && index === messages.length - 1 && message.type === 'assistant' && message.content }]"
       >
         <div class="message-avatar">
           <el-icon v-if="message.type === 'user'"><User /></el-icon>
@@ -49,9 +49,10 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, computed } from 'vue'
+import { ref, watch, nextTick, onUnmounted } from 'vue'
 import { User, Service, Loading, Refresh } from '@element-plus/icons-vue'
 import { renderMarkdown } from '@/composables/useMarkdown'
+import { useTypewriter } from '@/composables/useTypewriter'
 
 const props = defineProps({
   messages: {
@@ -84,17 +85,106 @@ const renderedCache = ref(new Map())
 // 记录上次滚动位置，用于判断是否需要滚动
 let lastScrollHeight = 0
 
+// ---- 打字机效果 ----
+const typewriter = useTypewriter()
+// 记录当前正在进行打字机效果的消息索引
+let streamingMsgIndex = -1
+
+onUnmounted(() => typewriter.destroy())
+
+// 监听最后一条消息的流式状态，驱动打字机
+// 使用 props.sending 作为流式指示器（全程为 true），而非 message.isLoading
+// 因为多个组件（Chat.vue、Portal.vue）在首个数据到达时就将 isLoading 设为 false
+watch(() => {
+  const msgs = props.messages
+  if (!msgs.length) return null
+  const last = msgs[msgs.length - 1]
+  return {
+    content: last.content,
+    type: last.type,
+    sending: props.sending,
+    index: msgs.length - 1
+  }
+}, (curr, prev) => {
+  if (!curr) {
+    // 消息列表被清空
+    typewriter.reset()
+    streamingMsgIndex = -1
+    return
+  }
+
+  const isStreaming = curr.sending && curr.type === 'assistant'
+  const wasStreaming = prev?.sending && prev?.type === 'assistant'
+
+  // 消息索引发生变化（新对话/重新生成），重置打字机
+  if (prev && curr.index !== prev.index && wasStreaming) {
+    typewriter.reset()
+  }
+
+  if (isStreaming && curr.content) {
+    // 流式数据到达，喂给打字机
+    streamingMsgIndex = curr.index
+    typewriter.feed(curr.content)
+  } else if (wasStreaming && !isStreaming) {
+    // sending 从 true 变为 false → 流结束，立即显示全部内容
+    typewriter.finish()
+    streamingMsgIndex = -1
+    // 延迟 reset，为下次流做准备（避免 finish 后立刻被 reset 清除）
+    nextTick(() => typewriter.reset())
+  }
+}, { deep: true })
+
+// 打字机输出变化时触发滚动
+watch(() => typewriter.displayedContent.value, () => {
+  if (typewriter.isTyping.value) {
+    scrollToBottom(false)
+  }
+})
+
+/**
+ * 在 HTML 末尾最后一个块级闭合标签前插入光标 span
+ */
+function appendCursor(html) {
+  const cursor = '<span class="typing-cursor"></span>'
+  const lastClose = Math.max(
+    html.lastIndexOf('</p>'),
+    html.lastIndexOf('</li>'),
+    html.lastIndexOf('</pre>'),
+    html.lastIndexOf('</blockquote>'),
+    html.lastIndexOf('</td>')
+  )
+  if (lastClose > 0) {
+    return html.substring(0, lastClose) + cursor + html.substring(lastClose)
+  }
+  return html + cursor
+}
+
 // 生成稳定的消息 key（基于索引，不依赖内容）
 const getMessageKey = (message, index) => {
   // 使用索引作为主要标识，加上类型和时间戳（如果有）作为辅助
   return `msg-${index}-${message.type}-${message.time || ''}`
 }
 
-// 获取渲染后的内容（带缓存）
+// 获取渲染后的内容（带缓存 + 打字机双模式）
 const getRenderedContent = (message, index) => {
   if (!message.content) return ''
-  
-  // 使用消息索引作为缓存键，每个消息只缓存一次
+
+  // ---- 流式消息：使用打字机 + 完整 Markdown ----
+  // 通过 streamingMsgIndex 判断（由 watch 根据 sending 状态维护）
+  if (streamingMsgIndex === index && message.content) {
+    const twContent = typewriter.safeDisplayedContent.value
+    if (!twContent) return ''
+    // 使用完整渲染（含 KaTeX），保证公式在流式期间也能正确显示
+    // 打字机已控制更新频率（10-30ms/tick），KaTeX 开销可接受
+    let html = renderMarkdown(twContent)
+    // 正在打字时追加闪烁光标
+    if (typewriter.isTyping.value) {
+      html = appendCursor(html)
+    }
+    return html
+  }
+
+  // ---- 非流式消息：完整渲染 + 缓存 ----
   const cacheKey = `msg-${index}`
   const cached = renderedCache.value.get(cacheKey)
   
@@ -103,20 +193,18 @@ const getRenderedContent = (message, index) => {
     return cached.html
   }
   
-  // 内容变化或首次渲染，重新渲染
+  // 内容变化或首次渲染，重新渲染（完整版含 KaTeX）
   const html = renderMarkdown(message.content)
   renderedCache.value.set(cacheKey, { content: message.content, html })
   
   // 限制缓存大小，避免内存泄漏（保留最近50条消息的缓存）
   if (renderedCache.value.size > 50) {
-    // 删除最旧的缓存（按索引排序）
     const keys = Array.from(renderedCache.value.keys())
     const sortedKeys = keys.sort((a, b) => {
       const indexA = parseInt(a.split('-')[1]) || 0
       const indexB = parseInt(b.split('-')[1]) || 0
       return indexA - indexB
     })
-    // 删除最旧的10个缓存
     sortedKeys.slice(0, 10).forEach(key => renderedCache.value.delete(key))
   }
   
@@ -156,10 +244,7 @@ const scrollToBottom = (force = false) => {
         // 只有在滚动高度变化时才滚动
         if (force || currentScrollHeight !== lastScrollHeight) {
           // 流式输出时使用即时滚动，其他情况使用平滑滚动
-          const messages = props.messages
-          const isStreaming = messages?.length > 0 && 
-                            messages[messages.length - 1]?.isLoading && 
-                            messages[messages.length - 1]?.content
+          const isStreaming = props.sending && streamingMsgIndex >= 0
           
           if (isStreaming || force) {
             // 流式输出或强制滚动：使用即时滚动，更流畅
@@ -194,7 +279,7 @@ watch(() => props.messages, (newMessages, oldMessages) => {
       // 如果最后一条消息内容变化，就滚动（降低阈值，提高流畅度）
       const contentDiff = Math.abs((lastMessage.content?.length || 0) - (oldLastMessage.content?.length || 0))
       // 降低阈值到20字符，让更新更及时
-      if (contentDiff > 20 || lastMessage.isLoading) {
+      if (contentDiff > 20 || props.sending) {
         scrollToBottom(false)
       }
     }
@@ -514,6 +599,23 @@ defineExpose({
   table th {
     background: rgba(255, 255, 255, 0.1);
   }
+}
+
+/* 打字机闪烁光标 */
+:deep(.typing-cursor)::after {
+  content: '▊';
+  display: inline;
+  animation: blink-cursor 0.8s step-end infinite;
+  color: #409eff;
+  font-weight: normal;
+  margin-left: 1px;
+  font-size: 0.9em;
+  vertical-align: baseline;
+}
+
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 /* KaTeX 数学公式样式 */

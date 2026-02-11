@@ -35,6 +35,52 @@ marked.setOptions({
 })
 
 /**
+ * 查找并替换裸的 \begin{env}...\end{env} 块（如 bmatrix、pmatrix），用占位符替代，供后续 KaTeX 渲染
+ */
+function replaceBeginEndBlocks(content, blockPlaceholder, formulaMatches) {
+  let processed = content
+  let searchStart = 0
+  while (true) {
+    const beginIdx = processed.indexOf('\\begin{', searchStart)
+    if (beginIdx === -1) break
+    const braceEnd = processed.indexOf('}', beginIdx + 7)
+    if (braceEnd === -1) break
+    const envName = processed.substring(beginIdx + 7, braceEnd)
+    const endTag = '\\end{' + envName + '}'
+    const beginTag = '\\begin{' + envName + '}'
+    let depth = 1
+    let pos = braceEnd + 1
+    let endIdx = -1
+    while (pos < processed.length && depth > 0) {
+      const nextBegin = processed.indexOf(beginTag, pos)
+      const nextEnd = processed.indexOf(endTag, pos)
+      if (nextEnd === -1) break
+      if (nextBegin !== -1 && nextBegin < nextEnd) {
+        depth++
+        pos = nextBegin + beginTag.length
+      } else {
+        depth--
+        if (depth === 0) {
+          endIdx = nextEnd + endTag.length
+          break
+        }
+        pos = nextEnd + endTag.length
+      }
+    }
+    if (endIdx === -1) {
+      searchStart = beginIdx + 1
+      continue
+    }
+    const fullBlock = processed.substring(beginIdx, endIdx)
+    const index = formulaMatches.length
+    formulaMatches.push({ type: 'block', original: fullBlock, formula: fullBlock })
+    processed = processed.substring(0, beginIdx) + blockPlaceholder + index + blockPlaceholder + processed.substring(endIdx)
+    searchStart = beginIdx + blockPlaceholder.length + String(index).length + blockPlaceholder.length
+  }
+  return processed
+}
+
+/**
  * 渲染 Markdown 内容
  * @param {string} content Markdown 文本
  * @returns {string} HTML 字符串
@@ -64,6 +110,9 @@ export function renderMarkdown(content) {
       })
       return blockPlaceholder + index + blockPlaceholder
     })
+
+    // 处理裸的 \begin{env}...\end{env}（如 \begin{bmatrix}、\begin{pmatrix}，未包在 $$ 内）
+    processedContent = replaceBeginEndBlocks(processedContent, blockPlaceholder, formulaMatches)
     
     // 处理 [ ... ] 格式的块级公式（支持嵌套方括号）
     const bracketPairs = []
@@ -427,6 +476,46 @@ export function renderMarkdown(content) {
     return html
   } catch (error) {
     logger.error('Markdown 渲染失败:', error)
+    return `<pre>${content}</pre>`
+  }
+}
+
+/**
+ * 轻量 Markdown 渲染（流式打字机期间使用）
+ * 跳过 KaTeX 公式预处理，仅执行 marked + highlight.js，性能更优
+ * @param {string} content Markdown 文本
+ * @returns {string} HTML 字符串
+ */
+export function renderMarkdownLight(content) {
+  if (!content) return ''
+
+  if (typeof content !== 'string') {
+    content = String(content)
+  }
+
+  try {
+    let html = marked.parse(content)
+
+    // 确保代码块有 hljs 类（与 renderMarkdown 保持一致）
+    if (typeof document !== 'undefined') {
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = html
+      const preElements = tempDiv.querySelectorAll('pre')
+      preElements.forEach(pre => {
+        const codeElement = pre.querySelector('code')
+        if (codeElement) {
+          const existingClass = codeElement.getAttribute('class') || ''
+          if (!existingClass.includes('hljs')) {
+            codeElement.setAttribute('class', existingClass ? `${existingClass} hljs` : 'hljs')
+          }
+        }
+      })
+      html = tempDiv.innerHTML
+    }
+
+    return html
+  } catch (error) {
+    logger.error('Markdown 轻量渲染失败:', error)
     return `<pre>${content}</pre>`
   }
 }

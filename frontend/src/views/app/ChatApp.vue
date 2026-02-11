@@ -18,7 +18,7 @@
         >
           <div class="message-content">
             <div class="message-time">{{ formatTime(message.time) }}</div>
-            <div class="message-text" v-html="formatMessage(message.content)"></div>
+            <div class="message-text" v-html="formatMessage(message.content, index)"></div>
             <div v-if="message.role === 'assistant'" class="message-preview">
               <div
                 v-for="file in getPreviewFiles(message)"
@@ -269,11 +269,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getAppDetail, chatApp, chatAppStream, uploadFile } from '@/api/aiApp'
 import { renderMarkdown } from '@/composables/useMarkdown'
+import { useTypewriter } from '@/composables/useTypewriter'
 import { processSSEStream } from '@/composables/useSSEStream'
 import { extractContent, updateConversationId } from '@/composables/useResponseHandler'
 import { getFullAPIUrl } from '@/config/api'
@@ -927,8 +928,56 @@ const handleBack = () => {
   }
 }
 
-// 使用统一的 Markdown 渲染函数（支持数学公式、代码高亮等）
-const formatMessage = renderMarkdown
+// ---- 打字机效果 ----
+const typewriter = useTypewriter()
+let streamingMsgIndex = -1
+
+onUnmounted(() => typewriter.destroy())
+
+// 监听最后一条消息的流式状态，驱动打字机
+watch(() => {
+  const msgs = messages.value
+  if (!msgs.length) return null
+  const last = msgs[msgs.length - 1]
+  return { content: last.content, role: last.role, loading: loading.value, index: msgs.length - 1 }
+}, (curr, prev) => {
+  if (!curr) { typewriter.reset(); streamingMsgIndex = -1; return }
+  const isStreaming = curr.loading && curr.role === 'assistant'
+  const wasStreaming = prev?.loading && prev?.role === 'assistant'
+  if (prev && curr.index !== prev.index && wasStreaming) typewriter.reset()
+  if (isStreaming && curr.content) {
+    streamingMsgIndex = curr.index
+    typewriter.feed(curr.content)
+  } else if (wasStreaming && !isStreaming) {
+    typewriter.finish()
+    streamingMsgIndex = -1
+    nextTick(() => typewriter.reset())
+  }
+}, { deep: true })
+
+// 打字机输出变化时触发滚动
+watch(() => typewriter.displayedContent.value, () => {
+  if (typewriter.isTyping.value && autoScrollEnabled.value) scrollToBottomSmooth()
+})
+
+function appendCursor(html) {
+  const cursor = '<span class="typing-cursor"></span>'
+  const lastClose = Math.max(html.lastIndexOf('</p>'), html.lastIndexOf('</li>'), html.lastIndexOf('</pre>'), html.lastIndexOf('</blockquote>'), html.lastIndexOf('</td>'))
+  return lastClose > 0 ? html.substring(0, lastClose) + cursor + html.substring(lastClose) : html + cursor
+}
+
+// 使用统一的 Markdown 渲染函数（支持数学公式、代码高亮等）+ 打字机
+const formatMessage = (content, index) => {
+  if (!content) return ''
+  if (streamingMsgIndex === index && content) {
+    const twContent = typewriter.safeDisplayedContent.value
+    if (!twContent) return ''
+    let html = renderMarkdown(twContent)
+    if (typewriter.isTyping.value) html = appendCursor(html)
+    return html
+  }
+  return renderMarkdown(content)
+}
 
 const formatTime = (date) => {
   if (!date) return ''
@@ -1569,5 +1618,22 @@ onMounted(() => {
 .input-actions :deep(.action-btn--send:hover) {
   box-shadow: 0 4px 12px rgba(103, 194, 58, 0.3);
   transform: translateY(-1px);
+}
+
+/* 打字机闪烁光标 */
+:deep(.typing-cursor)::after {
+  content: '▊';
+  display: inline;
+  animation: blink-cursor 0.8s step-end infinite;
+  color: #409eff;
+  font-weight: normal;
+  margin-left: 1px;
+  font-size: 0.9em;
+  vertical-align: baseline;
+}
+
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 </style>

@@ -614,8 +614,8 @@ const router = useRouter()
 // 基础状态
 const question = ref('')
 const sending = ref(false)
-// 使用 shallowRef 优化大型数组性能（避免深度响应式监听）
-const chatHistory = shallowRef([])
+// 使用 ref 确保数组内部属性变更（content、isLoading）能触发子组件（MessageList 打字机）响应式更新
+const chatHistory = ref([])
 const messageListRef = ref(null)
 const conversationId = ref(null)
 const availableModels = ref([])
@@ -1461,7 +1461,6 @@ const handleKnowledgeBaseStreamResponse = async (kbId, question, requestConversa
         if (chatHistory.value[aiMessageIndex].isLoading) {
           chatHistory.value[aiMessageIndex].isLoading = false
         }
-        
         if (messageListRef.value?.scrollToBottom) {
           messageListRef.value.scrollToBottom(false)
         }
@@ -1640,7 +1639,6 @@ const handleDocumentStreamResponse = async (docId, question, requestConversation
         if (chatHistory.value[aiMessageIndex].isLoading) {
           chatHistory.value[aiMessageIndex].isLoading = false
         }
-        
         if (messageListRef.value?.scrollToBottom) {
           messageListRef.value.scrollToBottom(false)
         }
@@ -1764,7 +1762,6 @@ const handleStreamResponse = async (question, requestConversationId, userId, his
         if (chatHistory.value[aiMessageIndex].isLoading) {
           chatHistory.value[aiMessageIndex].isLoading = false
         }
-        
         if (messageListRef.value?.scrollToBottom) {
           messageListRef.value.scrollToBottom(false)
         }

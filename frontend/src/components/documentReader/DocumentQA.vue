@@ -26,7 +26,7 @@
               <el-icon class="is-loading"><Loading /></el-icon>
               <span>AI正在思考中...</span>
             </div>
-            <div v-else-if="message.content && message.content.trim()" class="message-text" v-html="renderedMessage(message.content)"></div>
+            <div v-else-if="message.content && message.content.trim()" class="message-text" v-html="renderedMessage(message.content, index)"></div>
             <div v-else class="message-text loading">
               <el-icon class="is-loading"><Loading /></el-icon>
               <span>等待响应...</span>
@@ -75,13 +75,14 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted, computed, defineExpose } from 'vue'
+import { ref, watch, nextTick, onMounted, onUnmounted, computed, defineExpose } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ChatLineRound, Promotion, Loading, ArrowUp, DocumentCopy } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { documentQA, documentQAStream } from '@/api/documentReader'
 import { createConversation } from '@/api/chat'
 import { renderMarkdown } from '@/composables/useMarkdown'
+import { useTypewriter } from '@/composables/useTypewriter'
 import { processSSEStream } from '@/composables/useSSEStream'
 import { extractContent, updateConversationId, updateMessage } from '@/composables/useResponseHandler'
 
@@ -234,9 +235,51 @@ const handleCollapse = () => {
   emit('blur')
 }
 
-// 渲染消息内容
-const renderedMessage = (content) => {
+// ---- 打字机效果 ----
+const typewriter = useTypewriter()
+let streamingMsgIndex = -1
+onUnmounted(() => typewriter.destroy())
+
+watch(() => {
+  const msgs = messages.value
+  if (!msgs.length) return null
+  const last = msgs[msgs.length - 1]
+  return { content: last.content, role: last.role, sending: sending.value, index: msgs.length - 1 }
+}, (curr, prev) => {
+  if (!curr) { typewriter.reset(); streamingMsgIndex = -1; return }
+  const isStreaming = curr.sending && curr.role === 'assistant'
+  const wasStreaming = prev?.sending && prev?.role === 'assistant'
+  if (prev && curr.index !== prev.index && wasStreaming) typewriter.reset()
+  if (isStreaming && curr.content) {
+    streamingMsgIndex = curr.index
+    typewriter.feed(curr.content)
+  } else if (wasStreaming && !isStreaming) {
+    typewriter.finish()
+    streamingMsgIndex = -1
+    nextTick(() => typewriter.reset())
+  }
+}, { deep: true })
+
+watch(() => typewriter.displayedContent.value, () => {
+  if (typewriter.isTyping.value) scrollToBottom()
+})
+
+function appendCursor(html) {
+  const cursor = '<span class="typing-cursor"></span>'
+  const lastClose = Math.max(html.lastIndexOf('</p>'), html.lastIndexOf('</li>'), html.lastIndexOf('</pre>'), html.lastIndexOf('</blockquote>'), html.lastIndexOf('</td>'))
+  return lastClose > 0 ? html.substring(0, lastClose) + cursor + html.substring(lastClose) : html + cursor
+}
+
+// 渲染消息内容（带打字机效果）
+const renderedMessage = (content, index) => {
   if (!content) return ''
+  if (streamingMsgIndex === index && content) {
+    const twContent = typewriter.safeDisplayedContent.value
+    if (!twContent) return ''
+    let html = renderMarkdown(twContent)
+    if (typewriter.isTyping.value) html = appendCursor(html)
+    return html
+  }
   return renderMarkdown(content)
 }
 
@@ -849,6 +892,23 @@ onMounted(() => {
 .hint-content .el-button {
   padding: 0 8px;
   font-size: 12px;
+}
+
+/* 打字机闪烁光标 */
+:deep(.typing-cursor)::after {
+  content: '▊';
+  display: inline;
+  animation: blink-cursor 0.8s step-end infinite;
+  color: #409eff;
+  font-weight: normal;
+  margin-left: 1px;
+  font-size: 0.9em;
+  vertical-align: baseline;
+}
+
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 </style>
 
