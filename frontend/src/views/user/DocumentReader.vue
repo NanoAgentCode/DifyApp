@@ -77,7 +77,7 @@ import NotesTab from '@/components/documentReader/NotesTab.vue'
 const DocumentQAComponent = defineAsyncComponent(() => 
   import(/* webpackChunkName: "document-qa" */ '@/components/documentReader/DocumentQA.vue')
 )
-import { getDocumentDetail, getDocumentText } from '@/api/documentReader'
+import { getDocumentDetail, getDocumentText, downloadDocument } from '@/api/documentReader'
 import { getAvailableQAModels } from '@/api/model'
 
 const route = useRoute()
@@ -252,8 +252,25 @@ const handleShare = () => {
 }
 
 // 导出
-const handleExport = () => {
-  ElMessage.info('导出功能开发中')
+const handleExport = async () => {
+  if (!docId.value) return
+  
+  try {
+    const blob = await downloadDocument(docId.value)
+    const url = window.URL.createObjectURL(new Blob([blob]))
+    const link = document.createElement('a')
+    link.href = url
+    // 使用原始文件名，如果不存在则使用 fileName
+    const fileName = documentInfo.value?.originalFileName || documentInfo.value?.fileName || 'document'
+    link.setAttribute('download', fileName)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('开始下载...')
+  } catch (error) {
+    ElMessage.error('下载失败：' + (error.message || '未知错误'))
+  }
 }
 
 // 处理文本选择

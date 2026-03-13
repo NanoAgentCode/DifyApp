@@ -152,6 +152,15 @@
                       :icon="View"
                       circle
                       @click="handleOpenDocument(doc)"
+                      title="查看详情"
+                    />
+                    <el-button
+                      type="success"
+                      size="small"
+                      :icon="Download"
+                      circle
+                      @click="handleDownloadDoc(doc)"
+                      title="下载文档"
                     />
                     <el-button
                       type="warning"
@@ -161,6 +170,7 @@
                       @click="handleReindexDocument(doc)"
                       :disabled="doc.vectorizedStatus === 1"
                       :loading="reindexingDocIds.includes(doc.id)"
+                      title="重新向量化"
                     />
                     <el-button
                       type="danger"
@@ -168,6 +178,7 @@
                       :icon="Delete"
                       circle
                       @click="handleDeleteDoc(doc)"
+                      title="删除文档"
                     />
                   </div>
                 </div>
@@ -197,12 +208,13 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { UploadFilled, Refresh, Document, Delete, Search, View, Picture, FolderOpened, Clock, Plus, InfoFilled, Loading, CircleCheck, CircleClose, ArrowLeft } from '@element-plus/icons-vue'
+import { UploadFilled, Refresh, Document, Delete, Search, View, Picture, FolderOpened, Clock, Plus, InfoFilled, Loading, CircleCheck, CircleClose, ArrowLeft, Download } from '@element-plus/icons-vue'
 import {
   getDocumentList,
   uploadDocument,
   deleteDocument,
-  reindexDocument
+  reindexDocument,
+  downloadDocument
 } from '@/api/documentReader'
 
 const router = useRouter()
@@ -403,6 +415,24 @@ const handlePageChange = (page) => {
 // 打开文档
 const handleOpenDocument = (row) => {
   router.push(`/user/document-reader/${row.id}`)
+}
+
+// 下载文档
+const handleDownloadDoc = async (doc) => {
+  try {
+    const blob = await downloadDocument(doc.id)
+    const url = window.URL.createObjectURL(new Blob([blob]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', doc.originalFileName || doc.fileName || 'document')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('开始下载...')
+  } catch (error) {
+    ElMessage.error('下载失败：' + (error.message || '未知错误'))
+  }
 }
 
 // 删除文档

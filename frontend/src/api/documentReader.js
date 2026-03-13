@@ -80,6 +80,18 @@ export function getDocumentContent(docId, page = null) {
 }
 
 /**
+ * 下载文档
+ * @param {number} docId - 文档ID
+ */
+export function downloadDocument(docId) {
+  return request({
+    url: `/api/document-reader/documents/${docId}/download`,
+    method: 'get',
+    responseType: 'blob'
+  })
+}
+
+/**
  * 获取文档导读
  * @param {number} docId - 文档ID
  */

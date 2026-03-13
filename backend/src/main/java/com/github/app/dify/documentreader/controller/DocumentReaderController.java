@@ -179,6 +179,41 @@ public class DocumentReaderController extends BaseController {
                 .headers(headers)
                 .body(resource);
     }
+
+    /**
+     * 下载文档
+     */
+    @Operation(summary = "下载文档")
+    @GetMapping("/{docId}/download")
+    public ResponseEntity<InputStreamResource> downloadDocument(
+            @PathVariable Long docId,
+            HttpServletRequest request) {
+        Long userId = getUserId(request);
+        InputStream inputStream = documentReaderService.getDocumentContent(docId, userId, null);
+        
+        DocumentReaderResp document = documentReaderService.getDocumentById(docId, userId);
+        
+        InputStreamResource resource = new InputStreamResource(inputStream);
+        HttpHeaders headers = new HttpHeaders();
+        
+        String fileName = document.getOriginalFileName();
+        if (fileName == null || fileName.trim().isEmpty()) {
+            fileName = "document";
+        }
+        
+        // 使用 attachment 强制浏览器下载
+        ContentDisposition contentDisposition = ContentDisposition.attachment()
+                .filename(fileName, StandardCharsets.UTF_8)
+                .build();
+        
+        headers.setContentDisposition(contentDisposition);
+        headers.add(HttpHeaders.CONTENT_TYPE, 
+                document.getMimeType() != null ? document.getMimeType() : MediaType.APPLICATION_OCTET_STREAM_VALUE);
+        
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(resource);
+    }
     
     /**
      * 获取文档导读
