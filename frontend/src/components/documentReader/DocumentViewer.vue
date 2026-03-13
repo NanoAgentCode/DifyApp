@@ -53,9 +53,10 @@
           <el-icon class="loading-icon"><Loading /></el-icon>
           <p>正在加载PDF...</p>
         </div>
-        <div v-else-if="pdfSource" class="pdf-viewer-wrapper">
+        <div v-else-if="pdfSource" class="pdf-viewer-wrapper" ref="pdfViewerWrapperRef">
+          <!-- 已渲染的页面（懒加载：仅渲染 visiblePageCount 个页面） -->
           <div
-            v-for="pageNum in pdfPageNumbers"
+            v-for="pageNum in visiblePdfPageNumbers"
             :key="`pdf-${docId}-page-${pageNum}`"
             :id="`pdf-page-${pageNum}`"
             class="pdf-page-container"
@@ -70,6 +71,18 @@
               @rendered="(info) => handlePdfPageRendered(pageNum, info)"
               @failed="handlePdfFailed"
             />
+          </div>
+          <!-- 占位符：未渲染的页（保持滚动高度连续） -->
+          <div
+            v-if="pdfTotalPages > visiblePageCount"
+            class="pdf-pages-placeholder"
+            :style="{ height: placeholderHeight }"
+            ref="pdfPlaceholderRef"
+          >
+            <div class="placeholder-loading" v-if="loadingMorePages">
+              <el-icon class="loading-icon"><Loading /></el-icon>
+              <span>正在加载更多页面...</span>
+            </div>
           </div>
         </div>
         <div v-else class="loading-container">
@@ -309,9 +322,25 @@ const loading = ref(false)
 // PDF总页数
 const pdfTotalPages = ref(1)
 
-// PDF页码数组（用于v-for循环）
-const pdfPageNumbers = computed(() => {
-  return Array.from({ length: pdfTotalPages.value }, (_, i) => i + 1)
+// 懒加载：当前已渲染的页数（初始只渲染 INITIAL_PDF_PAGES 页）
+const INITIAL_PDF_PAGES = 3
+const PDF_PAGES_PER_BATCH = 5
+const visiblePageCount = ref(INITIAL_PDF_PAGES)
+const loadingMorePages = ref(false)
+const pdfViewerWrapperRef = ref(null)
+const pdfPlaceholderRef = ref(null)
+let pdfLazyObserver = null
+
+// 已渲染的页码数组（懒加载，只包含已渲染的页）
+const visiblePdfPageNumbers = computed(() => {
+  const count = Math.min(visiblePageCount.value, pdfTotalPages.value)
+  return Array.from({ length: count }, (_, i) => i + 1)
+})
+
+// 占位符高度（估算未渲染部分的高度，每页约 1100px）
+const placeholderHeight = computed(() => {
+  const unrenderedPages = pdfTotalPages.value - visiblePageCount.value
+  return unrenderedPages > 0 ? `${unrenderedPages * 1100}px` : '0px'
 })
 
 // 设置PDF embed ref（仅用于第一页）
@@ -333,6 +362,12 @@ const loadDocumentContent = async () => {
   // 重置所有内容
   pdfSource.value = null
   pdfTotalPages.value = 1 // 重置总页数，初始显示第一页
+  visiblePageCount.value = INITIAL_PDF_PAGES // 重置懒加载状态
+  // 清理旧的观察器
+  if (pdfLazyObserver) {
+    pdfLazyObserver.disconnect()
+    pdfLazyObserver = null
+  }
   imageUrl.value = ''
   markdownContent.value = ''
   textContent.value = ''
@@ -381,7 +416,10 @@ const loadDocumentContent = async () => {
           if (pdfDocument && pdfDocument.numPages) {
             pdfTotalPages.value = pdfDocument.numPages
             emit('update:totalPages', pdfDocument.numPages)
-            console.log('PDF总页数（从pdfjs-dist获取）:', pdfDocument.numPages)
+            // 重置懒加载状态
+            visiblePageCount.value = INITIAL_PDF_PAGES
+            // 初始化懒加载观察器
+            nextTick(() => initPdfLazyLoading())
           }
         } catch (pageCountError) {
           console.warn('使用pdfjs-dist获取总页数失败，将等待vue-pdf-embed渲染:', pageCountError)
@@ -399,11 +437,19 @@ const loadDocumentContent = async () => {
       imageUrl.value = URL.createObjectURL(blob)
     } else if (fileType.value === 'md' || fileType.value === 'markdown') {
       // Markdown文件，读取文本内容
-      const text = await response.text()
+      let text = await response.text()
+      // 大文本防护：超过 500k 字符截断
+      if (text.length > 500_000) {
+        text = text.substring(0, 500_000) + '\n\n---\n\n> ……内容过大，仅显示前 500k 字符'
+      }
       markdownContent.value = text
     } else if (fileType.value === 'txt') {
       // 文本文件，读取文本内容
-      const text = await response.text()
+      let text = await response.text()
+      // 大文本防护：超过 500k 字符截断，防止 <pre> 渲染崩溃
+      if (text.length > 500_000) {
+        text = text.substring(0, 500_000) + '\n\n...内容过多，仅显示前 500k 字符'
+      }
       textContent.value = text
     } else if (fileType.value === 'docx') {
       // Word文档 (docx)，使用mammoth转换为HTML
@@ -663,6 +709,65 @@ const handleKeyDown = (event) => {
   }
 }
 
+// 初始化 PDF 懒加载观察器
+const initPdfLazyLoading = () => {
+  // 清理旧的观察器
+  if (pdfLazyObserver) {
+    pdfLazyObserver.disconnect()
+    pdfLazyObserver = null
+  }
+  
+  if (!pdfPlaceholderRef.value || pdfTotalPages.value <= visiblePageCount.value) return
+  
+  pdfLazyObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && !loadingMorePages.value) {
+          loadMorePdfPages()
+        }
+      })
+    },
+    {
+      root: pdfViewerWrapperRef.value,
+      rootMargin: '400px 0px', // 提前 400px 触发加载
+      threshold: 0
+    }
+  )
+  
+  if (pdfPlaceholderRef.value) {
+    pdfLazyObserver.observe(pdfPlaceholderRef.value)
+  }
+}
+
+// 加载更多 PDF 页面
+const loadMorePdfPages = () => {
+  if (loadingMorePages.value) return
+  if (visiblePageCount.value >= pdfTotalPages.value) {
+    // 所有页面已渲染，断开观察器
+    if (pdfLazyObserver) {
+      pdfLazyObserver.disconnect()
+      pdfLazyObserver = null
+    }
+    return
+  }
+  
+  loadingMorePages.value = true
+  const newCount = Math.min(visiblePageCount.value + PDF_PAGES_PER_BATCH, pdfTotalPages.value)
+  visiblePageCount.value = newCount
+  
+  // 等待 DOM 更新后重新观察占位符
+  nextTick(() => {
+    loadingMorePages.value = false
+    // 如果还有未渲染的页，重新观察新的占位符
+    if (visiblePageCount.value < pdfTotalPages.value && pdfPlaceholderRef.value && pdfLazyObserver) {
+      pdfLazyObserver.observe(pdfPlaceholderRef.value)
+    } else if (pdfLazyObserver) {
+      pdfLazyObserver.disconnect()
+      pdfLazyObserver = null
+    }
+  })
+}
+
 // PDF页面渲染完成回调
 const handlePdfPageRendered = async (pageNum, info) => {
   // 只在第一页渲染时获取总页数并更新状态
@@ -676,30 +781,30 @@ const handlePdfPageRendered = async (pageNum, info) => {
         if (pdf && pdf.numPages) {
           pdfTotalPages.value = pdf.numPages
           emit('update:totalPages', pdf.numPages)
-          console.log('PDF渲染完成，总页数:', pdf.numPages)
+          // 初始化懒加载（如果 pdfjs 未能提前获取总页数）
+          if (visiblePageCount.value >= pdf.numPages) {
+            visiblePageCount.value = INITIAL_PDF_PAGES
+          }
+          nextTick(() => initPdfLazyLoading())
           return
         }
       }
       
       // 如果从 ref 获取失败，尝试从 info 参数获取
-      if (info && typeof info === 'object') {
-        if (info.numPages) {
-          pdfTotalPages.value = info.numPages
-          emit('update:totalPages', info.numPages)
-          console.log('PDF渲染完成，总页数:', info.numPages)
-          return
-        }
-      } else {
+      if (info && typeof info === 'object' && info.numPages) {
+        pdfTotalPages.value = info.numPages
+        emit('update:totalPages', info.numPages)
+        nextTick(() => initPdfLazyLoading())
+        return
+      } else if (pdfEmbedRef.value) {
         // info 为 undefined 或无效值，尝试延迟获取
-        if (pdfEmbedRef.value) {
-          setTimeout(() => {
-            if (pdfEmbedRef.value && pdfEmbedRef.value.pdf && pdfEmbedRef.value.pdf.numPages) {
-              pdfTotalPages.value = pdfEmbedRef.value.pdf.numPages
-              emit('update:totalPages', pdfEmbedRef.value.pdf.numPages)
-              console.log('PDF总页数（延迟获取）:', pdfEmbedRef.value.pdf.numPages)
-            }
-          }, 100)
-        }
+        setTimeout(() => {
+          if (pdfEmbedRef.value?.pdf?.numPages) {
+            pdfTotalPages.value = pdfEmbedRef.value.pdf.numPages
+            emit('update:totalPages', pdfEmbedRef.value.pdf.numPages)
+            nextTick(() => initPdfLazyLoading())
+          }
+        }, 100)
       }
     } catch (error) {
       console.warn('获取PDF总页数失败:', error)
@@ -1047,6 +1152,12 @@ onBeforeUnmount(() => {
     viewerContent.removeEventListener('dblclick', handleDoubleClick)
   }
   
+  // 清理 PDF 懒加载观察器
+  if (pdfLazyObserver) {
+    pdfLazyObserver.disconnect()
+    pdfLazyObserver = null
+  }
+  
   // 清理PDF源（如果是Blob URL）
   if (pdfSource.value && typeof pdfSource.value === 'string' && pdfSource.value.startsWith('blob:')) {
     URL.revokeObjectURL(pdfSource.value)
@@ -1281,6 +1392,33 @@ onBeforeUnmount(() => {
   border-radius: var(--el-border-radius-base, 4px);
   object-fit: contain;
   box-sizing: border-box;
+}
+
+.pdf-pages-placeholder {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 40px;
+  box-sizing: border-box;
+}
+
+.placeholder-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--el-text-color-secondary, #909399);
+  font-size: 14px;
+  padding: 16px 24px;
+  background: var(--el-bg-color, #ffffff);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.placeholder-loading .loading-icon {
+  font-size: 20px;
+  animation: rotate 1s linear infinite;
+  margin-bottom: 0;
 }
 
 .pdf-page-error {

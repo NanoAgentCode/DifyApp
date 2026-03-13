@@ -431,13 +431,10 @@ const handleStreamResponse = async (userQuestion, userId, history, aiMessageInde
     let buffer = ''
     let lastReceivedContent = '' // 记录最后收到的内容，用于流结束时检查
     
-    console.log('开始读取SSE流，消息索引:', aiMessageIndex)
-    
     while (true) {
       const { done, value } = await reader.read()
       
       if (done) {
-        console.log('SSE流结束，剩余buffer长度:', buffer.length, 'buffer内容:', buffer.substring(0, 200))
         // 流结束时，处理剩余的buffer
         if (buffer.trim()) {
           const lines = buffer.split('\n')
@@ -451,19 +448,12 @@ const handleStreamResponse = async (userQuestion, userId, history, aiMessageInde
               if (data && data !== '[DONE]') {
                 try {
                   const parsed = JSON.parse(data)
-                  console.log('流结束时解析到数据:', {
-                    hasContent: !!parsed.content,
-                    contentLength: parsed.content ? parsed.content.length : 0,
-                    finished: parsed.finished,
-                    rawData: data.substring(0, 100)
-                  })
                   const hasContent = parsed.content !== undefined || parsed.answer !== undefined
                   const content = parsed.content !== undefined ? parsed.content : (parsed.answer !== undefined ? parsed.answer : null)
                   if (hasContent && messages.value[aiMessageIndex]) {
                     messages.value[aiMessageIndex].content = content !== null ? content : ''
                     lastReceivedContent = content !== null ? content : '' // 更新最后收到的内容
                     messages.value[aiMessageIndex].isLoading = false
-                    console.log('流结束时更新内容，长度:', content ? content.length : 0, '内容预览:', content ? content.substring(0, 50) : '空')
                     if (parsed.sources) {
                       messages.value[aiMessageIndex].sources = parsed.sources
                     }
@@ -490,17 +480,14 @@ const handleStreamResponse = async (userQuestion, userId, history, aiMessageInde
           const hasReceivedContent = (currentContent && currentContent.trim() !== '') || (lastReceivedContent && lastReceivedContent.trim() !== '')
           
           if (!hasReceivedContent) {
-            console.warn('流结束但未收到任何内容，消息索引:', aiMessageIndex, '当前内容:', currentContent, '最后收到:', lastReceivedContent)
             messages.value[aiMessageIndex].content = '响应已完成，但未收到内容。'
           } else {
             // 如果流结束时buffer中没有内容，但之前收到过内容，使用最后收到的内容
             if (!currentContent || currentContent.trim() === '') {
               if (lastReceivedContent && lastReceivedContent.trim() !== '') {
-                console.log('流结束，使用最后收到的内容，长度:', lastReceivedContent.length)
                 messages.value[aiMessageIndex].content = lastReceivedContent
               }
             }
-            console.log('流结束，最终内容已存在，长度:', messages.value[aiMessageIndex].content ? messages.value[aiMessageIndex].content.length : 0)
           }
         }
         break
@@ -534,12 +521,7 @@ const handleStreamResponse = async (userQuestion, userId, history, aiMessageInde
           
           try {
             const parsed = JSON.parse(data)
-            console.log('解析SSE数据成功:', {
-              hasContent: !!(parsed.content || parsed.answer),
-              contentLength: parsed.content ? parsed.content.length : (parsed.answer ? parsed.answer.length : 0),
-              finished: parsed.finished,
-              conversationId: parsed.conversationId
-            })
+            console.log('解析SSE数据成功 (finished=' + (parsed.finished || false) + ', hasContent=' + !!(parsed.content || parsed.answer) + ')')
             
             if (parsed.error) {
               // 处理错误信息
@@ -571,7 +553,6 @@ const handleStreamResponse = async (userQuestion, userId, history, aiMessageInde
               // 更新内容（即使是空字符串也要更新，因为可能是累积内容的一部分）
               messages.value[aiMessageIndex].content = content
               lastReceivedContent = content // 记录最后收到的内容
-              console.log('更新消息内容，索引:', aiMessageIndex, '内容长度:', content.length, '预览:', content.substring(0, 50))
               await nextTick()
               scrollToBottom()
             }
@@ -582,10 +563,8 @@ const handleStreamResponse = async (userQuestion, userId, history, aiMessageInde
             
             // 如果finished为true，明确标记流结束
             if (parsed.finished === true) {
-              console.log('收到finished=true，结束流')
               // 流结束，确保最终内容已更新
               if (messages.value[aiMessageIndex]) {
-                // 使用最后收到的content或answer，或者使用当前消息的内容
                 const finalContent = parsed.content !== undefined ? parsed.content : 
                                    (parsed.answer !== undefined ? parsed.answer : 
                                    (messages.value[aiMessageIndex].content || ''))
@@ -596,7 +575,6 @@ const handleStreamResponse = async (userQuestion, userId, history, aiMessageInde
                 if (parsed.sources) {
                   messages.value[aiMessageIndex].sources = parsed.sources
                 }
-                console.log('流结束，最终内容长度:', finalContent.length)
               }
               return
             }

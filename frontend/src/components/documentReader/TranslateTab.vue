@@ -147,7 +147,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Switch, Refresh, Loading, Document, Edit, FullScreen, Close, Check } from '@element-plus/icons-vue'
 import { translateDocument, getDocumentTranslation, saveDocumentTranslation, getDocumentText, getDocumentSegments, translateDocumentSegment } from '@/api/documentReader'
@@ -231,18 +231,16 @@ function analyzeTextStructure(text) {
 }
 
 // 处理文本，识别并标记标题，保持原始段落结构
-function processTextForDisplay(text, preserveStructure = true) {
+function processTextForDisplay(text) {
   if (!text) return ''
   
-  // 转义HTML
-  const escapeHtml = (str) => {
-    const div = document.createElement('div')
-    div.textContent = str
-    return div.innerHTML
-  }
+  // 大文本防射：超过限制则截断，避免一次性渲染过多文字崩溃浏览器
+  const safeText = text.length > MAX_RENDER_CHARS 
+    ? text.substring(0, MAX_RENDER_CHARS) + '\n\n... (内容过多，仅显示前 ' + (MAX_RENDER_CHARS / 1000).toFixed(0) + 'k 字符)'
+    : text
   
   // 分析文本结构
-  const { lines, structure } = analyzeTextStructure(text)
+  const { structure } = analyzeTextStructure(safeText)
   
   if (structure.length === 0) return ''
   
@@ -330,15 +328,41 @@ function processTextForDisplay(text, preserveStructure = true) {
   return finalLines.join('')
 }
 
-const renderedTranslation = computed(() => {
-  if (!translationContent.value) return ''
-  return processTextForDisplay(translationContent.value)
-})
+// 最大渲染字符数限制（超过此限制被截断，防止源天大文本崩溃浏览器）
+const MAX_RENDER_CHARS = 500_000
 
-const renderedOriginal = computed(() => {
-  if (!originalText.value) return ''
-  return processTextForDisplay(originalText.value)
-})
+// 快速转义 HTML（避免频繁创建 DOM元素）
+const escapeHtml = (str) => {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+// 将 renderedTranslation/renderedOriginal 改为普通 ref，由防抑 watch 驱动更新，
+// 避免 computed 在流式更新时频繁重算大文本
+const renderedTranslation = ref('')
+const renderedOriginal = ref('')
+
+// 防抑更新：等待 200ms 无更新后再执行渲染
+let renderTranslationTimer = null
+let renderOriginalTimer = null
+
+watch(translationContent, (newVal) => {
+  if (renderTranslationTimer) clearTimeout(renderTranslationTimer)
+  renderTranslationTimer = setTimeout(() => {
+    renderedTranslation.value = newVal ? processTextForDisplay(newVal) : ''
+  }, 150)
+}, { immediate: true })
+
+watch(originalText, (newVal) => {
+  if (renderOriginalTimer) clearTimeout(renderOriginalTimer)
+  renderOriginalTimer = setTimeout(() => {
+    renderedOriginal.value = newVal ? processTextForDisplay(newVal) : ''
+  }, 150)
+}, { immediate: true })
 
 // 检测翻译是否完成
 const isTranslationComplete = computed(() => {
@@ -1552,6 +1576,10 @@ onUnmounted(() => {
   document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
   document.removeEventListener('mozfullscreenchange', handleFullscreenChange)
   document.removeEventListener('msfullscreenchange', handleFullscreenChange)
+  
+  // 清理渲染防抖定时器
+  if (renderTranslationTimer) clearTimeout(renderTranslationTimer)
+  if (renderOriginalTimer) clearTimeout(renderOriginalTimer)
   
   // 清除高亮和定时器
   if (highlightTimeout.value) {

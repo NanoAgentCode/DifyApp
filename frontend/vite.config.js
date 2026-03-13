@@ -50,7 +50,7 @@ export default defineConfig({
       },
       // 脑图服务代理：将前端的 /proxy/html/* 代理到脑图服务的 /html/*
       '/proxy/html': {
-        target: 'http://106.54.124.170:6066',
+        target: 'http://localhost:16066',
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/proxy/, ''),
         configure: (proxy, _options) => {
