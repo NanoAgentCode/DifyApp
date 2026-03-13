@@ -63,3 +63,5 @@ rustfs/data/
 .env
 /skills_service/__pycache__/
 /skills_service/data/
+mindmap/src/mindmap/__pycache__/
+mindmap/src/mindmap/modules/__pycache__/
