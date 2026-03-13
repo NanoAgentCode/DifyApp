@@ -171,7 +171,7 @@
   }
   const _Toolbar = class _Toolbar {
     constructor() {
-      this.showBrand = true;
+      this.showBrand = false;
       this.registry = {};
       this.el = mountDom(/* @__PURE__ */ jsx("div", { className: "mm-toolbar" }));
       this.items = [..._Toolbar.defaultItems];
