@@ -11,6 +11,7 @@ import com.github.app.dify.documentreader.service.DocumentReaderService;
 import com.github.app.dify.documentreader.service.DocumentReaderVectorizationService;
 import com.github.app.dify.knowledgebase.service.FileStorageService;
 import com.github.app.dify.system.config.DocumentReaderConfig;
+import com.github.app.dify.system.service.SystemConfigService;
 import com.github.app.dify.model.service.ModelConfigService;
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
@@ -112,6 +113,9 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
 
     @Autowired
     private DocumentReaderConfig documentReaderConfig;
+
+    @Autowired
+    private SystemConfigService systemConfigService;
 
     /**
      * 上传文档
@@ -1766,11 +1770,18 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, WEB_CLIENT_CONNECT_TIMEOUT_MS);
     }
 
+    /** 系统配置中思维导图服务 URL 的 key（与前端/管理端一致） */
+    private static final String CONFIG_KEY_MIND_MAP_SERVICE_URL = "documentReader.mindMapServiceUrl";
+
     /**
-     * 获取思维导图服务URL（从配置读取，如果未配置则使用默认值）
+     * 获取思维导图服务URL：优先从系统配置表（管理端设置的 documentReader.mindMapServiceUrl）读取，
+     * 其次从 application 配置 document-reader.mind-map-service-url 读取，未配置则使用默认值。
      */
     private String getMindMapServiceUrl() {
-        String mindMapServiceUrl = documentReaderConfig.getMindMapServiceUrl();
+        String mindMapServiceUrl = systemConfigService.getConfigValue(CONFIG_KEY_MIND_MAP_SERVICE_URL);
+        if (mindMapServiceUrl == null || mindMapServiceUrl.trim().isEmpty()) {
+            mindMapServiceUrl = documentReaderConfig.getMindMapServiceUrl();
+        }
         if (mindMapServiceUrl == null || mindMapServiceUrl.trim().isEmpty()) {
             String defaultUrl = "http://localhost:6066";
             logger.warn("未配置思维导图服务URL，使用默认值: {}。可在系统配置页面设置 documentReader.mindMapServiceUrl 来修改", defaultUrl);
