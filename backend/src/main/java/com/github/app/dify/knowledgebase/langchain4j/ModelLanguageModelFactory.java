@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import com.github.app.dify.ops.trace.api.TraceFacade;
 import com.github.app.dify.ops.trace.model.TraceHandle;
@@ -47,6 +48,10 @@ public class ModelLanguageModelFactory {
 
     private static final Logger logger = LoggerFactory.getLogger(ModelLanguageModelFactory.class);
     private static final String TRACE_SOURCE_USER_MEMORY_EXTRACTION = "User Memory Extraction";
+    private static final Set<String> BUSINESS_MAIN_SOURCES = Set.of(
+            "Chat",
+            "Knowledge Base QA",
+            "Document Reader QA");
 
     // 使用ThreadLocal存储当前请求的图片数据（用于多模态支持）
     private static final ThreadLocal<List<ChatRequest.ImageData>> imageDataContext = new ThreadLocal<>();
@@ -58,6 +63,8 @@ public class ModelLanguageModelFactory {
     private static final ThreadLocal<String> conversationIdContext = new ThreadLocal<>();
     // 使用ThreadLocal存储当前请求的traceId（用于跨多条记录串联同一请求）
     private static final ThreadLocal<String> traceIdContext = new ThreadLocal<>();
+    // 使用ThreadLocal标记当前请求是否已成功创建业务主trace
+    private static final ThreadLocal<Boolean> businessTraceStartedContext = new ThreadLocal<>();
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -139,6 +146,20 @@ public class ModelLanguageModelFactory {
      */
     public void clearTraceId() {
         traceIdContext.remove();
+    }
+
+    /**
+     * 标记当前请求已成功创建业务主trace。
+     */
+    public void markBusinessTraceStarted() {
+        businessTraceStartedContext.set(Boolean.TRUE);
+    }
+
+    /**
+     * 清除业务主trace标记。
+     */
+    public void clearBusinessTraceStarted() {
+        businessTraceStartedContext.remove();
     }
 
     /**
@@ -525,7 +546,11 @@ public class ModelLanguageModelFactory {
     }
 
     private boolean shouldSkipTrace(String traceSource) {
-        return TRACE_SOURCE_USER_MEMORY_EXTRACTION.equalsIgnoreCase(traceSource);
+        if (TRACE_SOURCE_USER_MEMORY_EXTRACTION.equalsIgnoreCase(traceSource)) {
+            return true;
+        }
+        // 业务主trace已存在时，主问答源由业务trace承载，避免重复记录
+        return Boolean.TRUE.equals(businessTraceStartedContext.get()) && BUSINESS_MAIN_SOURCES.contains(traceSource);
     }
 
     /**

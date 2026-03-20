@@ -824,6 +824,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             TraceHandle handle = traceFacade.start(startRequest);
             if (handle != null && handle.getTraceId() != null && !handle.getTraceId().isBlank()) {
                 modelLanguageModelFactory.setTraceId(handle.getTraceId());
+                modelLanguageModelFactory.markBusinessTraceStarted();
             }
             return handle;
         } catch (Exception e) {

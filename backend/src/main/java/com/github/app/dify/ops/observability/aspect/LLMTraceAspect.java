@@ -126,6 +126,7 @@ public class LLMTraceAspect {
                 modelLanguageModelFactory.clearTraceSource();
                 modelLanguageModelFactory.clearConversationId();
                 modelLanguageModelFactory.clearTraceId();
+                modelLanguageModelFactory.clearBusinessTraceStarted();
             } catch (Exception e) {
                 logger.warn("清理ThreadLocal失败", e);
             }
