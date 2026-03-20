@@ -23,8 +23,8 @@
         </el-descriptions-item>
         <el-descriptions-item label="来源">{{ trace.traceSource || '-' }}</el-descriptions-item>
         <el-descriptions-item label="状态">
-          <el-tag :type="trace.status === 1 ? 'success' : 'danger'">
-            {{ trace.status === 1 ? '成功' : '失败' }}
+          <el-tag :type="statusTagType">
+            {{ statusLabel }}
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="模型">{{ trace.model || '-' }}</el-descriptions-item>
@@ -34,6 +34,51 @@
         <el-descriptions-item label="创建时间">{{ formatTime(trace.createdAt) }}</el-descriptions-item>
         <el-descriptions-item label="会话 ID">{{ trace.conversationId || '-' }}</el-descriptions-item>
       </el-descriptions>
+
+      <div class="content-section">
+        <h3>步骤追踪</h3>
+        <div class="steps-header">
+          <el-tag type="info">步骤数：{{ steps.length }}</el-tag>
+          <el-tag :type="failedStepCount > 0 ? 'danger' : 'success'">
+            失败步骤：{{ failedStepCount }}
+          </el-tag>
+          <el-tag v-if="asyncStateStatus" :type="asyncStateStatus === 'PARTIAL' ? 'warning' : 'success'">
+            异步一致性：{{ asyncStateStatus }}
+          </el-tag>
+        </div>
+        <el-alert
+          v-if="asyncStateStatus === 'PARTIAL'"
+          title="检测到异步写入部分失败，步骤信息可能不完整。"
+          type="warning"
+          show-icon
+          :closable="false"
+          class="partial-alert"
+        />
+        <el-empty v-if="!steps.length" description="暂无步骤数据" />
+        <el-timeline v-else>
+          <el-timeline-item
+            v-for="(step, idx) in steps"
+            :key="`${step.stepCode || 'step'}-${idx}`"
+            :type="getStepType(step)"
+            :timestamp="formatStepTimestamp(step)"
+            placement="top"
+          >
+            <div class="step-card">
+              <div class="step-title">
+                <strong>{{ step.stepName || step.stepCode || `步骤${idx + 1}` }}</strong>
+                <el-tag size="small" :type="getStepType(step)">{{ step.status || 'UNKNOWN' }}</el-tag>
+              </div>
+              <div class="step-meta">
+                <span>Code: {{ step.stepCode || '-' }}</span>
+                <span>耗时: {{ step.durationMs ?? 0 }} ms</span>
+              </div>
+              <pre v-if="step.inputSummary" class="code-box small">输入: {{ step.inputSummary }}</pre>
+              <pre v-if="step.outputSummary" class="code-box small">输出: {{ step.outputSummary }}</pre>
+              <pre v-if="step.errorSummary" class="code-box small error">错误: {{ step.errorSummary }}</pre>
+            </div>
+          </el-timeline-item>
+        </el-timeline>
+      </div>
 
       <div class="content-section">
         <h3>请求内容</h3>
@@ -56,23 +101,61 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { getTrace } from '@/api/observability'
+import { computed, ref } from 'vue'
+import { getTrace, getTraceSteps } from '@/api/observability'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 
 const visible = ref(false)
 const trace = ref({})
+const steps = ref([])
+const asyncState = ref({})
+
+const statusLabel = computed(() => {
+  if (trace.value?.status !== 1) return '失败'
+  if (asyncState.value?.status === 'PARTIAL') return '部分成功'
+  return '成功'
+})
+
+const statusTagType = computed(() => {
+  if (trace.value?.status !== 1) return 'danger'
+  if (asyncState.value?.status === 'PARTIAL') return 'warning'
+  return 'success'
+})
+
+const asyncStateStatus = computed(() => asyncState.value?.status || '')
+
+const failedStepCount = computed(() => steps.value.filter((item) => item?.status === 'FAILED').length)
+
+const parseMetaData = (metaData) => {
+  if (!metaData) return {}
+  try {
+    return typeof metaData === 'string' ? JSON.parse(metaData) : metaData
+  } catch (e) {
+    return {}
+  }
+}
 
 const open = async (id) => {
   visible.value = true
   trace.value = {}
+  steps.value = []
+  asyncState.value = {}
   try {
-    const res = await getTrace(id)
-    if (res.success && res.data) {
-      trace.value = res.data
+    const [traceRes, stepRes] = await Promise.all([getTrace(id), getTraceSteps(id)])
+    if (traceRes.success && traceRes.data) {
+      trace.value = traceRes.data
+      const meta = parseMetaData(traceRes.data.metaData)
+      asyncState.value = meta?.asyncState || {}
     } else {
-      ElMessage.warning('获取追踪详情失败: ' + (res.message || '未知错误'))
+      ElMessage.warning('获取追踪详情失败: ' + (traceRes.message || '未知错误'))
+      return
+    }
+
+    if (stepRes.success && Array.isArray(stepRes.data)) {
+      steps.value = stepRes.data
+    } else {
+      ElMessage.warning('获取步骤失败: ' + (stepRes.message || '未知错误'))
     }
   } catch (e) {
     ElMessage.error('获取追踪详情失败: ' + (e.message || '未知错误'))
@@ -92,6 +175,19 @@ const formatJson = (jsonStr) => {
   }
 }
 
+const getStepType = (step) => {
+  const status = step?.status
+  if (status === 'FAILED') return 'danger'
+  if (status === 'SUCCESS') return 'success'
+  return 'info'
+}
+
+const formatStepTimestamp = (step) => {
+  if (step?.startAt) return formatTime(step.startAt)
+  if (step?.endAt) return formatTime(step.endAt)
+  return ''
+}
+
 defineExpose({
   open
 })
@@ -101,6 +197,40 @@ defineExpose({
 .content-section {
   margin-top: 20px;
 }
+
+.steps-header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.partial-alert {
+  margin-bottom: 12px;
+}
+
+.step-card {
+  border: 1px solid var(--color-border-lighter);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--color-bg-primary);
+}
+
+.step-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-meta {
+  margin-top: 6px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  display: flex;
+  gap: 12px;
+}
+
 .empty-state {
   padding: 40px;
   text-align: center;
@@ -115,6 +245,16 @@ defineExpose({
   white-space: pre-wrap;
   word-wrap: break-word;
   min-height: 100px;
+}
+
+.code-box.small {
+  min-height: auto;
+  max-height: 180px;
+  margin-top: 8px;
+}
+
+.code-box.error {
+  color: var(--color-danger);
 }
 
 .id-code {

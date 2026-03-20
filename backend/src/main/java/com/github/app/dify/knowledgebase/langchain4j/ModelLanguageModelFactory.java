@@ -34,8 +34,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import com.github.app.dify.ops.observability.service.LLMTraceService;
-import java.util.UUID;
+import com.github.app.dify.ops.trace.api.TraceFacade;
+import com.github.app.dify.ops.trace.model.TraceHandle;
+import com.github.app.dify.ops.trace.model.TraceStartRequest;
 
 /**
  * 模型语言模型工厂，根据模型配置动态创建模型实例
@@ -44,6 +45,7 @@ import java.util.UUID;
 public class ModelLanguageModelFactory {
 
     private static final Logger logger = LoggerFactory.getLogger(ModelLanguageModelFactory.class);
+    private static final String TRACE_SOURCE_USER_MEMORY_EXTRACTION = "User Memory Extraction";
 
     // 使用ThreadLocal存储当前请求的图片数据（用于多模态支持）
     private static final ThreadLocal<List<ChatRequest.ImageData>> imageDataContext = new ThreadLocal<>();
@@ -58,7 +60,7 @@ public class ModelLanguageModelFactory {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private LLMTraceService llmTraceService;
+    private TraceFacade traceFacade;
 
     /**
      * 设置当前请求的图片数据
@@ -128,12 +130,13 @@ public class ModelLanguageModelFactory {
      */
     public ChatLanguageModel createChatLanguageModel(QAModel qaModel) {
         String traceSource = getTraceSource();
+        boolean skipTrace = shouldSkipTrace(traceSource);
         return new ChatLanguageModel() {
             private WebClient webClient;
 
             @Override
             public Response<AiMessage> generate(List<ChatMessage> messages) {
-                String traceId = UUID.randomUUID().toString().replace("-", "");
+                TraceHandle traceHandle = null;
                 try {
                     WebClient client = getWebClient(qaModel);
 
@@ -142,12 +145,20 @@ public class ModelLanguageModelFactory {
 
                     // 记录开始
                     String conversationId = getConversationId(); // 从 ThreadLocal 获取
-                    try {
-                        String requestJson = objectMapper.writeValueAsString(requestBody);
-                        llmTraceService.recordStart(traceId, qaModel.getModel(), qaModel.getProvider(), conversationId,
-                                requestJson, traceSource);
-                    } catch (Exception e) {
-                        logger.warn("记录LLM Trace Start失败", e);
+                    if (!skipTrace) {
+                        try {
+                            String requestJson = objectMapper.writeValueAsString(requestBody);
+                            TraceStartRequest startRequest = new TraceStartRequest();
+                            startRequest.setTraceSource(traceSource != null ? traceSource : "LLM");
+                            startRequest.setConversationId(conversationId);
+                            startRequest.setRequestType("llm_call");
+                            startRequest.setRequestSummary(requestJson);
+                            startRequest.setModel(qaModel.getModel());
+                            startRequest.setProvider(qaModel.getProvider());
+                            traceHandle = traceFacade.start(startRequest);
+                        } catch (Exception e) {
+                            logger.warn("记录LLM Trace Start失败", e);
+                        }
                     }
 
                     // 调用LLM API，添加重试机制（增加重试次数和间隔）
@@ -210,22 +221,26 @@ public class ModelLanguageModelFactory {
                     String answer = parseResponse(responseJson);
 
                     // 记录结束
-                    try {
-                        // 解析 token 使用信息
-                        int[] usage = parseUsage(responseJson);
-                        llmTraceService.recordEnd(traceId, responseJson, usage[0], usage[1], usage[2]);
-                    } catch (Exception e) {
-                        logger.warn("记录LLM Trace End失败", e);
+                    if (!skipTrace) {
+                        try {
+                            // 解析 token 使用信息
+                            int[] usage = parseUsage(responseJson);
+                            traceFacade.success(traceHandle, responseJson, usage[0], usage[1], usage[2]);
+                        } catch (Exception e) {
+                            logger.warn("记录LLM Trace End失败", e);
+                        }
                     }
 
                     return Response.from(AiMessage.from(answer));
 
                 } catch (Exception e) {
                     logger.error("调用LLM API失败", e);
-                    try {
-                        llmTraceService.recordError(traceId, e.getMessage(), 0);
-                    } catch (Exception ex) {
-                        logger.warn("记录LLM Trace Error失败", ex);
+                    if (!skipTrace) {
+                        try {
+                            traceFacade.error(traceHandle, e);
+                        } catch (Exception ex) {
+                            logger.warn("记录LLM Trace Error失败", ex);
+                        }
                     }
                     throw new BusinessException("调用LLM API失败", ErrorCode.API_CALL_FAILED, e);
                 }
@@ -267,12 +282,13 @@ public class ModelLanguageModelFactory {
      */
     public StreamingChatLanguageModel createStreamingChatLanguageModel(QAModel qaModel) {
         String traceSource = getTraceSource();
+        boolean skipTrace = shouldSkipTrace(traceSource);
         return new StreamingChatLanguageModel() {
             private WebClient webClient;
 
             @Override
             public Flux<String> generateStream(List<ChatMessage> messages) {
-                String traceId = UUID.randomUUID().toString().replace("-", "");
+                TraceHandle traceHandle = null;
                 try {
                     WebClient client = getWebClient(qaModel);
 
@@ -286,15 +302,24 @@ public class ModelLanguageModelFactory {
 
                     // 记录开始
                     String conversationId = getConversationId(); // 从 ThreadLocal 获取
-                    try {
-                        String requestJson = objectMapper.writeValueAsString(requestBody);
-                        llmTraceService.recordStart(traceId, qaModel.getModel(), qaModel.getProvider(), conversationId,
-                                requestJson, traceSource);
-                    } catch (Exception e) {
-                        logger.warn("记录Stream LLM Trace Start失败", e);
+                    if (!skipTrace) {
+                        try {
+                            String requestJson = objectMapper.writeValueAsString(requestBody);
+                            TraceStartRequest startRequest = new TraceStartRequest();
+                            startRequest.setTraceSource(traceSource != null ? traceSource : "LLM");
+                            startRequest.setConversationId(conversationId);
+                            startRequest.setRequestType("llm_stream_call");
+                            startRequest.setRequestSummary(requestJson);
+                            startRequest.setModel(qaModel.getModel());
+                            startRequest.setProvider(qaModel.getProvider());
+                            traceHandle = traceFacade.start(startRequest);
+                        } catch (Exception e) {
+                            logger.warn("记录Stream LLM Trace Start失败", e);
+                        }
                     }
 
                     StringBuffer fullResponse = new StringBuffer();
+                    final TraceHandle finalTraceHandle = traceHandle;
 
                     return client.post()
                             .uri("")
@@ -400,21 +425,23 @@ public class ModelLanguageModelFactory {
                                 try {
                                     // 流式响应估算 token（约 4 字符 = 1 token）
                                     int outputTokens = Math.max(1, fullResponse.length() / 4);
-                                    llmTraceService.recordEnd(traceId, fullResponse.toString(), 0, outputTokens, outputTokens);
+                                    traceFacade.success(finalTraceHandle, fullResponse.toString(), 0, outputTokens,
+                                            outputTokens);
                                 } catch (Exception e) {
                                     logger.warn("记录Stream LLM Trace End失败", e);
                                 }
                             })
                             .doOnError(e -> {
                                 try {
-                                    llmTraceService.recordError(traceId, e.getMessage(), 0);
+                                    traceFacade.error(finalTraceHandle, e);
                                 } catch (Exception ex) {
                                     logger.warn("记录Stream LLM Trace Error失败", ex);
                                 }
                             })
                             .doFinally(signalType -> {
                                 if (signalType == SignalType.CANCEL) {
-                                    logger.info("Stream cancelled by client, traceId: {}", traceId);
+                                    logger.info("Stream cancelled by client, spanId: {}",
+                                            finalTraceHandle != null ? finalTraceHandle.getSpanId() : "null");
                                     // Optionally record as error or just specialized log
                                 }
                             });
@@ -454,6 +481,10 @@ public class ModelLanguageModelFactory {
                 return webClient;
             }
         };
+    }
+
+    private boolean shouldSkipTrace(String traceSource) {
+        return TRACE_SOURCE_USER_MEMORY_EXTRACTION.equalsIgnoreCase(traceSource);
     }
 
     /**

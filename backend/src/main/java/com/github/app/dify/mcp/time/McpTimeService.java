@@ -1,8 +1,12 @@
 package com.github.app.dify.mcp.time;
 
+import com.github.app.dify.ops.trace.api.TraceFacade;
+import com.github.app.dify.ops.trace.model.TraceHandle;
+import com.github.app.dify.ops.trace.model.TraceStartRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -18,8 +22,14 @@ public class McpTimeService {
 
     private static final Logger logger = LoggerFactory.getLogger(McpTimeService.class);
 
+    @Value("${mcp.time.default-time-zone:Asia/Shanghai}")
+    private String defaultTimeZone;
+
+    @Value("${mcp.time.cache-seconds:1}")
+    private int cacheSeconds;
+
     @Autowired
-    private TimeConfig timeConfig;
+    private TraceFacade traceFacade;
 
     // 缓存时间信息（key: 时区ID, value: 缓存的时间信息和过期时间）
     private final Map<String, CachedTimeInfo> timeInfoCache = new ConcurrentHashMap<>();
@@ -28,7 +38,7 @@ public class McpTimeService {
      * 获取当前时间信息（使用配置的默认时区）
      */
     public TimeInfo getCurrentTime() {
-        return getCurrentTime(timeConfig.getDefaultTimeZone());
+        return getCurrentTime(defaultTimeZone);
     }
 
     /**
@@ -36,9 +46,9 @@ public class McpTimeService {
      * @param timeZoneId 时区ID，如 "Asia/Shanghai", "America/New_York", "UTC" 等
      */
     public TimeInfo getCurrentTime(String timeZoneId) {
+        TraceHandle traceHandle = startBusinessTrace("mcp_time", timeZoneId);
         try {
             // 检查缓存
-            int cacheSeconds = timeConfig.getCacheSeconds();
             CachedTimeInfo cached = timeInfoCache.get(timeZoneId);
             if (cached != null && cached.isValid(cacheSeconds)) {
                 logger.debug("使用缓存的时间信息 - 时区: {}", timeZoneId);
@@ -68,10 +78,11 @@ public class McpTimeService {
             timeInfoCache.put(timeZoneId, new CachedTimeInfo(timeInfo));
 
             logger.debug("获取当前时间信息 - 时区: {}, 时间: {}", timeZoneId, timeInfo.getFormattedDateTime());
-
+            traceFacade.success(traceHandle, "time=" + timeInfo.getFormattedDateTime());
             return timeInfo;
 
         } catch (Exception e) {
+            traceFacade.error(traceHandle, e);
             logger.error("获取时间信息失败 - 时区: {}", timeZoneId, e);
             // 返回UTC时间作为备用
             if (!"UTC".equals(timeZoneId)) {
@@ -149,7 +160,7 @@ public class McpTimeService {
      * 获取格式化的时间信息字符串（用于LLM上下文，使用配置的默认时区）
      */
     public String getFormattedTimeInfo() {
-        return getFormattedTimeInfo(timeConfig.getDefaultTimeZone());
+        return getFormattedTimeInfo(defaultTimeZone);
     }
 
     /**
@@ -176,6 +187,19 @@ public class McpTimeService {
         sb.append("4. 如果信息中的日期是2023年或更早，且当前年份是").append(timeInfo.getYear()).append("年，则该信息可能已过期\n");
 
         return sb.toString();
+    }
+
+    private TraceHandle startBusinessTrace(String traceSource, String timeZoneId) {
+        try {
+            TraceStartRequest request = new TraceStartRequest();
+            request.setTraceSource(traceSource);
+            request.setRequestType("mcp_time");
+            request.setRequestSummary("timeZone=" + timeZoneId);
+            return traceFacade.start(request);
+        } catch (Exception e) {
+            logger.debug("启动mcp time追踪失败，降级继续", e);
+            return null;
+        }
     }
 
     /**

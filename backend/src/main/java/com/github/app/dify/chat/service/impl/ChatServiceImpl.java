@@ -18,6 +18,11 @@ import com.github.app.dify.common.util.TokenEstimator;
 import com.github.app.dify.knowledgebase.service.ContextCompressionService;
 import com.github.app.dify.memory.service.UserMemoryService;
 import com.github.app.dify.ops.observability.annotation.LLMTrace;
+import com.github.app.dify.ops.trace.api.TraceFacade;
+import com.github.app.dify.ops.trace.core.TraceSanitizer;
+import com.github.app.dify.ops.trace.core.TraceStepCollector;
+import com.github.app.dify.ops.trace.model.TraceHandle;
+import com.github.app.dify.ops.trace.model.TraceStartRequest;
 import com.github.app.dify.system.util.SkillLoader;
 import com.github.app.dify.system.util.SkillPaths;
 import dev.langchain4j.data.message.AiMessage;
@@ -83,12 +88,25 @@ public class ChatServiceImpl implements ChatService {
     @Autowired
     private com.github.app.dify.memo.service.MemoService memoService;
 
+    @Autowired
+    private TraceFacade traceFacade;
+
+    @Autowired
+    private TraceSanitizer traceSanitizer;
+
     @Override
     @LLMTrace(traceSource = "Chat", conversationIdParam = "request.conversationId", extractFromReturn = true)
     public ChatResponse chat(ChatRequest request, Long userId) {
+        TraceHandle traceHandle = startBusinessTrace("chat_main", userId, request, false);
+        TraceStepCollector stepCollector = new TraceStepCollector(traceFacade, traceHandle, traceSanitizer);
         try {
             // 获取模型配置
-            QAModel qaModel = getQAModel(request.getModelId());
+            QAModel qaModel = stepCollector.trace(
+                    "CHAT_MODEL_RESOLVE",
+                    "解析问答模型",
+                    "modelId=" + request.getModelId(),
+                    () -> getQAModel(request.getModelId()),
+                    model -> model == null ? "model=null" : "modelId=" + model.getId() + ",name=" + model.getName());
             if (qaModel == null) {
                 throw new IllegalStateException("未找到可用的问答模型，请先配置模型");
             }
@@ -103,11 +121,21 @@ public class ChatServiceImpl implements ChatService {
             }
 
             // 意图识别：尝试创建备忘录
-            com.github.app.dify.memo.resp.MemoResp memo = tryCreateMemo(userId, request.getQuestion());
+            com.github.app.dify.memo.resp.MemoResp memo = stepCollector.trace(
+                    "CHAT_MEMO_DETECT",
+                    "识别备忘录意图",
+                    "question=" + request.getQuestion(),
+                    () -> tryCreateMemo(userId, request.getQuestion()),
+                    resp -> resp == null ? "memo_created=false" : "memo_created=true,memoId=" + resp.getId());
             Long memoId = memo != null ? memo.getId() : null;
 
             // 创建模型实例（会话ID由AOP切面自动设置）
-            ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+            ChatLanguageModel chatLanguageModel = stepCollector.trace(
+                    "CHAT_MODEL_BUILD",
+                    "创建聊天模型实例",
+                    "modelId=" + qaModel.getId(),
+                    () -> modelLanguageModelFactory.createChatLanguageModel(qaModel),
+                    model -> "created=" + (model != null));
 
             String browserSearchContext = "";
             if (searchFuture != null) {
@@ -125,8 +153,13 @@ public class ChatServiceImpl implements ChatService {
                 browserSearchContext = doBrowserSearch(request);
             }
 
-            // 构建消息列表（包含历史对话）
-            List<ChatMessage> messages = buildMessages(request, browserSearchContext, qaModel, userId, memo);
+            final String finalBrowserSearchContext = browserSearchContext;
+            List<ChatMessage> messages = stepCollector.trace(
+                    "CHAT_MESSAGES_BUILD",
+                    "构建聊天消息",
+                    "history_count=" + (request.getHistory() == null ? 0 : request.getHistory().size()),
+                    () -> buildMessages(request, finalBrowserSearchContext, qaModel, userId, memo),
+                    built -> "message_count=" + (built == null ? 0 : built.size()));
 
             // 记录历史对话信息
             if (request.getHistory() != null && !request.getHistory().isEmpty()) {
@@ -136,7 +169,13 @@ public class ChatServiceImpl implements ChatService {
 
             // 应用上下文压缩策略（转换为KnowledgeBaseQARequest格式以复用压缩逻辑）
             com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest kbRequest = convertToKBQARequest(request);
-            messages = contextCompressionService.compressContext(messages, kbRequest);
+            List<ChatMessage> messagesBeforeCompress = messages;
+            messages = stepCollector.trace(
+                    "CHAT_CONTEXT_COMPRESS",
+                    "压缩聊天上下文",
+                    "before_size=" + messagesBeforeCompress.size(),
+                    () -> contextCompressionService.compressContext(messagesBeforeCompress, kbRequest),
+                    compressed -> "after_size=" + (compressed == null ? 0 : compressed.size()));
             logger.debug("压缩后的消息列表大小: {}", messages.size());
 
             // 设置图片数据到ThreadLocal（用于多模态支持）
@@ -147,7 +186,13 @@ public class ChatServiceImpl implements ChatService {
                 }
 
                 // 调用LLM生成答案
-                Response<AiMessage> response = chatLanguageModel.generate(messages);
+                final List<ChatMessage> finalMessages = messages;
+                Response<AiMessage> response = stepCollector.trace(
+                        "CHAT_LLM_GENERATE",
+                        "执行问答生成",
+                        "message_count=" + messages.size(),
+                        () -> chatLanguageModel.generate(finalMessages),
+                        r -> "generated=" + (r != null && r.content() != null));
                 String answer = response.content().text();
 
                 // 提取token使用信息
@@ -208,9 +253,18 @@ public class ChatServiceImpl implements ChatService {
                         promptTokens, completionTokens, totalTokens);
 
                 // 构建响应（包含保存历史记录）
-                ChatResponse chatResponse = buildChatResponse(answer, request, userId, null, qaModel.getId(),
-                        promptTokens, completionTokens, totalTokens);
+                final Long finalPromptTokens = promptTokens;
+                final Long finalCompletionTokens = completionTokens;
+                final Long finalTotalTokens = totalTokens;
+                ChatResponse chatResponse = stepCollector.trace(
+                        "CHAT_RESPONSE_BUILD",
+                        "构建并保存聊天响应",
+                        "answer_length=" + (answer == null ? 0 : answer.length()),
+                        () -> buildChatResponse(answer, request, userId, null, qaModel.getId(),
+                                finalPromptTokens, finalCompletionTokens, finalTotalTokens),
+                        resp -> "conversationId=" + (resp == null ? null : resp.getConversationId()));
                 chatResponse.setMemoId(memoId);
+                traceFacade.success(traceHandle, chatResponse.getAnswer());
                 return chatResponse;
             } finally {
                 // 清除ThreadLocal数据
@@ -218,6 +272,7 @@ public class ChatServiceImpl implements ChatService {
             }
 
         } catch (Exception e) {
+            traceFacade.error(traceHandle, e);
             logger.error("智能问答失败", e);
             throw new BusinessException("智能问答失败，请稍后重试", ErrorCode.SYSTEM_BUSY, e);
         }
@@ -276,6 +331,8 @@ public class ChatServiceImpl implements ChatService {
     @Override
     @LLMTrace(traceSource = "Chat", conversationIdParam = "request.conversationId")
     public Flux<ChatResponse> chatStream(ChatRequest request, Long userId) {
+        TraceHandle traceHandle = startBusinessTrace("chat_stream_main", userId, request, true);
+        TraceStepCollector stepCollector = new TraceStepCollector(traceFacade, traceHandle, traceSanitizer);
         try {
             // 并行：若启用浏览器检索则异步执行，与后续步骤同时进行以缩短首 token 延迟
             CompletableFuture<String> searchFuture = null;
@@ -285,15 +342,26 @@ public class ChatServiceImpl implements ChatService {
             }
 
             // 获取模型配置
-            QAModel qaModel = getQAModel(request.getModelId());
+            QAModel qaModel = stepCollector.trace(
+                    "CHAT_MODEL_RESOLVE",
+                    "解析问答模型（流式）",
+                    "modelId=" + request.getModelId(),
+                    () -> getQAModel(request.getModelId()),
+                    model -> model == null ? "model=null" : "modelId=" + model.getId() + ",name=" + model.getName());
             if (qaModel == null) {
+                traceFacade.error(traceHandle, new IllegalStateException("未找到可用的问答模型，请先配置模型"));
                 return Flux.error(new IllegalStateException("未找到可用的问答模型，请先配置模型"));
             }
 
             logger.info("使用问答模型（流式）: {} (ID: {})", qaModel.getName(), qaModel.getId());
 
             // 意图识别：尝试创建备忘录
-            com.github.app.dify.memo.resp.MemoResp memo = tryCreateMemo(userId, request.getQuestion());
+            com.github.app.dify.memo.resp.MemoResp memo = stepCollector.trace(
+                    "CHAT_MEMO_DETECT",
+                    "识别备忘录意图（流式）",
+                    "question=" + request.getQuestion(),
+                    () -> tryCreateMemo(userId, request.getQuestion()),
+                    resp -> resp == null ? "memo_created=false" : "memo_created=true,memoId=" + resp.getId());
             final Long memoId = memo != null ? memo.getId() : null;
 
             // 在流式响应开始前，先创建或获取会话（这样可以在第一个数据包就返回 conversationId）
@@ -325,8 +393,12 @@ public class ChatServiceImpl implements ChatService {
             }
 
             // 创建流式模型实例（会话ID由AOP切面自动设置）
-            StreamingChatLanguageModel streamingChatLanguageModel = modelLanguageModelFactory
-                    .createStreamingChatLanguageModel(qaModel);
+            StreamingChatLanguageModel streamingChatLanguageModel = stepCollector.trace(
+                    "CHAT_MODEL_BUILD",
+                    "创建聊天模型实例（流式）",
+                    "modelId=" + qaModel.getId(),
+                    () -> modelLanguageModelFactory.createStreamingChatLanguageModel(qaModel),
+                    model -> "created=" + (model != null));
 
             String browserSearchContext = "";
             if (searchFuture != null) {
@@ -344,12 +416,23 @@ public class ChatServiceImpl implements ChatService {
                 browserSearchContext = doBrowserSearch(request);
             }
 
+            final String finalBrowserSearchContext = browserSearchContext;
             // 构建消息列表（包含历史对话）
-            List<ChatMessage> messages = buildMessages(request, browserSearchContext, qaModel, userId, memo);
+            List<ChatMessage> messages = stepCollector.trace(
+                    "CHAT_MESSAGES_BUILD",
+                    "构建聊天消息（流式）",
+                    "history_count=" + (request.getHistory() == null ? 0 : request.getHistory().size()),
+                    () -> buildMessages(request, finalBrowserSearchContext, qaModel, userId, memo),
+                    built -> "message_count=" + (built == null ? 0 : built.size()));
 
             // 应用上下文压缩策略（转换为KnowledgeBaseQARequest格式以复用压缩逻辑）
             com.github.app.dify.knowledgebase.req.KnowledgeBaseQARequest kbRequest = convertToKBQARequest(request);
-            final List<ChatMessage> finalMessages = contextCompressionService.compressContext(messages, kbRequest);
+            final List<ChatMessage> finalMessages = stepCollector.trace(
+                    "CHAT_CONTEXT_COMPRESS",
+                    "压缩聊天上下文（流式）",
+                    "before_size=" + messages.size(),
+                    () -> contextCompressionService.compressContext(messages, kbRequest),
+                    compressed -> "after_size=" + (compressed == null ? 0 : compressed.size()));
             logger.debug("压缩后的消息列表大小（流式）: {}", finalMessages.size());
 
             // 设置图片数据到ThreadLocal（用于多模态支持）
@@ -406,6 +489,7 @@ public class ChatServiceImpl implements ChatService {
                         ChatResponse emptyResponse = new ChatResponse();
                         emptyResponse.setAnswer("未收到LLM响应，请检查日志");
                         emptyResponse.setFinished(true);
+                        traceFacade.success(traceHandle, emptyResponse.getAnswer());
                         return Flux.just(emptyResponse);
                     }))
                     .concatWith(Flux.defer(() -> {
@@ -448,9 +532,11 @@ public class ChatServiceImpl implements ChatService {
                         finalResponse.setFinished(true);
                         finalResponse.setConversationId(conversationId);
                         finalResponse.setMemoId(memoId);
+                        traceFacade.success(traceHandle, finalAnswer);
                         return Flux.just(finalResponse);
                     }))
                     .onErrorResume(error -> {
+                        traceFacade.error(traceHandle, error);
                         logger.error("流式问答失败", error);
                         ChatResponse errorResponse = new ChatResponse();
                         errorResponse.setAnswer("系统繁忙，请稍后重试");
@@ -459,6 +545,7 @@ public class ChatServiceImpl implements ChatService {
                     });
 
         } catch (Exception e) {
+            traceFacade.error(traceHandle, e);
             logger.error("智能问答失败（流式）", e);
             return Flux.error(new BusinessException("智能问答失败，请稍后重试", ErrorCode.SYSTEM_BUSY, e));
         }
@@ -871,6 +958,22 @@ public class ChatServiceImpl implements ChatService {
             logger.debug("未识别到备忘录意图或创建失败: {}", e.getMessage());
         }
         return null;
+    }
+
+    private TraceHandle startBusinessTrace(String traceSource, Long userId, ChatRequest request, boolean stream) {
+        try {
+            TraceStartRequest startRequest = new TraceStartRequest();
+            startRequest.setTraceSource(traceSource);
+            startRequest.setConversationId(request != null ? request.getConversationId() : null);
+            startRequest.setUserId(userId);
+            startRequest.setRequestType(stream ? "chat_stream" : "chat");
+            startRequest.setBusinessId(null);
+            startRequest.setRequestSummary(request == null ? null : request.getQuestion());
+            return traceFacade.start(startRequest);
+        } catch (Exception e) {
+            logger.debug("启动chat业务追踪失败，降级继续", e);
+            return null;
+        }
     }
 
 }

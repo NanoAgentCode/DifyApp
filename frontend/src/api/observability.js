@@ -16,6 +16,13 @@ export function getTrace(id) {
     })
 }
 
+export function getTraceSteps(id) {
+    return request({
+        url: `/api/observability/traces/${id}/steps`,
+        method: 'get'
+    })
+}
+
 export function deleteTrace(id) {
     return request({
         url: `/api/observability/traces/${id}`,

@@ -50,6 +50,7 @@ public class ElasticsearchObservabilityService {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
     private static final String CONFIG_KEY = "observability.elasticsearchDataSourceId";
     private static final Pattern NUMBER_PATTERN = Pattern.compile("(\\d+)");
+    private static final List<String> EXCLUDED_TRACE_SOURCES = List.of("User Memory Extraction");
 
     @Autowired
     private SystemConfigService systemConfigService;
@@ -419,6 +420,7 @@ public class ElasticsearchObservabilityService {
 
             // 构建查询条件
             List<Query> mustQueries = new ArrayList<>();
+            List<Query> mustNotQueries = new ArrayList<>();
 
             if (model != null && !model.isEmpty()) {
                 mustQueries.add(Query.of(q -> q.wildcard(w -> w.field("model").value("*" + model + "*"))));
@@ -448,9 +450,16 @@ public class ElasticsearchObservabilityService {
                 })));
             }
 
+            for (String excludedSource : EXCLUDED_TRACE_SOURCES) {
+                mustNotQueries.add(Query.of(q -> q.term(t -> t.field("traceSource").value(excludedSource))));
+            }
+
             BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
             if (!mustQueries.isEmpty()) {
                 boolBuilder.must(mustQueries);
+            }
+            if (!mustNotQueries.isEmpty()) {
+                boolBuilder.mustNot(mustNotQueries);
             }
 
             SearchRequest request = SearchRequest.of(s -> s
@@ -515,6 +524,12 @@ public class ElasticsearchObservabilityService {
 
             SearchRequest request = SearchRequest.of(s -> s
                     .index(INDEX_NAME)
+                    .query(q -> q.bool(b -> {
+                        for (String excludedSource : EXCLUDED_TRACE_SOURCES) {
+                            b.mustNot(Query.of(m -> m.term(t -> t.field("traceSource").value(excludedSource))));
+                        }
+                        return b;
+                    }))
                     .size(0)
                     .aggregations(field + "s", a -> a.terms(t -> t.field(field).size(1000))));
 

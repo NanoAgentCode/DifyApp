@@ -16,6 +16,11 @@ import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
 import com.github.app.dify.knowledgebase.langchain4j.StreamingChatLanguageModel;
 import com.github.app.dify.knowledgebase.service.ContextCompressionService;
 import com.github.app.dify.ops.observability.annotation.LLMTrace;
+import com.github.app.dify.ops.trace.api.TraceFacade;
+import com.github.app.dify.ops.trace.core.TraceSanitizer;
+import com.github.app.dify.ops.trace.core.TraceStepCollector;
+import com.github.app.dify.ops.trace.model.TraceHandle;
+import com.github.app.dify.ops.trace.model.TraceStartRequest;
 import com.github.app.dify.system.config.DocumentReaderConfig;
 import com.github.app.dify.model.service.ModelConfigService;
 import dev.langchain4j.data.message.AiMessage;
@@ -66,6 +71,12 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
     @Autowired
     private ContextCompressionService contextCompressionService;
 
+    @Autowired
+    private TraceFacade traceFacade;
+
+    @Autowired
+    private TraceSanitizer traceSanitizer;
+
     /**
      * 文档问答（非流式）
      */
@@ -76,36 +87,76 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
             extractFromReturn = true
     )
     public DocumentQAResponse answer(Long documentId, DocumentQARequest request, Long userId) {
+        TraceHandle traceHandle = startBusinessTrace("document_reader_qa", documentId, userId, request, false);
+        TraceStepCollector stepCollector = new TraceStepCollector(traceFacade, traceHandle, traceSanitizer);
         try {
-            DocumentReader document = validateDocumentForQA(documentId, userId);
+            DocumentReader document = stepCollector.trace(
+                    "DR_DOC_VALIDATE",
+                    "校验文档与访问权限",
+                    "documentId=" + documentId + ",userId=" + userId,
+                    () -> validateDocumentForQA(documentId, userId),
+                    doc -> doc == null ? "document_ready=false" : "document_ready=true,file=" + doc.getOriginalFileName());
             if (document == null) {
+                traceFacade.success(traceHandle, "document_not_vectorized");
                 return createErrorResponse("文档尚未完成向量化，无法进行问答。请等待向量化完成后再试。",
                         request.getConversationId());
             }
 
             // 检索相关文档片段
-            List<DocumentReaderRetrievalService.RetrievalResult> retrievalResults = documentReaderRetrievalService
-                    .retrieve(documentId, request.getQuestion());
+            List<DocumentReaderRetrievalService.RetrievalResult> retrievalResults = stepCollector.trace(
+                    "DR_RAG_RETRIEVE",
+                    "检索文档片段",
+                    "documentId=" + documentId + ",question=" + request.getQuestion(),
+                    () -> documentReaderRetrievalService.retrieve(documentId, request.getQuestion()),
+                    results -> "result_count=" + (results == null ? 0 : results.size()));
 
             if (retrievalResults.isEmpty()) {
+                traceFacade.success(traceHandle, "no_retrieval_results");
                 return createErrorResponse("抱歉，在文档中没有找到相关信息。", request.getConversationId());
             }
 
             // 构建消息列表（包含历史对话和检索到的文档片段）
-            List<ChatMessage> messages = buildMessages(request, retrievalResults, document.getOriginalFileName());
+            List<ChatMessage> messages = stepCollector.trace(
+                    "DR_MESSAGES_BUILD",
+                    "构建文档问答消息",
+                    "history_count=" + (request.getHistory() == null ? 0 : request.getHistory().size()),
+                    () -> buildMessages(request, retrievalResults, document.getOriginalFileName()),
+                    built -> "message_count=" + (built == null ? 0 : built.size()));
 
             // 应用上下文压缩策略（压缩历史对话和文档内容）
-            messages = contextCompressionService.compressContext(messages, request);
+            List<ChatMessage> messagesBeforeCompress = messages;
+            messages = stepCollector.trace(
+                    "DR_CONTEXT_COMPRESS",
+                    "压缩文档问答上下文",
+                    "before_size=" + messagesBeforeCompress.size(),
+                    () -> contextCompressionService.compressContext(messagesBeforeCompress, request),
+                    compressed -> "after_size=" + (compressed == null ? 0 : compressed.size()));
             logger.debug("压缩后的消息列表大小: {}", messages.size());
 
             // 获取模型
-            QAModel qaModel = getQAModel(request.getModelId());
+            QAModel qaModel = stepCollector.trace(
+                    "DR_MODEL_RESOLVE",
+                    "解析文档问答模型",
+                    "modelId=" + request.getModelId(),
+                    () -> getQAModel(request.getModelId()),
+                    model -> model == null ? "model=null" : "modelId=" + model.getId() + ",name=" + model.getName());
             
             // 创建模型实例（会话ID由AOP切面自动设置）
-            ChatLanguageModel chatLanguageModel = modelLanguageModelFactory.createChatLanguageModel(qaModel);
+            ChatLanguageModel chatLanguageModel = stepCollector.trace(
+                    "DR_MODEL_BUILD",
+                    "创建文档问答模型实例",
+                    "modelId=" + qaModel.getId(),
+                    () -> modelLanguageModelFactory.createChatLanguageModel(qaModel),
+                    model -> "created=" + (model != null));
 
             // 生成答案
-            Response<AiMessage> aiResponse = chatLanguageModel.generate(messages);
+            List<ChatMessage> finalMessages = messages;
+            Response<AiMessage> aiResponse = stepCollector.trace(
+                    "DR_LLM_GENERATE",
+                    "执行文档问答生成",
+                    "message_count=" + messages.size(),
+                    () -> chatLanguageModel.generate(finalMessages),
+                    resp -> "generated=" + (resp != null));
             String answer = aiResponse.content().text();
 
             // 获取或创建会话（文档问答类型设为3）
@@ -167,9 +218,11 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
             }
 
             logger.info("文档问答完成 - 文档ID: {}, 问题: {}, 答案长度: {}", documentId, request.getQuestion(), answer.length());
+            traceFacade.success(traceHandle, answer);
             return response;
 
         } catch (Exception e) {
+            traceFacade.error(traceHandle, e);
             logger.error("文档问答失败 - 文档ID: {}", documentId, e);
             return createErrorResponse("文档问答失败：" + e.getMessage(), request.getConversationId());
         }
@@ -184,30 +237,59 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
             conversationIdParam = "request.conversationId"
     )
     public Flux<DocumentQAResponse> answerStream(Long documentId, DocumentQARequest request, Long userId) {
+        TraceHandle traceHandle = startBusinessTrace("document_reader_qa_stream", documentId, userId, request, true);
+        TraceStepCollector stepCollector = new TraceStepCollector(traceFacade, traceHandle, traceSanitizer);
         try {
-            DocumentReader document = validateDocumentForQA(documentId, userId);
+            DocumentReader document = stepCollector.trace(
+                    "DR_DOC_VALIDATE",
+                    "校验文档与访问权限（流式）",
+                    "documentId=" + documentId + ",userId=" + userId,
+                    () -> validateDocumentForQA(documentId, userId),
+                    doc -> doc == null ? "document_ready=false" : "document_ready=true,file=" + doc.getOriginalFileName());
             if (document == null) {
+                traceFacade.success(traceHandle, "document_not_vectorized");
                 return Flux.just(createStreamErrorResponse(
                         "文档尚未完成向量化，无法进行问答。请等待向量化完成后再试。"));
             }
 
             // 检索相关文档片段
-            List<DocumentReaderRetrievalService.RetrievalResult> retrievalResults = documentReaderRetrievalService
-                    .retrieve(documentId, request.getQuestion());
+            List<DocumentReaderRetrievalService.RetrievalResult> retrievalResults = stepCollector.trace(
+                    "DR_RAG_RETRIEVE",
+                    "检索文档片段（流式）",
+                    "documentId=" + documentId + ",question=" + request.getQuestion(),
+                    () -> documentReaderRetrievalService.retrieve(documentId, request.getQuestion()),
+                    results -> "result_count=" + (results == null ? 0 : results.size()));
 
             if (retrievalResults.isEmpty()) {
+                traceFacade.success(traceHandle, "no_retrieval_results");
                 return Flux.just(createStreamErrorResponse("抱歉，在文档中没有找到相关信息。"));
             }
 
             // 构建消息列表
-            List<ChatMessage> messages = buildMessages(request, retrievalResults, document.getOriginalFileName());
+            List<ChatMessage> messages = stepCollector.trace(
+                    "DR_MESSAGES_BUILD",
+                    "构建文档问答消息（流式）",
+                    "history_count=" + (request.getHistory() == null ? 0 : request.getHistory().size()),
+                    () -> buildMessages(request, retrievalResults, document.getOriginalFileName()),
+                    built -> "message_count=" + (built == null ? 0 : built.size()));
 
             // 应用上下文压缩策略（压缩历史对话和文档内容）
-            messages = contextCompressionService.compressContext(messages, request);
+            List<ChatMessage> messagesBeforeCompress = messages;
+            messages = stepCollector.trace(
+                    "DR_CONTEXT_COMPRESS",
+                    "压缩文档问答上下文（流式）",
+                    "before_size=" + messagesBeforeCompress.size(),
+                    () -> contextCompressionService.compressContext(messagesBeforeCompress, request),
+                    compressed -> "after_size=" + (compressed == null ? 0 : compressed.size()));
             logger.debug("压缩后的消息列表大小: {}", messages.size());
 
             // 获取模型
-            QAModel qaModel = getQAModel(request.getModelId());
+            QAModel qaModel = stepCollector.trace(
+                    "DR_MODEL_RESOLVE",
+                    "解析文档问答模型（流式）",
+                    "modelId=" + request.getModelId(),
+                    () -> getQAModel(request.getModelId()),
+                    model -> model == null ? "model=null" : "modelId=" + model.getId() + ",name=" + model.getName());
             
             // 在流式响应开始前，先创建或获取会话（这样可以在第一个数据包就返回 conversationId）
             final Long[] conversationIdRef = new Long[1];
@@ -304,8 +386,10 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
                             logger.warn("发送最终响应失败 - 文档ID: {}, 原因: {}", documentId, emitResult);
                         }
                         sink.tryEmitComplete();
+                        traceFacade.success(traceHandle, finalAnswer);
                     })
                     .doOnError(error -> {
+                        traceFacade.error(traceHandle, error);
                         logger.error("流式生成答案失败 - 文档ID: {}", documentId, error);
                         DocumentQAResponse errorResponse = new DocumentQAResponse();
                         errorResponse.setAnswer("系统繁忙，请稍后重试");
@@ -322,6 +406,7 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
             return sink.asFlux();
 
         } catch (Exception e) {
+            traceFacade.error(traceHandle, e);
             logger.error("文档问答失败（流式） - 文档ID: {}", documentId, e);
             return Flux.just(createStreamErrorResponse("系统繁忙，请稍后重试"));
         }
@@ -455,5 +540,24 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
         response.setAnswer(message);
         response.setFinished(true);
         return response;
+    }
+
+    private TraceHandle startBusinessTrace(String traceSource, Long documentId, Long userId,
+            DocumentQARequest request, boolean stream) {
+        try {
+            TraceStartRequest startRequest = new TraceStartRequest();
+            startRequest.setTraceSource(traceSource);
+            startRequest.setConversationId(request != null && request.getConversationId() != null
+                    ? String.valueOf(request.getConversationId())
+                    : null);
+            startRequest.setUserId(userId);
+            startRequest.setRequestType(stream ? "document_qa_stream" : "document_qa");
+            startRequest.setBusinessId(documentId);
+            startRequest.setRequestSummary(request == null ? null : request.getQuestion());
+            return traceFacade.start(startRequest);
+        } catch (Exception e) {
+            logger.debug("启动documentreader业务追踪失败，降级继续", e);
+            return null;
+        }
     }
 }

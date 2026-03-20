@@ -5,6 +5,11 @@ import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.exception.UnauthorizedException;
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.ops.observability.annotation.LLMTrace;
+import com.github.app.dify.ops.trace.api.TraceFacade;
+import com.github.app.dify.ops.trace.core.TraceSanitizer;
+import com.github.app.dify.ops.trace.core.TraceStepCollector;
+import com.github.app.dify.ops.trace.model.TraceHandle;
+import com.github.app.dify.ops.trace.model.TraceStartRequest;
 import com.github.app.dify.permission.service.UserKnowledgeBaseVisibilityService;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
 import com.github.app.dify.knowledgebase.langchain4j.ChatLanguageModel;
@@ -69,6 +74,12 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     @Autowired
     private UserMemoryService userMemoryService;
 
+    @Autowired
+    private TraceFacade traceFacade;
+
+    @Autowired
+    private TraceSanitizer traceSanitizer;
+
     /**
      * 问答（非流式）
      */
@@ -80,37 +91,67 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     )
     public KnowledgeBaseQAResponse answer(Long knowledgeBaseId, KnowledgeBaseQARequest request, Long userId,
             Integer userRole) {
+        TraceHandle traceHandle = startBusinessTrace("knowledge_base_qa", knowledgeBaseId, userId, request, false);
+        TraceStepCollector stepCollector = new TraceStepCollector(traceFacade, traceHandle, traceSanitizer);
         try {
-            // 验证用户权限：检查用户是否有权限访问该知识库
-            validateKnowledgeBaseAccess(knowledgeBaseId, userId, userRole);
+            stepCollector.trace("KB_ACCESS_CHECK", "知识库访问校验",
+                    "kbId=" + knowledgeBaseId + ",userId=" + userId + ",userRole=" + userRole,
+                    () -> {
+                        validateKnowledgeBaseAccess(knowledgeBaseId, userId, userRole);
+                        return true;
+                    },
+                    ok -> "access_granted=" + ok);
 
-            // 获取知识库的配置信息（向量化模型ID和topK）
-            Long embeddingModelId = null;
-            Integer topK = null;
-            try {
-                KnowledgeBaseResp kb = knowledgeBaseService.getKnowledgeBaseById(knowledgeBaseId);
-                embeddingModelId = kb.getEmbeddingModelId();
-                topK = kb.getTopK();
-            } catch (Exception e) {
-                logger.warn("获取知识库配置失败，使用默认配置 - 知识库ID: {}", knowledgeBaseId, e);
-            }
+            Map<String, Object> kbConfig = stepCollector.trace(
+                    "KB_CONFIG_LOAD",
+                    "加载知识库检索配置",
+                    "kbId=" + knowledgeBaseId,
+                    () -> {
+                        Map<String, Object> configMap = new HashMap<>();
+                        configMap.put("embeddingModelId", null);
+                        configMap.put("topK", null);
+                        try {
+                            KnowledgeBaseResp kb = knowledgeBaseService.getKnowledgeBaseById(knowledgeBaseId);
+                            configMap.put("embeddingModelId", kb.getEmbeddingModelId());
+                            configMap.put("topK", kb.getTopK());
+                        } catch (Exception e) {
+                            logger.warn("获取知识库配置失败，使用默认配置 - 知识库ID: {}", knowledgeBaseId, e);
+                        }
+                        return configMap;
+                    },
+                    config -> config);
+            Long embeddingModelId = (Long) kbConfig.get("embeddingModelId");
+            Integer topK = (Integer) kbConfig.get("topK");
 
-            // 先检索相关文档（用于构建sources）
-            List<RagRetrievalService.RetrievalResult> retrievalResults = ragRetrievalService.retrieve(knowledgeBaseId,
-                    request.getQuestion(), embeddingModelId, topK);
+            List<RagRetrievalService.RetrievalResult> retrievalResults = stepCollector.trace(
+                    "RAG_RETRIEVE",
+                    "执行知识库检索",
+                    "kbId=" + knowledgeBaseId + ",question=" + request.getQuestion(),
+                    () -> ragRetrievalService.retrieve(knowledgeBaseId, request.getQuestion(), embeddingModelId, topK),
+                    results -> "result_count=" + (results == null ? 0 : results.size()));
 
             if (retrievalResults.isEmpty()) {
                 KnowledgeBaseQAResponse response = new KnowledgeBaseQAResponse();
                 response.setAnswer("抱歉，在知识库中没有找到相关信息。");
                 response.setSources(new ArrayList<>());
+                traceFacade.success(traceHandle, response.getAnswer());
                 return response;
             }
 
-            String memoryContext = userMemoryService.buildMemoryContext(userId, request.getQuestion(), "knowledge_base",
-                    knowledgeBaseId);
+            String memoryContext = stepCollector.trace(
+                    "MEMORY_BUILD",
+                    "构建用户记忆上下文",
+                    "userId=" + userId + ",kbId=" + knowledgeBaseId,
+                    () -> userMemoryService.buildMemoryContext(userId, request.getQuestion(), "knowledge_base",
+                            knowledgeBaseId),
+                    context -> "memory_length=" + (context == null ? 0 : context.length()));
 
-            // 构建消息列表（包含历史对话）
-            List<ChatMessage> messages = buildMessages(request, memoryContext);
+            List<ChatMessage> messages = stepCollector.trace(
+                    "MESSAGES_BUILD",
+                    "构建LLM消息列表",
+                    "history_count=" + (request.getHistory() == null ? 0 : request.getHistory().size()),
+                    () -> buildMessages(request, memoryContext),
+                    built -> "message_count=" + (built == null ? 0 : built.size()));
 
             // 记录历史对话信息
             if (request.getHistory() != null && !request.getHistory().isEmpty()) {
@@ -118,13 +159,22 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             }
             logger.debug("构建的消息列表大小: {}", messages.size());
 
-            // 应用上下文压缩策略
-            messages = contextCompressionService.compressContext(messages, request);
+            List<ChatMessage> messagesBeforeCompress = messages;
+            messages = stepCollector.trace(
+                    "CONTEXT_COMPRESS",
+                    "执行上下文压缩",
+                    "before_size=" + messagesBeforeCompress.size(),
+                    () -> contextCompressionService.compressContext(messagesBeforeCompress, request),
+                    compressed -> "after_size=" + (compressed == null ? 0 : compressed.size()));
             logger.debug("压缩后的消息列表大小: {}", messages.size());
 
-            // 使用langchain4j RAG生成答案（始终使用历史对话）
-            Response<AiMessage> aiResponse = generateAnswerWithHistory(messages, knowledgeBaseId, request,
-                    memoryContext, retrievalResults);
+            List<ChatMessage> finalMessages = messages;
+            Response<AiMessage> aiResponse = stepCollector.trace(
+                    "LLM_GENERATE",
+                    "执行知识增强回答生成",
+                    "kbId=" + knowledgeBaseId + ",retrieval_count=" + retrievalResults.size(),
+                    () -> generateAnswerWithHistory(finalMessages, knowledgeBaseId, request, memoryContext, retrievalResults),
+                    resp -> "generated=" + (resp != null));
             String answer = aiResponse.content().text();
 
             // 提取token使用信息和模型ID
@@ -230,9 +280,11 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
 
             logger.info("知识库问答完成 - 知识库ID: {}, 问题: {}", knowledgeBaseId, request.getQuestion());
 
+            traceFacade.success(traceHandle, kbResponse.getAnswer());
             return kbResponse;
 
         } catch (Exception e) {
+            traceFacade.error(traceHandle, e);
             logger.error("知识库问答失败 - 知识库ID: {}", knowledgeBaseId, e);
             throw new BusinessException("知识库问答失败", ErrorCode.SYSTEM_BUSY, e);
         }
@@ -248,31 +300,54 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
     )
     public Flux<KnowledgeBaseQAResponse> answerStream(Long knowledgeBaseId, KnowledgeBaseQARequest request, Long userId,
             Integer userRole) {
+        TraceHandle traceHandle = startBusinessTrace("knowledge_base_qa_stream", knowledgeBaseId, userId, request, true);
+        TraceStepCollector stepCollector = new TraceStepCollector(traceFacade, traceHandle, traceSanitizer);
         try {
-            // 验证用户权限：检查用户是否有权限访问该知识库
-            validateKnowledgeBaseAccess(knowledgeBaseId, userId, userRole);
+            stepCollector.trace("KB_ACCESS_CHECK", "知识库访问校验（流式）",
+                    "kbId=" + knowledgeBaseId + ",userId=" + userId + ",userRole=" + userRole,
+                    () -> {
+                        validateKnowledgeBaseAccess(knowledgeBaseId, userId, userRole);
+                        return true;
+                    },
+                    ok -> "access_granted=" + ok);
 
             // 获取知识库的配置信息（向量化模型ID和topK）
-            Long embeddingModelId = null;
-            Integer topK = null;
-            try {
-                com.github.app.dify.knowledgebase.resp.KnowledgeBaseResp kb = knowledgeBaseService
-                        .getKnowledgeBaseById(knowledgeBaseId);
-                embeddingModelId = kb.getEmbeddingModelId();
-                topK = kb.getTopK();
-            } catch (Exception e) {
-                logger.warn("获取知识库配置失败，使用默认配置 - 知识库ID: {}", knowledgeBaseId, e);
-            }
+            Map<String, Object> kbConfig = stepCollector.trace(
+                    "KB_CONFIG_LOAD",
+                    "加载知识库检索配置（流式）",
+                    "kbId=" + knowledgeBaseId,
+                    () -> {
+                        Map<String, Object> configMap = new HashMap<>();
+                        configMap.put("embeddingModelId", null);
+                        configMap.put("topK", null);
+                        try {
+                            com.github.app.dify.knowledgebase.resp.KnowledgeBaseResp kb = knowledgeBaseService
+                                    .getKnowledgeBaseById(knowledgeBaseId);
+                            configMap.put("embeddingModelId", kb.getEmbeddingModelId());
+                            configMap.put("topK", kb.getTopK());
+                        } catch (Exception e) {
+                            logger.warn("获取知识库配置失败，使用默认配置 - 知识库ID: {}", knowledgeBaseId, e);
+                        }
+                        return configMap;
+                    },
+                    config -> config);
+            Long embeddingModelId = (Long) kbConfig.get("embeddingModelId");
+            Integer topK = (Integer) kbConfig.get("topK");
 
             // 先检索相关文档（用于构建sources）
-            List<RagRetrievalService.RetrievalResult> retrievalResults = ragRetrievalService.retrieve(knowledgeBaseId,
-                    request.getQuestion(), embeddingModelId, topK);
+            List<RagRetrievalService.RetrievalResult> retrievalResults = stepCollector.trace(
+                    "RAG_RETRIEVE",
+                    "执行知识库检索（流式）",
+                    "kbId=" + knowledgeBaseId + ",question=" + request.getQuestion(),
+                    () -> ragRetrievalService.retrieve(knowledgeBaseId, request.getQuestion(), embeddingModelId, topK),
+                    results -> "result_count=" + (results == null ? 0 : results.size()));
 
             if (retrievalResults.isEmpty()) {
                 KnowledgeBaseQAResponse response = new KnowledgeBaseQAResponse();
                 response.setAnswer("抱歉，在知识库中没有找到相关信息。");
                 response.setFinished(true);
                 response.setSources(new ArrayList<>());
+                traceFacade.success(traceHandle, response.getAnswer());
                 return Flux.just(response);
             }
 
@@ -286,21 +361,40 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                 return source;
             }).collect(Collectors.toList());
 
-            String memoryContext = userMemoryService.buildMemoryContext(userId, request.getQuestion(), "knowledge_base",
-                    knowledgeBaseId);
+            String memoryContext = stepCollector.trace(
+                    "MEMORY_BUILD",
+                    "构建用户记忆上下文（流式）",
+                    "userId=" + userId + ",kbId=" + knowledgeBaseId,
+                    () -> userMemoryService.buildMemoryContext(userId, request.getQuestion(), "knowledge_base",
+                            knowledgeBaseId),
+                    context -> "memory_length=" + (context == null ? 0 : context.length()));
 
             // 构建消息列表（包含历史对话）
-            List<ChatMessage> messages = buildMessages(request, memoryContext);
+            List<ChatMessage> messages = stepCollector.trace(
+                    "MESSAGES_BUILD",
+                    "构建LLM消息列表（流式）",
+                    "history_count=" + (request.getHistory() == null ? 0 : request.getHistory().size()),
+                    () -> buildMessages(request, memoryContext),
+                    built -> "message_count=" + (built == null ? 0 : built.size()));
 
             // 应用上下文压缩策略
-            messages = contextCompressionService.compressContext(messages, request);
+            List<ChatMessage> messagesBeforeCompress = messages;
+            messages = stepCollector.trace(
+                    "CONTEXT_COMPRESS",
+                    "执行上下文压缩（流式）",
+                    "before_size=" + messagesBeforeCompress.size(),
+                    () -> contextCompressionService.compressContext(messagesBeforeCompress, request),
+                    compressed -> "after_size=" + (compressed == null ? 0 : compressed.size()));
             logger.debug("压缩后的消息列表大小（流式）: {}", messages.size());
 
-            // 使用langchain4j流式LLM生成答案（手动检索+RAG）
-            return generateStreamAnswerWithHistory(messages, knowledgeBaseId, request, sources, userId, memoryContext,
-                    retrievalResults);
+            Flux<KnowledgeBaseQAResponse> streamFlux = generateStreamAnswerWithHistory(messages, knowledgeBaseId, request,
+                    sources, userId, memoryContext, retrievalResults);
+            return streamFlux
+                    .doOnComplete(() -> traceFacade.success(traceHandle, "stream_finished"))
+                    .doOnError(error -> traceFacade.error(traceHandle, error));
 
         } catch (Exception e) {
+            traceFacade.error(traceHandle, e);
             logger.error("知识库问答失败（流式） - 知识库ID: {}", knowledgeBaseId, e);
             return Flux.error(new BusinessException("知识库问答失败", ErrorCode.SYSTEM_BUSY, e));
         }
@@ -715,5 +809,22 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                 promptTokens, completionTokens, totalTokens);
 
         return new Long[] { promptTokens, completionTokens, totalTokens };
+    }
+
+    private TraceHandle startBusinessTrace(String traceSource, Long knowledgeBaseId, Long userId,
+            KnowledgeBaseQARequest request, boolean stream) {
+        try {
+            TraceStartRequest startRequest = new TraceStartRequest();
+            startRequest.setTraceSource(traceSource);
+            startRequest.setConversationId(request != null ? request.getConversationId() : null);
+            startRequest.setUserId(userId);
+            startRequest.setRequestType(stream ? "qa_stream" : "qa");
+            startRequest.setBusinessId(knowledgeBaseId);
+            startRequest.setRequestSummary(request == null ? null : request.getQuestion());
+            return traceFacade.start(startRequest);
+        } catch (Exception e) {
+            logger.debug("启动业务追踪失败，降级继续执行业务", e);
+            return null;
+        }
     }
 }

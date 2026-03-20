@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 public class LLMTraceServiceImpl implements LLMTraceService {
 
     private static final Logger logger = LoggerFactory.getLogger(LLMTraceServiceImpl.class);
+    private static final String TRACE_SOURCE_USER_MEMORY_EXTRACTION = "User Memory Extraction";
 
     @Autowired(required = false)
     private ObservabilityConfig config;
@@ -124,6 +125,9 @@ public class LLMTraceServiceImpl implements LLMTraceService {
 
         LLMTraceDocument doc = esService.getById(docId);
         if (doc == null) {
+            throw new NotFoundException("追踪不存在");
+        }
+        if (isExcludedTraceSource(doc.getTraceSource())) {
             throw new NotFoundException("追踪不存在");
         }
         return toEntity(doc);
@@ -299,5 +303,9 @@ public class LLMTraceServiceImpl implements LLMTraceService {
         trace.setId(null);  // Long id 不再使用
         
         return trace;
+    }
+
+    private boolean isExcludedTraceSource(String traceSource) {
+        return TRACE_SOURCE_USER_MEMORY_EXTRACTION.equalsIgnoreCase(traceSource);
     }
 }

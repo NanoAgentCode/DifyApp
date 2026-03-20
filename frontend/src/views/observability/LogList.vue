@@ -161,8 +161,8 @@
           </el-table-column>
           <el-table-column prop="status" label="状态" width="100" align="center">
             <template #default="scope">
-              <el-tag :type="scope.row.status === 1 ? 'success' : 'danger'" size="small">
-                {{ scope.row.status === 1 ? '成功' : '失败' }}
+              <el-tag :type="getStatusTagType(scope.row)" size="small">
+                {{ getStatusText(scope.row) }}
               </el-tag>
             </template>
           </el-table-column>
@@ -338,6 +338,32 @@ const getLatencyClass = (latency) => {
   if (latency < 1000) return 'time-fast'
   if (latency < 3000) return 'time-normal'
   return 'time-slow'
+}
+
+const parseMetaData = (metaData) => {
+  if (!metaData) return {}
+  try {
+    return typeof metaData === 'string' ? JSON.parse(metaData) : metaData
+  } catch (e) {
+    return {}
+  }
+}
+
+const isAsyncPartial = (row) => {
+  const meta = parseMetaData(row?.metaData)
+  return meta?.asyncState?.status === 'PARTIAL'
+}
+
+const getStatusText = (row) => {
+  if (row?.status !== 1) return '失败'
+  if (isAsyncPartial(row)) return '部分成功'
+  return '成功'
+}
+
+const getStatusTagType = (row) => {
+  if (row?.status !== 1) return 'danger'
+  if (isAsyncPartial(row)) return 'warning'
+  return 'success'
 }
 
 const sourceColorMap = {

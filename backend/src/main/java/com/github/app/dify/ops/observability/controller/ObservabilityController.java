@@ -4,6 +4,8 @@ import com.github.app.dify.common.exception.NotFoundException;
 import com.github.app.dify.common.resp.ApiResponse;
 import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.common.util.PageUtil;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.ops.observability.domain.LLMTrace;
 import com.github.app.dify.ops.observability.service.LLMTraceService;
 import com.github.app.dify.ops.observability.service.impl.LLMTraceServiceImpl;
@@ -38,6 +40,9 @@ public class ObservabilityController {
 
     @Autowired
     private LLMTraceService traceService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     /**
      * 查询追踪列表
@@ -85,6 +90,38 @@ public class ObservabilityController {
             return ApiResponse.error("追踪不存在");
         } catch (Exception e) {
             logger.error("查询失败: id={}", id, e);
+            return ApiResponse.error("查询失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 查询追踪步骤（从metaData提取steps）
+     */
+    @Operation(summary = "查询追踪步骤")
+    @GetMapping("/traces/{id}/steps")
+    public ApiResponse<JsonNode> getTraceSteps(@PathVariable("id") String id) {
+        if (isInvalidId(id)) {
+            return ApiResponse.error("无效的ID");
+        }
+
+        try {
+            if (traceService instanceof LLMTraceServiceImpl impl) {
+                LLMTrace trace = impl.getByDocId(id);
+                if (trace == null || trace.getMetaData() == null || trace.getMetaData().isBlank()) {
+                    return ApiResponse.success(objectMapper.createArrayNode());
+                }
+                JsonNode root = objectMapper.readTree(trace.getMetaData());
+                JsonNode steps = root.path("steps");
+                if (steps.isMissingNode() || steps.isNull()) {
+                    return ApiResponse.success(objectMapper.createArrayNode());
+                }
+                return ApiResponse.success(steps);
+            }
+            return ApiResponse.error("服务不可用");
+        } catch (NotFoundException e) {
+            return ApiResponse.error("追踪不存在");
+        } catch (Exception e) {
+            logger.error("查询步骤失败: id={}", id, e);
             return ApiResponse.error("查询失败: " + e.getMessage());
         }
     }

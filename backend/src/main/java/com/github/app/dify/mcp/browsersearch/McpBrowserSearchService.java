@@ -4,6 +4,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.mcp.browsersearch.strategy.SearchApiFactory;
 import com.github.app.dify.mcp.browsersearch.util.SearXNGSearchHelper;
+import com.github.app.dify.ops.trace.api.TraceFacade;
+import com.github.app.dify.ops.trace.core.TraceSanitizer;
+import com.github.app.dify.ops.trace.core.TraceStepCollector;
+import com.github.app.dify.ops.trace.model.TraceHandle;
+import com.github.app.dify.ops.trace.model.TraceStartRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +36,12 @@ public class McpBrowserSearchService {
 
     @Autowired(required = false)
     private SearXNGSearchHelper searXNGSearchHelper;
+
+    @Autowired
+    private TraceFacade traceFacade;
+
+    @Autowired
+    private TraceSanitizer traceSanitizer;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -75,8 +86,11 @@ public class McpBrowserSearchService {
      * @return 检索结果列表
      */
     public List<SearchResult> search(String query, int maxResults) {
+        TraceHandle traceHandle = startBusinessTrace("mcp_browser_search", query, maxResults);
+        TraceStepCollector stepCollector = new TraceStepCollector(traceFacade, traceHandle, traceSanitizer);
         if (query == null || query.trim().isEmpty()) {
             logger.warn("搜索查询为空，返回空结果");
+            traceFacade.success(traceHandle, "empty_query");
             return new ArrayList<>();
         }
 
@@ -88,10 +102,14 @@ public class McpBrowserSearchService {
         try {
             logger.info("开始浏览器检索 - 查询: {}, 最大结果数: {}", query, maxResults);
 
-            // 优化搜索查询，添加时间限制以确保获取最新信息
-            String optimizedQuery = browserSearchConfig.isEnableQueryOptimization()
-                    ? optimizeQueryForLatestInfo(query)
-                    : query;
+            String optimizedQuery = stepCollector.trace(
+                    "MCP_QUERY_OPTIMIZE",
+                    "优化搜索查询",
+                    "query=" + query,
+                    () -> browserSearchConfig.isEnableQueryOptimization()
+                            ? optimizeQueryForLatestInfo(query)
+                            : query,
+                    optimized -> "optimized_query=" + optimized);
             if (!optimizedQuery.equals(query)) {
                 logger.debug("优化后的搜索查询: {}", optimizedQuery);
             }
@@ -100,7 +118,13 @@ public class McpBrowserSearchService {
             List<SearchResult> results = null;
             if (searchApiFactory != null) {
                 try {
-                    results = searchApiFactory.search(optimizedQuery, maxResults);
+                    final int finalMaxResults = maxResults;
+                    results = stepCollector.trace(
+                            "MCP_MULTI_API_SEARCH",
+                            "多API检索",
+                            "query=" + optimizedQuery + ",maxResults=" + finalMaxResults,
+                            () -> searchApiFactory.search(optimizedQuery, finalMaxResults),
+                            r -> "result_count=" + (r == null ? 0 : r.size()));
                     if (results != null && !results.isEmpty()) {
                         logger.info("使用多API工厂搜索成功，返回 {} 个结果", results.size());
                     }
@@ -114,13 +138,25 @@ public class McpBrowserSearchService {
                 logger.info("降级使用SearX-NG搜索");
                 if (searXNGSearchHelper != null) {
                     try {
-                        results = searXNGSearchHelper.search(optimizedQuery, maxResults);
+                        final int finalMaxResults = maxResults;
+                        results = stepCollector.trace(
+                                "MCP_SEARXNG_SEARCH",
+                                "SearXNG降级检索",
+                                "query=" + optimizedQuery + ",maxResults=" + finalMaxResults,
+                                () -> searXNGSearchHelper.search(optimizedQuery, finalMaxResults),
+                                r -> "result_count=" + (r == null ? 0 : r.size()));
                     } catch (Exception e) {
                         logger.warn("SearX-NG搜索失败", e);
                     }
                 } else {
                     // 如果SearXNGSearchHelper也不可用，使用原有的searchWithSearXNG方法
-                    results = searchWithSearXNG(optimizedQuery, maxResults);
+                    final int finalMaxResults = maxResults;
+                    results = stepCollector.trace(
+                            "MCP_SEARXNG_SEARCH",
+                            "SearXNG降级检索（内置）",
+                            "query=" + optimizedQuery + ",maxResults=" + finalMaxResults,
+                            () -> searchWithSearXNG(optimizedQuery, finalMaxResults),
+                            r -> "result_count=" + (r == null ? 0 : r.size()));
                 }
             }
 
@@ -145,9 +181,12 @@ public class McpBrowserSearchService {
                 logger.warn("浏览器检索未找到任何结果 - 查询: {}, 优化查询: {}", query, optimizedQuery);
             }
 
-            return results != null ? results : new ArrayList<>();
+            List<SearchResult> finalResults = results != null ? results : new ArrayList<>();
+            traceFacade.success(traceHandle, "result_count=" + finalResults.size());
+            return finalResults;
 
         } catch (Exception e) {
+            traceFacade.error(traceHandle, e);
             logger.error("浏览器检索失败 - 查询: {}", query, e);
             // 返回空结果，不抛出异常，避免影响主流程
             return new ArrayList<>();
@@ -691,6 +730,22 @@ public class McpBrowserSearchService {
         sb.append("4. 如果所有搜索结果都是过期的，请明确告知用户\"搜索结果中的信息可能已过期，建议访问相关官方网站或新闻网站获取最新信息\"\n");
 
         return sb.toString();
+    }
+
+    private TraceHandle startBusinessTrace(String traceSource, String query, int maxResults) {
+        try {
+            TraceStartRequest request = new TraceStartRequest();
+            request.setTraceSource(traceSource);
+            request.setConversationId(null);
+            request.setUserId(null);
+            request.setRequestType("mcp_search");
+            request.setBusinessId(null);
+            request.setRequestSummary("query=" + query + ",maxResults=" + maxResults);
+            return traceFacade.start(request);
+        } catch (Exception e) {
+            logger.debug("启动mcp browser search追踪失败，降级继续", e);
+            return null;
+        }
     }
 
     /**
