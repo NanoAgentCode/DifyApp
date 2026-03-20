@@ -87,14 +87,11 @@
 
       <div class="content-section">
         <h3>{{ trace.status === 1 ? '响应内容' : '错误内容' }}</h3>
-        <pre class="code-box">
-          <template v-if="trace.status === 1">
-            {{ trace.responseContent ? formatJson(trace.responseContent) : '暂无响应内容' }}
-          </template>
-          <template v-else>
-            {{ trace.errorContent || '暂无错误信息' }}
-          </template>
-        </pre>
+        <template v-if="trace.status === 1">
+          <div v-if="trace.responseContent" class="code-box markdown-content" v-html="renderedResponseContent"></div>
+          <pre v-else class="code-box">暂无响应内容</pre>
+        </template>
+        <pre v-else class="code-box">{{ trace.errorContent || '暂无错误信息' }}</pre>
       </div>
     </template>
   </el-drawer>
@@ -105,6 +102,7 @@ import { computed, ref } from 'vue'
 import { getTrace, getTraceSteps } from '@/api/observability'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
+import { renderMarkdown } from '@/composables/useMarkdown'
 
 const visible = ref(false)
 const trace = ref({})
@@ -126,6 +124,11 @@ const statusTagType = computed(() => {
 const asyncStateStatus = computed(() => asyncState.value?.status || '')
 
 const failedStepCount = computed(() => steps.value.filter((item) => item?.status === 'FAILED').length)
+
+const renderedResponseContent = computed(() => {
+  if (trace.value?.status !== 1) return ''
+  return renderMarkdown(trace.value?.responseContent || '')
+})
 
 const parseMetaData = (metaData) => {
   if (!metaData) return {}
@@ -255,6 +258,19 @@ defineExpose({
 
 .code-box.error {
   color: var(--color-danger);
+}
+
+.markdown-content :deep(pre) {
+  margin: 0 0 10px 0;
+}
+
+.markdown-content :deep(code) {
+  font-family: 'Fira Code', 'Courier New', Courier, monospace;
+}
+
+.markdown-content :deep(p) {
+  margin: 0 0 8px 0;
+  line-height: 1.65;
 }
 
 .id-code {
