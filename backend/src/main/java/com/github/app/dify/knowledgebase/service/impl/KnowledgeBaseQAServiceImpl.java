@@ -3,6 +3,7 @@ package com.github.app.dify.knowledgebase.service.impl;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.exception.UnauthorizedException;
+import com.github.app.dify.common.util.ConversationIdUtil;
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.ops.observability.annotation.LLMTrace;
 import com.github.app.dify.ops.trace.api.TraceFacade;
@@ -237,14 +238,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             // 保存历史记录
             Long conversationId = null;
             try {
-                Long requestConversationId = null;
-                if (request.getConversationId() != null && !request.getConversationId().trim().isEmpty()) {
-                    try {
-                        requestConversationId = Long.parseLong(request.getConversationId());
-                    } catch (NumberFormatException e) {
-                        logger.warn("无效的conversationId: {}", request.getConversationId());
-                    }
-                }
+                Long requestConversationId = ConversationIdUtil.parseConversationId(request.getConversationId(), logger);
                 conversationId = chatHistoryService.getOrCreateConversation(
                         userId, requestConversationId, 2, null, knowledgeBaseId, request.getQuestion());
                 logger.info("非流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}",
@@ -602,14 +596,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                 null);
         if (userId != null) {
             try {
-                Long requestConversationId = null;
-                if (request.getConversationId() != null && !request.getConversationId().trim().isEmpty()) {
-                    try {
-                        requestConversationId = Long.parseLong(request.getConversationId());
-                    } catch (NumberFormatException e) {
-                        logger.warn("无效的conversationId: {}", request.getConversationId());
-                    }
-                }
+                Long requestConversationId = ConversationIdUtil.parseConversationId(request.getConversationId(), logger);
                 Long conversationId = chatHistoryService.getOrCreateConversation(
                         userId, requestConversationId, 2, null, knowledgeBaseId, request.getQuestion());
                 conversationIdRef.set(conversationId);

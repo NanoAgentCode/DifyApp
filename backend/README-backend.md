@@ -1,5 +1,11 @@
 # DifyApp 后端项目
 
+## 文档同步状态（2026-03）
+
+- 已完成后端文档全量校准，设计文档与实现保持一致。
+- 已对齐可观测性双机制追踪、去重门控、`traceId` 继承与降级一致性策略。
+- 已对齐 `ConversationIdUtil.parseConversationId(...)` 统一会话解析规范。
+
 ## 项目概述
 
 DifyApp 后端是一个基于 Java 的企业级后端应用，提供用户认证、智能对话、知识库管理、AI 应用管理、AI 绘图等功能。该项目使用 Spring Boot 3.5.8 框架构建，集成了多种 AI 服务和向量数据库，实现了现代化的 RAG（检索增强生成）架构。
@@ -23,6 +29,27 @@ DifyApp 后端是一个基于 Java 的企业级后端应用，提供用户认证
 - **记忆管理增强**：用户端和管理端记忆管理界面优化，清空功能细化
 - **认证与 Web 配置**：JWT 拦截器在 WebMvcConfig 中注册，排除登录/注册/系统配置等公共接口；提供 `/api/system-config/value/{key}`、`/api/system-config/group/{group}` 等接口供前端按 key 或分组获取配置
 - **缓存与一致性**：AI 应用删除时同步清除按 apikey 的缓存；知识库文档向量化/重索引/删除后触发 RAG 缓存失效；知识库向量库或类型变更时 VectorStoreFactory 缓存失效；各 VectorStore 策略使用 ConcurrentHashMap、Elasticsearch 客户端在切换时正确关闭
+
+## 最新功能更新（2026-03）
+
+- **可观测性模块化改造**：
+  - 新增 `ops.trace` 统一追踪门面（`TraceFacade`、`TraceStepCollector`）
+  - 业务主链路支持步骤级追踪，步骤数据落在 `metaData.steps`
+  - `EsTraceStore` 异步写入 + 重试，失败时标记 `metaData.asyncState=PARTIAL`
+- **双机制追踪与去重门控**：
+  - 业务追踪与 AOP 追踪并存
+  - 业务主追踪成功时屏蔽 AOP 主源重复记录
+  - 主追踪失败时保留 AOP 记录用于降级兜底
+- **traceId 一致性增强**：
+  - 同一请求多记录统一 `traceId`，`spanId` 保持唯一
+  - 切面入口注入 fallback traceId，主追踪成功后自动覆盖
+- **日志监控接口增强**：
+  - 新增 `GET /api/observability/traces/{id}/steps`
+  - 可观测性查询侧支持来源过滤（隐藏 `User Memory Extraction`）
+- **代码统一规范**：
+  - `conversationId` 解析统一走 `ConversationIdUtil.parseConversationId(...)`
+
+详细说明请查看：`doc/16.可观测性功能与使用指南.md`。
 
 ## 技术栈
 

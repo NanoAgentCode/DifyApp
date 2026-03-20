@@ -3,6 +3,7 @@ package com.github.app.dify.documentreader.service.impl;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.exception.NotFoundException;
+import com.github.app.dify.common.util.ConversationIdUtil;
 import com.github.app.dify.chat.service.ChatHistoryService;
 import com.github.app.dify.documentreader.domain.DocumentReader;
 import com.github.app.dify.documentreader.repository.DocumentReaderRepository;
@@ -162,7 +163,7 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
             // 获取或创建会话（文档问答类型设为3）
             Long conversationId = null;
             try {
-                Long requestConversationId = request.getConversationId();
+                Long requestConversationId = ConversationIdUtil.parseConversationId(request.getConversationId(), logger);
                 conversationId = chatHistoryService.getOrCreateConversation(
                         userId, requestConversationId, 3, null, documentId, request.getQuestion());
                 logger.info("非流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}",
@@ -295,7 +296,7 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
             final Long[] conversationIdRef = new Long[1];
             if (userId != null) {
                 try {
-                    Long requestConversationId = request.getConversationId();
+                    Long requestConversationId = ConversationIdUtil.parseConversationId(request.getConversationId(), logger);
                     conversationIdRef[0] = chatHistoryService.getOrCreateConversation(
                             userId, requestConversationId, 3, null, documentId, request.getQuestion());
                     logger.info("流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}",
