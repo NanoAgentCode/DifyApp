@@ -554,7 +554,11 @@ public class DocumentReaderQAServiceImpl implements DocumentReaderQAService {
             startRequest.setRequestType(stream ? "document_qa_stream" : "document_qa");
             startRequest.setBusinessId(documentId);
             startRequest.setRequestSummary(request == null ? null : request.getQuestion());
-            return traceFacade.start(startRequest);
+            TraceHandle handle = traceFacade.start(startRequest);
+            if (handle != null && handle.getTraceId() != null && !handle.getTraceId().isBlank()) {
+                modelLanguageModelFactory.setTraceId(handle.getTraceId());
+            }
+            return handle;
         } catch (Exception e) {
             logger.debug("启动documentreader业务追踪失败，降级继续", e);
             return null;

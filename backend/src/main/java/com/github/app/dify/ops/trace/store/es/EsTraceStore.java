@@ -45,7 +45,9 @@ public class EsTraceStore implements TraceStore {
     @Override
     public TraceHandle start(TraceStartRequest request) {
         TraceHandle handle = new TraceHandle();
-        String traceId = UUID.randomUUID().toString().replace("-", "");
+        String traceId = request != null && request.getTraceId() != null && !request.getTraceId().isBlank()
+                ? request.getTraceId()
+                : UUID.randomUUID().toString().replace("-", "");
         String spanId = UUID.randomUUID().toString();
         handle.setTraceId(traceId);
         handle.setSpanId(spanId);

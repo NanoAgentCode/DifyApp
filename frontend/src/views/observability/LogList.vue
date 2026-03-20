@@ -314,8 +314,14 @@ const handleDelete = (row) => {
           return
         }
         await deleteTrace(id)
+        // 先做前端本地删除，避免 ES 近实时刷新导致“删了还在”的短暂错觉
+        tableData.value = tableData.value.filter((item) => item.esDocId !== id)
+        total.value = Math.max(0, total.value - 1)
         ElMessage.success('删除成功')
-        fetchData()
+        // 再做一次延迟拉取，保证最终与后端一致
+        setTimeout(() => {
+          fetchData()
+        }, 1200)
       } catch (error) {
         console.error('删除失败:', error)
         ElMessage.error('删除失败')

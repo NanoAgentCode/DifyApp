@@ -81,6 +81,8 @@ public class LLMTraceAspect {
             // 设置TraceSource（异常隔离）
             try {
                 modelLanguageModelFactory.setTraceSource(traceSource);
+                // 先注入请求级降级traceId，若业务主trace成功会被真实traceId覆盖
+                modelLanguageModelFactory.ensureFallbackTraceId();
             } catch (Exception e) {
                 logger.warn("设置TraceSource失败，继续执行业务逻辑", e);
             }
@@ -123,6 +125,7 @@ public class LLMTraceAspect {
             try {
                 modelLanguageModelFactory.clearTraceSource();
                 modelLanguageModelFactory.clearConversationId();
+                modelLanguageModelFactory.clearTraceId();
             } catch (Exception e) {
                 logger.warn("清理ThreadLocal失败", e);
             }

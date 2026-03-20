@@ -821,7 +821,11 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             startRequest.setRequestType(stream ? "qa_stream" : "qa");
             startRequest.setBusinessId(knowledgeBaseId);
             startRequest.setRequestSummary(request == null ? null : request.getQuestion());
-            return traceFacade.start(startRequest);
+            TraceHandle handle = traceFacade.start(startRequest);
+            if (handle != null && handle.getTraceId() != null && !handle.getTraceId().isBlank()) {
+                modelLanguageModelFactory.setTraceId(handle.getTraceId());
+            }
+            return handle;
         } catch (Exception e) {
             logger.debug("启动业务追踪失败，降级继续执行业务", e);
             return null;

@@ -969,7 +969,11 @@ public class ChatServiceImpl implements ChatService {
             startRequest.setRequestType(stream ? "chat_stream" : "chat");
             startRequest.setBusinessId(null);
             startRequest.setRequestSummary(request == null ? null : request.getQuestion());
-            return traceFacade.start(startRequest);
+            TraceHandle handle = traceFacade.start(startRequest);
+            if (handle != null && handle.getTraceId() != null && !handle.getTraceId().isBlank()) {
+                modelLanguageModelFactory.setTraceId(handle.getTraceId());
+            }
+            return handle;
         } catch (Exception e) {
             logger.debug("启动chat业务追踪失败，降级继续", e);
             return null;

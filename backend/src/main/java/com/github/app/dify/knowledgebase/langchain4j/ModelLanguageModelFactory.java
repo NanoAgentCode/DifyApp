@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import com.github.app.dify.ops.trace.api.TraceFacade;
 import com.github.app.dify.ops.trace.model.TraceHandle;
 import com.github.app.dify.ops.trace.model.TraceStartRequest;
@@ -55,6 +56,8 @@ public class ModelLanguageModelFactory {
 
     // 使用ThreadLocal存储当前请求的会话ID
     private static final ThreadLocal<String> conversationIdContext = new ThreadLocal<>();
+    // 使用ThreadLocal存储当前请求的traceId（用于跨多条记录串联同一请求）
+    private static final ThreadLocal<String> traceIdContext = new ThreadLocal<>();
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -112,6 +115,40 @@ public class ModelLanguageModelFactory {
     }
 
     /**
+     * 设置当前请求的traceId
+     */
+    public void setTraceId(String traceId) {
+        traceIdContext.set(traceId);
+    }
+
+    /**
+     * 若当前请求尚未设置traceId，则生成一个降级traceId并返回。
+     */
+    public String ensureFallbackTraceId() {
+        String current = traceIdContext.get();
+        if (current != null && !current.isBlank()) {
+            return current;
+        }
+        String fallbackTraceId = UUID.randomUUID().toString().replace("-", "");
+        traceIdContext.set(fallbackTraceId);
+        return fallbackTraceId;
+    }
+
+    /**
+     * 清除当前请求的traceId
+     */
+    public void clearTraceId() {
+        traceIdContext.remove();
+    }
+
+    /**
+     * 获取当前请求的traceId
+     */
+    private static String getTraceId() {
+        return traceIdContext.get();
+    }
+
+    /**
      * 清除当前请求的图片数据
      */
     public void clearImageData() {
@@ -145,10 +182,12 @@ public class ModelLanguageModelFactory {
 
                     // 记录开始
                     String conversationId = getConversationId(); // 从 ThreadLocal 获取
+                    String requestTraceId = getTraceId();
                     if (!skipTrace) {
                         try {
                             String requestJson = objectMapper.writeValueAsString(requestBody);
                             TraceStartRequest startRequest = new TraceStartRequest();
+                            startRequest.setTraceId(requestTraceId);
                             startRequest.setTraceSource(traceSource != null ? traceSource : "LLM");
                             startRequest.setConversationId(conversationId);
                             startRequest.setRequestType("llm_call");
@@ -302,10 +341,12 @@ public class ModelLanguageModelFactory {
 
                     // 记录开始
                     String conversationId = getConversationId(); // 从 ThreadLocal 获取
+                    String requestTraceId = getTraceId();
                     if (!skipTrace) {
                         try {
                             String requestJson = objectMapper.writeValueAsString(requestBody);
                             TraceStartRequest startRequest = new TraceStartRequest();
+                            startRequest.setTraceId(requestTraceId);
                             startRequest.setTraceSource(traceSource != null ? traceSource : "LLM");
                             startRequest.setConversationId(conversationId);
                             startRequest.setRequestType("llm_stream_call");

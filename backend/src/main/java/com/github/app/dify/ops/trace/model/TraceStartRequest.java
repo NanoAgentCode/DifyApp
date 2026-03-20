@@ -8,6 +8,12 @@ import lombok.Data;
 @Data
 public class TraceStartRequest {
 
+    /**
+     * 请求级链路ID（可选）。
+     * 若传入则复用该 traceId；未传入则由存储层生成。
+     */
+    private String traceId;
+
     private String traceSource;
 
     private String conversationId;
