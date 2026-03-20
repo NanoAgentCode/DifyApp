@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -23,6 +25,7 @@ import java.util.List;
 public class UserActionLogController {
 
     private static final Logger logger = LoggerFactory.getLogger(UserActionLogController.class);
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Autowired
     private UserActionLogService userActionLogService;
@@ -52,10 +55,10 @@ public class UserActionLogController {
             
             // 解析时间参数
             if (startTime != null && !startTime.isEmpty()) {
-                request.setStartTime(java.time.LocalDateTime.parse(startTime));
+                request.setStartTime(LocalDateTime.parse(startTime, TIME_FORMATTER));
             }
             if (endTime != null && !endTime.isEmpty()) {
-                request.setEndTime(java.time.LocalDateTime.parse(endTime));
+                request.setEndTime(LocalDateTime.parse(endTime, TIME_FORMATTER));
             }
             
             request.setPage(page);

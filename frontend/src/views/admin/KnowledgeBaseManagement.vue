@@ -336,7 +336,7 @@
             popper-class="vector-store-select-dropdown"
           >
             <el-option
-              v-for="db in vectorDatabases.filter(db => db.enabled && (db.allowCreateKnowledgeBase !== false))"
+              v-for="db in creatableVectorDatabases"
               :key="db.id"
               :label="db.name"
               :value="`${db.type}_${db.id}`"
@@ -672,6 +672,9 @@ const formData = ref({
 const embeddingModels = ref([])
 const vectorDatabases = ref([]) // 向量库配置列表
 const enabledVectorStoreTypes = ref([]) // 启用的向量库类型列表
+const creatableVectorDatabases = computed(() =>
+  (vectorDatabases.value || []).filter(db => db.enabled && (db.allowCreateKnowledgeBase !== false))
+)
 
 // 获取用户信息，判断是否是管理员
 const userInfo = ref(null)

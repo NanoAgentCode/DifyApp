@@ -102,7 +102,7 @@ import { computed, ref } from 'vue'
 import { getTrace, getTraceSteps } from '@/api/observability'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
-import { renderMarkdown } from '@/composables/useMarkdown'
+import { renderMarkdownLight } from '@/composables/useMarkdown'
 
 const visible = ref(false)
 const trace = ref({})
@@ -127,7 +127,13 @@ const failedStepCount = computed(() => steps.value.filter((item) => item?.status
 
 const renderedResponseContent = computed(() => {
   if (trace.value?.status !== 1) return ''
-  return renderMarkdown(trace.value?.responseContent || '')
+  const content = trace.value?.responseContent || ''
+  // 日志详情默认按安全文本渲染，避免直接执行响应中的原始 HTML
+  const safeContent = content
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  return renderMarkdownLight(safeContent)
 })
 
 const parseMetaData = (metaData) => {

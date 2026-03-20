@@ -250,7 +250,13 @@ const fetchData = async () => {
   try {
     const res = await listTraces(params)
     if(res.success) {
-      tableData.value = res.data.content
+      tableData.value = (res.data.content || []).map((item) => {
+        const meta = parseMetaData(item?.metaData)
+        return {
+          ...item,
+          _isAsyncPartial: meta?.asyncState?.status === 'PARTIAL'
+        }
+      })
       total.value = res.data.total
     }
   } catch (error) {
@@ -356,8 +362,7 @@ const parseMetaData = (metaData) => {
 }
 
 const isAsyncPartial = (row) => {
-  const meta = parseMetaData(row?.metaData)
-  return meta?.asyncState?.status === 'PARTIAL'
+  return Boolean(row?._isAsyncPartial)
 }
 
 const getStatusText = (row) => {

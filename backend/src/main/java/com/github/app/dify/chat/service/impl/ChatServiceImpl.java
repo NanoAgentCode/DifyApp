@@ -56,6 +56,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ChatServiceImpl implements ChatService {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatServiceImpl.class);
+    private static final DateTimeFormatter RETRIEVAL_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy年M月d日 HH:mm");
 
     @Autowired
     private QAModelRepository qaModelRepository;
@@ -653,7 +654,7 @@ public class ChatServiceImpl implements ChatService {
         // 如果提供了浏览器检索结果，在系统消息中强调要使用检索结果与时效性说明
         String retrievalTime = null;
         if (browserSearchContext != null && !browserSearchContext.trim().isEmpty()) {
-            retrievalTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy年M月d日 HH:mm"));
+            retrievalTime = LocalDateTime.now().format(RETRIEVAL_TIME_FORMATTER);
             Map<String, String> variables = new HashMap<>();
             variables.put("currentYear", String.valueOf(currentYear));
             variables.put("retrievalTime", retrievalTime);

@@ -102,6 +102,7 @@ public class MinioFileStorageServiceImpl implements FileStorageService {
             );
             return true;
         } catch (Exception e) {
+            logger.debug("检查文件是否存在失败: {}", filePath, e);
             return false;
         }
     }

@@ -72,6 +72,7 @@ public class KnowledgeBaseController extends BaseController {
                 String errorMsg = e.getMessage().substring("DUPLICATE_NAME:".length());
                 throw new BusinessException(errorMsg, 409);
             }
+            logger.error("创建知识库失败 - name: {}, force: {}", req.getName(), force, e);
             throw new BusinessException(e.getMessage() != null ? e.getMessage() : "创建知识库失败");
         }
     }
