@@ -5,21 +5,6 @@
         <div class="card-header">
           <span>{{ title }}</span>
           <div class="header-actions">
-            <el-select
-              v-model="selectedPromptId"
-              placeholder="选择提示词"
-              clearable
-              style="width: 200px; margin-right: 10px"
-              :disabled="sending"
-              @change="handlePromptChange"
-            >
-              <el-option
-                v-for="prompt in availablePrompts"
-                :key="prompt.id"
-                :label="prompt.title"
-                :value="prompt.id"
-              />
-            </el-select>
             <ModelSelector
               v-model="selectedModelId"
               :models="availableModels"
@@ -141,7 +126,6 @@ import { ElMessage } from 'element-plus'
 import { Delete, Plus, Promotion, Picture } from '@element-plus/icons-vue'
 import { chat, chatStream, getConversationMessages } from '@/api/chat'
 import { getAvailableQAModels } from '@/api/model'
-import { getPrompts } from '@/api/prompt'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import MessageList from '@/components/chat/MessageList.vue'
 import ModelSelector from '@/components/chat/ModelSelector.vue'
@@ -175,9 +159,6 @@ const enableBrowserSearch = ref(props.enableBrowserSearchDefault)
 const currentStreamingMessage = ref(null)
 const availableModels = ref([])
 const selectedModelId = ref(null)
-const availablePrompts = ref([])
-const selectedPromptId = ref(null)
-const selectedPrompt = ref(null)
 const selectedFiles = ref([])
 const isDragOver = ref(false)
 
@@ -349,13 +330,7 @@ const handleSend = async () => {
     return
   }
 
-  // 如果选择了提示词，将提示词内容应用到问题中
   let userQuestion = question.value.trim()
-  if (selectedPrompt.value && selectedPrompt.value.content) {
-    // 将提示词内容作为系统提示，用户问题作为实际输入
-    // 格式：提示词内容 + "\n\n" + 用户问题
-    userQuestion = selectedPrompt.value.content + "\n\n" + userQuestion
-  }
   
   // 构建用户消息内容（包含附件信息）
   let userMessageContent = userQuestion
@@ -854,30 +829,8 @@ const loadAvailableModels = async () => {
   }
 }
 
-// 加载提示词列表
-const loadPrompts = async () => {
-  try {
-    const prompts = await getPrompts()
-    availablePrompts.value = prompts || []
-  } catch (error) {
-    console.error('加载提示词列表失败', error)
-    // 不显示错误消息，因为提示词是可选的
-    availablePrompts.value = []
-  }
-}
-
-// 处理提示词选择变化
-const handlePromptChange = (promptId) => {
-  if (promptId) {
-    selectedPrompt.value = availablePrompts.value.find(p => p.id === promptId)
-  } else {
-    selectedPrompt.value = null
-  }
-}
-
 onMounted(async () => {
   loadAvailableModels()
-  loadPrompts()
   // 检查是否有继续对话的标记
   const continueConvId = localStorage.getItem('continueConversationId')
   if (continueConvId) {

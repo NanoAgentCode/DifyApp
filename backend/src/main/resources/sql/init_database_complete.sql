@@ -856,30 +856,6 @@ CREATE INDEX idx_ai_app_user_status ON "AI_APP_USER"(status);
 CREATE INDEX idx_ai_app_user_deleted ON "AI_APP_USER"(deleted);
 
 -- ============================================
--- 20. 创建提示词表 (PROMPT)
--- ============================================
-DROP TABLE IF EXISTS "PROMPT" CASCADE;
-
-CREATE TABLE "PROMPT" (
-    id BIGSERIAL PRIMARY KEY,
-    title VARCHAR(200) NOT NULL,
-    content TEXT NOT NULL,
-    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    deleted INTEGER DEFAULT 0
-);
-
-COMMENT ON TABLE "PROMPT" IS '提示词表';
-COMMENT ON COLUMN "PROMPT".id IS '提示词编号';
-COMMENT ON COLUMN "PROMPT".title IS '提示词标题';
-COMMENT ON COLUMN "PROMPT".content IS '提示词正文';
-COMMENT ON COLUMN "PROMPT".create_time IS '创建时间';
-COMMENT ON COLUMN "PROMPT".update_time IS '更新时间';
-COMMENT ON COLUMN "PROMPT".deleted IS '是否删除：0-未删除，1-已删除';
-
-CREATE INDEX idx_prompt_deleted ON "PROMPT"(deleted);
-
--- ============================================
 -- 21. 创建备忘录表 (MEMO)
 -- ============================================
 DROP TABLE IF EXISTS "MEMO" CASCADE;

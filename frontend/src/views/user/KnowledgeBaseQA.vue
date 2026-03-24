@@ -603,8 +603,6 @@ html {
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
-  gap: 10px;
-}
 
 .header-right {
   display: flex;

@@ -260,61 +260,6 @@
           <DataSourceManagement />
         </el-tab-pane>
 
-        <!-- 提示词管理 -->
-        <el-tab-pane label="提示词管理" name="prompt">
-          <div class="prompt-section">
-            <div class="section-header">
-              <el-input
-                v-model="promptSearchKeyword"
-                placeholder="搜索提示词标题或内容"
-                clearable
-                style="width: 300px"
-                @input="handlePromptSearch"
-              >
-                <template #prefix>
-                  <el-icon><Search /></el-icon>
-                </template>
-              </el-input>
-              <el-button type="primary" @click="handleCreatePrompt">
-                <el-icon><Plus /></el-icon>
-                创建提示词
-              </el-button>
-            </div>
-
-            <!-- 提示词列表 -->
-            <div class="table-container">
-              <el-table
-                :data="prompts"
-                v-loading="loading.prompt"
-                stripe
-              >
-                <el-table-column prop="id" label="ID" width="80" align="center" />
-                <el-table-column prop="title" label="标题" min-width="200" />
-                <el-table-column prop="content" label="内容" min-width="400" show-overflow-tooltip>
-                  <template #default="{ row }">
-                    <div class="content-preview">{{ row.content }}</div>
-                  </template>
-                </el-table-column>
-                <el-table-column prop="createTime" label="创建时间" width="180">
-                  <template #default="{ row }">
-                    {{ formatPromptTime(row.createTime) }}
-                  </template>
-                </el-table-column>
-                <el-table-column prop="updateTime" label="更新时间" width="180">
-                  <template #default="{ row }">
-                    {{ formatPromptTime(row.updateTime) }}
-                  </template>
-                </el-table-column>
-                <el-table-column label="操作" width="200" align="center" fixed="right">
-                  <template #default="{ row }">
-                    <el-button size="small" type="primary" @click="handleEditPrompt(row)">编辑</el-button>
-                    <el-button size="small" type="danger" @click="handleDeletePrompt(row.id)">删除</el-button>
-                  </template>
-                </el-table-column>
-              </el-table>
-            </div>
-          </div>
-        </el-tab-pane>
       </el-tabs>
     </el-card>
 
@@ -563,35 +508,6 @@
       </template>
     </el-dialog>
 
-    <!-- 提示词创建/编辑对话框 -->
-    <el-dialog
-      v-model="promptDialogVisible"
-      :title="promptIsEdit ? '编辑提示词' : '创建提示词'"
-      width="600px"
-      :close-on-click-modal="false"
-    >
-      <el-form :model="promptFormData" :rules="promptFormRules" ref="promptFormRef" label-width="100px">
-        <el-form-item label="标题" prop="title">
-          <el-input v-model="promptFormData.title" placeholder="请输入提示词标题" />
-        </el-form-item>
-        <el-form-item label="内容" prop="content">
-          <el-input
-            v-model="promptFormData.content"
-            type="textarea"
-            :rows="15"
-            placeholder="请输入提示词内容（支持Markdown格式）"
-          />
-          <div class="form-tip">
-            <el-icon><InfoFilled /></el-icon>
-            <span>提示词内容支持Markdown格式，与智能问答的格式要求相同</span>
-          </div>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="promptDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmitPrompt" :loading="promptSaving">确定</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -608,26 +524,18 @@ import {
   Edit,
   Delete,
   More,
-  ArrowDown,
-  Search
+  ArrowDown
 } from '@element-plus/icons-vue'
 import { getModelConfig, updateModelConfig, testModelConnection } from '@/api/model'
 import { getModelStyle, getModelPlainStyle } from '@/utils/modelColor'
 import VectorDatabaseManagement from './VectorDatabaseManagement.vue'
 import DataSourceManagement from './DataSourceManagement.vue'
-import {
-  getPrompts,
-  createPrompt,
-  updatePrompt,
-  deletePrompt
-} from '@/api/prompt'
 
 const activeTab = ref('qa')
 const saving = ref(false)
 const loading = reactive({
   qa: false,
-  embedding: false,
-  prompt: false
+  embedding: false
 })
 
 const qaModelList = ref([])
@@ -667,26 +575,6 @@ const filteredEmbeddingModelList = computed(() => {
     )
   })
 })
-
-// 提示词管理相关
-const prompts = ref([])
-const promptSaving = ref(false)
-const promptSearchKeyword = ref('')
-const promptDialogVisible = ref(false)
-const promptIsEdit = ref(false)
-const promptFormRef = ref(null)
-const promptCurrentEditId = ref(null)
-let promptSearchTimer = null
-
-const promptFormData = ref({
-  title: '',
-  content: ''
-})
-
-const promptFormRules = {
-  title: [{ required: true, message: '请输入提示词标题', trigger: 'blur' }],
-  content: [{ required: true, message: '请输入提示词内容', trigger: 'blur' }]
-}
 
 // 问答模型对话框相关
 const dialogVisible = ref(false)
@@ -1350,107 +1238,7 @@ watch(() => currentModel.supportsMultimodal, (newVal) => {
 
 onMounted(() => {
   loadConfig()
-  loadPrompts()
 })
-
-// 提示词管理相关函数
-const loadPrompts = async () => {
-  loading.prompt = true
-  try {
-    const keyword = promptSearchKeyword.value ? promptSearchKeyword.value.trim() : null
-    const data = await getPrompts(keyword)
-    prompts.value = data || []
-  } catch (error) {
-    console.error('加载提示词列表失败', error)
-    ElMessage.error('加载提示词列表失败')
-    prompts.value = []
-  } finally {
-    loading.prompt = false
-  }
-}
-
-const handlePromptSearch = () => {
-  if (promptSearchTimer) {
-    clearTimeout(promptSearchTimer)
-  }
-  promptSearchTimer = setTimeout(() => {
-    loadPrompts()
-  }, 300)
-}
-
-const handleCreatePrompt = () => {
-  promptIsEdit.value = false
-  promptCurrentEditId.value = null
-  promptFormData.value = {
-    title: '',
-    content: ''
-  }
-  promptDialogVisible.value = true
-}
-
-const handleEditPrompt = (row) => {
-  promptIsEdit.value = true
-  promptCurrentEditId.value = row.id
-  promptFormData.value = {
-    title: row.title,
-    content: row.content
-  }
-  promptDialogVisible.value = true
-}
-
-const handleSubmitPrompt = async () => {
-  if (!promptFormRef.value) return
-  
-  try {
-    await promptFormRef.value.validate()
-  } catch (error) {
-    return
-  }
-
-  promptSaving.value = true
-  try {
-    if (promptIsEdit.value) {
-      await updatePrompt(promptCurrentEditId.value, promptFormData.value)
-      ElMessage.success('更新提示词成功')
-    } else {
-      await createPrompt(promptFormData.value)
-      ElMessage.success('创建提示词成功')
-    }
-    promptDialogVisible.value = false
-    loadPrompts()
-  } catch (error) {
-    console.error('保存提示词失败', error)
-    const errorMessage = error.response?.data?.error || error.message || '保存提示词失败'
-    ElMessage.error(errorMessage)
-  } finally {
-    promptSaving.value = false
-  }
-}
-
-const handleDeletePrompt = async (id) => {
-  try {
-    await ElMessageBox.confirm('确定要删除该提示词吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    
-    await deletePrompt(id)
-    ElMessage.success('删除提示词成功')
-    loadPrompts()
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('删除提示词失败', error)
-      const errorMessage = error.response?.data?.error || error.message || '删除提示词失败'
-      ElMessage.error(errorMessage)
-    }
-  }
-}
-
-const formatPromptTime = (time) => {
-  if (!time) return ''
-  return new Date(time).toLocaleString('zh-CN')
-}
 </script>
 
 <style scoped>
@@ -1621,27 +1409,4 @@ const formatPromptTime = (time) => {
   width: 0 !important;
 }
 
-/* 提示词管理样式 */
-.prompt-section {
-  padding: 0;
-}
-
-.prompt-section .section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-lg);
-  gap: var(--spacing-md);
-}
-
-.prompt-section .table-container {
-  margin-top: var(--spacing-lg);
-}
-
-.content-preview {
-  max-width: 400px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 </style>
