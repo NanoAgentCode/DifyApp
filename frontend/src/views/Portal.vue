@@ -656,6 +656,8 @@ const retryCount = ref(0) // 重试次数
 const maxRetries = 3 // 最大重试次数
 const isViewSwitching = ref(false) // 视图切换动画状态
 const isNavigatingToFeature = ref(false) // 正在导航到功能页面
+const PORTAL_VIEW_STORAGE_PREFIX = 'portalCurrentView'
+const PORTAL_VIEW_OPTIONS = ['welcome', 'features']
 
 // 建议问题列表
 const suggestedQuestions = ref([
@@ -765,6 +767,35 @@ const getUserInfo = () => {
   return null
 }
 
+const getPortalViewStorageKey = () => {
+  const userInfo = getUserInfo()
+  const currentUserId = userInfo?.userId || userInfo?.id || userInfo?.username || 'anonymous'
+  return `${PORTAL_VIEW_STORAGE_PREFIX}:${currentUserId}`
+}
+
+const loadStoredPortalView = () => {
+  try {
+    const storedView = localStorage.getItem(getPortalViewStorageKey())
+    if (storedView && PORTAL_VIEW_OPTIONS.includes(storedView)) {
+      currentView.value = storedView
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('读取门户页签本地状态失败', error)
+    }
+  }
+}
+
+const persistPortalView = (view) => {
+  try {
+    localStorage.setItem(getPortalViewStorageKey(), view)
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('保存门户页签本地状态失败', error)
+    }
+  }
+}
+
 // 处理下拉菜单命令
 const handleCommand = (command) => {
   if (command === 'changePassword') {
@@ -783,10 +814,12 @@ const handlePasswordChangeSuccess = () => {
 
 // Smooth view switching with animation
 const switchView = async (view) => {
+  if (!PORTAL_VIEW_OPTIONS.includes(view)) return
   if (currentView.value === view || isViewSwitching.value) return
   
   isViewSwitching.value = true
   currentView.value = view
+  persistPortalView(view)
   
   // Reset switching state after animation completes
   await nextTick()
@@ -2528,6 +2561,7 @@ const handleGlobalKeydown = (e) => {
 }
 
 onMounted(() => {
+  loadStoredPortalView()
   updateDateTime()
   // 每秒更新时间
   dateTimeIntervalId.value = setInterval(updateDateTime, 1000)
