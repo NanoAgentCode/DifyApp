@@ -32,7 +32,7 @@ public class UserMemoryController extends BaseController {
             @RequestParam(required = false) String scopeType,
             @RequestParam(required = false) Long scopeId,
             @RequestParam(required = false, defaultValue = "1") Integer page,
-            @RequestParam(required = false, defaultValue = "50") Integer size,
+            @RequestParam(required = false, defaultValue = "10") Integer size,
             HttpServletRequest request
     ) {
         Long userId = getUserId(request);
@@ -40,7 +40,7 @@ public class UserMemoryController extends BaseController {
                 userId,
                 type,
                 page != null ? page : 1,
-                size != null ? size : 50,
+                size != null ? size : 10,
                 scopeType,
                 scopeId
         );

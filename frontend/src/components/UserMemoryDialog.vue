@@ -109,7 +109,7 @@
         <el-pagination
           v-model:current-page="page"
           v-model:page-size="pageSize"
-          :page-sizes="[20, 50, 100, 200]"
+          :page-sizes="[10, 20, 50, 100, 200]"
           :total="filteredItems.length"
           layout="total, sizes, prev, pager, next"
           @size-change="handlePageSizeChange"
@@ -145,7 +145,7 @@ const deleting = ref(false)
 const items = ref([])
 const keyword = ref('')
 const page = ref(1)
-const pageSize = ref(50)
+const pageSize = ref(10)
 
 const scopeType = ref('all')
 const memoryType = ref('all')
@@ -346,7 +346,7 @@ const handleClearFilters = () => {
   scopeType.value = 'all'
   memoryType.value = 'all'
   page.value = 1
-  pageSize.value = 50
+  pageSize.value = 10
   ElMessage.success('查询条件已重置')
 }
 
