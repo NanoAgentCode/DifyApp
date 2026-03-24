@@ -2,10 +2,6 @@
   <div class="features-view">
     <div class="feature-entries">
       <div class="feature-header">
-        <div class="feature-title">
-          <el-icon class="feature-title-icon"><Service /></el-icon>
-          <span class="feature-title-text">快捷入口</span>
-        </div>
         <p class="feature-subtitle">选择功能模块，快速开始您的工作</p>
       </div>
       
@@ -203,7 +199,7 @@ defineEmits(['feature-click'])
 
 .feature-subtitle {
   font-size: 14px;
-  color: var(--el-text-color-secondary, #909399);
+  color: var(--el-text-color-primary, #303133);
   margin: 0;
 }
 

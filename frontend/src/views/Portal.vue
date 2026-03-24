@@ -165,10 +165,6 @@
           <div v-else-if="currentView === 'features'" key="features" class="view-content">
             <div class="feature-entries">
               <div class="feature-header">
-                <div class="feature-title">
-                  <el-icon class="feature-title-icon"><Service /></el-icon>
-                  <span class="feature-title-text">快捷入口</span>
-                </div>
                 <p class="feature-subtitle">选择功能模块，快速开始您的工作</p>
               </div>
               
@@ -3597,7 +3593,7 @@ onUnmounted(() => {
 
 .feature-subtitle {
   font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   margin: 0;
   line-height: var(--line-height-normal);
 }
