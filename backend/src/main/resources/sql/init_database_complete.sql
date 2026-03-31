@@ -103,6 +103,49 @@ CREATE INDEX idx_system_config_group ON "SYSTEM_CONFIG"(config_group);
 CREATE INDEX idx_system_config_deleted ON "SYSTEM_CONFIG"(deleted);
 
 -- ============================================
+-- 2.1 创建Agent技能配置表 (AGENT_SKILL_CONFIG)
+-- ============================================
+DROP TABLE IF EXISTS "AGENT_SKILL_CONFIG" CASCADE;
+
+CREATE TABLE "AGENT_SKILL_CONFIG" (
+    id BIGSERIAL PRIMARY KEY,
+    skill_key VARCHAR(100) NOT NULL UNIQUE,
+    skill_name VARCHAR(200),
+    skill_path VARCHAR(500),
+    enabled BOOLEAN DEFAULT TRUE,
+    visible_to_user BOOLEAN DEFAULT FALSE,
+    description VARCHAR(1000),
+    source_type VARCHAR(30),
+    ext_json TEXT,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    creator VARCHAR(64),
+    creator_id BIGINT,
+    deleted INTEGER DEFAULT 0
+);
+
+COMMENT ON TABLE "AGENT_SKILL_CONFIG" IS 'Agent技能配置表';
+COMMENT ON COLUMN "AGENT_SKILL_CONFIG".id IS '主键ID';
+COMMENT ON COLUMN "AGENT_SKILL_CONFIG".skill_key IS 'Skill唯一键（目录名）';
+COMMENT ON COLUMN "AGENT_SKILL_CONFIG".skill_name IS 'Skill名称';
+COMMENT ON COLUMN "AGENT_SKILL_CONFIG".skill_path IS 'Skill路径（相对项目根）';
+COMMENT ON COLUMN "AGENT_SKILL_CONFIG".enabled IS '是否启用';
+COMMENT ON COLUMN "AGENT_SKILL_CONFIG".visible_to_user IS '普通用户是否可见';
+COMMENT ON COLUMN "AGENT_SKILL_CONFIG".description IS '技能描述';
+COMMENT ON COLUMN "AGENT_SKILL_CONFIG".source_type IS '来源类型（system/custom）';
+COMMENT ON COLUMN "AGENT_SKILL_CONFIG".ext_json IS '扩展JSON';
+COMMENT ON COLUMN "AGENT_SKILL_CONFIG".create_time IS '创建时间';
+COMMENT ON COLUMN "AGENT_SKILL_CONFIG".update_time IS '更新时间';
+COMMENT ON COLUMN "AGENT_SKILL_CONFIG".creator IS '创建者';
+COMMENT ON COLUMN "AGENT_SKILL_CONFIG".creator_id IS '创建者ID';
+COMMENT ON COLUMN "AGENT_SKILL_CONFIG".deleted IS '是否删除（0-未删除，1-已删除）';
+
+CREATE INDEX idx_agent_skill_key ON "AGENT_SKILL_CONFIG"(skill_key);
+CREATE INDEX idx_agent_skill_deleted ON "AGENT_SKILL_CONFIG"(deleted);
+CREATE INDEX idx_agent_skill_enabled ON "AGENT_SKILL_CONFIG"(enabled);
+CREATE INDEX idx_agent_skill_visible_user ON "AGENT_SKILL_CONFIG"(visible_to_user);
+
+-- ============================================
 -- 第三部分：核心业务表
 -- ============================================
 

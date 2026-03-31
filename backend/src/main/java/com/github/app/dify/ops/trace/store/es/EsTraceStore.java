@@ -28,7 +28,6 @@ import java.util.concurrent.TimeUnit;
 public class EsTraceStore implements TraceStore {
     private static final int MAX_ASYNC_RETRY = 2;
 
-
     private static final Logger logger = LoggerFactory.getLogger(EsTraceStore.class);
 
     private final TraceDocumentGateway traceDocumentGateway;
@@ -42,6 +41,7 @@ public class EsTraceStore implements TraceStore {
         this.traceExecutor = traceExecutor;
     }
 
+    @SuppressWarnings("null")
     @Override
     public TraceHandle start(TraceStartRequest request) {
         TraceHandle handle = new TraceHandle();
@@ -74,7 +74,8 @@ public class EsTraceStore implements TraceStore {
     }
 
     @Override
-    public void end(TraceHandle handle, String responseContent, Integer inputTokens, Integer outputTokens, Integer totalTokens) {
+    public void end(TraceHandle handle, String responseContent, Integer inputTokens, Integer outputTokens,
+            Integer totalTokens) {
         runAsyncWithRetry(() -> {
             TraceRecord record = resolveRecord(handle);
             if (record == null) {
@@ -269,4 +270,3 @@ public class EsTraceStore implements TraceStore {
         return objectNode;
     }
 }
-

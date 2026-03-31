@@ -117,6 +117,12 @@ const routes = [
                 meta: { title: '系统配置', requiresAuth: true, requiresAdmin: true }
             },
             {
+                path: 'skills',
+                name: 'SkillsManagement',
+                component: () => import('@/views/admin/SkillsManagement.vue'),
+                meta: { title: 'Skills管理', requiresAuth: true, requiresAdmin: true }
+            },
+            {
                 path: 'ai-drawio',
                 name: 'AIDrawIO',
                 component: () => import('@/views/admin/AIDrawIO.vue'),

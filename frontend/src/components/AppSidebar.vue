@@ -64,6 +64,12 @@
             <span>系统配置</span>
           </el-menu-item>
         </el-tooltip>
+        <el-tooltip v-if="isAdmin" content="Skills管理" placement="right" :show-after="200">
+          <el-menu-item index="/admin/skills">
+            <el-icon><Cpu /></el-icon>
+            <span>Skills管理</span>
+          </el-menu-item>
+        </el-tooltip>
         <el-tooltip v-if="isAdmin" content="数据统计" placement="right" :show-after="200">
           <el-menu-item index="/admin/statistics">
             <el-icon><DataAnalysis /></el-icon>
@@ -109,6 +115,7 @@ import {
   Setting,
   User,
   Tools,
+  Cpu,
   Document,
   Monitor,
   Bell
