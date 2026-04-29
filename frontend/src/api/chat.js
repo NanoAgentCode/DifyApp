@@ -149,6 +149,67 @@ export function chatStream(question, conversationId, userId, history, modelId, e
 }
 
 /**
+ * 创建任务模式运行
+ */
+export function createTaskRun(question, conversationId, userId, history, modelId, enableBrowserSearch = false) {
+  return request({
+    url: '/api/chat/tasks',
+    method: 'post',
+    data: {
+      question,
+      conversationId,
+      userId,
+      history,
+      modelId,
+      enableBrowserSearch
+    }
+  })
+}
+
+/**
+ * 获取任务模式结构化事件流
+ */
+export function taskEventStream(runId) {
+  const token = localStorage.getItem('token')
+  const headers = {
+    Accept: 'text/event-stream'
+  }
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+  return fetch(getFullAPIUrl(`/api/chat/tasks/${runId}/events`), {
+    method: 'GET',
+    headers,
+    credentials: 'include'
+  })
+}
+
+/**
+ * 确认或拒绝任务模式高风险工具调用
+ */
+export function confirmTaskRun(runId, confirmationId, approved, comment = '') {
+  return request({
+    url: `/api/chat/tasks/${runId}/confirm`,
+    method: 'post',
+    data: {
+      confirmationId,
+      approved,
+      comment
+    }
+  })
+}
+
+/**
+ * 按会话恢复任务事件
+ */
+export function getTaskEventsByConversation(conversationId) {
+  return request({
+    url: `/api/chat/tasks/conversations/${conversationId}/events`,
+    method: 'get'
+  })
+}
+
+/**
  * 创建新会话
  */
 export function createConversation(title, appId, knowledgeBaseId, type) {

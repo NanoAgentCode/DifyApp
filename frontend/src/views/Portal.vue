@@ -107,14 +107,17 @@
                     <div 
                       v-for="(conversation, index) in recentConversations" 
                       :key="conversation.id"
-                      v-memo="[conversation.id, conversation.title, conversation.updateTime, selectedConversationId === conversation.id]"
+                      v-memo="[conversation.id, conversation.title, conversation.updateTime, conversation.type, selectedConversationId === conversation.id]"
                       :class="['conversation-card', { 'conversation-selected': selectedConversationId === conversation.id }]"
                       @click="handleConversationClick(conversation)"
                     >
                       <div class="conversation-content">
                         <el-icon class="conversation-icon"><ChatLineRound /></el-icon>
                         <div class="conversation-info">
-                          <span class="conversation-title">{{ conversation.title || '未命名会话' }}</span>
+                          <div class="conversation-title-row">
+                            <span class="conversation-title">{{ conversation.title || '未命名会话' }}</span>
+                            <el-tag v-if="conversation.type === 4" size="small" type="warning" class="conversation-task-tag">任务</el-tag>
+                          </div>
                           <span class="conversation-time" v-if="conversation.updateTime">
                             {{ formatConversationTime(conversation.updateTime) }}
                           </span>
@@ -320,6 +323,7 @@
           :messages="chatHistory"
           :sending="sending"
           :on-regenerate="handleRegenerate"
+          :on-task-confirm="handleTaskConfirm"
           ref="messageListRef"
         />
       </div>
@@ -436,6 +440,16 @@
       <div class="input-controls-float">
         <!-- 左侧控制按钮 -->
         <div class="input-left-controls">
+          <el-radio-group
+            v-model="interactionMode"
+            size="small"
+            :disabled="sending"
+            class="portal-mode-toggle"
+          >
+            <el-radio-button label="qa">问答</el-radio-button>
+            <el-radio-button label="task">任务</el-radio-button>
+          </el-radio-group>
+
           <div class="portal-model-selector">
             <ModelSelector
               v-model="selectedModelId"
@@ -465,8 +479,9 @@
             :show-file-list="false"
             accept="image/*"
             multiple
+            :disabled="interactionMode === 'task'"
           >
-            <div class="control-item">
+            <div :class="['control-item', { disabled: interactionMode === 'task' }]">
               <el-icon><Paperclip /></el-icon>
             </div>
           </el-upload>
@@ -571,7 +586,16 @@ import {
   QuestionFilled,
   ChatDotRound
 } from '@element-plus/icons-vue'
-import { chat, chatStream, getMyConversations, getConversationMessages } from '@/api/chat'
+import {
+  chat,
+  chatStream,
+  getMyConversations,
+  getConversationMessages,
+  createTaskRun,
+  taskEventStream,
+  confirmTaskRun,
+  getTaskEventsByConversation
+} from '@/api/chat'
 import { getAvailableQAModels, getAvailableQAModelsForRAG } from '@/api/model'
 import { getKnowledgeBaseList } from '@/api/knowledgeBase'
 import { knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
@@ -618,6 +642,7 @@ const showChangePasswordDialog = ref(false)
 const showUserMemoryDialog = ref(false)
 const isHeaderCollapsed = ref(false)
 const enableBrowserSearch = ref(false) // 联网搜索开关状态
+const interactionMode = ref('qa')
 const currentView = ref('welcome') // 'welcome' 或 'features'
 const isContentOverflow = ref(false) // 内容是否溢出
 const chatHistorySectionRef = ref(null)
@@ -1399,8 +1424,18 @@ const handleSend = async () => {
   try {
     const currentConversationId = conversationId.value
     
-    // 如果选择了文档，使用文档问答API
-    if (conversationMode.value === 'document' && selectedDocumentId.value) {
+    if (interactionMode.value === 'task') {
+      await handleTaskResponse(
+        userQuestion,
+        currentConversationId,
+        userId,
+        history,
+        aiMessageIndex,
+        selectedModelId.value,
+        enableBrowserSearch.value
+      )
+    } else if (conversationMode.value === 'document' && selectedDocumentId.value) {
+      // 如果选择了文档，使用文档问答API
       await handleDocumentStreamResponse(
         selectedDocumentId.value,
         userQuestion,
@@ -1444,6 +1479,124 @@ const handleSend = async () => {
       chatHistory.value[aiMessageIndex].isLoading = false
     }
   } finally {
+    sending.value = false
+    await nextTick()
+    scrollToBottom(false)
+  }
+}
+
+const appendTaskEvent = (aiMessageIndex, event) => {
+  const message = chatHistory.value[aiMessageIndex]
+  if (!message) return
+  if (!message.taskEvents) {
+    message.taskEvents = []
+  }
+
+  if (event.eventType === 'confirmation_resolved') {
+    message.taskEvents.forEach(item => {
+      if (item.confirmationId === event.confirmationId && item.eventType === 'confirmation_required') {
+        item.resolved = true
+      }
+    })
+  }
+
+  message.taskEvents.push(event)
+  message.taskRunId = event.runId || message.taskRunId
+  if (event.conversationId) {
+    conversationId.value = event.conversationId.toString()
+    selectedConversationId.value = event.conversationId
+  }
+  if (event.eventType === 'answer_delta' && event.content) {
+    message.content = event.content
+  }
+  if (['finished', 'error', 'confirmation_required'].includes(event.eventType)) {
+    message.isLoading = false
+  }
+}
+
+const readTaskEventStream = async (runId, aiMessageIndex) => {
+  const response = await taskEventStream(runId)
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '未知错误')
+    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
+  }
+  if (!response.body) {
+    throw new Error('任务事件流不可用')
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+
+    for (const line of lines) {
+      const trimmedLine = line.trim()
+      if (!trimmedLine.startsWith('data:')) continue
+      const data = trimmedLine.slice(5).trim()
+      if (!data || data === '[DONE]') continue
+      try {
+        appendTaskEvent(aiMessageIndex, JSON.parse(data))
+        await nextTick()
+        scrollToBottom(false)
+      } catch (error) {
+        console.warn('解析任务事件失败', error, data)
+      }
+    }
+  }
+}
+
+const handleTaskResponse = async (question, requestConversationId, userId, history, aiMessageIndex, modelId, enableBrowserSearch) => {
+  if (selectedFiles.value.length > 0) {
+    ElMessage.info('任务模式当前优先支持文本输入，图片附件已从本次任务发送中忽略')
+  }
+  const message = chatHistory.value[aiMessageIndex]
+  if (message) {
+    message.taskEvents = []
+    message.content = ''
+  }
+  const taskRun = await createTaskRun(question, requestConversationId, userId, history, modelId, enableBrowserSearch)
+  if (taskRun?.conversationId) {
+    conversationId.value = taskRun.conversationId.toString()
+    selectedConversationId.value = taskRun.conversationId
+  }
+  if (message) {
+    message.taskRunId = taskRun?.runId
+  }
+  appendTaskEvent(aiMessageIndex, {
+    eventType: 'log',
+    runId: taskRun?.runId,
+    conversationId: taskRun?.conversationId,
+    status: 'RUNNING',
+    content: '任务已创建，正在生成执行计划...'
+  })
+  await readTaskEventStream(taskRun.runId, aiMessageIndex)
+  await loadRecentConversations()
+}
+
+const handleTaskConfirm = async (event, approved) => {
+  const messageIndex = chatHistory.value.findIndex(message => message.taskRunId === event.runId)
+  if (messageIndex === -1) return
+  sending.value = true
+  try {
+    const resolved = await confirmTaskRun(event.runId, event.confirmationId, approved)
+    appendTaskEvent(messageIndex, resolved)
+    if (approved) {
+      chatHistory.value[messageIndex].isLoading = true
+      await readTaskEventStream(event.runId, messageIndex)
+      await loadRecentConversations()
+    }
+  } catch (error) {
+    handleError(error, '任务确认', true)
+  } finally {
+    if (chatHistory.value[messageIndex]) {
+      chatHistory.value[messageIndex].isLoading = false
+    }
     sending.value = false
     await nextTick()
     scrollToBottom(false)
@@ -2191,7 +2344,7 @@ const handleConversationClick = async (conversation) => {
       customClass: 'conversation-loading-message'
     })
     
-    await loadConversationMessages(conversation.id)
+    await loadConversationMessages(conversation.id, conversation.type)
     
     // Close loading message
     loadingMsg.close()
@@ -2207,7 +2360,7 @@ const handleConversationClick = async (conversation) => {
 }
 
 // 加载会话消息
-const loadConversationMessages = async (convId) => {
+const loadConversationMessages = async (convId, conversationType = null) => {
   try {
     const response = await getConversationMessages(convId)
     const messages = parseResponseData(response)
@@ -2222,6 +2375,35 @@ const loadConversationMessages = async (convId) => {
     
     // 设置会话ID
     conversationId.value = convId.toString()
+
+    if (conversationType === 4) {
+      interactionMode.value = 'task'
+      const taskEventsResponse = await getTaskEventsByConversation(convId)
+      const taskEvents = parseResponseData(taskEventsResponse)
+      if (taskEvents.length > 0) {
+        const lastAssistantIndex = [...chatHistory.value].reverse().findIndex(msg => msg.type === 'assistant')
+        const targetIndex = lastAssistantIndex === -1 ? -1 : chatHistory.value.length - 1 - lastAssistantIndex
+        const finalAnswer = [...taskEvents].reverse().find(event => event.eventType === 'answer_delta' && event.content)?.content
+        if (targetIndex >= 0) {
+          chatHistory.value[targetIndex].taskEvents = taskEvents
+          chatHistory.value[targetIndex].taskRunId = taskEvents[0]?.runId
+          if (!chatHistory.value[targetIndex].content && finalAnswer) {
+            chatHistory.value[targetIndex].content = finalAnswer
+          }
+        } else {
+          chatHistory.value.push({
+            type: 'assistant',
+            content: finalAnswer || '',
+            time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+            isLoading: false,
+            taskEvents,
+            taskRunId: taskEvents[0]?.runId
+          })
+        }
+      }
+    } else {
+      interactionMode.value = 'qa'
+    }
     
     // 滚动到底部
     await nextTick()
@@ -2252,7 +2434,8 @@ const handleContinueConversation = async () => {
     return
   }
   
-  await loadConversationMessages(selectedConversationId.value)
+  const selectedConversation = recentConversations.value.find(item => item.id === selectedConversationId.value)
+  await loadConversationMessages(selectedConversationId.value, selectedConversation?.type || null)
 }
 
 // 加载可用模型列表
@@ -3928,6 +4111,26 @@ onUnmounted(() => {
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 1px 0 rgba(0, 0, 0, 0.02);
   border: 1px solid var(--el-border-color-lighter, #e4e7ed);
   transition: background-color 0.3s ease, backdrop-filter 0.3s ease;
+}
+
+.portal-mode-toggle {
+  flex-shrink: 0;
+}
+
+.conversation-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.conversation-task-tag {
+  flex-shrink: 0;
+}
+
+.control-item.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* 当内容溢出时，控制区域背景也变为半透明 */

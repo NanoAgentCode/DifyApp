@@ -47,9 +47,9 @@ public class ChatConversation extends BaseEntity {
     private Long knowledgeBaseId;
 
     /**
-     * 会话类型：1-普通聊天，2-知识库问答，3-文档问答
+     * 会话类型：1-普通聊天，2-知识库问答，3-文档问答，4-Agent任务
      */
-    @Schema(description = "会话类型：1-普通聊天，2-知识库问答，3-文档问答")
+    @Schema(description = "会话类型：1-普通聊天，2-知识库问答，3-文档问答，4-Agent任务")
     @Column(name = "type")
     private Integer type;
 
