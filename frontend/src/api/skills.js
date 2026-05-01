@@ -7,6 +7,13 @@ export function getAdminSkillList() {
   })
 }
 
+export function getAdminSkillDetail(skillKey) {
+  return request({
+    url: `/api/admin/skills/${skillKey}`,
+    method: 'get'
+  })
+}
+
 export function updateSkillConfig(skillKey, data) {
   return request({
     url: `/api/admin/skills/${skillKey}`,

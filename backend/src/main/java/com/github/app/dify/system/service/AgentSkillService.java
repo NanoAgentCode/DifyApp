@@ -7,8 +7,10 @@ public interface AgentSkillService {
 
     List<Map<String, Object>> listAdminSkills();
 
-    Map<String, Object> updateSkill(String skillKey, Boolean enabled, Boolean visibleToUser, String description,
-            Long userId, String username);
+    Map<String, Object> getAdminSkillDetail(String skillKey);
+
+    Map<String, Object> updateSkill(String skillKey, String skillName, Boolean enabled, Boolean visibleToUser, String description,
+            String extJson, Long userId, String username);
 
     int syncSkills();
 

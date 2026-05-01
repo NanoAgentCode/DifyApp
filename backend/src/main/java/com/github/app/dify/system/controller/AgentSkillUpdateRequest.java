@@ -4,15 +4,21 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 @Data
-@Schema(description = "更新技能配置请求")
+@Schema(description = "Update skill config request")
 public class AgentSkillUpdateRequest {
 
-    @Schema(description = "是否启用")
+    @Schema(description = "Skill name")
+    private String skillName;
+
+    @Schema(description = "Enabled")
     private Boolean enabled;
 
-    @Schema(description = "普通用户是否可见")
+    @Schema(description = "Visible to normal user")
     private Boolean visibleToUser;
 
-    @Schema(description = "技能描述（可选）")
+    @Schema(description = "Skill description")
     private String description;
+
+    @Schema(description = "Extended json config")
+    private String extJson;
 }
