@@ -2,6 +2,8 @@ package com.github.app.dify.analytics.analysis.resp;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.util.Map;
+
 @Schema(description = "图节点")
 public class GraphNodeResp {
 
@@ -13,6 +15,9 @@ public class GraphNodeResp {
 
     @Schema(description = "节点显示名称")
     private String name;
+
+    @Schema(description = "节点属性")
+    private Map<String, Object> properties;
 
     public String getId() {
         return id;
@@ -36,5 +41,13 @@ public class GraphNodeResp {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public Map<String, Object> getProperties() {
+        return properties;
+    }
+
+    public void setProperties(Map<String, Object> properties) {
+        this.properties = properties;
     }
 }

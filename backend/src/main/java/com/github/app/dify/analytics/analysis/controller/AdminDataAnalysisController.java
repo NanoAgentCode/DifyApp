@@ -1,8 +1,12 @@
 package com.github.app.dify.analytics.analysis.controller;
 
 import com.github.app.dify.analytics.analysis.req.DataAnalysisSettingsReq;
+import com.github.app.dify.analytics.analysis.req.GraphQAReq;
+import com.github.app.dify.analytics.analysis.req.GraphRAGReq;
 import com.github.app.dify.analytics.analysis.resp.DataAnalysisSettingsResp;
 import com.github.app.dify.analytics.analysis.resp.DataAnalysisStatusResp;
+import com.github.app.dify.analytics.analysis.resp.GraphQAResp;
+import com.github.app.dify.analytics.analysis.resp.GraphRAGResp;
 import com.github.app.dify.analytics.analysis.resp.GraphViewResp;
 import com.github.app.dify.analytics.analysis.service.DataAnalysisService;
 import com.github.app.dify.common.controller.BaseController;
@@ -72,8 +76,32 @@ public class AdminDataAnalysisController extends BaseController {
     @GetMapping("/graph")
     public ResponseEntity<GraphViewResp> getGraphView(
             @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String nodeLabel,
+            @RequestParam(required = false) String relationshipType,
+            @RequestParam(required = false) Integer depth,
             HttpServletRequest request) {
         checkAdmin(request);
-        return ResponseEntity.ok(dataAnalysisService.getGraphView(limit));
+        return ResponseEntity.ok(dataAnalysisService.getGraphView(limit, keyword, nodeLabel, relationshipType, depth));
+    }
+
+    @Operation(summary = "图谱问答")
+    @UserAction(module = "数据分析", actionType = "图谱问答", description = "管理员发起图谱规则问答")
+    @PostMapping("/qa")
+    public ResponseEntity<GraphQAResp> answerGraphQuestion(
+            @Validated @RequestBody GraphQAReq req,
+            HttpServletRequest request) {
+        checkAdmin(request);
+        return ResponseEntity.ok(dataAnalysisService.answerGraphQuestion(req));
+    }
+
+    @Operation(summary = "GraphRAG 问答")
+    @UserAction(module = "数据分析", actionType = "知识问答", description = "管理员发起GraphRAG知识问答")
+    @PostMapping("/rag")
+    public ResponseEntity<GraphRAGResp> answerGraphRAG(
+            @Validated @RequestBody GraphRAGReq req,
+            HttpServletRequest request) {
+        checkAdmin(request);
+        return ResponseEntity.ok(dataAnalysisService.answerGraphRAG(req, getUserId(request)));
     }
 }

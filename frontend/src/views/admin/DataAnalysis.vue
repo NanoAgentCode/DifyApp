@@ -23,14 +23,155 @@
       </template>
 
       <div class="graph-content">
+        <div class="graph-workbench">
+          <div v-loading="graphLoading" class="graph-container">
+            <v-chart
+              v-if="graphOption && graphData?.nodes?.length"
+              :option="graphOption"
+              autoresize
+              class="graph-chart"
+              @click="handleGraphClick"
+            />
+            <el-empty v-else description="暂无图数据，请先配置并运行数据同步" :image-size="120">
+              <el-button type="primary" @click="openSettingsDialog" :icon="Setting">
+                前往配置
+              </el-button>
+            </el-empty>
+          </div>
 
-        <div v-loading="graphLoading" class="graph-container">
-          <v-chart v-if="graphOption && graphData?.nodes?.length" :option="graphOption" autoresize class="graph-chart" />
-          <el-empty v-else description="暂无图数据，请先配置并运行数据同步" :image-size="120">
-            <el-button type="primary" @click="openSettingsDialog" :icon="Setting">
-              前往配置
-            </el-button>
-          </el-empty>
+          <aside class="graph-side-panel">
+            <section class="qa-panel">
+              <div class="side-title">
+                <el-icon><ChatLineRound /></el-icon>
+                <span>图谱问答</span>
+              </div>
+              <div class="question-suggestions">
+                <el-button
+                  v-for="item in questionSuggestions"
+                  :key="item"
+                  size="small"
+                  text
+                  @click="useSuggestion(item)"
+                >
+                  {{ item }}
+                </el-button>
+              </div>
+              <div class="graph-toolbar">
+                <el-input
+                  v-model="graphFilters.keyword"
+                  placeholder="搜索用户、知识库、文档、会话"
+                  clearable
+                  :prefix-icon="Search"
+                  size="small"
+                />
+                <div class="toolbar-selects">
+                  <el-select v-model="graphFilters.nodeLabel" placeholder="节点类型" clearable size="small">
+                    <el-option v-for="item in nodeLabelOptions" :key="item.value" :label="item.label" :value="item.value" />
+                  </el-select>
+                  <el-select v-model="graphFilters.relationshipType" placeholder="关系类型" clearable size="small">
+                    <el-option v-for="item in relationshipTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+                  </el-select>
+                </div>
+                <div class="depth-control">
+                  <span>关系深度</span>
+                  <el-radio-group v-model="graphFilters.depth" size="small">
+                    <el-radio-button v-for="item in depthOptions" :key="item.value" :label="item.value">
+                      {{ item.label }}
+                    </el-radio-button>
+                  </el-radio-group>
+                </div>
+                <el-button @click="loadGraph" :loading="graphLoading" :icon="Refresh" size="small">
+                  应用筛选
+                </el-button>
+              </div>
+              <el-input
+                v-model="graphQuestion"
+                type="textarea"
+                :rows="3"
+                maxlength="200"
+                show-word-limit
+                placeholder="例如：有哪些知识库？哪个模型使用最多？"
+                @keydown.enter.exact.prevent="askGraph"
+              />
+              <div class="qa-actions">
+                <el-input-number v-model="qaLimit" :min="1" :max="50" controls-position="right" size="small" />
+                <div class="qa-action-buttons">
+                  <el-button :loading="qaLoading" :disabled="!graphQuestion.trim()" @click="askGraph" :icon="ChatLineRound" size="small">
+                    快速问答
+                  </el-button>
+                  <el-button type="primary" :loading="ragLoading" :disabled="!graphQuestion.trim()" @click="askGraphRAG" :icon="ChatLineRound" size="small">
+                    知识问答
+                  </el-button>
+                </div>
+              </div>
+              <div v-if="graphAnswer" class="answer-box">
+                <div class="answer-meta">
+                  <el-tag size="small" effect="plain">{{ graphAnswer.intent || 'graph' }}</el-tag>
+                  <el-tag v-if="graphAnswer.llmGenerated != null" size="small" :type="graphAnswer.llmGenerated ? 'success' : 'warning'" effect="plain">
+                    {{ graphAnswer.llmGenerated ? '模型生成' : '结构化降级' }}
+                  </el-tag>
+                  <el-tag v-if="graphAnswer.citationValid != null" size="small" :type="graphAnswer.citationValid ? 'success' : 'danger'" effect="plain">
+                    {{ graphAnswer.citationValid ? '引用已校验' : '引用异常' }}
+                  </el-tag>
+                  <span>{{ graphAnswer.count ?? graphAnswer.graphHitCount ?? 0 }} 条命中</span>
+                  <span v-if="graphAnswer.modelName">{{ graphAnswer.modelName }}</span>
+                </div>
+                <div class="answer-text">
+                  <template v-for="(part, index) in answerParts" :key="index">
+                    <button
+                      v-if="part.citation"
+                      type="button"
+                      class="citation-link"
+                      @click="focusCitation(part.text)"
+                    >
+                      [{{ part.text }}]
+                    </button>
+                    <span v-else>{{ part.text }}</span>
+                  </template>
+                </div>
+                <div v-if="graphAnswer.errorCode || graphAnswer.fallbackReason" class="fallback-note">
+                  <el-tag v-if="graphAnswer.errorCode" size="small" type="warning" effect="plain">{{ graphAnswer.errorCode }}</el-tag>
+                  <span>{{ graphAnswer.fallbackReason || graphAnswer.message }}</span>
+                </div>
+                <div v-if="recognizedEntityTags.length" class="recognized-entities">
+                  <span>识别实体</span>
+                  <el-tag v-for="entity in recognizedEntityTags" :key="entity.key" size="small" effect="plain">
+                    {{ entity.label }}: {{ entity.name }}
+                  </el-tag>
+                </div>
+                <div v-if="graphRagMetricItems.length" class="graph-rag-metrics">
+                  <div v-for="item in graphRagMetricItems" :key="item.label" class="graph-rag-metric">
+                    <span>{{ item.label }}</span>
+                    <strong>{{ item.value }}</strong>
+                  </div>
+                </div>
+                <div v-if="qaResultRows.length" class="qa-result-list">
+                  <div class="qa-result-header">
+                    <span>结果明细</span>
+                    <el-button size="small" text @click="copyAnswerSummary">复制回答</el-button>
+                  </div>
+                  <div
+                    v-for="(row, index) in qaResultRows"
+                    :key="index"
+                    :ref="el => setCitationRef(row.citationId, el)"
+                    class="qa-result-item"
+                    :class="{ active: activeCitationId === row.citationId }"
+                  >
+                    <div class="qa-result-title">
+                      <span>{{ index + 1 }}. {{ getResultTitle(row) }}</span>
+                      <el-button size="small" text @click="searchResultInGraph(row)">查图谱</el-button>
+                    </div>
+                    <div class="qa-result-fields">
+                      <div v-for="field in getResultFields(row)" :key="field.key" class="qa-result-field">
+                        <span>{{ field.key }}</span>
+                        <strong>{{ field.value }}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </aside>
         </div>
 
         <!-- 底部控制栏 -->
@@ -50,6 +191,28 @@
         </div>
       </div>
     </el-card>
+
+    <el-dialog
+      v-model="nodeDetailDialogVisible"
+      title="节点详情"
+      width="640px"
+      :close-on-click-modal="true"
+      class="node-detail-dialog"
+    >
+      <template v-if="selectedNode">
+        <div class="selected-node-title dialog-node-title">
+          <el-tag effect="plain" size="small">{{ selectedNode.label }}</el-tag>
+          <span>{{ selectedNode.name }}</span>
+        </div>
+        <div class="property-list dialog-property-list">
+          <div v-for="(v, k) in selectedNode.properties" :key="k" class="property-row">
+            <span class="property-key">{{ k }}</span>
+            <span class="property-value">{{ formatPropertyValue(v) }}</span>
+          </div>
+        </div>
+      </template>
+      <el-empty v-else description="暂无节点详情" :image-size="96" />
+    </el-dialog>
 
     <el-dialog
       v-model="statsDialogVisible"
@@ -197,11 +360,11 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { CircleCheck, DataAnalysis, DataLine, Link, Loading, Monitor, Refresh, Setting, VideoPause, VideoPlay } from '@element-plus/icons-vue'
+import { ChatLineRound, CircleCheck, DataAnalysis, DataLine, Link, Loading, Monitor, Refresh, Search, Setting, VideoPause, VideoPlay } from '@element-plus/icons-vue'
 import { getDataSourceList } from '@/api/dataSource'
-import { getDataAnalysisGraph, getDataAnalysisSettings, getDataAnalysisStatus, runDataAnalysis, updateDataAnalysisSettings } from '@/api/dataAnalysis'
+import { askDataAnalysisGraph, askDataAnalysisGraphRAG, getDataAnalysisGraph, getDataAnalysisSettings, getDataAnalysisStatus, runDataAnalysis, updateDataAnalysisSettings } from '@/api/dataAnalysis'
 import { logger } from '@/utils/logger'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -364,6 +527,106 @@ let graphLoadTimer = null
 const graphLoading = ref(false)
 const graphLimit = ref(200)
 const graphData = ref(null)
+const selectedNode = ref(null)
+const nodeDetailDialogVisible = ref(false)
+const graphQuestion = ref('')
+const graphAnswer = ref(null)
+const qaLoading = ref(false)
+const ragLoading = ref(false)
+const qaLimit = ref(10)
+const activeCitationId = ref('')
+const citationRefs = new Map()
+const graphFilters = reactive({
+  keyword: '',
+  nodeLabel: '',
+  relationshipType: '',
+  depth: 1
+})
+
+const nodeLabelOptions = [
+  { label: '用户', value: 'User' },
+  { label: 'AI 应用', value: 'AiApp' },
+  { label: '知识库', value: 'KnowledgeBase' },
+  { label: '知识文档', value: 'KnowledgeDocument' },
+  { label: '会话', value: 'Conversation' },
+  { label: '消息', value: 'Message' },
+  { label: '问答模型', value: 'QAModel' }
+]
+
+const relationshipTypeOptions = [
+  { label: '拥有应用', value: 'HAS_APP' },
+  { label: '创建知识库', value: 'CREATED_KB' },
+  { label: '包含文档', value: 'HAS_DOCUMENT' },
+  { label: '拥有会话', value: 'HAS_CONVERSATION' },
+  { label: '使用应用', value: 'USING_APP' },
+  { label: '使用知识库', value: 'USING_KB' },
+  { label: '包含消息', value: 'HAS_MESSAGE' },
+  { label: '使用模型', value: 'USING_MODEL' }
+]
+
+const depthOptions = [
+  { label: '1跳', value: 1 },
+  { label: '2跳', value: 2 },
+  { label: '3跳', value: 3 }
+]
+
+const questionSuggestions = [
+  '有哪些知识库？',
+  '图谱节点统计',
+  '图谱关系统计',
+  '哪个模型使用最多？',
+  '知识库有哪些文档？',
+  '文档向量化状态',
+  '用户有哪些应用？',
+  '最近有哪些会话？'
+]
+
+const qaResultRows = computed(() => {
+  return Array.isArray(graphAnswer.value?.results) ? graphAnswer.value.results : []
+})
+
+const answerParts = computed(() => {
+  const answer = graphAnswer.value?.answer || ''
+  if (!answer) return []
+  const validCitationIds = new Set(qaResultRows.value.map(row => row.citationId).filter(Boolean))
+  return answer
+    .split(/(\[G\d+])/g)
+    .filter(part => part !== '')
+    .map(part => {
+      const match = part.match(/^\[(G\d+)]$/)
+      if (!match || !validCitationIds.has(match[1])) {
+        return { text: part, citation: false }
+      }
+      return { text: match[1], citation: true }
+    })
+})
+
+const recognizedEntityTags = computed(() => {
+  const entities = graphAnswer.value?.recognizedEntities
+  if (!Array.isArray(entities)) return []
+  return entities.map(entity => ({
+    key: `${entity.label}:${entity.id}`,
+    label: entity.label,
+    name: entity.name
+  }))
+})
+
+const graphRagMetricItems = computed(() => {
+  const metrics = graphAnswer.value?.metrics
+  if (!metrics) return []
+  return [
+    { label: '实体', value: metrics.entityCount ?? '-' },
+    { label: '召回', value: metrics.graphHitCount ?? '-' },
+    { label: '召回耗时', value: formatMetricMs(metrics.graphRetrievalMs) },
+    { label: '模型耗时', value: formatMetricMs(metrics.llmGenerationMs) },
+    { label: '总耗时', value: formatMetricMs(metrics.totalMs) }
+  ]
+})
+
+watch(graphAnswer, () => {
+  activeCitationId.value = ''
+  citationRefs.clear()
+})
 
 const openStatsDialog = () => {
   statsDialogVisible.value = true
@@ -381,8 +644,9 @@ const graphOption = computed(() => {
   const seriesNodes = nodes.map(n => ({
     id: n.id,
     name: n.name || n.id,
+    label: n.label,
     category: categoryIndex.get(n.label || 'Unknown') ?? 0,
-    symbolSize: 18
+    symbolSize: selectedNode.value?.id === n.id ? 28 : 18
   }))
 
   const seriesLinks = links.map(l => ({
@@ -420,18 +684,172 @@ const graphOption = computed(() => {
 const loadGraph = async () => {
   if (!settingsForm.neo4jDataSourceId) {
     graphData.value = null
+    selectedNode.value = null
     return
   }
   graphLoading.value = true
   try {
-    graphData.value = await getDataAnalysisGraph({ limit: graphLimit.value })
+    graphData.value = await getDataAnalysisGraph({
+      limit: graphLimit.value,
+      keyword: graphFilters.keyword || undefined,
+      nodeLabel: graphFilters.nodeLabel || undefined,
+      relationshipType: graphFilters.relationshipType || undefined,
+      depth: graphFilters.depth
+    })
+    if (selectedNode.value && !(graphData.value?.nodes || []).some(node => node.id === selectedNode.value.id)) {
+      selectedNode.value = null
+    }
   } catch (e) {
     logger.error('加载图数据失败:', e)
     ElMessage.error('加载图数据失败：' + (e.response?.data?.message || e.message || '未知错误'))
     graphData.value = null
+    selectedNode.value = null
   } finally {
     graphLoading.value = false
   }
+}
+
+const handleGraphClick = (params) => {
+  if (params?.dataType !== 'node') return
+  const node = (graphData.value?.nodes || []).find(item => item.id === params.data.id)
+  selectedNode.value = node || null
+  nodeDetailDialogVisible.value = !!node
+}
+
+const askGraph = async () => {
+  const question = graphQuestion.value.trim()
+  if (!question) return
+  activeCitationId.value = ''
+  qaLoading.value = true
+  try {
+    graphAnswer.value = await askDataAnalysisGraph({
+      question,
+      limit: qaLimit.value
+    })
+  } catch (e) {
+    logger.error('图谱问答失败:', e)
+    ElMessage.error('图谱问答失败：' + (e.response?.data?.message || e.message || '未知错误'))
+  } finally {
+    qaLoading.value = false
+  }
+}
+
+const askGraphRAG = async () => {
+  const question = graphQuestion.value.trim()
+  if (!question) return
+  activeCitationId.value = ''
+  ragLoading.value = true
+  try {
+    const response = await askDataAnalysisGraphRAG({
+      question,
+      limit: qaLimit.value,
+      depth: graphFilters.depth
+    })
+    graphAnswer.value = {
+      ...response,
+      intent: 'graph_rag',
+      count: response.graphHitCount,
+      results: response.graphSources || []
+    }
+  } catch (e) {
+    logger.error('GraphRAG问答失败:', e)
+    ElMessage.error('GraphRAG问答失败：' + (e.response?.data?.message || e.message || '未知错误'))
+  } finally {
+    ragLoading.value = false
+  }
+}
+
+const useSuggestion = (question) => {
+  graphQuestion.value = question
+  askGraphRAG()
+}
+
+const getResultTitle = (row) => {
+  if (row.citationId && row.sourceName && row.targetName) {
+    return `${row.citationId} ${row.sourceName} -> ${row.targetName}`
+  }
+  return row.knowledgeBaseName ||
+    row.documentName ||
+    row.username ||
+    row.modelName ||
+    row.title ||
+    row.sourceName ||
+    row.targetName ||
+    '图谱结果'
+}
+
+const getResultFields = (row) => {
+  return Object.entries(row || {})
+    .filter(([, value]) => value != null && value !== '')
+    .slice(0, 8)
+    .map(([key, value]) => ({
+      key,
+      value: formatPropertyValue(value)
+    }))
+}
+
+const searchResultInGraph = (row) => {
+  const keyword = row.knowledgeBaseName ||
+    row.documentName ||
+    row.username ||
+    row.modelName ||
+    row.title ||
+    row.sourceName ||
+    row.targetName ||
+    getResultTitle(row)
+  if (!keyword || keyword === '图谱结果') return
+  graphFilters.keyword = keyword
+  scheduleGraphLoad(0)
+}
+
+const setCitationRef = (citationId, el) => {
+  if (!citationId) return
+  if (el) {
+    citationRefs.set(citationId, el)
+  } else {
+    citationRefs.delete(citationId)
+  }
+}
+
+const focusCitation = async (citationId) => {
+  if (!citationId) return
+  activeCitationId.value = citationId
+  await nextTick()
+  citationRefs.get(citationId)?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'nearest'
+  })
+}
+
+const copyAnswerSummary = async () => {
+  const text = graphAnswer.value?.answer
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage.success('已复制回答')
+  } catch (e) {
+    logger.warn('复制图谱问答结果失败:', e)
+    ElMessage.warning('复制失败，请手动选择文本')
+  }
+}
+
+const formatPropertyValue = (value) => {
+  if (value == null || value === '') return '-'
+  if (typeof value === 'number' && String(value).length >= 12) {
+    return formatTime(value)
+  }
+  if (typeof value === 'object') {
+    return JSON.stringify(value)
+  }
+  return String(value)
+}
+
+const formatMetricMs = (value) => {
+  if (value == null) return '-'
+  const ms = Number(value)
+  if (Number.isNaN(ms)) return String(value)
+  if (ms < 1000) return `${ms} ms`
+  return `${(ms / 1000).toFixed(1)} s`
 }
 
 const stopPolling = () => {
@@ -461,6 +879,10 @@ const scheduleGraphLoad = (delayMs = 300) => {
 }
 
 watch(graphLimit, () => {
+  scheduleGraphLoad(300)
+})
+
+watch(() => [graphFilters.keyword, graphFilters.nodeLabel, graphFilters.relationshipType, graphFilters.depth], () => {
   scheduleGraphLoad(300)
 })
 
@@ -576,6 +998,42 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
+.graph-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-lighter);
+}
+
+.toolbar-selects {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-sm);
+}
+
+.depth-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.depth-control :deep(.el-radio-group) {
+  flex-shrink: 0;
+}
+
+.graph-workbench {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 32%);
+  gap: var(--spacing-md);
+  overflow: hidden;
+}
+
 .graph-title {
   display: flex;
   align-items: center;
@@ -601,7 +1059,6 @@ onUnmounted(() => {
   margin-top: var(--spacing-md);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--color-border-lighter);
-  flex-shrink: 0;
   flex-shrink: 0;
 }
 
@@ -640,6 +1097,299 @@ onUnmounted(() => {
 .graph-chart {
   height: 100%;
   width: 100%;
+}
+
+.graph-side-panel {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.qa-panel {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-lighter);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-md);
+}
+
+.qa-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  overflow: hidden;
+}
+
+.node-detail-dialog :deep(.el-dialog__body) {
+  max-height: 62vh;
+  overflow-y: auto;
+  padding: var(--spacing-lg);
+}
+
+.side-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.side-title .el-icon {
+  color: var(--color-primary);
+}
+
+.question-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-lighter);
+}
+
+.question-suggestions :deep(.el-button) {
+  margin-left: 0;
+  padding: 4px 6px;
+  color: var(--color-text-secondary);
+}
+
+.selected-node-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.dialog-node-title {
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-lighter);
+}
+
+.dialog-property-list {
+  gap: var(--spacing-sm);
+}
+
+.property-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.property-row {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+}
+
+.property-key {
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.property-value {
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.qa-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.qa-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.qa-action-buttons :deep(.el-button) {
+  margin-left: 0;
+}
+
+.answer-box {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--color-border-lighter);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  padding: var(--spacing-md);
+}
+
+.answer-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.answer-text {
+  white-space: pre-wrap;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.7;
+}
+
+.citation-link {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 0 4px;
+  margin: 0 2px;
+  background: var(--color-primary-light-9);
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.citation-link:hover {
+  background: var(--color-primary-light-8);
+}
+
+.fallback-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--spacing-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.recognized-entities {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border-lighter);
+}
+
+.recognized-entities span:first-child {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.graph-rag-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: var(--spacing-sm);
+}
+
+.graph-rag-metric {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-lighter);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  min-width: 0;
+}
+
+.graph-rag-metric span {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  margin-bottom: 2px;
+}
+
+.graph-rag-metric strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.qa-result-list {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border-lighter);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.qa-result-header,
+.qa-result-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.qa-result-header {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.qa-result-item {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-lighter);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base), background-color var(--transition-base);
+}
+
+.qa-result-item.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light-9);
+  box-shadow: 0 0 0 2px var(--color-primary-light-8);
+}
+
+.qa-result-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: 6px;
+}
+
+.qa-result-title span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qa-result-fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+
+.qa-result-field {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+}
+
+.qa-result-field span {
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.qa-result-field strong {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
 }
 
 .stats-dialog :deep(.el-dialog__body) {
@@ -919,6 +1669,23 @@ onUnmounted(() => {
     flex-direction: column;
     gap: 16px;
     align-items: stretch;
+  }
+
+  .graph-toolbar {
+    padding-bottom: var(--spacing-md);
+  }
+
+  .toolbar-selects {
+    grid-template-columns: 1fr;
+  }
+
+  .graph-workbench {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+
+  .graph-side-panel {
+    overflow: visible;
   }
 
   .footer-right {

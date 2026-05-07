@@ -36,3 +36,19 @@ export function getDataAnalysisGraph(params) {
     params
   })
 }
+
+export function askDataAnalysisGraph(data) {
+  return request({
+    url: '/api/admin/data-analysis/qa',
+    method: 'post',
+    data
+  })
+}
+
+export function askDataAnalysisGraphRAG(data) {
+  return request({
+    url: '/api/admin/data-analysis/rag',
+    method: 'post',
+    data
+  })
+}
