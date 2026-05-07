@@ -9,11 +9,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,21 +22,28 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Tag(name = "技能管理")
+@Tag(name = "Skill management")
 @RestController
 public class AgentSkillController extends BaseController {
 
     @Autowired
     private AgentSkillService agentSkillService;
 
-    @Operation(summary = "管理端获取技能配置列表")
+    @Operation(summary = "List admin skills")
     @GetMapping("/api/admin/skills")
     public ResponseEntity<List<Map<String, Object>>> listAdminSkills(HttpServletRequest request) {
         checkAdmin(request);
         return ResponseEntity.ok(agentSkillService.listAdminSkills());
     }
 
-    @Operation(summary = "管理端更新技能配置")
+    @Operation(summary = "Get admin skill detail")
+    @GetMapping("/api/admin/skills/{skillKey}")
+    public ResponseEntity<Map<String, Object>> getSkillDetail(@PathVariable String skillKey, HttpServletRequest request) {
+        checkAdmin(request);
+        return ResponseEntity.ok(agentSkillService.getAdminSkillDetail(skillKey));
+    }
+
+    @Operation(summary = "Update skill config")
     @PutMapping("/api/admin/skills/{skillKey}")
     public ResponseEntity<Map<String, Object>> updateSkill(
             @PathVariable String skillKey,
@@ -46,15 +53,17 @@ public class AgentSkillController extends BaseController {
         String username = getUsername(request);
         Map<String, Object> data = agentSkillService.updateSkill(
                 skillKey,
+                req.getSkillName(),
                 req.getEnabled(),
                 req.getVisibleToUser(),
                 req.getDescription(),
+                req.getExtJson(),
                 userId,
                 username);
         return ResponseEntity.ok(data);
     }
 
-    @Operation(summary = "管理端同步技能目录")
+    @Operation(summary = "Sync skills from skill directory")
     @PostMapping("/api/admin/skills/sync")
     public ResponseEntity<Map<String, Object>> syncSkills(HttpServletRequest request) {
         checkAdmin(request);
@@ -64,7 +73,7 @@ public class AgentSkillController extends BaseController {
         return ResponseEntity.ok(body);
     }
 
-    @Operation(summary = "管理端删除技能配置")
+    @Operation(summary = "Delete skill config")
     @DeleteMapping("/api/admin/skills/{skillKey}")
     public ResponseEntity<Void> deleteSkill(@PathVariable String skillKey, HttpServletRequest request) {
         checkAdmin(request);
@@ -72,7 +81,7 @@ public class AgentSkillController extends BaseController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "获取当前角色可用技能列表")
+    @Operation(summary = "List available skills for current role")
     @GetMapping("/api/skills/available")
     public ResponseEntity<List<Map<String, Object>>> availableSkills(
             @RequestParam(value = "forRole", required = false) String forRole,
@@ -86,7 +95,7 @@ public class AgentSkillController extends BaseController {
     private Long checkAdmin(HttpServletRequest request) {
         Long userId = getUserId(request);
         if (!isAdmin(request)) {
-            throw new UnauthorizedException("需要管理员权限", ErrorCode.UNAUTHORIZED);
+            throw new UnauthorizedException("Only admin can access this api", ErrorCode.UNAUTHORIZED);
         }
         return userId;
     }
