@@ -19,24 +19,6 @@
       <!-- 文件列表 -->
       <div class="doc-list-section">
         <el-card shadow="never">
-          <template #header>
-            <div class="section-title">
-              <div class="section-title-left">
-                <el-button type="text" @click="handleBack" style="margin-right: 10px">
-                  <el-icon><ArrowLeft /></el-icon>
-                  返回
-                </el-button>
-                <span class="section-title-text">
-                  <el-icon><Document /></el-icon>
-                  文档列表
-                  <el-tag v-if="total > 0" type="info" size="small" style="margin-left: 8px">
-                    共 {{ total }} 个文件
-                  </el-tag>
-                </span>
-              </div>
-            </div>
-          </template>
-          
           <!-- 搜索和过滤栏 -->
           <div class="search-filter-bar">
             <div class="search-left">
@@ -208,7 +190,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { UploadFilled, Refresh, Document, Delete, Search, View, Picture, FolderOpened, Clock, Plus, InfoFilled, Loading, CircleCheck, CircleClose, ArrowLeft, Download } from '@element-plus/icons-vue'
+import { UploadFilled, Refresh, Document, Delete, Search, View, Picture, FolderOpened, Clock, Plus, InfoFilled, Loading, CircleCheck, CircleClose, Download } from '@element-plus/icons-vue'
 import {
   getDocumentList,
   uploadDocument,
@@ -218,10 +200,6 @@ import {
 } from '@/api/documentReader'
 
 const router = useRouter()
-
-const handleBack = () => {
-  router.push('/admin/chat')
-}
 
 const uploadRef = ref(null)
 const fileList = ref([])
@@ -675,35 +653,6 @@ onUnmounted(() => {
   overflow: hidden;
   padding: var(--card-padding);
   background: var(--color-bg-primary);
-}
-
-/* ========== 区域标题 ========== */
-.section-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 var(--card-padding);
-}
-
-.section-title-left {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-}
-
-.doc-list-section :deep(.el-card__header) {
-  padding: var(--spacing-md) var(--card-padding);
-  background: var(--color-bg-tertiary);
-  border-bottom: 1px solid var(--color-border-lighter);
-}
-
-.section-title-text {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
 }
 
 .doc-list-section {

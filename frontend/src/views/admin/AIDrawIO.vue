@@ -3,21 +3,6 @@
     <el-container class="full-height">
       <!-- 左侧工具栏 -->
       <el-aside width="300px" class="toolbar-panel">
-        <div class="toolbar-header">
-          <h3 class="toolbar-title">
-            智能框图助手
-            <el-tooltip content="模型配置在系统配置中设置" placement="top">
-              <el-icon class="title-tip-icon"><InfoFilled /></el-icon>
-            </el-tooltip>
-          </h3>
-          <div class="header-top">
-            <el-button link @click="handleBack" size="small">
-              <el-icon><ArrowLeft /></el-icon>
-              返回
-            </el-button>
-          </div>
-        </div>
-        
         <!-- 图表类型选择 -->
         <div class="diagram-type-section">
           <div class="section-title">图表类型</div>
@@ -257,10 +242,8 @@
 
 <script setup>
 import {computed, nextTick, onMounted, onUnmounted, ref} from 'vue'
-import {useRouter} from 'vue-router'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import {
-  ArrowLeft,
   Box,
   Cloudy,
   Connection,
@@ -275,7 +258,6 @@ import {
   Folder,
   FolderOpened,
   FullScreen,
-  InfoFilled,
   Lock,
   MagicStick,
   Menu,
@@ -323,13 +305,6 @@ const loadInfographic = async () => {
     }
   }
   return Infographic
-}
-
-const router = useRouter()
-
-// 返回主页
-const handleBack = () => {
-  router.push('/admin/chat')
 }
 
 // AntV Infographic 图表相关
@@ -1242,45 +1217,6 @@ onUnmounted(() => {
   overflow: hidden;
   height: 100%;
   box-shadow: var(--shadow-sm);
-}
-
-.toolbar-header {
-  margin-bottom: var(--spacing-md);
-  flex-shrink: 0;
-  position: relative;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: var(--spacing-md);
-  border-bottom: 1px solid var(--color-border-lighter);
-}
-
-.header-top {
-  display: flex;
-  align-items: center;
-}
-
-.toolbar-header h3 {
-  margin: 0;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.toolbar-header h3.toolbar-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.toolbar-header .title-tip-icon {
-  -webkit-text-fill-color: var(--color-text-secondary);
-  color: var(--color-text-secondary);
-  cursor: help;
-  font-size: 14px;
 }
 
 /* ========== 图表类型选择 ========== */
