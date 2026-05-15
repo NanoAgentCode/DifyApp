@@ -1,72 +1,128 @@
 <template>
   <div class="memo-list">
     <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>备忘录</span>
+      <div class="memo-toolbar">
+        <div class="toolbar-main">
+          <el-radio-group v-model="statusFilter" size="large">
+            <el-radio-button label="all">全部</el-radio-button>
+            <el-radio-button label="pending">待提醒</el-radio-button>
+            <el-radio-button label="done">已提醒</el-radio-button>
+            <el-radio-button label="cancelled">已取消</el-radio-button>
+          </el-radio-group>
+          <el-button :icon="Refresh" :loading="loading" @click="loadMemos">刷新</el-button>
+        </div>
+        <div class="toolbar-actions">
           <el-button type="primary" @click="showCreateDialog">
             <el-icon><Plus /></el-icon>
             添加备忘录
           </el-button>
         </div>
-      </template>
+      </div>
+
+      <div class="memo-overview">
+        <div class="overview-item is-primary">
+          <div class="overview-icon">
+            <el-icon><Bell /></el-icon>
+          </div>
+          <div>
+            <div class="overview-value">{{ memoStats.pending }}</div>
+            <div class="overview-label">待提醒</div>
+          </div>
+        </div>
+        <div class="overview-item">
+          <div class="overview-icon">
+            <el-icon><Clock /></el-icon>
+          </div>
+          <div>
+            <div class="overview-value">{{ nextMemoTime }}</div>
+            <div class="overview-label">下次提醒</div>
+          </div>
+        </div>
+        <div class="overview-item">
+          <div class="overview-icon">
+            <el-icon><CircleCheck /></el-icon>
+          </div>
+          <div>
+            <div class="overview-value">{{ memoStats.done }}</div>
+            <div class="overview-label">已提醒</div>
+          </div>
+        </div>
+        <div class="overview-item">
+          <div class="overview-icon">
+            <el-icon><CircleClose /></el-icon>
+          </div>
+          <div>
+            <div class="overview-value">{{ memoStats.cancelled }}</div>
+            <div class="overview-label">已取消</div>
+          </div>
+        </div>
+      </div>
 
       <div class="create-tip">
-        支持自然语言，例如：三分钟后提醒我喝水、每40分钟提醒我喝水、30分钟后开会、明天9点提醒吃药
+        <el-icon><InfoFilled /></el-icon>
+        <span>支持自然语言创建提醒，例如：三分钟后提醒我喝水、每40分钟提醒我喝水、明天9点提醒吃药。</span>
       </div>
 
       <div class="table-container">
-        <el-table :data="memos" v-loading="loading" stripe border style="width: 100%">
-          <el-table-column prop="content" label="内容" min-width="200" show-overflow-tooltip>
+        <el-table
+          :data="filteredMemos"
+          v-loading="loading"
+          stripe
+          style="width: 100%"
+          height="100%"
+          :row-class-name="getRowClassName"
+        >
+          <el-table-column prop="content" label="提醒内容" min-width="260" show-overflow-tooltip>
             <template #default="{ row }">
-              <span class="content-cell">{{ row.content }}</span>
+              <div class="content-cell">
+                <el-icon class="content-icon"><Bell /></el-icon>
+                <span>{{ row.content }}</span>
+              </div>
             </template>
           </el-table-column>
-          <el-table-column label="周期" width="100" align="center">
+          <el-table-column label="提醒方式" width="130" align="center">
             <template #default="{ row }">
-              <span v-if="row.intervalMinutes" class="interval-cell">{{ formatInterval(row.intervalMinutes) }}</span>
-              <span v-else class="interval-none">—</span>
+              <el-tag v-if="row.intervalMinutes" type="primary" effect="plain" size="small">
+                {{ formatInterval(row.intervalMinutes) }}
+              </el-tag>
+              <el-tag v-else type="info" effect="plain" size="small">单次</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="remindAt" label="下次提醒" width="170" show-overflow-tooltip>
+          <el-table-column prop="remindAt" label="下次提醒" width="190" show-overflow-tooltip>
             <template #default="{ row }">
-              <span class="time-cell">{{ formatTime(row.remindAt) }}</span>
+              <div class="time-cell">
+                <span>{{ formatTime(row.remindAt) }}</span>
+                <small v-if="row.status === 'pending'">{{ formatRelativeTime(row.remindAt) }}</small>
+              </div>
             </template>
           </el-table-column>
           <el-table-column prop="status" label="状态" width="100" align="center">
             <template #default="{ row }">
-              <el-tag v-if="row.status === 'pending'" type="warning" size="small">待提醒</el-tag>
-              <el-tag v-else-if="row.status === 'done'" type="success" size="small">已提醒</el-tag>
-              <el-tag v-else type="info" size="small">已取消</el-tag>
+              <el-tag :type="getStatusTagType(row.status)" size="small">
+                {{ getStatusText(row.status) }}
+              </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="180" align="center" fixed="right">
+          <el-table-column label="操作" width="190" align="center" fixed="right">
             <template #default="{ row }">
-              <template v-if="row.status === 'pending'">
-                <ElTooltip content="标记已提醒">
-                  <el-button size="small" type="success" @click="handleMarkDone(row.id)">标记</el-button>
-                </ElTooltip>
-                <el-dropdown @command="(cmd) => handleMoreCommand(cmd, row)" trigger="click">
-                  <el-button size="small">
-                    更多<el-icon class="el-icon--right"><ArrowDown /></el-icon>
-                  </el-button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item command="cancel">取消</el-dropdown-item>
-                      <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </template>
-              <template v-else>
-                <el-button size="small" type="danger" @click="handleDelete(row.id)">删除</el-button>
-              </template>
+              <div class="row-actions">
+                <template v-if="row.status === 'pending'">
+                  <ElTooltip content="标记已提醒">
+                    <el-button size="small" type="success" plain @click="handleMarkDone(row.id)">
+                      标记
+                    </el-button>
+                  </ElTooltip>
+                  <el-button size="small" type="warning" plain @click="handleCancel(row.id)">取消</el-button>
+                </template>
+                <el-button size="small" type="danger" plain @click="handleDelete(row.id)">删除</el-button>
+              </div>
             </template>
           </el-table-column>
           <template #empty>
             <div class="table-empty">
+              <el-icon><Bell /></el-icon>
               <p>暂无备忘录</p>
-              <el-button type="primary" plain @click="showCreateDialog">添加第一条</el-button>
+              <el-button type="primary" plain @click="showCreateDialog">添加第一条提醒</el-button>
             </div>
           </template>
         </el-table>
@@ -78,6 +134,7 @@
       title="添加备忘录"
       width="520px"
       :close-on-click-modal="false"
+      class="memo-dialog"
     >
       <el-form :model="createForm" :rules="createRules" ref="createFormRef" label-width="0">
         <el-form-item prop="rawInput">
@@ -89,6 +146,18 @@
           />
         </el-form-item>
       </el-form>
+      <div class="dialog-examples">
+        <span>示例</span>
+        <el-tag
+          v-for="example in memoExamples"
+          :key="example"
+          size="small"
+          effect="plain"
+          @click="createForm.rawInput = example"
+        >
+          {{ example }}
+        </el-tag>
+      </div>
       <template #footer>
         <el-button @click="createVisible = false">取消</el-button>
         <el-button type="primary" @click="submitCreate" :loading="saving">确定</el-button>
@@ -98,9 +167,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, ElTooltip } from 'element-plus'
-import { Plus, ArrowDown } from '@element-plus/icons-vue'
+import { Bell, CircleCheck, CircleClose, Clock, InfoFilled, Plus, Refresh } from '@element-plus/icons-vue'
 import {
   getMemos,
   createMemo,
@@ -111,13 +180,36 @@ import {
 
 const memos = ref([])
 const loading = ref(false)
+const statusFilter = ref('all')
 const createVisible = ref(false)
 const saving = ref(false)
 const createFormRef = ref(null)
 const createForm = ref({ rawInput: '' })
+const memoExamples = ['三分钟后提醒我喝水', '每40分钟提醒我活动一下', '明天9点提醒吃药']
 const createRules = {
   rawInput: [{ required: true, message: '请输入提醒内容', trigger: 'blur' }]
 }
+
+const filteredMemos = computed(() => {
+  if (statusFilter.value === 'all') return memos.value
+  return memos.value.filter(memo => memo.status === statusFilter.value)
+})
+
+const memoStats = computed(() => {
+  return memos.value.reduce((stats, memo) => {
+    if (memo.status === 'pending') stats.pending += 1
+    else if (memo.status === 'done') stats.done += 1
+    else stats.cancelled += 1
+    return stats
+  }, { pending: 0, done: 0, cancelled: 0 })
+})
+
+const nextMemoTime = computed(() => {
+  const pending = memos.value
+    .filter(memo => memo.status === 'pending' && memo.remindAt)
+    .sort((a, b) => new Date(a.remindAt) - new Date(b.remindAt))
+  return pending.length ? formatRelativeTime(pending[0].remindAt) : '暂无'
+})
 
 onMounted(() => {
   loadMemos()
@@ -127,7 +219,7 @@ async function loadMemos() {
   loading.value = true
   try {
     const data = await getMemos({ page: 0, size: 100 })
-    memos.value = data || []
+    memos.value = Array.isArray(data) ? data : (data?.content || [])
   } catch (e) {
     console.error('加载备忘录失败', e)
     ElMessage.error(e.response?.data?.message || e.message || '加载备忘录失败')
@@ -173,11 +265,6 @@ async function handleMarkDone(id) {
   }
 }
 
-function handleMoreCommand(cmd, row) {
-  if (cmd === 'cancel') handleCancel(row.id)
-  else if (cmd === 'delete') handleDelete(row.id)
-}
-
 async function handleCancel(id) {
   try {
     await ElMessageBox.confirm('确定取消该备忘录？', '提示', {
@@ -210,7 +297,29 @@ async function handleDelete(id) {
 
 function formatTime(t) {
   if (!t) return ''
-  return new Date(t).toLocaleString('zh-CN')
+  const date = new Date(t)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+function formatRelativeTime(t) {
+  if (!t) return ''
+  const date = new Date(t)
+  if (Number.isNaN(date.getTime())) return ''
+  const diff = date.getTime() - Date.now()
+  const abs = Math.abs(diff)
+  const minutes = Math.round(abs / 60000)
+  if (minutes < 1) return diff >= 0 ? '即将提醒' : '刚刚到期'
+  if (minutes < 60) return diff >= 0 ? `${minutes}分钟后` : `已过${minutes}分钟`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return diff >= 0 ? `${hours}小时后` : `已过${hours}小时`
+  const days = Math.round(hours / 24)
+  return diff >= 0 ? `${days}天后` : `已过${days}天`
 }
 
 function formatInterval(minutes) {
@@ -221,151 +330,281 @@ function formatInterval(minutes) {
   if (m === 0) return `每${h}小时`
   return `每${h}小时${m}分`
 }
+
+function getStatusText(status) {
+  if (status === 'pending') return '待提醒'
+  if (status === 'done') return '已提醒'
+  return '已取消'
+}
+
+function getStatusTagType(status) {
+  if (status === 'pending') return 'warning'
+  if (status === 'done') return 'success'
+  return 'info'
+}
+
+function getRowClassName({ row }) {
+  return row.status ? `memo-row-${row.status}` : ''
+}
 </script>
 
 <style scoped>
-/* ========== 页面容器 ========== */
 .memo-list {
-  padding: var(--spacing-lg, 20px);
-  background: var(--color-bg-secondary, #f5f7fa);
+  height: 100%;
+  min-height: 0;
+  padding: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-bg-secondary);
 }
 
-/* ========== 卡片样式 ========== */
 :deep(.el-card) {
-  border-radius: var(--card-border-radius, 12px);
-  box-shadow: var(--card-shadow, 0 2px 12px rgba(0, 0, 0, 0.08));
-  border: 1px solid var(--color-border-lighter, #ebeef5);
-  transition: box-shadow var(--transition-base, 0.2s ease);
-}
-
-:deep(.el-card:hover) {
-  box-shadow: var(--card-shadow-hover, 0 4px 16px rgba(0, 0, 0, 0.12));
-}
-
-:deep(.el-card__header) {
-  background: var(--color-bg-tertiary, #fafafa);
-  border-bottom: 1px solid var(--color-border-lighter, #ebeef5);
-  padding: var(--spacing-md, 16px) var(--card-padding, 20px);
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--color-border-lighter);
 }
 
 :deep(.el-card__body) {
-  background: var(--color-bg-primary, #fff);
-  padding: var(--card-padding, 20px);
-}
-
-/* ========== 卡片头部 ========== */
-.card-header {
+  flex: 1;
+  min-height: 0;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  background: var(--color-bg-primary);
+}
+
+.memo-toolbar {
+  flex-shrink: 0;
+  padding: var(--spacing-lg);
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border-lighter);
 }
 
-.card-header span {
-  font-size: var(--font-size-lg, 16px);
-  font-weight: var(--font-weight-semibold, 600);
-  color: var(--color-text-primary, #303133);
+.toolbar-main,
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  min-width: 0;
 }
 
-.card-header .el-button {
-  transition: all var(--transition-base, 0.2s ease);
+.memo-overview {
+  flex-shrink: 0;
+  padding: var(--spacing-lg);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--spacing-md);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-lighter);
 }
 
-.card-header .el-button:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-primary, 0 2px 8px rgba(64, 158, 255, 0.3));
+.overview-item {
+  min-width: 0;
+  padding: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-lighter);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
 }
 
-/* ========== 说明提示 ========== */
+.overview-item.is-primary {
+  border-color: var(--color-primary-light-7);
+  background: var(--color-primary-light-9);
+}
+
+.overview-icon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  background: var(--color-primary-light-9);
+  font-size: 18px;
+}
+
+.overview-value {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.overview-label {
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
 .create-tip {
-  margin-bottom: var(--spacing-lg, 20px);
-  padding: var(--spacing-sm, 12px) var(--spacing-md, 16px);
-  font-size: var(--font-size-sm, 13px);
-  color: var(--color-text-secondary, #909399);
-  background: var(--color-bg-tertiary, #fafafa);
-  border-radius: var(--radius-md, 8px);
-  border: 1px solid var(--color-border-lighter, #ebeef5);
+  flex-shrink: 0;
+  margin: var(--spacing-lg) var(--spacing-lg) 0;
+  padding: var(--spacing-sm) var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-lighter);
+  border-radius: var(--radius-md);
 }
 
-/* ========== 表格容器 ========== */
 .table-container {
-  margin-top: var(--spacing-md, 16px);
-  width: 100%;
-  overflow-x: auto;
+  flex: 1;
+  min-height: 0;
+  padding: var(--spacing-lg);
+  overflow: hidden;
 }
 
 :deep(.el-table) {
-  width: 100%;
-  border-radius: var(--radius-lg, 10px);
+  height: 100%;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  background: var(--color-bg-primary, #fff);
-}
-
-:deep(.el-table__header) {
-  background: var(--table-header-bg, #f5f7fa);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-lighter);
 }
 
 :deep(.el-table th) {
-  background: var(--table-header-bg, #f5f7fa);
-  color: var(--color-text-primary, #303133);
-  font-weight: var(--font-weight-medium, 500);
-  border-bottom: 2px solid var(--color-border-base, #dcdfe6);
-}
-
-:deep(.el-table td) {
-  border-bottom: 1px solid var(--table-border-color, #ebeef5);
-}
-
-:deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
-  background-color: var(--color-bg-tertiary, #fafafa);
+  background: var(--table-header-bg);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
 }
 
 :deep(.el-table__body tr:hover > td) {
-  background-color: var(--table-row-hover-bg, #f5f7fa);
-  transition: background-color var(--transition-fast, 0.15s ease);
+  background: var(--table-row-hover-bg);
 }
 
-/* 内容列：单行截断，超出用 tooltip 展示 */
+:deep(.memo-row-done td),
+:deep(.memo-row-cancelled td) {
+  color: var(--color-text-secondary);
+}
+
 .content-cell {
-  display: block;
-  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--color-text-regular);
+}
+
+.content-cell span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--color-text-regular, #606266);
-  line-height: 1.5;
+}
+
+.content-icon {
+  flex-shrink: 0;
+  color: var(--color-primary);
 }
 
 .time-cell {
-  display: inline-block;
-  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--color-text-regular);
+}
+
+.time-cell span,
+.time-cell small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--color-text-regular, #606266);
 }
 
-.interval-cell {
-  font-size: var(--font-size-sm, 13px);
-  color: var(--color-primary, #409eff);
+.time-cell small {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
 }
 
-.interval-none {
-  color: var(--color-text-placeholder, #c0c4cc);
+.row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
 }
 
-/* ========== 空状态 ========== */
 .table-empty {
-  padding: var(--spacing-xl, 32px) 0;
+  padding: var(--spacing-xl) 0;
   text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.table-empty .el-icon {
+  font-size: 38px;
+  color: var(--color-text-placeholder);
 }
 
 .table-empty p {
-  margin: 0 0 var(--spacing-md, 16px);
-  font-size: var(--font-size-base, 14px);
-  color: var(--color-text-secondary, #909399);
+  margin: var(--spacing-sm) 0 var(--spacing-md);
+  font-size: var(--font-size-base);
 }
 
-.table-empty .el-button {
-  margin-top: var(--spacing-xs, 8px);
+.dialog-examples {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.dialog-examples .el-tag {
+  cursor: pointer;
+}
+
+:deep(.memo-dialog .el-dialog__body) {
+  padding-bottom: var(--spacing-md);
+}
+
+@media (max-width: 900px) {
+  .memo-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbar-main,
+  .toolbar-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .memo-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .memo-list {
+    padding: var(--spacing-md);
+  }
+
+  .memo-overview {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

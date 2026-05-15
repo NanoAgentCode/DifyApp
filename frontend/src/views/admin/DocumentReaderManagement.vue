@@ -755,7 +755,7 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: var(--spacing-md);
-  padding: 0;
+  padding: var(--spacing-xs) var(--spacing-xs) var(--spacing-md);
 }
 
 /* 响应式布局 */
