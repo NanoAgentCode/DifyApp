@@ -1,6 +1,7 @@
 package com.github.app.dify.system.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.system.domain.AgentSkillConfig;
 import com.github.app.dify.system.repository.AgentSkillConfigRepository;
@@ -336,6 +337,19 @@ public class AgentSkillServiceImpl implements AgentSkillService {
             });
         } catch (Exception ignored) {
             return null;
+        }
+    }
+
+    private boolean hasAllowedCommands(String extJson) {
+        if (isBlank(extJson)) {
+            return false;
+        }
+        try {
+            JsonNode node = OBJECT_MAPPER.readTree(extJson);
+            JsonNode commands = node.get("allowedCommands");
+            return commands != null && commands.isArray() && commands.size() > 0;
+        } catch (Exception e) {
+            return false;
         }
     }
 
