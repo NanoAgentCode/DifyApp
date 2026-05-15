@@ -18,7 +18,7 @@
 
       <!-- 文件列表 -->
       <div class="doc-list-section">
-        <el-card shadow="never">
+
           <!-- 搜索和过滤栏 -->
           <div class="search-filter-bar">
             <div class="search-left">
@@ -63,7 +63,7 @@
               </el-button>
             </div>
           </div>
-          
+
           <!-- 卡片容器 -->
           <div v-loading="docLoading" class="cards-wrapper">
             <div v-if="documents.length === 0" class="empty-state">
@@ -93,7 +93,7 @@
                         :content="doc.vectorizedError"
                         placement="top"
                       >
-                        <el-icon 
+                        <el-icon
                           :class="['vectorized-status-icon', `status-icon-${getVectorizedStatusType(doc.vectorizedStatus)}`]"
                         >
                           <component :is="getVectorizedStatusIcon(doc.vectorizedStatus)" />
@@ -104,7 +104,7 @@
                         :content="getVectorizedStatusText(doc.vectorizedStatus)"
                         placement="top"
                       >
-                        <el-icon 
+                        <el-icon
                           :class="['vectorized-status-icon', `status-icon-${getVectorizedStatusType(doc.vectorizedStatus)}`]"
                         >
                           <component :is="getVectorizedStatusIcon(doc.vectorizedStatus)" />
@@ -167,7 +167,7 @@
               </el-card>
             </div>
           </div>
-          
+
           <!-- 分页 -->
           <div class="pagination" v-if="total > 0">
             <el-pagination
@@ -180,7 +180,7 @@
               @current-change="handlePageChange"
             />
           </div>
-        </el-card>
+
       </div>
     </el-card>
   </div>
