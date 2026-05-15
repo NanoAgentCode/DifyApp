@@ -1,19 +1,21 @@
 <template>
   <div class="analytics-hub">
-    <div class="hub-tabs">
-      <el-tabs v-model="activeTab" @tab-change="handleTabChange">
-        <el-tab-pane
-          v-for="tab in visibleTabs"
-          :key="tab.name"
-          :label="tab.label"
-          :name="tab.name"
-        />
-      </el-tabs>
-    </div>
+    <div class="hub-shell">
+      <div class="hub-tabs">
+        <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+          <el-tab-pane
+            v-for="tab in visibleTabs"
+            :key="tab.name"
+            :label="tab.label"
+            :name="tab.name"
+          />
+        </el-tabs>
+      </div>
 
-    <div class="hub-content">
-      <component v-if="activeComponent" :is="activeComponent" />
-      <el-empty v-else description="暂无可访问的数据与日志功能" />
+      <div class="hub-content">
+        <component v-if="activeComponent" :is="activeComponent" />
+        <el-empty v-else description="暂无可访问的数据与日志功能" />
+      </div>
     </div>
   </div>
 </template>
@@ -90,11 +92,16 @@ watch(
 .analytics-hub {
   height: 100%;
   padding: 16px;
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+}
+
+.hub-shell {
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: var(--color-bg-secondary);
-  overflow: hidden;
 }
 
 .hub-tabs {
@@ -124,15 +131,36 @@ watch(
   flex: 1;
   min-height: 0;
   overflow: auto;
+  width: 100%;
 }
 
 .hub-content :deep(> *) {
   min-height: 100%;
 }
 
+.hub-content :deep(.statistics),
+.hub-content :deep(.data-analysis),
+.hub-content :deep(.user-action-log),
+.hub-content :deep(.app-container) {
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  box-sizing: border-box;
+}
+
+.hub-content :deep(.statistics > .el-card),
+.hub-content :deep(.data-analysis > .el-card),
+.hub-content :deep(.user-action-log > .el-card),
+.hub-content :deep(.app-container > .el-card) {
+  width: 100%;
+}
+
 @media (max-width: 900px) {
   .analytics-hub {
     padding: 12px;
+  }
+
+  .hub-shell {
     gap: 10px;
   }
 
