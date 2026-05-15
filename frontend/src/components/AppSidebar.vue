@@ -97,16 +97,13 @@ const iconMap = {
 
 const adminMenus = [
   { path: '/admin/chat', title: '智能问答', permission: 'admin.chat', icon: iconMap.ChatLineRound },
-  { path: '/admin/apps', title: '应用管理', permission: 'admin.apps', icon: iconMap.Grid },
+  { path: '/admin/apps', title: '应用管理', permissions: ['admin.apps', 'admin.knowledge_base', 'admin.document_reader', 'admin.ai_drawio'], icon: iconMap.Grid },
   { path: '/admin/models', title: '组件管理', permissions: ['admin.models', 'admin.skills'], icon: iconMap.Setting },
   { path: '/admin/users', title: '权限管理', permissions: ['admin.users', 'admin.roles'], icon: iconMap.Lock },
   { path: '/admin/system-config', title: '系统配置', permission: 'admin.system_config', icon: iconMap.Tools },
   { path: '/admin/analytics', title: '数据日志', permissions: ['admin.statistics', 'admin.data_analysis', 'admin.user_logs', 'admin.observability'], icon: iconMap.DataAnalysis },
   { path: '/admin/memos', title: '备忘录', permission: 'admin.memos', icon: iconMap.Bell },
-  { path: '/admin/knowledge-base', title: '知识管理', permission: 'admin.knowledge_base', icon: iconMap.Collection },
-  { path: '/admin/chat-history', title: '会话历史', permission: 'admin.chat_history', icon: iconMap.Clock },
-  { path: '/admin/document-reader', title: '文档解读', permission: 'admin.document_reader', icon: iconMap.Reading },
-  { path: '/admin/ai-drawio', title: '智能框图', permission: 'admin.ai_drawio', icon: iconMap.EditPen }
+  { path: '/admin/chat-history', title: '会话历史', permission: 'admin.chat_history', icon: iconMap.Clock }
 ]
 
 const userMenus = [
@@ -124,6 +121,15 @@ const activeMenu = computed(() => {
   const basePath = props.type === 'user' ? '/user' : '/admin'
   if (route.path === basePath || route.path === `${basePath}/`) {
     return `${basePath}/chat`
+  }
+  if (props.type === 'admin' && (
+    route.path.startsWith('/admin/apps') ||
+    route.path.startsWith('/admin/kb-qa') ||
+    route.path.startsWith('/admin/knowledge-base') ||
+    route.path.startsWith('/admin/document-reader') ||
+    route.path.startsWith('/admin/ai-drawio')
+  )) {
+    return '/admin/apps'
   }
   return route.path
 })
