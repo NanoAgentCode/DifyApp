@@ -1,7 +1,9 @@
 package com.github.app.dify.auth.resp;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import com.github.app.dify.permission.resp.RoleResp;
 import java.util.Date;
+import java.util.List;
 /**
  * 用户响应
  */
@@ -25,6 +27,9 @@ public class UserResp {
     
     @Schema(description = "更新时间")
     private Date updateTime;
+
+    @Schema(description = "RBAC角色列表")
+    private List<RoleResp> roles;
     
     // Getters and Setters
     public Long getId() {
@@ -73,6 +78,14 @@ public class UserResp {
     
     public void setUpdateTime(Date updateTime) {
         this.updateTime = updateTime;
+    }
+
+    public List<RoleResp> getRoles() {
+        return roles;
+    }
+
+    public void setRoles(List<RoleResp> roles) {
+        this.roles = roles;
     }
 }
 

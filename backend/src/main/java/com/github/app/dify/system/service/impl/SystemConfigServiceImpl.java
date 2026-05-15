@@ -1,8 +1,12 @@
 package com.github.app.dify.system.service.impl;
 
+import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.system.domain.SystemConfig;
 import com.github.app.dify.system.repository.SystemConfigRepository;
 import com.github.app.dify.system.service.SystemConfigService;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +48,22 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     @Override
     public List<SystemConfig> getAllConfigs() {
         return systemConfigRepository.findByDeletedOrderByConfigGroupAscConfigKeyAsc(NOT_DELETED);
+    }
+
+    @Override
+    public PageResponse<SystemConfig> getConfigsWithPagination(String keyword, String configGroup, int page, int pageSize) {
+        String normalizedKeyword = keyword == null ? null : keyword.trim();
+        String normalizedGroup = configGroup == null ? null : configGroup.trim();
+        int safePage = Math.max(page, 1);
+        int safePageSize = Math.max(pageSize, 1);
+        Pageable pageable = PageRequest.of(
+                safePage - 1,
+                safePageSize,
+                Sort.by(Sort.Order.asc("configGroup"), Sort.Order.asc("configKey"))
+        );
+        org.springframework.data.domain.Page<SystemConfig> result =
+                systemConfigRepository.searchConfigs(NOT_DELETED, normalizedGroup, normalizedKeyword, pageable);
+        return new PageResponse<>(result.getContent(), result.getTotalElements(), safePage, safePageSize);
     }
 
     @Override

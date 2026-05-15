@@ -347,6 +347,29 @@ public class AgentSkillServiceImpl implements AgentSkillService {
         map.put("hasAllowedCommands", availability.hasAllowedCommands);
     }
 
+    private boolean hasAllowedCommands(String extJson) {
+        if (isBlank(extJson)) {
+            return false;
+        }
+        try {
+            Map<String, Object> config = OBJECT_MAPPER.readValue(extJson, new TypeReference<Map<String, Object>>() {
+            });
+            Object allowedCommands = config.get("allowedCommands");
+            if (allowedCommands == null) {
+                allowedCommands = config.get("allowed_commands");
+            }
+            if (allowedCommands instanceof List<?> list) {
+                return !list.isEmpty();
+            }
+            if (allowedCommands instanceof String text) {
+                return !isBlank(text);
+            }
+            return false;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     private SkillAvailability checkAvailability(AgentSkillConfig config, DiscoveredSkill discoveredSkill, String skillContent) {
         SkillAvailability availability = new SkillAvailability();
         availability.hasSkillContent = !isBlank(skillContent);

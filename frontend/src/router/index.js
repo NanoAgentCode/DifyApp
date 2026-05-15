@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { validateToken } from '@/api/auth'
+import { getFirstPermittedPath, hasPermission } from '@/utils/permission'
 
 const routes = [
     {
@@ -22,7 +23,7 @@ const routes = [
             if (userInfoStr) {
                 try {
                     const userInfo = JSON.parse(userInfoStr)
-                    return userInfo.role === 1 ? '/admin/chat' : '/user/chat'
+                    return getFirstPermittedPath(userInfo.role === 1 ? '/admin/chat' : '/user/chat', userInfo.role === 1 ? '/admin' : '/user')
                 } catch (e) {
                     return '/login'
                 }
@@ -40,55 +41,59 @@ const routes = [
                 path: 'chat',
                 name: 'Chat',
                 component: () => import('@/views/Portal.vue'),
-                meta: { title: '智能问答', requiresAuth: true }
+                meta: { title: '智能问答', requiresAuth: true, permission: 'admin.chat' }
             },
             {
                 path: 'apps',
                 name: 'AppList',
                 component: () => import('@/views/admin/AppList.vue'),
-                meta: { title: '应用列表', requiresAuth: true }
+                meta: { title: '应用列表', requiresAuth: true, permission: 'admin.apps' }
             },
             {
                 path: 'apps/create',
                 name: 'AppCreate',
                 component: () => import('@/views/admin/AppForm.vue'),
-                meta: { title: '创建应用', requiresAuth: true }
+                meta: { title: '创建应用', requiresAuth: true, permission: 'admin.apps' }
             },
             {
                 path: 'apps/edit/:id',
                 name: 'AppEdit',
                 component: () => import('@/views/admin/AppForm.vue'),
-                meta: { title: '编辑应用', requiresAuth: true }
+                meta: { title: '编辑应用', requiresAuth: true, permission: 'admin.apps' }
             },
             {
                 path: 'apps/detail/:id',
                 name: 'AppDetail',
                 component: () => import('@/views/admin/AppDetail.vue'),
-                meta: { title: '应用详情', requiresAuth: true }
+                meta: { title: '应用详情', requiresAuth: true, permission: 'admin.apps' }
             },
             {
                 path: 'users',
-                name: 'UserList',
-                component: () => import('@/views/admin/UserList.vue'),
-                meta: { title: '用户管理', requiresAuth: true, requiresAdmin: true }
+                name: 'AccessManagement',
+                component: () => import('@/views/admin/AccessManagement.vue'),
+                meta: { title: '权限管理', requiresAuth: true, permissions: ['admin.users', 'admin.roles'] }
+            },
+            {
+                path: 'roles',
+                redirect: '/admin/users?tab=roles'
             },
             {
                 path: 'kb-qa',
                 name: 'KnowledgeBaseQA',
                 component: () => import('@/views/admin/KnowledgeBaseQA.vue'),
-                meta: { title: '知识问答', requiresAuth: true, requiresAdmin: true }
+                meta: { title: '知识问答', requiresAuth: true, permission: 'admin.knowledge_base' }
             },
             {
                 path: 'knowledge-base',
                 name: 'KnowledgeBaseManagement',
                 component: () => import('@/views/admin/KnowledgeBaseManagement.vue'),
-                meta: { title: '知识管理', requiresAuth: true, requiresAdmin: true }
+                meta: { title: '知识管理', requiresAuth: true, permission: 'admin.knowledge_base' }
             },
             {
                 path: 'knowledge-base/:kbId/documents',
                 name: 'DocumentManagement',
                 component: () => import('@/views/admin/DocumentManagement.vue'),
-                meta: { title: '文档管理', requiresAuth: true, requiresAdmin: true }
+                meta: { title: '文档管理', requiresAuth: true, permission: 'admin.documents' }
             },
             {
                 path: 'knowledge-base/:kbId/documents/upload',
@@ -102,73 +107,73 @@ const routes = [
                 path: 'chat-history',
                 name: 'AdminChatHistory',
                 component: () => import('@/views/admin/ChatHistory.vue'),
-                meta: { title: '会话历史', requiresAuth: true, requiresAdmin: true }
+                meta: { title: '会话历史', requiresAuth: true, permission: 'admin.chat_history' }
             },
             {
                 path: 'models',
                 name: 'ModelManagement',
                 component: () => import('@/views/admin/ModelManagement.vue'),
-                meta: { title: '组件管理', requiresAuth: true, requiresAdmin: true }
+                meta: { title: '组件管理', requiresAuth: true, permissions: ['admin.models', 'admin.skills'] }
             },
             {
                 path: 'system-config',
                 name: 'SystemConfig',
                 component: () => import('@/views/admin/SystemConfig.vue'),
-                meta: { title: '系统配置', requiresAuth: true, requiresAdmin: true }
+                meta: { title: '系统配置', requiresAuth: true, permission: 'admin.system_config' }
             },
             {
                 path: 'skills',
-                name: 'SkillsManagement',
-                component: () => import('@/views/admin/SkillsManagement.vue'),
-                meta: { title: 'Skills管理', requiresAuth: true, requiresAdmin: true }
+                redirect: '/admin/models?tab=skills'
             },
             {
                 path: 'ai-drawio',
                 name: 'AIDrawIO',
                 component: () => import('@/views/admin/AIDrawIO.vue'),
-                meta: { title: '智能框图', requiresAuth: true, requiresAdmin: true }
+                meta: { title: '智能框图', requiresAuth: true, permission: 'admin.ai_drawio' }
+            },
+            {
+                path: 'analytics',
+                name: 'AnalyticsHub',
+                component: () => import('@/views/admin/AnalyticsHub.vue'),
+                meta: {
+                    title: '数据日志',
+                    requiresAuth: true,
+                    permissions: ['admin.statistics', 'admin.data_analysis', 'admin.user_logs', 'admin.observability']
+                }
             },
             {
                 path: 'statistics',
-                name: 'Statistics',
-                component: () => import('@/views/admin/Statistics.vue'),
-                meta: { title: '数据统计', requiresAuth: true, requiresAdmin: true }
+                redirect: '/admin/analytics?tab=statistics'
             },
             {
                 path: 'data-analysis',
-                name: 'DataAnalysis',
-                component: () => import('@/views/admin/DataAnalysis.vue'),
-                meta: { title: '数据分析', requiresAuth: true, requiresAdmin: true }
+                redirect: '/admin/analytics?tab=data-analysis'
             },
             {
                 path: 'user-action-logs',
-                name: 'UserActionLog',
-                component: () => import('@/views/admin/UserActionLog.vue'),
-                meta: { title: '用户行为日志', requiresAuth: true, requiresAdmin: true }
+                redirect: '/admin/analytics?tab=user-action-logs'
             },
             {
                 path: 'observability',
-                name: 'Observability',
-                component: () => import('@/views/observability/LogList.vue'),
-                meta: { title: '日志监控', requiresAuth: true, requiresAdmin: true }
+                redirect: '/admin/analytics?tab=observability'
             },
             {
                 path: 'memos',
                 name: 'AdminMemos',
                 component: () => import('@/views/MemoList.vue'),
-                meta: { title: '备忘录', requiresAuth: true }
+                meta: { title: '备忘录', requiresAuth: true, permission: 'admin.memos' }
             },
             {
                 path: 'document-reader',
                 name: 'DocumentReaderManagement',
                 component: () => import('@/views/admin/DocumentReaderManagement.vue'),
-                meta: { title: '文档解读', requiresAuth: true }
+                meta: { title: '文档解读', requiresAuth: true, permission: 'admin.document_reader' }
             },
             {
                 path: 'document-reader/:docId',
                 name: 'DocumentReader',
                 component: () => import('@/views/admin/DocumentReader.vue'),
-                meta: { title: '文档解读', requiresAuth: true }
+                meta: { title: '文档解读', requiresAuth: true, permission: 'admin.document_reader' }
             },
         ]
     },
@@ -182,31 +187,31 @@ const routes = [
                 path: 'chat',
                 name: 'UserChat',
                 component: () => import('@/views/Portal.vue'),
-                meta: { title: '智能问答', requiresAuth: true }
+                meta: { title: '智能问答', requiresAuth: true, permission: 'user.chat' }
             },
             {
                 path: 'apps',
                 name: 'UserAppList',
                 component: () => import('@/views/user/AppList.vue'),
-                meta: { title: '智能应用', requiresAuth: true }
+                meta: { title: '智能应用', requiresAuth: true, permission: 'user.apps' }
             },
             {
                 path: 'kb-qa',
                 name: 'UserKnowledgeBaseQA',
                 component: () => import('@/views/user/KnowledgeBaseQA.vue'),
-                meta: { title: '知识检索', requiresAuth: true }
+                meta: { title: '知识检索', requiresAuth: true, permission: 'user.kb_qa' }
             },
             {
                 path: 'knowledge-base',
                 name: 'UserKnowledgeBaseManagement',
                 component: () => import('@/views/user/KnowledgeBaseManagement.vue'),
-                meta: { title: '知识管理', requiresAuth: true }
+                meta: { title: '知识管理', requiresAuth: true, permission: 'user.knowledge_base' }
             },
             {
                 path: 'knowledge-base/:kbId/documents',
                 name: 'UserDocumentManagement',
                 component: () => import('@/views/user/DocumentManagement.vue'),
-                meta: { title: '文档管理', requiresAuth: true }
+                meta: { title: '文档管理', requiresAuth: true, permission: 'user.documents' }
             },
             {
                 path: 'knowledge-base/:kbId/documents/upload',
@@ -220,31 +225,31 @@ const routes = [
                 path: 'chat-history',
                 name: 'UserChatHistory',
                 component: () => import('@/views/user/ChatHistory.vue'),
-                meta: { title: '会话历史', requiresAuth: true }
+                meta: { title: '会话历史', requiresAuth: true, permission: 'user.chat_history' }
             },
             {
                 path: 'ai-drawio',
                 name: 'UserAIDrawIO',
                 component: () => import('@/views/user/AIDrawIO.vue'),
-                meta: { title: '智能框图', requiresAuth: true }
+                meta: { title: '智能框图', requiresAuth: true, permission: 'user.ai_drawio' }
             },
             {
                 path: 'document-reader',
                 name: 'UserDocumentReaderManagement',
                 component: () => import('@/views/user/DocumentReaderManagement.vue'),
-                meta: { title: '文档解读', requiresAuth: true }
+                meta: { title: '文档解读', requiresAuth: true, permission: 'user.document_reader' }
             },
             {
                 path: 'document-reader/:docId',
                 name: 'UserDocumentReader',
                 component: () => import('@/views/user/DocumentReader.vue'),
-                meta: { title: '文档解读', requiresAuth: true }
+                meta: { title: '文档解读', requiresAuth: true, permission: 'user.document_reader' }
             },
             {
                 path: 'memos',
                 name: 'UserMemos',
                 component: () => import('@/views/MemoList.vue'),
-                meta: { title: '备忘录', requiresAuth: true }
+                meta: { title: '备忘录', requiresAuth: true, permission: 'user.memos' }
             }
         ]
     },
@@ -298,6 +303,8 @@ router.beforeEach(async (to, from, next) => {
     const userInfoStr = localStorage.getItem('userInfo')
     const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
     const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin)
+    const requiredPermission = to.matched.map(record => record.meta.permission).find(Boolean)
+    const requiredPermissions = to.matched.map(record => record.meta.permissions).find(Boolean)
 
     // 如果访问不需要认证的页面，直接通过
     if (!requiresAuth && to.path !== '/login' && to.path !== '/register') {
@@ -438,6 +445,16 @@ router.beforeEach(async (to, from, next) => {
             return
         }
         next()
+    } else if (requiredPermission && !hasPermission(requiredPermission)) {
+        ElMessage.error('无权访问该模块')
+        const fallbackPrefix = to.path.startsWith('/admin') ? '/admin' : '/user'
+        const fallback = getFirstPermittedPath(null, fallbackPrefix)
+        next(fallback === to.path ? '/login' : fallback)
+    } else if (requiredPermissions && !requiredPermissions.some(permission => hasPermission(permission))) {
+        ElMessage.error('无权访问该模块')
+        const fallbackPrefix = to.path.startsWith('/admin') ? '/admin' : '/user'
+        const fallback = getFirstPermittedPath(null, fallbackPrefix)
+        next(fallback === to.path ? '/login' : fallback)
     } else if (to.path === '/login' && token) {
         // 已登录用户访问登录页，根据角色跳转
         if (userInfoStr) {
@@ -451,7 +468,7 @@ router.beforeEach(async (to, from, next) => {
                     next()
                     return
                 }
-                next(userInfo.role === 1 ? '/admin/chat' : '/user/chat')
+                next(getFirstPermittedPath(userInfo.role === 1 ? '/admin/chat' : '/user/chat', userInfo.role === 1 ? '/admin' : '/user'))
             } catch (e) {
                 next('/admin/chat')
             }

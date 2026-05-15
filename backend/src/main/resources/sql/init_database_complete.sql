@@ -1048,6 +1048,57 @@ UPDATE agent_task_step SET step_number = COALESCE(step_number, step_index, 0) WH
 ALTER TABLE agent_task_step ALTER COLUMN step_number SET NOT NULL;
 
 -- ============================================
+-- 20. 创建 RBAC 菜单/模块权限表
+-- ============================================
+CREATE TABLE IF NOT EXISTS "SYS_ROLE" (
+    id BIGSERIAL PRIMARY KEY,
+    role_code VARCHAR(64) NOT NULL UNIQUE,
+    role_name VARCHAR(100) NOT NULL,
+    description VARCHAR(500),
+    status INTEGER DEFAULT 1,
+    sort_order INTEGER DEFAULT 100,
+    system_role BOOLEAN DEFAULT FALSE,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS "SYS_PERMISSION" (
+    id BIGSERIAL PRIMARY KEY,
+    permission_code VARCHAR(100) NOT NULL UNIQUE,
+    permission_name VARCHAR(100) NOT NULL,
+    client_type VARCHAR(20) NOT NULL,
+    route_path VARCHAR(200),
+    icon VARCHAR(80),
+    sort_order INTEGER DEFAULT 100,
+    status INTEGER DEFAULT 1,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS "SYS_USER_ROLE" (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    role_id BIGINT NOT NULL,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_sys_user_role UNIQUE (user_id, role_id)
+);
+
+CREATE TABLE IF NOT EXISTS "SYS_ROLE_PERMISSION" (
+    id BIGSERIAL PRIMARY KEY,
+    role_id BIGINT NOT NULL,
+    permission_id BIGINT NOT NULL,
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_sys_role_permission UNIQUE (role_id, permission_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sys_role_code ON "SYS_ROLE"(role_code);
+CREATE INDEX IF NOT EXISTS idx_sys_permission_code ON "SYS_PERMISSION"(permission_code);
+CREATE INDEX IF NOT EXISTS idx_sys_user_role_user_id ON "SYS_USER_ROLE"(user_id);
+CREATE INDEX IF NOT EXISTS idx_sys_role_permission_role_id ON "SYS_ROLE_PERMISSION"(role_id);
+
+-- ============================================
 -- 脚本执行完成
 -- ============================================
 -- 所有表已创建完成，可以开始使用系统

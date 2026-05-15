@@ -1,6 +1,7 @@
 package com.github.app.dify.system.controller;
 
 import com.github.app.dify.common.controller.BaseController;
+import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.system.domain.SystemConfig;
 import com.github.app.dify.system.service.SystemConfigService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
@@ -71,6 +73,29 @@ public class SystemConfigController extends BaseController {
         List<Map<String, Object>> body = list.stream()
                 .map(this::toMap)
                 .collect(Collectors.toList());
+        return ResponseEntity.ok(body);
+    }
+
+    /**
+     * 分页查询配置（管理端列表）
+     */
+    @Operation(summary = "分页查询配置")
+    @GetMapping("/page")
+    public ResponseEntity<PageResponse<Map<String, Object>>> getPage(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String configGroup,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize,
+            HttpServletRequest request) {
+        getUserId(request);
+        PageResponse<SystemConfig> source = systemConfigService.getConfigsWithPagination(keyword, configGroup, page, pageSize);
+        PageResponse<Map<String, Object>> body = new PageResponse<>(
+                source.getContent().stream().map(this::toMap).collect(Collectors.toList()),
+                source.getTotal(),
+                source.getPage(),
+                source.getPageSize()
+        );
+        body.setTotalPages(source.getTotalPages());
         return ResponseEntity.ok(body);
     }
 

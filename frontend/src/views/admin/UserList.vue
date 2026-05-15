@@ -59,15 +59,19 @@
         <el-table-column prop="username" label="用户名" min-width="120" show-overflow-tooltip />
         <el-table-column prop="role" label="角色" min-width="120" align="center">
           <template #default="scope">
-            <el-select
-              v-model="scope.row.role"
-              size="small"
-              :disabled="isSuperAdmin(scope.row)"
-              @change="handleRoleChange(scope.row)"
-            >
-              <el-option label="管理员" :value="1" />
-              <el-option label="普通用户" :value="2" />
-            </el-select>
+            <div class="role-tags">
+              <el-tag
+                v-for="role in scope.row.roles || []"
+                :key="role.id"
+                size="small"
+                :type="role.roleCode === 'SUPER_ADMIN' ? 'danger' : role.roleCode === 'ADMIN' ? 'warning' : 'info'"
+              >
+                {{ role.roleName }}
+              </el-tag>
+              <el-tag v-if="!scope.row.roles || scope.row.roles.length === 0" size="small" type="info">
+                {{ scope.row.role === 1 ? '管理员' : '普通用户' }}
+              </el-tag>
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="应用管理" min-width="130" align="center">
@@ -262,6 +266,15 @@
               >
                 重置
               </el-button>
+              <el-button
+                size="small"
+                type="primary"
+                plain
+                :disabled="isSuperAdmin(scope.row)"
+                @click="openRoleDialog(scope.row)"
+              >
+                角色
+              </el-button>
               <el-dropdown trigger="click" placement="bottom-end">
                 <el-button type="primary" size="small" plain>
                   更多
@@ -404,6 +417,25 @@
         <el-button @click="showMemoryDialog = false">关闭</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showRoleDialog" title="分配角色" width="520px">
+      <div class="assign-role-header">
+        <span>{{ roleUser?.username }}</span>
+        <el-tag v-if="roleUser && isSuperAdmin(roleUser)" type="danger" size="small">超级管理员</el-tag>
+      </div>
+      <el-select v-model="selectedRoleIds" multiple filterable style="width: 100%" placeholder="请选择角色">
+        <el-option
+          v-for="role in roleOptions"
+          :key="role.id"
+          :label="role.roleName"
+          :value="role.id"
+        />
+      </el-select>
+      <template #footer>
+        <el-button @click="showRoleDialog = false">取消</el-button>
+        <el-button type="primary" :loading="savingRoles" @click="saveUserRoles">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -412,6 +444,7 @@ import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, InfoFilled, Search, Check, Close, Clock } from '@element-plus/icons-vue'
 import { getUserList, approveUser, disableUser, getUserAppVisibilities, updateUserAppVisibility, getUserKnowledgeBaseVisibilities, updateUserKnowledgeBaseVisibility, updateUserRole, clearUserMemory, getUserMemoryItems, deleteUserMemoryItem } from '@/api/user'
+import { getRoles, getUserRoles, updateUserRoles } from '@/api/rbac'
 import ResetPasswordDialog from '@/components/ResetPasswordDialog.vue'
 
 const loading = ref(false)
@@ -436,6 +469,11 @@ const memoryPageSize = ref(50)
 const memoryScopeType = ref('all')
 const memoryClearing = ref(false)
 const memoryDeleting = ref(false)
+const showRoleDialog = ref(false)
+const roleUser = ref(null)
+const roleOptions = ref([])
+const selectedRoleIds = ref([])
+const savingRoles = ref(false)
 
 const filteredMemoryItems = computed(() => {
   const keyword = (memorySearch.value || '').trim().toLowerCase()
@@ -498,6 +536,14 @@ const loadUsers = async () => {
     ElMessage.error(error.response?.data?.error || error.message || '获取用户列表失败')
   } finally {
     loading.value = false
+  }
+}
+
+const loadRoles = async () => {
+  try {
+    roleOptions.value = await getRoles()
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || error.message || '获取角色失败')
   }
 }
 
@@ -872,6 +918,39 @@ const handleRoleChange = async (user) => {
   }
 }
 
+const openRoleDialog = async (user) => {
+  if (isSuperAdmin(user)) {
+    ElMessage.warning('超级管理员的角色不能被修改')
+    return
+  }
+  roleUser.value = user
+  if (roleOptions.value.length === 0) {
+    await loadRoles()
+  }
+  const roles = await getUserRoles(user.id)
+  selectedRoleIds.value = (roles || []).map(role => role.id)
+  showRoleDialog.value = true
+}
+
+const saveUserRoles = async () => {
+  if (!roleUser.value) return
+  if (!selectedRoleIds.value.length) {
+    ElMessage.warning('请至少选择一个角色')
+    return
+  }
+  savingRoles.value = true
+  try {
+    await updateUserRoles(roleUser.value.id, selectedRoleIds.value)
+    ElMessage.success('用户角色已保存')
+    showRoleDialog.value = false
+    await loadUsers()
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || error.message || '保存失败')
+  } finally {
+    savingRoles.value = false
+  }
+}
+
 const handleKbVisibilityChange = async (userId, knowledgeBaseId, visible) => {
   // 检查是否是管理员
   const user = userList.value.find(u => u.id === userId)
@@ -977,6 +1056,7 @@ const handlePageChange = (page) => {
 
 onMounted(() => {
   loadUsers()
+  loadRoles()
 })
 </script>
 
@@ -1272,6 +1352,22 @@ onMounted(() => {
   gap: 6px;
   justify-content: center;
   align-items: center;
+}
+
+.role-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.assign-role-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
 }
 
 .search-bar {

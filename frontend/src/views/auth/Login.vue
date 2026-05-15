@@ -53,6 +53,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { login } from '@/api/auth'
+import { getFirstPermittedPath } from '@/utils/permission'
 
 const router = useRouter()
 
@@ -96,19 +97,15 @@ const handleLogin = async () => {
           userId: response.userId,
           username: response.username,
           role: response.role,
-          status: response.status
+          status: response.status,
+          roles: response.roles || [],
+          permissions: response.permissions || []
         }))
         
         ElMessage.success('登录成功')
         
-        // 根据角色跳转
-        if (response.role === 1) {
-          // 管理员跳转到智能问答
-          router.push('/admin/chat')
-        } else {
-          // 普通用户跳转到智能问答
-          router.push('/user/chat')
-        }
+        const preferred = response.role === 1 ? '/admin/chat' : '/user/chat'
+        router.push(getFirstPermittedPath(preferred, response.role === 1 ? '/admin' : '/user'))
       } catch (error) {
         ElMessage.error(error.response?.data?.error || error.message || '登录失败')
       } finally {

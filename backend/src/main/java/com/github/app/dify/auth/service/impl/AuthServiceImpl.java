@@ -14,6 +14,7 @@ import com.github.app.dify.auth.util.AuthDateTimeUtil;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.common.resp.PageResponse;
+import com.github.app.dify.permission.service.RbacService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +42,9 @@ public class AuthServiceImpl implements AuthService {
     
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private RbacService rbacService;
     
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     
@@ -123,6 +127,8 @@ public class AuthServiceImpl implements AuthService {
         response.setUsername(user.getUsername());
         response.setRole(user.getRole());
         response.setStatus(user.getStatus());
+        response.setRoles(rbacService.getUserRoles(user.getId()));
+        response.setPermissions(rbacService.getUserPermissionCodes(user.getId()));
         
         return response;
     }
@@ -234,6 +240,7 @@ public class AuthServiceImpl implements AuthService {
         
         return users.stream()
                 .map(AuthConverterUtil::convertToResp)
+                .peek(resp -> resp.setRoles(rbacService.getUserRoles(resp.getId())))
                 .collect(Collectors.toList());
     }
     
@@ -266,6 +273,7 @@ public class AuthServiceImpl implements AuthService {
         // 搜索方法已经过滤了已删除的用户
         List<UserResp> content = userPage.getContent().stream()
                 .map(AuthConverterUtil::convertToResp)
+                .peek(resp -> resp.setRoles(rbacService.getUserRoles(resp.getId())))
                 .collect(Collectors.toList());
         
         return new PageResponse<>(content, userPage.getTotalElements(), page, pageSize);

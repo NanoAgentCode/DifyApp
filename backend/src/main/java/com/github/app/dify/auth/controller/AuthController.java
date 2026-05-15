@@ -18,6 +18,7 @@ import com.github.app.dify.permission.resp.UserKnowledgeBaseVisibilityResp;
 import com.github.app.dify.permission.service.UserAppVisibilityService;
 import com.github.app.dify.permission.service.UserDataSourceVisibilityService;
 import com.github.app.dify.permission.service.UserKnowledgeBaseVisibilityService;
+import com.github.app.dify.permission.service.RbacService;
 import com.github.app.dify.ops.userlog.annotation.UserAction;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
@@ -53,6 +54,9 @@ public class AuthController {
     
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private RbacService rbacService;
     
     /**
      * 用户注册
@@ -113,8 +117,9 @@ public class AuthController {
     @UserAction(module = "用户管理", actionType = "审核用户", description = "管理员审核并激活用户")
     @Operation(summary = "管理员审核用户（激活用户）")
     @PostMapping("/approve/{userId}")
-    public ResponseEntity<Void> approveUser(@PathVariable Long userId) {
+    public ResponseEntity<Void> approveUser(@PathVariable Long userId, HttpServletRequest httpRequest) {
         try {
+            requirePermission(httpRequest, "admin.users");
             authService.approveUser(userId);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
@@ -129,8 +134,9 @@ public class AuthController {
     @UserAction(module = "用户管理", actionType = "禁用用户", description = "管理员禁用用户")
     @Operation(summary = "管理员禁用用户")
     @PostMapping("/disable/{userId}")
-    public ResponseEntity<Void> disableUser(@PathVariable Long userId) {
+    public ResponseEntity<Void> disableUser(@PathVariable Long userId, HttpServletRequest httpRequest) {
         try {
+            requirePermission(httpRequest, "admin.users");
             authService.disableUser(userId);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
@@ -149,8 +155,10 @@ public class AuthController {
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) Integer role,
             @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer pageSize) {
+            @RequestParam(required = false) Integer pageSize,
+            HttpServletRequest httpRequest) {
         try {
+            requirePermission(httpRequest, "admin.users");
             // 如果指定了分页参数，使用分页接口
             if (page != null && pageSize != null && page > 0 && pageSize > 0) {
                 PageResponse<UserResp> pageResponse = 
@@ -213,8 +221,10 @@ public class AuthController {
     @PostMapping("/reset-password/{userId}")
     public ResponseEntity<Void> resetPassword(
             @PathVariable Long userId,
-            @Validated @RequestBody ResetPasswordRequest request) {
+            @Validated @RequestBody ResetPasswordRequest request,
+            HttpServletRequest httpRequest) {
         try {
+            requirePermission(httpRequest, "admin.users");
             authService.resetPassword(userId, request.getNewPassword());
             return ResponseEntity.ok().build();
         } catch (Exception e) {
@@ -228,8 +238,9 @@ public class AuthController {
      */
     @Operation(summary = "获取用户的应用可见性列表")
     @GetMapping("/users/{userId}/app-visibilities")
-    public ResponseEntity<List<UserAppVisibilityResp>> getUserAppVisibilities(@PathVariable Long userId) {
+    public ResponseEntity<List<UserAppVisibilityResp>> getUserAppVisibilities(@PathVariable Long userId, HttpServletRequest httpRequest) {
         try {
+            requirePermission(httpRequest, "admin.users");
             if (userAppVisibilityService == null) {
                 return ResponseEntity.ok(new java.util.ArrayList<>());
             }
@@ -249,8 +260,10 @@ public class AuthController {
     public ResponseEntity<Void> updateUserAppVisibility(
             @PathVariable Long userId,
             @PathVariable Long appId,
-            @RequestParam Boolean visible) {
+            @RequestParam Boolean visible,
+            HttpServletRequest httpRequest) {
         try {
+            requirePermission(httpRequest, "admin.users");
             if (userAppVisibilityService == null) {
                 return ResponseEntity.ok().build();
             }
@@ -270,8 +283,10 @@ public class AuthController {
     @PutMapping("/users/{userId}/role")
     public ResponseEntity<Void> updateUserRole(
             @PathVariable Long userId,
-            @RequestParam Integer role) {
+            @RequestParam Integer role,
+            HttpServletRequest httpRequest) {
         try {
+            requirePermission(httpRequest, "admin.users");
             authService.updateUserRole(userId, role);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
@@ -286,8 +301,10 @@ public class AuthController {
     @Operation(summary = "获取用户的知识库可见性列表")
     @GetMapping("/users/{userId}/knowledge-base-visibilities")
     public ResponseEntity<List<UserKnowledgeBaseVisibilityResp>> getUserKnowledgeBaseVisibilities(
-            @PathVariable Long userId) {
+            @PathVariable Long userId,
+            HttpServletRequest httpRequest) {
         try {
+            requirePermission(httpRequest, "admin.users");
             if (userKnowledgeBaseVisibilityService == null) {
                 return ResponseEntity.ok(new java.util.ArrayList<>());
             }
@@ -308,8 +325,10 @@ public class AuthController {
     public ResponseEntity<Void> updateUserKnowledgeBaseVisibility(
             @PathVariable Long userId,
             @PathVariable Long knowledgeBaseId,
-            @RequestParam Boolean visible) {
+            @RequestParam Boolean visible,
+            HttpServletRequest httpRequest) {
         try {
+            requirePermission(httpRequest, "admin.users");
             if (userKnowledgeBaseVisibilityService == null) {
                 return ResponseEntity.ok().build();
             }
@@ -326,8 +345,9 @@ public class AuthController {
      */
     @Operation(summary = "获取用户的数据源可见性列表")
     @GetMapping("/users/{userId}/data-source-visibilities")
-    public ResponseEntity<?> getUserDataSourceVisibilities(@PathVariable Long userId) {
+    public ResponseEntity<?> getUserDataSourceVisibilities(@PathVariable Long userId, HttpServletRequest httpRequest) {
         try {
+            requirePermission(httpRequest, "admin.users");
             if (userDataSourceVisibilityService == null) {
                 return ResponseEntity.ok(new java.util.ArrayList<>());
             }
@@ -348,8 +368,10 @@ public class AuthController {
     public ResponseEntity<Void> updateUserDataSourceVisibility(
             @PathVariable Long userId,
             @PathVariable Long dataSourceId,
-            @RequestParam Boolean visible) {
+            @RequestParam Boolean visible,
+            HttpServletRequest httpRequest) {
         try {
+            requirePermission(httpRequest, "admin.users");
             if (userDataSourceVisibilityService == null) {
                 return ResponseEntity.ok().build();
             }
@@ -368,8 +390,10 @@ public class AuthController {
     @PutMapping("/users/{userId}/data-source-visibilities/batch")
     public ResponseEntity<Void> batchUpdateUserDataSourceVisibility(
             @PathVariable Long userId,
-            @RequestBody java.util.Map<String, Object> request) {
+            @RequestBody java.util.Map<String, Object> request,
+            HttpServletRequest httpRequest) {
         try {
+            requirePermission(httpRequest, "admin.users");
             if (userDataSourceVisibilityService == null) {
                 return ResponseEntity.ok().build();
             }
@@ -383,6 +407,19 @@ public class AuthController {
         } catch (Exception e) {
             logger.error("批量更新用户数据源可见性失败", e);
             throw e;
+        }
+    }
+
+    private void requirePermission(HttpServletRequest request, String permissionCode) {
+        Object userIdObj = request.getAttribute("userId");
+        Long userId = null;
+        if (userIdObj instanceof Long) {
+            userId = (Long) userIdObj;
+        } else if (userIdObj instanceof Integer) {
+            userId = ((Integer) userIdObj).longValue();
+        }
+        if (userId == null || !rbacService.hasPermission(userId, permissionCode)) {
+            throw new com.github.app.dify.common.exception.ForbiddenException("无权访问该模块");
         }
     }
 }

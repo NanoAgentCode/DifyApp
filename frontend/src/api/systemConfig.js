@@ -41,6 +41,17 @@ export function getAllConfigs() {
 }
 
 /**
+ * 分页获取配置
+ */
+export function getConfigPage(params) {
+  return request({
+    url: '/api/system-config/page',
+    method: 'get',
+    params
+  })
+}
+
+/**
  * 设置或更新配置
  */
 export function setOrUpdateConfig(data) {
@@ -60,4 +71,3 @@ export function deleteConfig(configKey) {
     method: 'delete'
   })
 }
-

@@ -28,15 +28,9 @@ export function login(data) {
  */
 export async function validateToken() {
   try {
-    // 调用获取用户列表接口，只获取第一页的第一条数据来验证 token
-    // 如果 token 有效，会返回数据；如果无效，会返回 401
     await request({
-      url: '/api/auth/users',
-      method: 'get',
-      params: {
-        page: 1,
-        pageSize: 1
-      }
+      url: '/api/rbac/my-permissions',
+      method: 'get'
     })
     return true
   } catch (error) {

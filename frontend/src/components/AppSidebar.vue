@@ -19,85 +19,11 @@
       router
       class="menu"
     >
-      <!-- 用户端菜单 -->
-      <template v-if="type === 'user'">
-        <el-tooltip content="智能问答" placement="right" :show-after="200">
-          <el-menu-item index="/user/chat">
-            <el-icon><ChatLineRound /></el-icon>
-            <span>智能问答</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip content="备忘录" placement="right" :show-after="200">
-          <el-menu-item index="/user/memos">
-            <el-icon><Bell /></el-icon>
-            <span>备忘录</span>
-          </el-menu-item>
-        </el-tooltip>
-      </template>
-
-      <!-- 管理员端菜单 -->
-      <template v-else-if="type === 'admin'">
-        <!-- 核心功能 -->
-        <el-tooltip content="智能问答" placement="right" :show-after="200">
-          <el-menu-item index="/admin/chat">
-            <el-icon><ChatLineRound /></el-icon>
-            <span>智能问答</span>
-          </el-menu-item>
-        </el-tooltip>
-        <!-- 组件管理 -->
-        <el-tooltip v-if="isAdmin" content="组件管理" placement="right" :show-after="200">
-          <el-menu-item index="/admin/models">
-            <el-icon><Setting /></el-icon>
-            <span>组件管理</span>
-          </el-menu-item>
-        </el-tooltip>
-        <!-- 用户管理 -->
-        <el-tooltip v-if="isAdmin" content="用户管理" placement="right" :show-after="200">
-          <el-menu-item index="/admin/users">
-            <el-icon><User /></el-icon>
-            <span>用户管理</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip v-if="isAdmin" content="系统配置" placement="right" :show-after="200">
-          <el-menu-item index="/admin/system-config">
-            <el-icon><Tools /></el-icon>
-            <span>系统配置</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip v-if="isAdmin" content="Skills管理" placement="right" :show-after="200">
-          <el-menu-item index="/admin/skills">
-            <el-icon><Cpu /></el-icon>
-            <span>Skills管理</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip v-if="isAdmin" content="数据统计" placement="right" :show-after="200">
-          <el-menu-item index="/admin/statistics">
-            <el-icon><DataAnalysis /></el-icon>
-            <span>数据统计</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip v-if="isAdmin" content="数据分析" placement="right" :show-after="200">
-          <el-menu-item index="/admin/data-analysis">
-            <el-icon><Share /></el-icon>
-            <span>数据分析</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip v-if="isAdmin" content="行为日志" placement="right" :show-after="200">
-          <el-menu-item index="/admin/user-action-logs">
-            <el-icon><Document /></el-icon>
-            <span>行为日志</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip v-if="isAdmin" content="日志监控" placement="right" :show-after="200">
-          <el-menu-item index="/admin/observability">
-            <el-icon><Monitor /></el-icon>
-            <span>日志监控</span>
-          </el-menu-item>
-        </el-tooltip>
-        <el-tooltip content="备忘录" placement="right" :show-after="200">
-          <el-menu-item index="/admin/memos">
-            <el-icon><Bell /></el-icon>
-            <span>备忘录</span>
+      <template v-for="item in filteredMenus" :key="item.path">
+        <el-tooltip :content="item.title" placement="right" :show-after="200">
+          <el-menu-item :index="item.path">
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span>{{ item.title }}</span>
           </el-menu-item>
         </el-tooltip>
       </template>
@@ -118,8 +44,16 @@ import {
   Cpu,
   Document,
   Monitor,
-  Bell
+  Bell,
+  Grid,
+  Lock,
+  Collection,
+  Clock,
+  Reading,
+  EditPen,
+  Search
 } from '@element-plus/icons-vue'
+import { getStoredPermissions } from '@/utils/permission'
 
 const props = defineProps({
   type: {
@@ -139,6 +73,52 @@ const props = defineProps({
 
 const route = useRoute()
 const userInfo = ref(null)
+const permissions = ref([])
+
+const iconMap = {
+  ChatLineRound,
+  DataAnalysis,
+  Share,
+  Setting,
+  User,
+  Tools,
+  Cpu,
+  Document,
+  Monitor,
+  Bell,
+  Grid,
+  Lock,
+  Collection,
+  Clock,
+  Reading,
+  EditPen,
+  Search
+}
+
+const adminMenus = [
+  { path: '/admin/chat', title: '智能问答', permission: 'admin.chat', icon: iconMap.ChatLineRound },
+  { path: '/admin/apps', title: '应用管理', permission: 'admin.apps', icon: iconMap.Grid },
+  { path: '/admin/models', title: '组件管理', permissions: ['admin.models', 'admin.skills'], icon: iconMap.Setting },
+  { path: '/admin/users', title: '权限管理', permissions: ['admin.users', 'admin.roles'], icon: iconMap.Lock },
+  { path: '/admin/system-config', title: '系统配置', permission: 'admin.system_config', icon: iconMap.Tools },
+  { path: '/admin/analytics', title: '数据日志', permissions: ['admin.statistics', 'admin.data_analysis', 'admin.user_logs', 'admin.observability'], icon: iconMap.DataAnalysis },
+  { path: '/admin/memos', title: '备忘录', permission: 'admin.memos', icon: iconMap.Bell },
+  { path: '/admin/knowledge-base', title: '知识管理', permission: 'admin.knowledge_base', icon: iconMap.Collection },
+  { path: '/admin/chat-history', title: '会话历史', permission: 'admin.chat_history', icon: iconMap.Clock },
+  { path: '/admin/document-reader', title: '文档解读', permission: 'admin.document_reader', icon: iconMap.Reading },
+  { path: '/admin/ai-drawio', title: '智能框图', permission: 'admin.ai_drawio', icon: iconMap.EditPen }
+]
+
+const userMenus = [
+  { path: '/user/chat', title: '智能问答', permission: 'user.chat', icon: iconMap.ChatLineRound },
+  { path: '/user/apps', title: '智能应用', permission: 'user.apps', icon: iconMap.Grid },
+  { path: '/user/kb-qa', title: '知识检索', permission: 'user.kb_qa', icon: iconMap.Search },
+  { path: '/user/knowledge-base', title: '知识管理', permission: 'user.knowledge_base', icon: iconMap.Collection },
+  { path: '/user/chat-history', title: '会话历史', permission: 'user.chat_history', icon: iconMap.Clock },
+  { path: '/user/ai-drawio', title: '智能框图', permission: 'user.ai_drawio', icon: iconMap.EditPen },
+  { path: '/user/document-reader', title: '文档解读', permission: 'user.document_reader', icon: iconMap.Reading },
+  { path: '/user/memos', title: '备忘录', permission: 'user.memos', icon: iconMap.Bell }
+]
 
 const activeMenu = computed(() => {
   const basePath = props.type === 'user' ? '/user' : '/admin'
@@ -148,9 +128,14 @@ const activeMenu = computed(() => {
   return route.path
 })
 
-const isAdmin = computed(() => {
-  if (props.type !== 'admin') return false
-  return userInfo.value && userInfo.value.role === 1
+const filteredMenus = computed(() => {
+  const menus = props.type === 'admin' ? adminMenus : userMenus
+  return menus.filter(item => {
+    if (item.permissions) {
+      return item.permissions.some(permission => permissions.value.includes(permission))
+    }
+    return permissions.value.includes(item.permission)
+  })
 })
 
 // 获取用户信息
@@ -168,6 +153,7 @@ const getUserInfo = () => {
 
 onMounted(() => {
   userInfo.value = getUserInfo()
+  permissions.value = getStoredPermissions()
 })
 </script>
 

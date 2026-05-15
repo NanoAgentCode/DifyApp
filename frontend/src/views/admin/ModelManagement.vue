@@ -7,9 +7,9 @@
         </div>
       </template>
 
-      <el-tabs v-model="activeTab" type="border-card">
+      <el-tabs v-model="activeTab" type="border-card" @tab-change="handleTabChange">
         <!-- 问答模型配置（智能问答和知识检索） -->
-        <el-tab-pane label="问答模型" name="qa">
+        <el-tab-pane v-if="canManageModels" label="问答模型" name="qa">
           <div class="model-list-section">
             <div class="section-header">
               <el-input
@@ -146,7 +146,7 @@
         </el-tab-pane>
 
         <!-- 向量化模型配置 -->
-        <el-tab-pane label="向量化模型" name="embedding">
+        <el-tab-pane v-if="canManageModels" label="向量化模型" name="embedding">
           <div class="model-list-section">
             <div class="section-header">
               <el-input
@@ -251,13 +251,17 @@
         </el-tab-pane>
 
         <!-- 向量数据库 -->
-        <el-tab-pane label="向量数据库" name="vectorDatabase">
+        <el-tab-pane v-if="canManageModels" label="向量数据库" name="vectorDatabase">
           <VectorDatabaseManagement />
         </el-tab-pane>
 
         <!-- 数据源管理 -->
-        <el-tab-pane label="数据源管理" name="dataSource">
+        <el-tab-pane v-if="canManageModels" label="数据源管理" name="dataSource">
           <DataSourceManagement />
+        </el-tab-pane>
+
+        <el-tab-pane v-if="canManageSkills" label="Skills管理" name="skills">
+          <SkillsManagement />
         </el-tab-pane>
 
       </el-tabs>
@@ -513,6 +517,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   InfoFilled,
@@ -528,10 +533,16 @@ import {
 } from '@element-plus/icons-vue'
 import { getModelConfig, updateModelConfig, testModelConnection } from '@/api/model'
 import { getModelStyle, getModelPlainStyle } from '@/utils/modelColor'
+import { hasPermission } from '@/utils/permission'
 import VectorDatabaseManagement from './VectorDatabaseManagement.vue'
 import DataSourceManagement from './DataSourceManagement.vue'
+import SkillsManagement from './SkillsManagement.vue'
 
+const route = useRoute()
+const router = useRouter()
 const activeTab = ref('qa')
+const canManageModels = computed(() => hasPermission('admin.models'))
+const canManageSkills = computed(() => hasPermission('admin.skills'))
 const saving = ref(false)
 const loading = reactive({
   qa: false,
@@ -544,6 +555,26 @@ const embeddingModelList = ref([])
 // 查询关键词
 const qaSearchKeyword = ref('')
 const embeddingSearchKeyword = ref('')
+
+const normalizeTab = (tab) => {
+  const modelTabs = ['qa', 'embedding', 'vectorDatabase', 'dataSource']
+  if (tab === 'skills' && canManageSkills.value) return 'skills'
+  if (modelTabs.includes(tab) && canManageModels.value) return tab
+  if (canManageModels.value) return 'qa'
+  if (canManageSkills.value) return 'skills'
+  return 'qa'
+}
+
+const syncTabFromRoute = () => {
+  activeTab.value = normalizeTab(route.query.tab)
+}
+
+const handleTabChange = (tabName) => {
+  router.replace({
+    path: '/admin/models',
+    query: tabName === 'qa' ? {} : { tab: tabName }
+  })
+}
 
 // 过滤后的列表
 const filteredQAModelList = computed(() => {
@@ -1237,8 +1268,11 @@ watch(() => currentModel.supportsMultimodal, (newVal) => {
 })
 
 onMounted(() => {
+  syncTabFromRoute()
   loadConfig()
 })
+
+watch(() => route.query.tab, syncTabFromRoute)
 </script>
 
 <style scoped>

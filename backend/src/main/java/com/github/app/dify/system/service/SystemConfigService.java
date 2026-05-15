@@ -1,5 +1,6 @@
 package com.github.app.dify.system.service;
 
+import com.github.app.dify.common.resp.PageResponse;
 import com.github.app.dify.system.domain.SystemConfig;
 
 import java.util.List;
@@ -24,6 +25,11 @@ public interface SystemConfigService {
      * 获取所有未删除的配置（管理端列表）
      */
     List<SystemConfig> getAllConfigs();
+
+    /**
+     * 分页查询未删除的配置（管理端列表）
+     */
+    PageResponse<SystemConfig> getConfigsWithPagination(String keyword, String configGroup, int page, int pageSize);
 
     /**
      * 根据配置键获取完整配置实体（仅未删除）
