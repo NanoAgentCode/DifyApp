@@ -1,7 +1,7 @@
 <template>
-  <div class="app-list">
+  <div class="app-list" :class="{ 'is-embedded': embedded }">
     <el-card>
-      <template #header>
+      <template v-if="!embedded" #header>
         <div class="card-header">
           <el-button type="text" @click="handleBack" style="margin-right: 10px">
             <el-icon><ArrowLeft /></el-icon>
@@ -134,6 +134,13 @@ import { Plus, Search, ArrowLeft } from '@element-plus/icons-vue'
 import { getAppList, deleteApp } from '@/api/aiApp'
 import AppIcon from '@/components/AppIcon.vue'
 import { useAppNavigation } from '@/composables/useAppNavigation'
+
+defineProps({
+  embedded: {
+    type: Boolean,
+    default: false
+  }
+})
 
 const router = useRouter()
 const { navigateToApp } = useAppNavigation()
@@ -269,6 +276,11 @@ onBeforeUnmount(() => {
   overflow: hidden;
   padding: var(--spacing-lg);
   background: var(--color-bg-secondary);
+}
+
+.app-list.is-embedded {
+  padding: 0;
+  background: transparent;
 }
 
 /* ========== 卡片样式 ========== */

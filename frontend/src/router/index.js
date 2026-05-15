@@ -45,9 +45,13 @@ const routes = [
             },
             {
                 path: 'apps',
-                name: 'AppList',
-                component: () => import('@/views/admin/AppList.vue'),
-                meta: { title: '应用列表', requiresAuth: true, permission: 'admin.apps' }
+                name: 'AppManagementHub',
+                component: () => import('@/views/admin/AppManagementHub.vue'),
+                meta: {
+                    title: '应用管理',
+                    requiresAuth: true,
+                    permissions: ['admin.apps', 'admin.knowledge_base', 'admin.document_reader', 'admin.ai_drawio']
+                }
             },
             {
                 path: 'apps/create',
@@ -79,15 +83,12 @@ const routes = [
             },
             {
                 path: 'kb-qa',
-                name: 'KnowledgeBaseQA',
-                component: () => import('@/views/admin/KnowledgeBaseQA.vue'),
-                meta: { title: '知识问答', requiresAuth: true, permission: 'admin.knowledge_base' }
+                redirect: '/admin/apps?tab=kb-qa'
             },
             {
                 path: 'knowledge-base',
                 name: 'KnowledgeBaseManagement',
-                component: () => import('@/views/admin/KnowledgeBaseManagement.vue'),
-                meta: { title: '知识管理', requiresAuth: true, permission: 'admin.knowledge_base' }
+                redirect: '/admin/apps?tab=knowledge-base'
             },
             {
                 path: 'knowledge-base/:kbId/documents',
@@ -127,9 +128,7 @@ const routes = [
             },
             {
                 path: 'ai-drawio',
-                name: 'AIDrawIO',
-                component: () => import('@/views/admin/AIDrawIO.vue'),
-                meta: { title: '智能框图', requiresAuth: true, permission: 'admin.ai_drawio' }
+                redirect: '/admin/apps?tab=ai-drawio'
             },
             {
                 path: 'analytics',
@@ -166,8 +165,7 @@ const routes = [
             {
                 path: 'document-reader',
                 name: 'DocumentReaderManagement',
-                component: () => import('@/views/admin/DocumentReaderManagement.vue'),
-                meta: { title: '文档解读', requiresAuth: true, permission: 'admin.document_reader' }
+                redirect: '/admin/apps?tab=document-reader'
             },
             {
                 path: 'document-reader/:docId',

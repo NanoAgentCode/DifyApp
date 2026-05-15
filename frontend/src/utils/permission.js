@@ -33,7 +33,7 @@ export function getFirstPermittedPath(preferredPath, fallbackPrefix = '') {
 
 export const routePermissionMap = {
   '/admin/chat': 'admin.chat',
-  '/admin/apps': 'admin.apps',
+  '/admin/apps': ['admin.apps', 'admin.knowledge_base', 'admin.document_reader', 'admin.ai_drawio'],
   '/admin/apps/create': 'admin.apps',
   '/admin/apps/edit': 'admin.apps',
   '/admin/apps/detail': 'admin.apps',
@@ -64,16 +64,13 @@ export const routePermissionMap = {
 
 export const menuPermissionOrder = [
   { path: '/admin/chat', permission: 'admin.chat' },
-  { path: '/admin/apps', permission: 'admin.apps' },
+  { path: '/admin/apps', permissions: ['admin.apps', 'admin.knowledge_base', 'admin.document_reader', 'admin.ai_drawio'] },
   { path: '/admin/models', permissions: ['admin.models', 'admin.skills'] },
   { path: '/admin/users', permission: 'admin.users' },
   { path: '/admin/system-config', permission: 'admin.system_config' },
   { path: '/admin/analytics', permissions: ['admin.statistics', 'admin.data_analysis', 'admin.user_logs', 'admin.observability'] },
   { path: '/admin/memos', permission: 'admin.memos' },
-  { path: '/admin/knowledge-base', permission: 'admin.knowledge_base' },
   { path: '/admin/chat-history', permission: 'admin.chat_history' },
-  { path: '/admin/document-reader', permission: 'admin.document_reader' },
-  { path: '/admin/ai-drawio', permission: 'admin.ai_drawio' },
   { path: '/user/chat', permission: 'user.chat' },
   { path: '/user/apps', permission: 'user.apps' },
   { path: '/user/kb-qa', permission: 'user.kb_qa' },

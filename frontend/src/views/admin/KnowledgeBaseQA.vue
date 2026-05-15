@@ -429,7 +429,7 @@ const handleBack = () => {
 
 // 前往知识库管理页面
 const goToKnowledgeBaseManagement = () => {
-  router.push({ name: 'KnowledgeBaseManagement' })
+  router.push('/admin/apps?tab=knowledge-base')
 }
 
 // 手动触发代码高亮（用于流式响应中逐步生成的代码块）
