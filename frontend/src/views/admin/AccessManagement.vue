@@ -53,9 +53,12 @@ watch(() => route.query.tab, syncTabFromRoute)
 .access-management {
   height: 100%;
   min-height: 0;
+  padding: var(--spacing-lg);
   display: flex;
   flex-direction: column;
   background: var(--color-bg-secondary);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .access-tabs {
@@ -63,6 +66,7 @@ watch(() => route.query.tab, syncTabFromRoute)
   min-height: 0;
   display: flex;
   flex-direction: column;
+  gap: var(--spacing-md);
 }
 
 .access-tabs :deep(.el-tabs__header) {
@@ -70,16 +74,47 @@ watch(() => route.query.tab, syncTabFromRoute)
   margin: 0;
   padding: 0 var(--spacing-lg);
   background: var(--color-bg-primary);
-  border-bottom: 1px solid var(--color-border-lighter);
+  border: 1px solid var(--color-border-lighter);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+
+.access-tabs :deep(.el-tabs__nav-wrap::after) {
+  height: 0;
 }
 
 .access-tabs :deep(.el-tabs__content) {
   flex: 1;
   min-height: 0;
+  overflow: hidden;
+  width: 100%;
 }
 
 .access-tabs :deep(.el-tab-pane) {
   height: 100%;
   min-height: 0;
+}
+
+.access-tabs :deep(.user-list),
+.access-tabs :deep(.role-management) {
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+  .access-management {
+    padding: var(--spacing-md);
+  }
+
+  .access-tabs {
+    gap: var(--spacing-sm);
+  }
+
+  .access-tabs :deep(.el-tabs__header) {
+    padding: 0 var(--spacing-md);
+    overflow-x: auto;
+  }
 }
 </style>

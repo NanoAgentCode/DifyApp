@@ -1,13 +1,6 @@
 <template>
   <div class="model-management">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>组件管理</span>
-        </div>
-      </template>
-
-      <el-tabs v-model="activeTab" type="border-card" @tab-change="handleTabChange">
+    <el-tabs v-model="activeTab" class="model-tabs" @tab-change="handleTabChange">
         <!-- 问答模型配置（智能问答和知识检索） -->
         <el-tab-pane v-if="canManageModels" label="问答模型" name="qa">
           <div class="model-list-section">
@@ -264,8 +257,7 @@
           <SkillsManagement />
         </el-tab-pane>
 
-      </el-tabs>
-    </el-card>
+    </el-tabs>
 
     <!-- 问答模型编辑对话框 -->
     <el-dialog
@@ -1279,8 +1271,12 @@ watch(() => route.query.tab, syncTabFromRoute)
 .model-management {
   width: 100%;
   height: 100%;
+  min-height: 0;
+  padding: var(--spacing-lg);
   display: flex;
   flex-direction: column;
+  background: var(--color-bg-secondary);
+  box-sizing: border-box;
   overflow: hidden;
 }
 
@@ -1288,55 +1284,50 @@ watch(() => route.query.tab, syncTabFromRoute)
   font-weight: var(--tag-font-weight);
 }
 
-:deep(.el-card) {
+.model-tabs {
   height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  margin: 0;
-}
-
-:deep(.el-card__header) {
-  flex-shrink: 0;
-  padding: 18px 20px;
-}
-
-:deep(.el-card__body) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 20px;
   min-height: 0;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-:deep(.el-tabs) {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  gap: var(--spacing-md);
 }
 
-:deep(.el-tabs__content) {
+.model-tabs :deep(.el-tabs__header) {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0 var(--spacing-lg);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-lighter);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+
+.model-tabs :deep(.el-tabs__nav-wrap::after) {
+  height: 0;
+}
+
+.model-tabs :deep(.el-tabs__item) {
+  height: 44px;
+  line-height: 44px;
+  font-weight: var(--font-weight-medium);
+}
+
+.model-tabs :deep(.el-tabs__content) {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 20px;
-  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  width: 100%;
 }
 
-/* 选项卡切换过渡动画 */
-:deep(.el-tab-pane) {
+.model-tabs :deep(.el-tab-pane) {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  position: relative;
   transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-:deep(.el-tab-pane.is-active) {
+.model-tabs :deep(.el-tab-pane.is-active) {
   animation: tabFadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: opacity, transform; /* 硬件加速 */
 }
@@ -1354,6 +1345,21 @@ watch(() => route.query.tab, syncTabFromRoute)
 
 .model-list-section {
   width: 100%;
+  min-height: 100%;
+  padding: var(--spacing-lg);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-lighter);
+  border-radius: var(--radius-lg);
+  box-sizing: border-box;
+}
+
+.model-tabs :deep(.vector-database-management),
+.model-tabs :deep(.data-source-management),
+.model-tabs :deep(.skills-management) {
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  box-sizing: border-box;
 }
 
 .section-header {
