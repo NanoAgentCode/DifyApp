@@ -340,19 +340,6 @@ public class AgentSkillServiceImpl implements AgentSkillService {
         }
     }
 
-    private boolean hasAllowedCommands(String extJson) {
-        if (isBlank(extJson)) {
-            return false;
-        }
-        try {
-            JsonNode node = OBJECT_MAPPER.readTree(extJson);
-            JsonNode commands = node.get("allowedCommands");
-            return commands != null && commands.isArray() && commands.size() > 0;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
     private void fillAvailability(Map<String, Object> map, SkillAvailability availability) {
         map.put("usable", availability.usable);
         map.put("availabilityStatus", availability.usable ? "usable" : "invalid");

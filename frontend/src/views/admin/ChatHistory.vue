@@ -1,17 +1,6 @@
 <template>
   <div class="admin-chat-history">
     <el-card>
-      <template #header>
-        <div class="card-header">
-          <div class="header-left">
-            <el-button type="text" @click="handleBack" style="margin-right: 10px">
-              <el-icon><ArrowLeft /></el-icon>
-              返回
-            </el-button>
-            <span>会话历史管理</span>
-          </div>
-        </div>
-      </template>
 
       <!-- 搜索和筛选 -->
       <div class="filter-bar">
