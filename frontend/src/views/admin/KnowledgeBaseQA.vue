@@ -1,23 +1,6 @@
 <template>
   <div class="knowledge-base-qa">
     <el-card>
-      <template #header>
-        <div class="card-header">
-          <div class="header-left">
-            <el-button type="text" @click="handleBack" style="margin-right: 10px">
-              <el-icon><ArrowLeft /></el-icon>
-              返回
-            </el-button>
-            <span>知识问答</span>
-          </div>
-          <div class="header-right">
-            <el-button type="primary" @click="goToKnowledgeBaseManagement" class="kb-management-btn">
-              <el-icon><Setting /></el-icon>
-              知识库管理
-            </el-button>
-          </div>
-        </div>
-      </template>
       <div class="qa-container">
         <!-- 左侧：知识库选择 -->
         <div class="left-panel">
@@ -304,7 +287,6 @@
 
 <script setup>
 import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
 import {
   Delete,
   Folder,
@@ -317,9 +299,7 @@ import {
   Star,
   Search,
   Warning,
-  Setting,
-  Refresh,
-  ArrowLeft
+  Refresh
 } from '@element-plus/icons-vue'
 import ModelSelector from '@/components/chat/ModelSelector.vue'
 import { renderMarkdown } from '@/composables/useMarkdown'
@@ -418,18 +398,6 @@ const getRenderedContent = (message, index) => {
     return html
   }
   return renderMarkdown(message.content)
-}
-
-const router = useRouter()
-
-// 返回主页
-const handleBack = () => {
-  router.push('/admin/chat')
-}
-
-// 前往知识库管理页面
-const goToKnowledgeBaseManagement = () => {
-  router.push('/admin/apps?tab=knowledge-base')
 }
 
 // 手动触发代码高亮（用于流式响应中逐步生成的代码块）
@@ -540,34 +508,6 @@ html {
   flex-direction: column;
   overflow: hidden;
   padding: 0;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: auto;
-}
-
-.kb-management-btn {
-  transition: all var(--transition-base);
-}
-
-.kb-management-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-primary);
 }
 
 :deep(.el-card) {
