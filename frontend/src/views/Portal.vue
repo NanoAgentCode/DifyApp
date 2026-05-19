@@ -2438,6 +2438,26 @@ const handleContinueConversation = async () => {
   await loadConversationMessages(selectedConversationId.value, selectedConversation?.type || null)
 }
 
+const restoreContinueConversation = async () => {
+  const continueConvId = localStorage.getItem('continueConversationId')
+  if (!continueConvId) return
+
+  const continueType = localStorage.getItem('continueConversationType')
+  localStorage.removeItem('continueConversationId')
+  localStorage.removeItem('continueConversationType')
+
+  const conversationType = continueType ? Number(continueType) : null
+  selectedConversationId.value = Number(continueConvId)
+
+  if (currentView.value !== 'welcome') {
+    await switchView('welcome')
+  }
+
+  await loadConversationMessages(continueConvId, Number.isNaN(conversationType) ? null : conversationType)
+  await loadRecentConversations()
+  ElMessage.success('已加载历史会话，可继续对话')
+}
+
 // 加载可用模型列表
 const loadAvailableModels = async () => {
   try {
@@ -2739,15 +2759,16 @@ const handleGlobalKeydown = (e) => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadStoredPortalView()
   updateDateTime()
   // 每秒更新时间
   dateTimeIntervalId.value = setInterval(updateDateTime, 1000)
   loadKnowledgeBases()
   loadAvailableModels()
-  loadRecentConversations()
+  await loadRecentConversations()
   loadDocuments()
+  await restoreContinueConversation()
   checkContentOverflow()
   // 监听窗口大小变化
   window.addEventListener('resize', handleResize)

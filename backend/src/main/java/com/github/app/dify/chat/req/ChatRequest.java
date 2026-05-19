@@ -34,6 +34,18 @@ public class ChatRequest {
     @Schema(description = "是否注入当前时间信息（MCP时间服务），默认 true；与浏览器检索解耦，关闭检索时仍可提供时间")
     private Boolean enableTimeInfo;
 
+    @Schema(description = "是否启用备忘录意图识别，默认 true")
+    private Boolean enableMemo;
+
+    @Schema(description = "会话类型：1-普通聊天，2-知识库问答，3-文档问答，4-Agent任务，5-页面助手")
+    private Integer conversationType;
+
+    @Schema(description = "保存到历史记录中的原始用户问题")
+    private String historyQuestion;
+
+    @Schema(description = "新建会话时使用的标题")
+    private String conversationTitle;
+
     @Schema(description = "图片OCR识别结果（由后端自动填充，前端无需传递）")
     private String ocrText;
     
@@ -102,6 +114,38 @@ public class ChatRequest {
 
     public void setEnableTimeInfo(Boolean enableTimeInfo) {
         this.enableTimeInfo = enableTimeInfo;
+    }
+
+    public Boolean getEnableMemo() {
+        return enableMemo;
+    }
+
+    public void setEnableMemo(Boolean enableMemo) {
+        this.enableMemo = enableMemo;
+    }
+
+    public Integer getConversationType() {
+        return conversationType;
+    }
+
+    public void setConversationType(Integer conversationType) {
+        this.conversationType = conversationType;
+    }
+
+    public String getHistoryQuestion() {
+        return historyQuestion;
+    }
+
+    public void setHistoryQuestion(String historyQuestion) {
+        this.historyQuestion = historyQuestion;
+    }
+
+    public String getConversationTitle() {
+        return conversationTitle;
+    }
+
+    public void setConversationTitle(String conversationTitle) {
+        this.conversationTitle = conversationTitle;
     }
 
     public String getOcrText() {

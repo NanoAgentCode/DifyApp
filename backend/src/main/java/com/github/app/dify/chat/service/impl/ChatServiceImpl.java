@@ -123,13 +123,17 @@ public class ChatServiceImpl implements ChatService {
             }
 
             // 意图识别：尝试创建备忘录
-            com.github.app.dify.memo.resp.MemoResp memo = stepCollector.trace(
-                    "CHAT_MEMO_DETECT",
-                    "识别备忘录意图",
-                    "question=" + request.getQuestion(),
-                    () -> tryCreateMemo(userId, request.getQuestion()),
-                    resp -> resp == null ? "memo_created=false" : "memo_created=true,memoId=" + resp.getId());
+            com.github.app.dify.memo.resp.MemoResp memo = null;
+            if (!Boolean.FALSE.equals(request.getEnableMemo())) {
+                memo = stepCollector.trace(
+                        "CHAT_MEMO_DETECT",
+                        "识别备忘录意图",
+                        "question=" + request.getQuestion(),
+                        () -> tryCreateMemo(userId, request.getQuestion()),
+                        resp -> resp == null ? "memo_created=false" : "memo_created=true,memoId=" + resp.getId());
+            }
             Long memoId = memo != null ? memo.getId() : null;
+            final com.github.app.dify.memo.resp.MemoResp finalMemo = memo;
 
             // 创建模型实例（会话ID由AOP切面自动设置）
             ChatLanguageModel chatLanguageModel = stepCollector.trace(
@@ -160,7 +164,7 @@ public class ChatServiceImpl implements ChatService {
                     "CHAT_MESSAGES_BUILD",
                     "构建聊天消息",
                     "history_count=" + (request.getHistory() == null ? 0 : request.getHistory().size()),
-                    () -> buildMessages(request, finalBrowserSearchContext, qaModel, userId, memo),
+                    () -> buildMessages(request, finalBrowserSearchContext, qaModel, userId, finalMemo),
                     built -> "message_count=" + (built == null ? 0 : built.size()));
 
             // 记录历史对话信息
@@ -289,12 +293,13 @@ public class ChatServiceImpl implements ChatService {
         if (userId != null && conversationId == null) {
             try {
                 Long requestConversationId = ConversationIdUtil.parseConversationId(request.getConversationId(), logger);
+                String historyQuestion = getHistoryQuestion(request);
                 conversationId = chatHistoryService.getOrCreateConversation(
-                        userId, requestConversationId, 1, null, null, request.getQuestion());
+                        userId, requestConversationId, getConversationType(request), null, null, getConversationTitle(request, historyQuestion));
                 logger.info("非流式响应 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}",
                         requestConversationId, conversationId);
                 // 保存用户消息（不需要token信息）
-                chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
+                chatHistoryService.saveMessage(conversationId, "user", historyQuestion);
                 // 保存助手消息（带token信息）
                 logger.info("准备保存助手消息 - conversationId: {}, modelId: {}, tokens: {}/{}/{}",
                         conversationId, modelId, promptTokens, completionTokens, totalTokens);
@@ -302,7 +307,7 @@ public class ChatServiceImpl implements ChatService {
                         modelId, promptTokens, completionTokens, totalTokens);
                 logger.info("✓ 助手消息已保存");
                 try {
-                    userMemoryService.updateMemoryAsync(userId, request.getQuestion(), answer, modelId, conversationId,
+                    userMemoryService.updateMemoryAsync(userId, historyQuestion, answer, modelId, conversationId,
                             "chat", null);
                 } catch (Exception e) {
                     logger.debug("触发异步记忆更新失败", e);
@@ -351,26 +356,31 @@ public class ChatServiceImpl implements ChatService {
             logger.info("使用问答模型（流式）: {} (ID: {})", qaModel.getName(), qaModel.getId());
 
             // 意图识别：尝试创建备忘录
-            com.github.app.dify.memo.resp.MemoResp memo = stepCollector.trace(
-                    "CHAT_MEMO_DETECT",
-                    "识别备忘录意图（流式）",
-                    "question=" + request.getQuestion(),
-                    () -> tryCreateMemo(userId, request.getQuestion()),
-                    resp -> resp == null ? "memo_created=false" : "memo_created=true,memoId=" + resp.getId());
+            com.github.app.dify.memo.resp.MemoResp memo = null;
+            if (!Boolean.FALSE.equals(request.getEnableMemo())) {
+                memo = stepCollector.trace(
+                        "CHAT_MEMO_DETECT",
+                        "识别备忘录意图（流式）",
+                        "question=" + request.getQuestion(),
+                        () -> tryCreateMemo(userId, request.getQuestion()),
+                        resp -> resp == null ? "memo_created=false" : "memo_created=true,memoId=" + resp.getId());
+            }
             final Long memoId = memo != null ? memo.getId() : null;
+            final com.github.app.dify.memo.resp.MemoResp finalMemo = memo;
 
             // 在流式响应开始前，先创建或获取会话（这样可以在第一个数据包就返回 conversationId）
             final AtomicReference<Long> conversationIdRef = new AtomicReference<>(null);
             if (userId != null) {
                 try {
                     Long requestConversationId = ConversationIdUtil.parseConversationId(request.getConversationId(), logger);
+                    String historyQuestion = getHistoryQuestion(request);
                     Long conversationId = chatHistoryService.getOrCreateConversation(
-                            userId, requestConversationId, 1, null, null, request.getQuestion());
+                            userId, requestConversationId, getConversationType(request), null, null, getConversationTitle(request, historyQuestion));
                     conversationIdRef.set(conversationId);
                     logger.info("流式响应开始 - 获取或创建会话，requestConversationId: {}, 返回conversationId: {}",
                             requestConversationId, conversationId);
                     // 先保存用户消息（不需要token信息）
-                    chatHistoryService.saveMessage(conversationId, "user", request.getQuestion());
+                    chatHistoryService.saveMessage(conversationId, "user", historyQuestion);
 
                     // 更新ThreadLocal中的会话ID（因为AOP在方法开始时执行，此时会话可能还未创建）
                     modelLanguageModelFactory.setConversationId(conversationId.toString());
@@ -410,7 +420,7 @@ public class ChatServiceImpl implements ChatService {
                     "CHAT_MESSAGES_BUILD",
                     "构建聊天消息（流式）",
                     "history_count=" + (request.getHistory() == null ? 0 : request.getHistory().size()),
-                    () -> buildMessages(request, finalBrowserSearchContext, qaModel, userId, memo),
+                    () -> buildMessages(request, finalBrowserSearchContext, qaModel, userId, finalMemo),
                     built -> "message_count=" + (built == null ? 0 : built.size()));
 
             // 应用上下文压缩策略（转换为KnowledgeBaseQARequest格式以复用压缩逻辑）
@@ -504,7 +514,7 @@ public class ChatServiceImpl implements ChatService {
                                 logger.info("✓ 流式响应完成 - 已保存助手消息到会话: {}, 模型ID: {}, Token: {}/{}/{}",
                                         conversationId, qaModel.getId(), promptTokens, completionTokens, totalTokens);
                                 try {
-                                    userMemoryService.updateMemoryAsync(userId, request.getQuestion(), finalAnswer,
+                                    userMemoryService.updateMemoryAsync(userId, getHistoryQuestion(request), finalAnswer,
                                             qaModel.getId(), conversationId, "chat", null);
                                 } catch (Exception e) {
                                     logger.debug("触发异步记忆更新失败（流式）", e);
@@ -902,6 +912,24 @@ public class ChatServiceImpl implements ChatService {
             // 如果数据库中没有模型，返回null
             return null;
         }
+    }
+
+    private Integer getConversationType(ChatRequest request) {
+        return request.getConversationType() != null ? request.getConversationType() : 1;
+    }
+
+    private String getHistoryQuestion(ChatRequest request) {
+        if (request.getHistoryQuestion() != null && !request.getHistoryQuestion().trim().isEmpty()) {
+            return request.getHistoryQuestion().trim();
+        }
+        return request.getQuestion();
+    }
+
+    private String getConversationTitle(ChatRequest request, String fallbackQuestion) {
+        if (request.getConversationTitle() != null && !request.getConversationTitle().trim().isEmpty()) {
+            return request.getConversationTitle().trim();
+        }
+        return fallbackQuestion;
     }
 
     /**

@@ -29,7 +29,7 @@ public class ChatConversationResponse {
     @Schema(description = "知识库名称")
     private String knowledgeBaseName;
     
-    @Schema(description = "会话类型：1-普通聊天，2-知识库问答")
+    @Schema(description = "会话类型：1-普通聊天，2-知识库问答，3-文档问答，4-Agent任务，5-页面助手")
     private Integer type;
     
     @Schema(description = "会话标题")

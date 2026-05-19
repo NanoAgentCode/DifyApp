@@ -193,16 +193,27 @@ export function useChatHistory(options = {}) {
   }
 
   // 继续对话（仅用户模式）
-  const handleContinueConversation = (conv) => {
+  const handleContinueConversation = async (conv) => {
     if (!enableContinue) return
+
+    if (conv.type === 5) {
+      ElMessage.info('页面助手会话暂不支持跨页面继续，已为你打开会话详情')
+      await selectConversation(conv)
+      return
+    }
     
     // 将 conversationId 存储到 localStorage，聊天页面会读取
     localStorage.setItem('continueConversationId', conv.id.toString())
+    localStorage.setItem('continueConversationType', conv.type?.toString() || '')
     // 根据会话类型跳转到对应的页面
     if (conv.type === 1) {
       router.push('/user/chat')
-    } else {
+    } else if (conv.type === 2) {
       router.push('/user/kb-qa')
+    } else {
+      ElMessage.info('该类型会话暂不支持直接继续，已为你打开会话详情')
+      localStorage.removeItem('continueConversationId')
+      await selectConversation(conv)
     }
   }
 
@@ -283,4 +294,3 @@ export function useChatHistory(options = {}) {
     formatMessageContent
   }
 }
-

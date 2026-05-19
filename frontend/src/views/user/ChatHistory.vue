@@ -37,6 +37,7 @@
           <el-option label="普通聊天" :value="1" />
           <el-option label="知识检索" :value="2" />
           <el-option label="文档问答" :value="3" />
+          <el-option label="页面助手" :value="5" />
         </el-select>
         <el-button type="primary" @click="handleSearch" style="margin-left: 10px">
           搜索
@@ -103,8 +104,8 @@
                 </div>
                 
                 <div class="conversation-info-row">
-                  <el-tag size="small" :type="conv.type === 1 ? 'primary' : (conv.type === 2 ? 'success' : 'warning')">
-                    {{ conv.type === 1 ? '普通聊天' : (conv.type === 2 ? '知识检索' : '文档问答') }}
+                  <el-tag size="small" :type="getConversationTypeTag(conv.type)">
+                    {{ getConversationTypeText(conv.type) }}
                   </el-tag>
                   <el-tag type="info" size="small">{{ conv.messageCount || 0 }} 轮对话</el-tag>
                 </div>
@@ -165,8 +166,8 @@
       <div v-if="conversationDetail.conversation" class="conversation-detail">
         <div class="detail-header">
           <div class="detail-info">
-            <el-tag :type="conversationDetail.conversation.type === 1 ? 'primary' : (conversationDetail.conversation.type === 2 ? 'success' : 'warning')" size="small">
-              {{ conversationDetail.conversation.type === 1 ? '普通聊天' : (conversationDetail.conversation.type === 2 ? '知识检索' : '文档问答') }}
+            <el-tag :type="getConversationTypeTag(conversationDetail.conversation.type)" size="small">
+              {{ getConversationTypeText(conversationDetail.conversation.type) }}
             </el-tag>
             <span class="detail-meta">
               {{ conversationDetail.messages.length }} 条消息 · 
@@ -209,6 +210,28 @@ import { useRouter } from 'vue-router'
 import { useChatHistory } from '@/composables/useChatHistory'
 
 const router = useRouter()
+
+const getConversationTypeText = (type) => {
+  const map = {
+    1: '普通聊天',
+    2: '知识检索',
+    3: '文档问答',
+    4: 'Agent任务',
+    5: '页面助手'
+  }
+  return map[type] || '未知类型'
+}
+
+const getConversationTypeTag = (type) => {
+  const map = {
+    1: 'primary',
+    2: 'success',
+    3: 'warning',
+    4: 'danger',
+    5: 'info'
+  }
+  return map[type] || 'info'
+}
 
 // 返回主页
 const handleBack = () => {

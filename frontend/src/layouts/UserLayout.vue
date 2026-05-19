@@ -22,6 +22,9 @@
     
     <!-- 回到主页悬浮按钮（集成用户手册智能问答） -->
     <HomeFloatingButton @help-click="showHelpDialog = true" />
+
+    <!-- 当前页面全局智能助手 -->
+    <GlobalAssistant />
     
     <!-- 帮助对话框 -->
     <HelpDialog 
@@ -38,6 +41,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import HomeFloatingButton from '@/components/HomeFloatingButton.vue'
+import GlobalAssistant from '@/components/assistant/GlobalAssistant.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
 import AppHeader from '@/components/AppHeader.vue'
 import UserMemoryDialog from '@/components/UserMemoryDialog.vue'
@@ -273,4 +277,3 @@ const handlePasswordChangeSuccess = () => {
 }
 
 </style>
-

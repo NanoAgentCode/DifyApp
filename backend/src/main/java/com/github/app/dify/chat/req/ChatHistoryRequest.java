@@ -17,7 +17,7 @@ public class ChatHistoryRequest {
     @Schema(description = "关键词（搜索标题）")
     private String keyword;
     
-    @Schema(description = "对话类型（1-普通聊天，2-知识库问答）")
+    @Schema(description = "对话类型（1-普通聊天，2-知识库问答，3-文档问答，4-Agent任务，5-页面助手）")
     private Integer type;
     
     @Schema(description = "用户ID（管理员端使用）")

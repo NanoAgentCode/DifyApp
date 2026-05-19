@@ -1,0 +1,43 @@
+package com.github.app.dify.assistant.util;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.app.dify.assistant.req.AssistantChatReq;
+import org.springframework.stereotype.Component;
+
+@Component
+public class AssistantPromptBuilder {
+
+    private final ObjectMapper objectMapper;
+
+    public AssistantPromptBuilder(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+
+    public String build(String message, AssistantChatReq.AssistantPageContext pageContext) {
+        String contextJson = "{}";
+        try {
+            if (pageContext != null) {
+                contextJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(pageContext);
+            }
+        } catch (Exception ignored) {
+            contextJson = "{}";
+        }
+
+        return """
+                你是 DifyApp 用户端的全局页面助手。
+                你的任务是基于用户当前页面的可见内容、选中文本和基础页面信息回答问题。
+
+                回答规则：
+                1. 优先依据“页面上下文 JSON”和用户问题作答。
+                2. 如果页面上下文不足以判断，请明确说明缺少哪些信息，不要编造系统数据。
+                3. 不要声称自己执行了创建、删除、修改、提交等系统操作；当前能力只做问答和建议。
+                4. 回答要简洁、可执行，默认使用中文。
+
+                页面上下文 JSON：
+                %s
+
+                用户问题：
+                %s
+                """.formatted(contextJson, message);
+    }
+}
