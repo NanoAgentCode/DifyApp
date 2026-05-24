@@ -24,6 +24,10 @@ public interface MemoService {
      */
     MemoResp create(Long userId, String rawInput);
 
+    MemoResp preview(String rawInput);
+
+    MemoResp createConfirmed(Long userId, String content, java.util.Date remindAt, Integer intervalMinutes);
+
     /**
      * 标记为已提醒
      */

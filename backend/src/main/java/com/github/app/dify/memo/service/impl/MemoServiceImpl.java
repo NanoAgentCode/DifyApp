@@ -81,6 +81,56 @@ public class MemoServiceImpl implements MemoService {
     }
 
     @Override
+    public MemoResp preview(String rawInput) {
+        MemoTimeParser.ParseResult parsed = MemoTimeParser.parse(rawInput);
+        if (parsed.getRemindAt() == null) {
+            throw new BusinessException("Cannot identify reminder time", ErrorCode.DATA_VALIDATION_FAILED);
+        }
+        if (parsed.getRemindAt().before(new Date())) {
+            throw new BusinessException("Reminder time cannot be earlier than current time", ErrorCode.DATA_VALIDATION_FAILED);
+        }
+        String content = parsed.getContent();
+        if (content == null || content.trim().isEmpty()) {
+            content = rawInput != null ? rawInput.trim() : "";
+        }
+
+        MemoResp r = new MemoResp();
+        r.setContent(content.trim());
+        r.setRemindAt(parsed.getRemindAt());
+        r.setStatus(Memo.STATUS_PENDING);
+        r.setIntervalMinutes(parsed.getIntervalMinutes());
+        return r;
+    }
+
+    @Override
+    @Transactional
+    public MemoResp createConfirmed(Long userId, String content, Date remindAt, Integer intervalMinutes) {
+        if (remindAt == null) {
+            throw new BusinessException("Cannot identify reminder time", ErrorCode.DATA_VALIDATION_FAILED);
+        }
+        if (remindAt.before(new Date())) {
+            throw new BusinessException("Reminder time cannot be earlier than current time", ErrorCode.DATA_VALIDATION_FAILED);
+        }
+        if (content == null || content.trim().isEmpty()) {
+            throw new BusinessException("Content cannot be empty", ErrorCode.DATA_VALIDATION_FAILED);
+        }
+
+        Memo m = new Memo();
+        m.setUserId(userId);
+        m.setContent(content.trim());
+        m.setRemindAt(remindAt);
+        m.setIntervalMinutes(intervalMinutes);
+        m.setStatus(Memo.STATUS_PENDING);
+        m.setDeleted(NOT_DELETED);
+        Date now = new Date();
+        m.setCreateTime(now);
+        m.setUpdateTime(now);
+        m = memoRepository.save(m);
+        logger.info("鍒涘缓澶囧繕褰? id={}, content={}, remindAt={}", m.getId(), m.getContent(), m.getRemindAt());
+        return toResp(m);
+    }
+
+    @Override
     @Transactional
     public void markDone(Long userId, Long id) {
         Optional<Memo> opt = memoRepository.findByIdAndUserId(id, userId);
