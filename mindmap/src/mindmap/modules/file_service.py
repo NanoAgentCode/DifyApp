@@ -74,6 +74,18 @@ class FileService:
         """获取文件预览URL"""
         base_url = str(request.base_url)
         return f"{base_url}preview/{filename}"
+
+    @staticmethod
+    def _resolve_static_path(file_path: str) -> Path:
+        """解析static目录内的文件路径，防止目录穿越。"""
+        if not file_path or "\x00" in file_path:
+            raise HTTPException(status_code=400, detail="无效的文件路径")
+
+        static_root = STATIC_DIR.resolve()
+        resolved_path = (static_root / file_path).resolve()
+        if resolved_path != static_root and static_root not in resolved_path.parents:
+            raise HTTPException(status_code=400, detail="文件路径不能超出static目录")
+        return resolved_path
     
     @staticmethod
     async def upload_file(request: Request, file: UploadFile) -> Dict[str, Any]:
@@ -159,9 +171,9 @@ class FileService:
         Returns:
             FileResponse: 文件响应对象
         """
-        full_path = STATIC_DIR / file_path
+        full_path = FileService._resolve_static_path(file_path)
         
-        if not full_path.exists():
+        if not full_path.exists() or not full_path.is_file():
             raise HTTPException(status_code=404, detail=f"文件不存在: {file_path}")
         
         # 根据文件扩展名确定MIME类型
@@ -180,9 +192,9 @@ class FileService:
         主要用于文本文件的预览
         支持子目录路径，如 text_files/filename.txt
         """
-        file_path = STATIC_DIR / filename
+        file_path = FileService._resolve_static_path(filename)
         
-        if not file_path.exists():
+        if not file_path.exists() or not file_path.is_file():
             raise HTTPException(status_code=404, detail=f"文件不存在: {filename}")
         
         # 读取文件内容，尝试多种编码
@@ -230,6 +242,12 @@ class FileService:
             # 如果没有扩展名，默认添加.txt
             if not Path(clean_filename).suffix:
                 clean_filename += '.txt'
+
+            if not FileService.is_allowed_file(clean_filename):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"不支持的文件类型。支持的类型: {', '.join(ALLOWED_EXTENSIONS)}"
+                )
             
             # 检查文件是否已存在，如果存在则添加时间戳
             file_path = text_files_dir / clean_filename
@@ -279,12 +297,13 @@ class FileService:
                         continue
                     
                     stat = file_path.stat()
+                    relative_url_path = relative_path.as_posix()
                     files.append({
-                        "filename": str(relative_path),
+                        "filename": relative_url_path,
                         "size": stat.st_size,
                         "modified_time": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                        "download_url": f"{base_url}download/{relative_path}",
-                        "preview_url": f"{base_url}preview/{relative_path}",
+                        "download_url": f"{base_url}download/{relative_url_path}",
+                        "preview_url": f"{base_url}preview/{relative_url_path}",
                         "category": "text_files" if "text_files" in str(relative_path) else "uploaded"
                     })
             

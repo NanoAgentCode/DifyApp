@@ -23,18 +23,6 @@ def get_base_dir() -> Path:
 
 # 基础配置
 BASE_DIR: Final[Path] = get_base_dir()
-STATIC_DIR: Final[Path] = BASE_DIR / "static"
-MARKDOWN_DIR: Final[Path] = STATIC_DIR / "markdown"
-STATIC_HTML_DIR: Final[Path] = STATIC_DIR / "html"
-
-# 确保必要的目录存在
-STATIC_DIR.mkdir(parents=True, exist_ok=True)
-MARKDOWN_DIR.mkdir(parents=True, exist_ok=True)
-STATIC_HTML_DIR.mkdir(parents=True, exist_ok=True)
-
-# 静态文件配置
-JS_DIR: Final[Path] = BASE_DIR / "htmljs"
-CSS_DIR: Final[Path] = BASE_DIR / "htmljs"  # CSS文件也在htmljs目录中
 
 # 读取ini配置文件
 config = configparser.ConfigParser()
@@ -59,6 +47,18 @@ CHUNK_SIZE: Final[int] = config.getint('file_upload', 'chunk_size_kb') * 1024  #
 SERVER_HOST: Final[str] = config.get('server', 'host')
 SERVER_PORT: Final[int] = config.getint('server', 'port')
 DEBUG: Final[bool] = config.getboolean('server', 'debug')
+
+# 静态文件配置
+JS_DIR: Final[Path] = BASE_DIR / config.get('static_files', 'js_directory', fallback='htmljs')
+CSS_DIR: Final[Path] = JS_DIR  # CSS文件也在htmljs目录中
+STATIC_DIR: Final[Path] = BASE_DIR / config.get('static_files', 'static_directory', fallback='static')
+MARKDOWN_DIR: Final[Path] = STATIC_DIR / "markdown"
+STATIC_HTML_DIR: Final[Path] = STATIC_DIR / "html"
+
+# 确保必要的目录存在
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
+MARKDOWN_DIR.mkdir(parents=True, exist_ok=True)
+STATIC_HTML_DIR.mkdir(parents=True, exist_ok=True)
 
 # 静态文件暴露配置
 STATIC_FILES_CONFIG: Final[Dict[str, Dict[str, Any]]] = {
@@ -119,6 +119,7 @@ DEFAULT_MIME_TYPE: Final[str] = 'application/octet-stream'
 # 思维导图配置
 MAX_MARKDOWN_LENGTH: Final[int] = config.getint('mindmap', 'max_markdown_length', fallback=50000) if 'mindmap' in config else 50000
 MAX_MARKDOWN_LENGTH_WARNING: Final[int] = config.getint('mindmap', 'max_markdown_length_warning', fallback=30000) if 'mindmap' in config else 30000
+MARKMAP_TIMEOUT_SECONDS: Final[int] = config.getint('mindmap', 'markmap_timeout_seconds', fallback=30) if 'mindmap' in config else 30
 
 # 获取可用的JS文件列表
 def get_available_js_files() -> List[str]:

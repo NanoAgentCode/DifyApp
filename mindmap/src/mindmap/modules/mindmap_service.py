@@ -2,15 +2,23 @@
 思维导图服务模块
 """
 import os
+import asyncio
 import subprocess
 import shutil
 import time
 import re
+import uuid
 from typing import Tuple
 from pathlib import Path
 from fastapi import Request, HTTPException
 from fastapi.responses import FileResponse
-from ..config import MARKDOWN_DIR, STATIC_HTML_DIR, MAX_MARKDOWN_LENGTH, MAX_MARKDOWN_LENGTH_WARNING
+from ..config import (
+    MARKDOWN_DIR,
+    STATIC_HTML_DIR,
+    MAX_MARKDOWN_LENGTH,
+    MAX_MARKDOWN_LENGTH_WARNING,
+    MARKMAP_TIMEOUT_SECONDS,
+)
 
 
 class MindmapService:
@@ -37,8 +45,21 @@ class MindmapService:
     
     @staticmethod
     def generate_filename() -> str:
-        """生成基于时间戳的文件名"""
-        return str(int(time.time()))
+        """生成并发安全的文件名"""
+        timestamp = int(time.time() * 1000)
+        return f"{timestamp}_{uuid.uuid4().hex[:8]}"
+
+    @staticmethod
+    def _resolve_html_path(filename: str) -> Path:
+        """解析HTML文件路径，避免目录穿越。"""
+        if not filename or Path(filename).name != filename or Path(filename).suffix.lower() != ".html":
+            raise HTTPException(status_code=400, detail="无效的HTML文件名")
+
+        base_dir = STATIC_HTML_DIR.resolve()
+        file_path = (base_dir / filename).resolve()
+        if file_path.parent != base_dir:
+            raise HTTPException(status_code=400, detail="无效的HTML文件路径")
+        return file_path
     
     @staticmethod
     def _truncate_markdown_intelligently(content: str, max_length: int) -> str:
@@ -194,20 +215,25 @@ class MindmapService:
         Raises:
             HTTPException: 当markmap命令执行失败时
         """
-        markdown_cmd = f"markmap {md_file_path} --output {MARKDOWN_DIR / html_file_name} --no-open"
-        
-        # Windows环境使用PowerShell
-        if os.name == 'nt':
-            markdown_cmd = f"powershell -Command {markdown_cmd}"
+        markmap_path = shutil.which('markmap')
+        if not markmap_path:
+            raise HTTPException(status_code=500, detail="markmap command not found")
+
+        markdown_cmd = [
+            markmap_path,
+            str(md_file_path),
+            "--output",
+            str(MARKDOWN_DIR / html_file_name),
+            "--no-open",
+        ]
         
         result = subprocess.run(
             markdown_cmd,
             check=False,
             text=True,
-            shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            universal_newlines=True
+            timeout=MARKMAP_TIMEOUT_SECONDS,
         )
         
         if result.returncode != 0:
@@ -271,6 +297,9 @@ class MindmapService:
             HTTPException: 当生成失败时
         """
         try:
+            if not content or not content.strip():
+                raise HTTPException(status_code=400, detail="Markdown内容不能为空")
+
             # 创建目录
             MindmapService.create_directories()
             
@@ -301,7 +330,7 @@ class MindmapService:
                 f.write(processed_content)
             
             # 执行markmap命令
-            MindmapService._execute_markmap_command(md_file_path, html_file_name)
+            await asyncio.to_thread(MindmapService._execute_markmap_command, md_file_path, html_file_name)
             
             # 移动HTML文件到static/html目录
             source_path = MARKDOWN_DIR / html_file_name
@@ -321,6 +350,8 @@ class MindmapService:
         except subprocess.CalledProcessError as e:
             error_msg = f"Error generating HTML file: {e.output}\n{e.stderr}"
             raise HTTPException(status_code=500, detail=error_msg)
+        except subprocess.TimeoutExpired:
+            raise HTTPException(status_code=504, detail=f"markmap生成超时（>{MARKMAP_TIMEOUT_SECONDS}秒）")
         except HTTPException:
             raise
         except Exception as e:
@@ -358,7 +389,7 @@ class MindmapService:
     @staticmethod
     def get_html_file(filename: str):
         """获取HTML文件"""
-        file_path = STATIC_HTML_DIR / filename
-        if not file_path.exists():
+        file_path = MindmapService._resolve_html_path(filename)
+        if not file_path.exists() or not file_path.is_file():
             raise HTTPException(status_code=404, detail="文件不存在")
         return FileResponse(str(file_path))
