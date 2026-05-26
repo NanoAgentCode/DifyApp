@@ -12,6 +12,7 @@ import com.github.app.dify.documentreader.service.DocumentReaderVectorizationSer
 import com.github.app.dify.knowledgebase.service.FileStorageService;
 import com.github.app.dify.system.config.DocumentReaderConfig;
 import com.github.app.dify.system.service.SystemConfigService;
+import com.github.app.dify.system.util.SkillLoader;
 import com.github.app.dify.model.service.ModelConfigService;
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.knowledgebase.langchain4j.ModelLanguageModelFactory;
@@ -484,44 +485,10 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
                 ? "文档内容较多，请高度概括，不要展开详细内容，只列出主要标题和核心要点"
                 : "文档内容较少，可以适当展开，但保持简洁，避免冗余";
 
-        return String.format(
-                "请为以下文档生成一份高度概括的导读。要求：\n" +
-                        "1. **字数限制**：控制在800-1500字之间（中文字符计数），但必须保证导读部分完整\n" +
-                        "2. **内容要求**：高度概括，避免冗余，只包含核心信息\n" +
-                        "3. **导读应包括以下完整部分**（每个部分都要有，但内容要简洁）：\n" +
-                        "   - 文档的核心主题和主要内容概述（1-2句话）\n" +
-                        "   - 文档的关键要点和重要信息（3-5个要点，用列表形式）\n" +
-                        "   - 文档的主要结构或章节（简要说明主要标题和内容）\n" +
-                        "   - 适合的读者群体（1句话）\n" +
-                        "4. **展开程度**：%s\n" +
-                        "5. **内容范围**：\n" +
-                        "   - 主要关注文档的标题结构和主要内容\n" +
-                        "   - **不包含**：数学公式、代码示例、详细的技术细节\n" +
-                        "   - **只包含**：文档的主要标题、章节结构、核心观点和关键信息\n" +
-                        "6. **语言要求**：使用简洁明了的语言，直接说明要点，不要展开详细描述\n" +
-                        "7. **格式要求**：\n" +
-                        "   - 使用标准的Markdown标题格式（#、##、###），确保层次清晰\n" +
-                        "   - 一级标题（#）用于主要部分，二级标题（##）用于子部分\n" +
-                        "   - 使用列表（-、*）来组织要点，支持嵌套列表\n" +
-                        "   - 重要内容使用**加粗**或*斜体*来强调\n" +
-                        "   - 可以使用引用（>）来突出关键信息\n" +
-                        "   - 保持整体格式统一，层次分明\n" +
-                        "   - 段落之间使用空行分隔，提高可读性\n" +
-                        "8. **Markdown渲染优化要求**：\n" +
-                        "   - 确保所有Markdown语法正确，避免渲染错误\n" +
-                        "   - 列表项前使用统一的符号（- 或 *），保持一致性\n" +
-                        "   - 标题前后留空行，确保正确渲染\n" +
-                        "   - 避免使用特殊字符，确保兼容性\n" +
-                        "9. **完整性要求**：\n" +
-                        "   - 确保导读的所有部分都完整（核心主题、关键要点、主要结构、读者群体）\n" +
-                        "   - 如果字数接近限制，优先保证结构完整，每个部分都要有\n" +
-                        "   - 在保证完整性的前提下，控制总字数在800-1500字之间\n\n" +
-                        "文档名称：%s\n\n" +
-                        "文档内容：\n%s\n\n" +
-                        "请生成一份高度概括、结构完整的导读，字数控制在800-1500字之间，使用标准Markdown格式确保良好的渲染效果。",
-                expandInstruction,
-                fileName,
-                truncatedText);
+        return SkillLoader.loadSkillWithTemplate("document_reader/guide_prompt_template", Map.of(
+                "expandInstruction", expandInstruction,
+                "fileName", String.valueOf(fileName),
+                "documentText", truncatedText));
     }
 
     /**
@@ -530,34 +497,9 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     private String buildMindMapMarkdownPrompt(String fileName, String documentText) {
         String truncatedText = truncateText(documentText, MAX_TEXT_LENGTH_FOR_MINDMAP);
 
-        return String.format(
-                "请根据以下文档内容，生成一份结构化的Markdown格式思维导图。要求：\n\n" +
-                        "**格式要求**：\n" +
-                        "1. 必须使用Markdown标题层级结构（#、##、###、####等）\n" +
-                        "2. 第一级标题（#）必须是文档名称或核心主题\n" +
-                        "3. 使用多级标题来组织内容层次，建议不超过4级（####）\n" +
-                        "4. 每个标题下可以包含简要的说明文字或子标题\n" +
-                        "5. 使用列表（- 或 *）来组织同级内容\n\n" +
-                        "**内容要求**：\n" +
-                        "1. 必须严格按照文档的实际内容生成，不要添加文档中没有的信息\n" +
-                        "2. 提取文档的核心主题、主要章节、关键要点\n" +
-                        "3. 保持内容的逻辑层次和结构关系\n" +
-                        "4. 如果文档有明确的章节结构，请保持该结构\n" +
-                        "5. 内容要简洁，每个节点文字不要过长（建议不超过20字）\n" +
-                        "6. 重点突出文档的核心概念和关键信息\n" +
-                        "7. **重要：如果文档内容很多，请精选最重要的内容，优先保留主要章节和核心概念，次要细节可以省略**\n" +
-                        "8. **重要：控制思维导图的规模，建议总节点数不超过100个，确保思维导图清晰可读**\n\n" +
-                        "**输出要求**：\n" +
-                        "1. 只输出Markdown格式的文本，不要添加任何说明、注释或解释\n" +
-                        "2. 确保Markdown格式正确，标题层级清晰\n" +
-                        "3. 第一行必须是 # 开头的标题\n" +
-                        "4. **重要：生成的Markdown内容总长度应控制在30000字符以内，如果内容过多，请精简次要内容**\n" +
-                        "5. 优先保留文档的主要结构和核心信息，细节内容可以省略或简化\n\n" +
-                        "文档名称：%s\n\n" +
-                        "文档内容：\n%s\n\n" +
-                        "请生成Markdown格式的思维导图（注意控制规模和长度，保持简洁清晰）：",
-                fileName,
-                truncatedText);
+        return SkillLoader.loadSkillWithTemplate("document_reader/mindmap_prompt_template", Map.of(
+                "fileName", String.valueOf(fileName),
+                "documentText", truncatedText));
     }
 
     /**
@@ -1279,26 +1221,9 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         // 获取目标语言名称
         String targetLanguageName = getTargetLanguageName(targetLang);
 
-        // 构建翻译提示词
-        String translatePrompt = String.format(
-                "请将以下文本翻译为%s。要求：\n" +
-                        "1. **严格保持原文的布局和格式**：\n" +
-                        "   - 保持所有换行符（\\n）的位置和数量\n" +
-                        "   - 保持段落之间的空行\n" +
-                        "   - 保持缩进和空格\n" +
-                        "   - 保持列表、标题等格式结构\n" +
-                        "2. **准确翻译内容**：\n" +
-                        "   - 准确翻译，不要遗漏任何内容\n" +
-                        "   - 专业术语要准确翻译\n" +
-                        "   - 保持原文的语气和风格\n" +
-                        "3. **格式要求**：\n" +
-                        "   - 只返回翻译后的文本，不要添加任何说明、注释或标记\n" +
-                        "   - 译文的行数和段落结构必须与原文完全一致\n" +
-                        "   - 如果原文某行是空行，译文对应位置也必须是空行\n" +
-                        "   - 如果原文有多个连续换行，译文也要保持相同数量的换行\n\n" +
-                        "原文：\n%s",
-                targetLanguageName,
-                textSegment);
+        String translatePrompt = SkillLoader.loadSkillWithTemplate("document_reader/translate_prompt_template", Map.of(
+                "targetLanguageName", targetLanguageName,
+                "textSegment", String.valueOf(textSegment)));
 
         try {
             // 使用大模型进行翻译

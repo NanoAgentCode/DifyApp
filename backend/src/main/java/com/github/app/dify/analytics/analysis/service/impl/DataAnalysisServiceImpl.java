@@ -43,6 +43,7 @@ import com.github.app.dify.ops.trace.model.TraceHandle;
 import com.github.app.dify.ops.trace.model.TraceStartRequest;
 import com.github.app.dify.system.domain.SystemConfig;
 import com.github.app.dify.system.repository.SystemConfigRepository;
+import com.github.app.dify.system.util.SkillLoader;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.Values;
 import org.neo4j.driver.Result;
@@ -936,12 +937,10 @@ public class DataAnalysisServiceImpl implements DataAnalysisService {
     }
 
     private List<dev.langchain4j.data.message.ChatMessage> buildGraphRagMessages(String question, List<Map<String, Object>> graphSources) {
-        String systemPrompt = "你是企业系统的GraphRAG问答助手。只能依据提供的图谱上下文回答，不能编造不存在的节点、关系或统计。"
-                + "如果上下文不足，请明确说明缺少哪些信息。回答要用中文，结论先行。"
-                + "每个关键结论后必须引用图谱依据编号，例如 [G1]、[G2]；不要引用不存在的编号。";
-        String userPrompt = "用户问题：\n" + question + "\n\n图谱上下文（带引用编号，分数越高越相关）：\n"
-                + formatGraphSourcesForPrompt(graphSources)
-                + "\n\n请基于这些图谱事实生成回答，并在答案中使用引用编号。";
+        String systemPrompt = SkillLoader.loadSkill("analytics/graph_rag_system_prompt");
+        String userPrompt = SkillLoader.loadSkillWithTemplate("analytics/graph_rag_user_prompt_template", Map.of(
+                "question", String.valueOf(question),
+                "graphSources", formatGraphSourcesForPrompt(graphSources)));
         List<dev.langchain4j.data.message.ChatMessage> messages = new ArrayList<>();
         messages.add(SystemMessage.from(systemPrompt));
         messages.add(UserMessage.from(userPrompt));

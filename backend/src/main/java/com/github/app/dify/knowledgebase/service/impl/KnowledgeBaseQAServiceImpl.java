@@ -412,9 +412,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
                     systemPrompt += "\n\n" + markdownFormat.trim();
                 }
             } else {
-                // 最后的默认提示词
-                systemPrompt = "你是一个专业的AI助手，基于提供的知识库内容回答问题。" +
-                        "如果知识库中没有相关信息，请明确说明无法回答。";
+                systemPrompt = SkillLoader.loadSkill("knowledge_base/qa_system_prompt_default");
                 // 追加 Markdown 格式要求
                 String markdownFormat = SkillLoader.loadSkill("common/markdown_format");
                 if (markdownFormat != null && !markdownFormat.trim().isEmpty()) {

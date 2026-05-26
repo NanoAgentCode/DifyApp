@@ -634,7 +634,7 @@ public class ChatServiceImpl implements ChatService {
             if (!fallback.trim().isEmpty()) {
                 systemMessageBuilder.append(fallback.trim()).append("\n\n");
             } else {
-                systemMessageBuilder.append("你是一个专业的AI助手，能够回答各种问题，特别擅长编程和技术问题。\n\n");
+                systemMessageBuilder.append(SkillLoader.loadSkill("chat/system_prompt_default").trim()).append("\n\n");
             }
         }
 
@@ -644,18 +644,7 @@ public class ChatServiceImpl implements ChatService {
             if (!visionCapability.trim().isEmpty()) {
                 systemMessageBuilder.append(visionCapability.trim()).append("\n\n");
             } else {
-                // Fallback
-                systemMessageBuilder.append("【视觉能力说明】\n");
-                systemMessageBuilder.append("你具备视觉理解能力，可以直接处理和分析用户上传的图片。当用户上传图片时，你应该：\n");
-                systemMessageBuilder.append("1. 仔细观察图片中的所有内容，包括文字、图表、代码、界面元素等\n");
-                systemMessageBuilder.append("2. 准确识别图片中的文字内容（包括代码、公式、表格等）\n");
-                systemMessageBuilder.append("3. 理解图片的上下文和意图，提供准确、详细的分析\n");
-                systemMessageBuilder.append("4. 对于代码截图，能够识别代码语言、逻辑结构，并提供专业的代码分析\n");
-                systemMessageBuilder.append("5. 对于图表、流程图等，能够描述其结构和含义\n");
-                systemMessageBuilder.append("6. 对于界面截图，能够识别UI元素、布局和功能\n");
-                systemMessageBuilder.append("7. 如果图片中包含问题或需求，直接基于图片内容进行回答，无需用户额外描述\n");
-                systemMessageBuilder.append("8. 回答时应该详细、准确，充分利用图片中的所有信息\n");
-                systemMessageBuilder.append("9. 不要告诉用户你无法处理图片，因为你具备视觉理解能力，可以直接分析图片内容\n\n");
+                systemMessageBuilder.append(SkillLoader.loadSkill("chat/vision_capability_fallback").trim()).append("\n\n");
             }
         } else {
             // 模型不支持视觉输入，智能问答不支持图片处理
@@ -663,25 +652,21 @@ public class ChatServiceImpl implements ChatService {
             if (!noVision.trim().isEmpty()) {
                 systemMessageBuilder.append(noVision.trim()).append("\n\n");
             } else {
-                // Fallback
-                systemMessageBuilder.append("【图片处理说明】\n");
-                systemMessageBuilder.append("注意：智能问答功能不支持图片处理。如果用户上传了图片，系统会提示用户选择支持视觉输入的模型。\n");
-                systemMessageBuilder.append("你只能处理文本输入，无法直接处理图片。\n\n");
+                systemMessageBuilder.append(SkillLoader.loadSkill("chat/no_vision_capability_fallback").trim()).append("\n\n");
             }
         }
 
         // 备忘录意图确认：这里只是候选项，真正创建要等前端用户确认。
         if (memo != null) {
             String remindTime = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(memo.getRemindAt());
-            systemMessageBuilder.append("\n\n【备忘录候选项】系统已识别到用户想创建备忘录，但尚未创建。")
-                    .append("前端会弹出确认框，请在回复中简短提醒用户确认弹窗，不要提供代码，不要声称已经创建。")
-                    .append("候选内容：").append(memo.getContent())
-                    .append("；候选时间：").append(remindTime).append("。");
+            systemMessageBuilder.append("\n\n")
+                    .append(SkillLoader.loadSkillWithTemplate("chat/memo_candidate_hint_template", Map.of(
+                            "content", String.valueOf(memo.getContent()),
+                            "remindTime", remindTime)));
         } else if (!Boolean.FALSE.equals(request.getEnableMemo()) && intentRecognitionService.hasMemoIntent(request.getQuestion())) {
-            systemMessageBuilder.append("\n\n【备忘录信息不完整】用户看起来想创建备忘录或提醒，但系统没有解析到完整提醒时间。")
-                    .append("请不要提供代码，也不要声称已经创建；请直接询问用户要在什么时间提醒。");
+            systemMessageBuilder.append("\n\n").append(SkillLoader.loadSkill("chat/memo_missing_time_hint").trim());
         } else if (!Boolean.FALSE.equals(request.getEnableMemo())) {
-            systemMessageBuilder.append("\n\n【备忘录确认规则】如果用户请求创建备忘录或提醒，不要声称已经创建。系统会在前端向用户确认，只有用户确认后才会创建。");
+            systemMessageBuilder.append("\n\n").append(SkillLoader.loadSkill("chat/memo_confirmation_rule").trim());
         }
 
         // 时间信息：与浏览器检索解耦，enableTimeInfo 为 true 或未设置时注入完整时间，否则仅注入年份
@@ -694,8 +679,8 @@ public class ChatServiceImpl implements ChatService {
             currentYear = timeInfo.getYear();
             systemMessageBuilder.append(currentTimeInfo);
         } else {
-            systemMessageBuilder.append("【当前时间信息】\n");
-            systemMessageBuilder.append(String.format("当前年份：%d年\n", currentYear));
+            systemMessageBuilder.append(SkillLoader.loadSkillWithTemplate("chat/current_year_template", Map.of(
+                    "currentYear", String.valueOf(currentYear))));
         }
 
         if (injectTimeInfo && mcpLocationService != null) {
@@ -721,13 +706,8 @@ public class ChatServiceImpl implements ChatService {
             if (!browserSearchSystem.trim().isEmpty()) {
                 systemMessageBuilder.append("\n\n").append(browserSearchSystem.trim());
             } else {
-                // Fallback
-                systemMessageBuilder.append("\n\n【重要提示】当用户问题中包含网络搜索结果时，你必须：");
-                systemMessageBuilder.append("\n1. 优先使用搜索结果中的信息来回答问题，并明确引用、标注来源链接");
-                systemMessageBuilder.append("\n2. 本次检索时间为 ").append(retrievalTime).append("；回答涉及行情、价格、指数等数据时须说明检索时间，并若数据无明确日期或可能已过期须提醒用户通过实时渠道核实");
-                systemMessageBuilder.append("\n3. 当前年份是").append(currentYear).append("年，请根据信息的时效性自行判断并必要时提醒用户信息可能已过期");
-                systemMessageBuilder.append("\n4. 如果搜索结果与问题相关，必须基于搜索结果来回答，不要仅依赖你的训练数据");
-                systemMessageBuilder.append("\n5. 如果搜索结果与问题不相关，可以结合你的知识来回答，但要说明信息来源");
+                systemMessageBuilder.append("\n\n").append(SkillLoader
+                        .loadSkillWithTemplate("chat/browser_search_system_fallback", variables).trim());
             }
         }
 
@@ -853,27 +833,18 @@ public class ChatServiceImpl implements ChatService {
             // MCP支持已开启
             if (browserSearchContext != null && !browserSearchContext.trim().isEmpty()) {
                 // 使用模板构建用户消息，并注入检索时间以强化时效性说明
-                String retrievalHeader = "【以下搜索结果检索时间：" + retrievalTime + "；搜索结果为当时快照，其中的价格、指数等数据可能非实时，回答时请据此判断并必要时提醒用户。】";
                 Map<String, String> variables = new HashMap<>();
                 variables.put("question", request.getQuestion());
                 variables.put("currentYear", String.valueOf(currentYear));
                 variables.put("retrievalTime", retrievalTime);
+                String retrievalHeader = SkillLoader.loadSkillWithTemplate(
+                        "chat/browser_search_retrieval_header_template", variables);
                 String template = SkillLoader.loadSkillWithTemplate("chat/browser_search_user_template", variables);
                 if (!template.trim().isEmpty()) {
                     userMessageContent = retrievalHeader + "\n\n" + browserSearchContext + "\n\n---\n\n" + template;
                 } else {
-                    // Fallback
-                    String header = "【检索时间：" + retrievalTime + "】\n\n";
-                    userMessageContent = header + browserSearchContext +
-                            "\n\n---\n\n" +
-                            "基于以上网络搜索结果，请回答以下问题：\n" +
-                            request.getQuestion() +
-                            "\n\n【重要要求】\n" +
-                            "1. 必须优先使用上述搜索结果中的信息来回答问题\n" +
-                            "2. 如果搜索结果中包含相关信息，必须明确引用并标注来源链接\n" +
-                            "3. 当前年份是" + currentYear + "年，请根据信息的时效性自行判断是否需要提醒用户信息可能已过期\n" +
-                            "4. 如果搜索结果与问题不相关，请明确说明\"未在搜索结果中找到相关信息\"，然后可以结合你的知识回答\n" +
-                            "5. 绝对不要声称搜索结果包含信息，如果搜索结果中没有相关内容，请明确说明";
+                    userMessageContent = retrievalHeader + "\n\n" + browserSearchContext + "\n\n---\n\n"
+                            + SkillLoader.loadSkillWithTemplate("chat/browser_search_user_fallback_template", variables);
                 }
             } else {
                 // 如果启用了MCP支持但没有找到结果，明确告知LLM
@@ -883,10 +854,8 @@ public class ChatServiceImpl implements ChatService {
                 if (!template.trim().isEmpty()) {
                     userMessageContent = template;
                 } else {
-                    // Fallback
-                    userMessageContent = "【网络搜索提示】已启用MCP支持（浏览器检索功能），但未找到与问题相关的搜索结果。\n\n" +
-                            "问题：" + request.getQuestion() + "\n\n" +
-                            "请基于你的知识来回答这个问题。如果问题涉及实时信息或最新动态，请说明需要访问相关网站获取最新信息。";
+                    userMessageContent = SkillLoader.loadSkillWithTemplate(
+                            "chat/browser_search_no_results_fallback_template", variables);
                 }
             }
         } else {
@@ -896,7 +865,7 @@ public class ChatServiceImpl implements ChatService {
 
         // 确保消息内容不为空
         if (userMessageContent == null || userMessageContent.trim().isEmpty()) {
-            userMessageContent = "请帮我分析这些内容。";
+            userMessageContent = SkillLoader.loadSkill("chat/default_empty_question").trim();
             logger.warn("用户问题为空，使用默认问题");
         }
 
@@ -1007,9 +976,8 @@ public class ChatServiceImpl implements ChatService {
             if (searchResults != null && !searchResults.isEmpty()) {
                 return mcpBrowserSearchService.formatSearchResultsForContext(searchResults);
             }
-            return "【网络搜索提示】已启用MCP支持（浏览器检索功能），但未找到与问题相关的搜索结果。\n\n"
-                    + "问题：" + request.getQuestion() + "\n\n"
-                    + "请基于你的知识来回答这个问题。如果问题涉及实时信息或最新动态，请说明需要访问相关网站获取最新信息。";
+            return SkillLoader.loadSkillWithTemplate("chat/browser_search_no_results_fallback_template", Map.of(
+                    "question", String.valueOf(request.getQuestion())));
         } catch (Exception e) {
             logger.error("浏览器检索失败 - 查询: {}", request.getQuestion(), e);
             return "";

@@ -62,7 +62,8 @@ public final class SkillLoader {
         while (m.find()) {
             String key = m.group(1);
             Object value = variables.get(key);
-            m.appendReplacement(sb, Matcher.quoteReplacement(value != null ? value.toString() : ""));
+            String replacement = value != null ? value.toString() : m.group(0);
+            m.appendReplacement(sb, Matcher.quoteReplacement(replacement));
         }
         m.appendTail(sb);
         return sb.toString();

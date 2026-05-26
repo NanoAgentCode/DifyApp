@@ -14,6 +14,7 @@ import com.github.app.dify.memory.repository.UserMemoryRepository;
 import com.github.app.dify.memory.resp.UserMemoryItemResp;
 import com.github.app.dify.memory.service.UserMemoryService;
 import com.github.app.dify.memory.util.MemoryDateTimeUtil;
+import com.github.app.dify.system.util.SkillLoader;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -33,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -277,28 +279,12 @@ public class UserMemoryServiceImpl implements UserMemoryService {
 
     private String extractMemoryJson(ChatLanguageModel model, String question, String answer) {
         List<ChatMessage> messages = new ArrayList<>();
-        String system = "你是一个记忆抽取器。你需要从一轮问答中抽取适合长期保存的用户信息，并返回严格的JSON。"
-                + "只记录稳定、可复用的信息（偏好、背景、常用技术栈、项目上下文、重要实体及其属性）。"
-                + "不要记录一次性内容、临时验证码、敏感信息（密码、token、身份证、银行卡等）。"
-                + "如果没有可保存内容，返回空JSON对象 {}。"
-                + "输出必须是纯JSON，不要使用Markdown，不要使用代码块。"
-                + "重要：对于用户偏好、习惯、计划（如饮食偏好、运动习惯、作息、饮食计划等），key 必须使用稳定的维度名（如 diet_preference、饮食偏好、运动习惯），同一维度只输出一条；当用户更新了同一偏好/习惯时，新内容会覆盖旧内容，因此请用当前表述作为该 key 的 content。";
+        String system = SkillLoader.loadSkill("memory/extract_system_prompt");
         messages.add(SystemMessage.from(system));
 
-        String user = "{\n"
-                + "  \"question\": " + objectMapper.valueToTree(question).toString() + ",\n"
-                + "  \"answer\": " + objectMapper.valueToTree(answer).toString() + "\n"
-                + "}\n\n"
-                + "请输出JSON，结构如下：\n"
-                + "{\n"
-                + "  \"long_term_facts\": [\n"
-                + "    {\"key\": \"\", \"content\": \"\", \"importance\": 0}\n"
-                + "  ],\n"
-                + "  \"entities\": [\n"
-                + "    {\"type\": \"\", \"name\": \"\", \"attributes\": {}}\n"
-                + "  ]\n"
-                + "}\n"
-                + "约束：importance 取 0-5；key 应短且稳定，同一偏好/习惯维度使用同一 key；entities 的 attributes 只能是对象。";
+        String user = SkillLoader.loadSkillWithTemplate("memory/extract_user_prompt_template", Map.of(
+                "questionJson", objectMapper.valueToTree(question).toString(),
+                "answerJson", objectMapper.valueToTree(answer).toString()));
         messages.add(UserMessage.from(user));
 
         Response<AiMessage> resp = model.generate(messages);

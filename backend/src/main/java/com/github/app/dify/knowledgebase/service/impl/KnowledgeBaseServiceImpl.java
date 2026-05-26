@@ -575,13 +575,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             if (!fallback.trim().isEmpty()) {
                 systemPrompt = fallback;
             } else {
-                // 最后的默认提示词
-                systemPrompt = """
-                        你是一个专业的文档摘要生成助手。请根据提供的知识库信息，生成一段简洁、准确、全面的摘要。摘要应该：
-                        1. 概括知识库的主要内容和主题
-                        2. 突出知识库的核心知识点
-                        3. 语言简洁明了，控制在200字以内
-                        4. 使用中文回答""";
+                systemPrompt = SkillLoader.loadSkill("knowledge_base/document_summary_system_prompt_default");
             }
         }
 
@@ -594,8 +588,8 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         if (!userPromptTemplate.trim().isEmpty()) {
             userPrompt = userPromptTemplate;
         } else {
-            // Fallback
-            userPrompt = "请为以下知识库生成智能摘要：\n\n" + content;
+            userPrompt = SkillLoader
+                    .loadSkillWithTemplate("knowledge_base/document_summary_user_prompt_fallback_template", variables);
         }
 
         // 10. 构建消息列表

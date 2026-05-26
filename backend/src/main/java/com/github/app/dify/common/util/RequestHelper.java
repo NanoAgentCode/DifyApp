@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.chat.req.ChatRequest;
 import com.github.app.dify.knowledgebase.domain.QAModel;
 import com.github.app.dify.knowledgebase.repository.QAModelRepository;
+import com.github.app.dify.system.util.SkillLoader;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +59,7 @@ public class RequestHelper {
         
         // 确保问题不为空
         if (request.getQuestion() == null || request.getQuestion().trim().isEmpty()) {
-            request.setQuestion("请帮我分析这些内容。");
+            request.setQuestion(SkillLoader.loadSkill("chat/default_empty_question").trim());
             logger.warn("用户问题为空，使用默认问题");
         }
         
@@ -118,7 +119,7 @@ public class RequestHelper {
                 request.setImages(imageDataList);
                 // 如果用户没有输入问题，使用默认问题
                 if (request.getQuestion() == null || request.getQuestion().trim().isEmpty()) {
-                    request.setQuestion("请帮我分析这些图片中的内容。");
+                    request.setQuestion(SkillLoader.loadSkill("chat/default_image_question").trim());
                 }
                 logger.info("已添加 {} 张图片到请求中（多模态模式）", imageDataList.size());
             }
@@ -126,12 +127,8 @@ public class RequestHelper {
             // 模型不支持视觉输入，智能问答不支持OCR，拒绝处理图片
             logger.warn("当前模型不支持视觉输入，智能问答不支持OCR功能，无法处理图片");
             String modelName = qaModel != null ? qaModel.getName() : "当前模型";
-            String errorMessage = String.format(
-                    "抱歉，当前使用的模型（%s）不支持视觉输入，无法处理图片。\n\n" +
-                    "请选择支持多模态的视觉模型（如 Qwen-VL、GPT-4 Vision 等）来处理图片。\n\n" +
-                    "提示：您可以在\"大模型管理\"中配置支持视觉输入的模型，并开启\"支持多模态\"和\"支持视觉输入\"选项。",
-                    modelName
-            );
+            String errorMessage = SkillLoader.loadSkillWithTemplate("chat/vision_unsupported_message_template",
+                    java.util.Map.of("modelName", modelName));
             request.setQuestion(errorMessage);
             logger.info("已拒绝处理图片，因为模型不支持视觉输入");
         }

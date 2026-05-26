@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 上下文压缩服务
@@ -335,7 +336,7 @@ public class ContextCompressionServiceImpl implements ContextCompressionService 
             List<ChatMessage> summaryMessages = new ArrayList<>();
             String systemSkill = SkillLoader.loadSkill("dialog/summary_system_prompt");
             if (systemSkill == null || systemSkill.trim().isEmpty()) {
-                systemSkill = "你是一个专业的对话总结助手，能够准确总结对话历史的关键信息。";
+                systemSkill = SkillLoader.loadSkill("dialog/summary_system_prompt_fallback");
             }
             summaryMessages.add(SystemMessage.from(systemSkill));
 
@@ -348,11 +349,8 @@ public class ContextCompressionServiceImpl implements ContextCompressionService 
                 }
             }
 
-            String summaryPrompt = String.format(
-                    "请总结以下对话历史，保留关键信息和上下文，使总结后的内容能够帮助理解当前对话的上下文。\n\n" +
-                            "对话历史：\n%s\n\n" +
-                            "请提供简洁的总结，保留重要的问答内容和上下文信息：",
-                    historyText.toString());
+            String summaryPrompt = SkillLoader.loadSkillWithTemplate("dialog/summary_user_prompt_template", Map.of(
+                    "historyText", historyText.toString()));
             summaryMessages.add(UserMessage.from(summaryPrompt));
 
             // 使用默认的RAG模型进行总结
@@ -365,7 +363,7 @@ public class ContextCompressionServiceImpl implements ContextCompressionService 
 
             // 将总结作为用户消息，表示这是对历史对话的总结
             List<ChatMessage> compressed = new ArrayList<>();
-            compressed.add(UserMessage.from("【历史对话总结】" + summary));
+            compressed.add(UserMessage.from(SkillLoader.loadSkill("dialog/summary_message_prefix").trim() + summary));
 
             logger.debug("文档问答总结压缩完成 - 原始消息数: {}, 总结长度: {}",
                     historyMessages.size(), summary.length());
@@ -448,16 +446,13 @@ public class ContextCompressionServiceImpl implements ContextCompressionService 
                 }
             }
 
-            String summaryPrompt = String.format(
-                    "请总结以下对话历史，保留关键信息和上下文，使总结后的内容能够帮助理解当前对话的上下文。\n\n" +
-                            "对话历史：\n%s\n\n" +
-                            "请提供简洁的总结，保留重要的问答内容和上下文信息：",
-                    historyText.toString());
+            String summaryPrompt = SkillLoader.loadSkillWithTemplate("dialog/summary_user_prompt_template", Map.of(
+                    "historyText", historyText.toString()));
 
             List<ChatMessage> summaryMessages = new ArrayList<>();
-            String systemSkill = com.github.app.dify.system.util.SkillLoader.loadSkill("dialog/summary_system_prompt");
+            String systemSkill = SkillLoader.loadSkill("dialog/summary_system_prompt");
             if (systemSkill == null || systemSkill.trim().isEmpty()) {
-                systemSkill = "你是一个专业的对话总结助手，能够准确总结对话历史的关键信息。";
+                systemSkill = SkillLoader.loadSkill("dialog/summary_system_prompt_fallback");
             }
             summaryMessages.add(SystemMessage.from(systemSkill));
             summaryMessages.add(UserMessage.from(summaryPrompt));
@@ -473,7 +468,7 @@ public class ContextCompressionServiceImpl implements ContextCompressionService 
             // 将总结作为用户消息，表示这是对历史对话的总结
             // 这样可以保持对话的连贯性
             List<ChatMessage> compressed = new ArrayList<>();
-            compressed.add(UserMessage.from("【历史对话总结】" + summary));
+            compressed.add(UserMessage.from(SkillLoader.loadSkill("dialog/summary_message_prefix").trim() + summary));
 
             logger.debug("总结压缩完成 - 原始消息数: {}, 总结长度: {}",
                     historyMessages.size(), summary.length());

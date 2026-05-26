@@ -9,6 +9,7 @@ import com.github.app.dify.ops.trace.core.TraceSanitizer;
 import com.github.app.dify.ops.trace.core.TraceStepCollector;
 import com.github.app.dify.ops.trace.model.TraceHandle;
 import com.github.app.dify.ops.trace.model.TraceStartRequest;
+import com.github.app.dify.system.util.SkillLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +19,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 /**
  * MCP浏览器检索服务
  * 支持多种搜索API，自动选择最优方案并支持降级
@@ -698,12 +700,11 @@ public class McpBrowserSearchService {
 
         StringBuilder sb = new StringBuilder();
         sb.append("【网络搜索结果】\n");
-        sb.append("以下是通过网络搜索找到的相关信息（搜索时间：").append(currentDateStr).append("），请仔细阅读并用于回答用户的问题：\n\n");
-        sb.append("【重要提示】请特别注意信息的时效性：\n");
-        sb.append("1. 如果搜索结果中的信息包含日期，请检查日期是否为最新（当前年份：").append(currentYear).append("年）\n");
-        sb.append("2. 如果搜索结果中的信息明显过期（如日期是2023年或更早），请明确告知用户信息可能已过期\n");
-        sb.append("3. 优先使用包含最新日期的搜索结果\n");
-        sb.append("4. 如果所有搜索结果都是过期的，请明确说明\"搜索结果中的信息可能已过期，建议访问相关网站获取最新信息\"\n\n");
+        Map<String, String> variables = Map.of(
+                "currentDate", currentDateStr,
+                "currentYear", String.valueOf(currentYear));
+        sb.append(SkillLoader.loadSkillWithTemplate("mcp/browser_search_context_header_template", variables))
+                .append("\n\n");
 
         for (int i = 0; i < results.size(); i++) {
             SearchResult result = results.get(i);
@@ -722,12 +723,7 @@ public class McpBrowserSearchService {
         }
 
         sb.append("---\n");
-        sb.append("请基于以上搜索结果来回答用户的问题。\n");
-        sb.append("【关键要求】\n");
-        sb.append("1. 如果搜索结果中包含相关信息，必须优先使用搜索结果中的内容，并在回答中明确标注来源链接\n");
-        sb.append("2. 如果搜索结果中的信息包含日期，请检查日期是否为最新（当前年份：").append(currentYear).append("年）\n");
-        sb.append("3. 如果搜索结果中的信息明显过期（日期是2023年或更早），必须在回答开头明确说明\"注意：以下信息可能已过期\"，并建议用户访问相关网站获取最新信息\n");
-        sb.append("4. 如果所有搜索结果都是过期的，请明确告知用户\"搜索结果中的信息可能已过期，建议访问相关官方网站或新闻网站获取最新信息\"\n");
+        sb.append(SkillLoader.loadSkillWithTemplate("mcp/browser_search_context_footer_template", variables));
 
         return sb.toString();
     }
