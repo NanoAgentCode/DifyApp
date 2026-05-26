@@ -66,6 +66,38 @@ flowchart TD
 
 由于已修复 `app.py` 文件（添加了 numpy 支持），需要重新构建并部署 Docker 容器。
 
+## 配置文件
+
+OCR 服务现在支持通过 `config.ini` 管理运行参数，模板见 `config.example.ini`。
+
+默认读取顺序：
+
+1. `EASY_OCR_CONFIG` 环境变量指定的配置文件路径
+2. 当前目录下的 `config.ini`
+3. 代码内置默认值
+
+常用配置：
+
+```ini
+[server]
+host = 0.0.0.0
+port = 8000
+debug = false
+cors_origins = *
+
+[ocr]
+languages = ch_sim,en
+gpu = false
+max_content_length = 52428800
+max_pdf_pages = 10
+pdf_dpi = 200
+max_batch_size = 10
+max_image_pixels = 25000000
+supported_image_extensions = .png,.jpg,.jpeg,.bmp,.webp,.tif,.tiff
+```
+
+所有配置仍支持环境变量覆盖，例如 `OCR_LANGUAGES`、`OCR_GPU`、`MAX_PDF_PAGES`、`PDF_DPI`、`MAX_BATCH_SIZE`、`MAX_IMAGE_PIXELS`、`HOST`、`PORT`。
+
 ### 方式一：使用 docker-compose（推荐）
 
 ```bash

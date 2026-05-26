@@ -66,6 +66,8 @@ RUN pip install --no-cache-dir \
 
 # 复制 API 服务文件
 COPY app.py /app/app.py
+COPY config.py /app/config.py
+COPY config.example.ini /app/config.ini
 COPY requirements.txt /app/requirements.txt
 
 # 安装额外的 Python 依赖

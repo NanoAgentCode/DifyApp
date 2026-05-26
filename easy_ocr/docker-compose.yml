@@ -12,10 +12,10 @@ services:
     ports:
       - "8001:8000"  # 使用 8001 端口避免与其他服务冲突
     environment:
-      - PORT=8000
-      - HOST=0.0.0.0
+      - EASY_OCR_CONFIG=/app/config.ini
       - TZ=Asia/Shanghai
     volumes:
+      - ./config.ini:/app/config.ini:ro
       # 可选：挂载模型目录以加速后续启动（模型会下载到容器内）
       - easyocr-models:/root/.EasyOCR
     restart: unless-stopped
