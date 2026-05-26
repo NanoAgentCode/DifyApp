@@ -88,7 +88,7 @@ public class ChatServiceImpl implements ChatService {
     private UserMemoryService userMemoryService;
 
     @Autowired
-    private com.github.app.dify.memo.service.MemoService memoService;
+    private com.github.app.dify.intent.service.IntentRecognitionService intentRecognitionService;
 
     @Autowired
     private TraceFacade traceFacade;
@@ -129,11 +129,30 @@ public class ChatServiceImpl implements ChatService {
                         "CHAT_MEMO_DETECT",
                         "识别备忘录意图",
                         "question=" + request.getQuestion(),
-                        () -> tryCreateMemo(userId, request.getQuestion()),
-                        resp -> resp == null ? "memo_created=false" : "memo_created=true,memoId=" + resp.getId());
+                        () -> intentRecognitionService.previewMemo(userId, request.getQuestion()),
+                        resp -> resp == null ? "memo_candidate=false" : "memo_candidate=true");
             }
-            Long memoId = memo != null ? memo.getId() : null;
+            Long memoId = null;
+            final com.github.app.dify.memo.resp.MemoResp finalMemoCandidate = memo;
             final com.github.app.dify.memo.resp.MemoResp finalMemo = memo;
+
+            if (finalMemoCandidate != null) {
+                ChatResponse memoResponse = buildChatResponse(
+                        intentRecognitionService.buildMemoConfirmationAnswer(finalMemoCandidate),
+                        request, userId, null, qaModel.getId(), 0L, 0L, 0L);
+                memoResponse.setMemoId(memoId);
+                memoResponse.setMemoCandidate(finalMemoCandidate);
+                traceFacade.success(traceHandle, memoResponse.getAnswer());
+                return memoResponse;
+            }
+
+            if (!Boolean.FALSE.equals(request.getEnableMemo()) && intentRecognitionService.hasMemoIntent(request.getQuestion())) {
+                ChatResponse memoQuestionResponse = buildChatResponse(
+                        "我可以帮你创建备忘录，请告诉我具体在什么时候提醒。",
+                        request, userId, null, qaModel.getId(), 0L, 0L, 0L);
+                traceFacade.success(traceHandle, memoQuestionResponse.getAnswer());
+                return memoQuestionResponse;
+            }
 
             // 创建模型实例（会话ID由AOP切面自动设置）
             ChatLanguageModel chatLanguageModel = stepCollector.trace(
@@ -270,6 +289,7 @@ public class ChatServiceImpl implements ChatService {
                                 finalPromptTokens, finalCompletionTokens, finalTotalTokens),
                         resp -> "conversationId=" + (resp == null ? null : resp.getConversationId()));
                 chatResponse.setMemoId(memoId);
+                chatResponse.setMemoCandidate(finalMemoCandidate);
                 traceFacade.success(traceHandle, chatResponse.getAnswer());
                 return chatResponse;
             } finally {
@@ -362,10 +382,11 @@ public class ChatServiceImpl implements ChatService {
                         "CHAT_MEMO_DETECT",
                         "识别备忘录意图（流式）",
                         "question=" + request.getQuestion(),
-                        () -> tryCreateMemo(userId, request.getQuestion()),
-                        resp -> resp == null ? "memo_created=false" : "memo_created=true,memoId=" + resp.getId());
+                        () -> intentRecognitionService.previewMemo(userId, request.getQuestion()),
+                        resp -> resp == null ? "memo_candidate=false" : "memo_candidate=true");
             }
-            final Long memoId = memo != null ? memo.getId() : null;
+            final Long memoId = null;
+            final com.github.app.dify.memo.resp.MemoResp finalMemoCandidate = memo;
             final com.github.app.dify.memo.resp.MemoResp finalMemo = memo;
 
             // 在流式响应开始前，先创建或获取会话（这样可以在第一个数据包就返回 conversationId）
@@ -388,6 +409,46 @@ public class ChatServiceImpl implements ChatService {
                     logger.error("创建会话失败（流式）", e);
                     // 不抛出异常，避免影响主流程
                 }
+            }
+
+            if (finalMemoCandidate != null) {
+                String answer = intentRecognitionService.buildMemoConfirmationAnswer(finalMemoCandidate);
+                Long conversationId = conversationIdRef.get();
+                if (userId != null && conversationId != null) {
+                    try {
+                        chatHistoryService.saveMessage(conversationId, "assistant", answer,
+                                qaModel.getId(), 0L, 0L, 0L);
+                    } catch (Exception e) {
+                        logger.error("保存备忘录确认消息失败（流式）", e);
+                    }
+                }
+                ChatResponse response = new ChatResponse();
+                response.setAnswer(answer);
+                response.setFinished(true);
+                response.setConversationId(conversationId);
+                response.setMemoId(memoId);
+                response.setMemoCandidate(finalMemoCandidate);
+                traceFacade.success(traceHandle, answer);
+                return Flux.just(response);
+            }
+
+            if (!Boolean.FALSE.equals(request.getEnableMemo()) && intentRecognitionService.hasMemoIntent(request.getQuestion())) {
+                String answer = "我可以帮你创建备忘录，请告诉我具体在什么时候提醒。";
+                Long conversationId = conversationIdRef.get();
+                if (userId != null && conversationId != null) {
+                    try {
+                        chatHistoryService.saveMessage(conversationId, "assistant", answer,
+                                qaModel.getId(), 0L, 0L, 0L);
+                    } catch (Exception e) {
+                        logger.error("保存备忘录追问消息失败（流式）", e);
+                    }
+                }
+                ChatResponse response = new ChatResponse();
+                response.setAnswer(answer);
+                response.setFinished(true);
+                response.setConversationId(conversationId);
+                traceFacade.success(traceHandle, answer);
+                return Flux.just(response);
             }
 
             // 创建流式模型实例（会话ID由AOP切面自动设置）
@@ -477,6 +538,7 @@ public class ChatServiceImpl implements ChatService {
                         // 在流式响应过程中，也包含 conversationId，这样前端可以立即更新
                         response.setConversationId(conversationIdRef.get());
                         response.setMemoId(memoId);
+                        response.setMemoCandidate(finalMemoCandidate);
                         return response;
                     })
                     .doOnNext(response -> {
@@ -530,6 +592,7 @@ public class ChatServiceImpl implements ChatService {
                         finalResponse.setFinished(true);
                         finalResponse.setConversationId(conversationId);
                         finalResponse.setMemoId(memoId);
+                        finalResponse.setMemoCandidate(finalMemoCandidate);
                         traceFacade.success(traceHandle, finalAnswer);
                         return Flux.just(finalResponse);
                     }))
@@ -607,19 +670,18 @@ public class ChatServiceImpl implements ChatService {
             }
         }
 
-        // 备忘录意图确认：如果后端已经创建了备忘录，告知AI，以便它能给出正确的反馈
+        // 备忘录意图确认：这里只是候选项，真正创建要等前端用户确认。
         if (memo != null) {
-            Map<String, String> variables = new HashMap<>();
-            variables.put("remindTime",
-                    new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(memo.getRemindAt()));
-            variables.put("content", memo.getContent());
-            String memoSuccessHint = SkillLoader.loadSkillWithTemplate(SkillPaths.CHAT_MEMO_SUCCESS_HINT, variables);
-            if (!memoSuccessHint.trim().isEmpty()) {
-                systemMessageBuilder.append("\n\n").append(memoSuccessHint.trim());
-            } else {
-                // Fallback
-                systemMessageBuilder.append("\n\n【系统提醒操作成功】你已成功为用户创建了备忘录提醒。请在回复中自然地告知用户已完成该操作，并简要确认提醒内容和时间。");
-            }
+            String remindTime = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(memo.getRemindAt());
+            systemMessageBuilder.append("\n\n【备忘录候选项】系统已识别到用户想创建备忘录，但尚未创建。")
+                    .append("前端会弹出确认框，请在回复中简短提醒用户确认弹窗，不要提供代码，不要声称已经创建。")
+                    .append("候选内容：").append(memo.getContent())
+                    .append("；候选时间：").append(remindTime).append("。");
+        } else if (!Boolean.FALSE.equals(request.getEnableMemo()) && intentRecognitionService.hasMemoIntent(request.getQuestion())) {
+            systemMessageBuilder.append("\n\n【备忘录信息不完整】用户看起来想创建备忘录或提醒，但系统没有解析到完整提醒时间。")
+                    .append("请不要提供代码，也不要声称已经创建；请直接询问用户要在什么时间提醒。");
+        } else if (!Boolean.FALSE.equals(request.getEnableMemo())) {
+            systemMessageBuilder.append("\n\n【备忘录确认规则】如果用户请求创建备忘录或提醒，不要声称已经创建。系统会在前端向用户确认，只有用户确认后才会创建。");
         }
 
         // 时间信息：与浏览器检索解耦，enableTimeInfo 为 true 或未设置时注入完整时间，否则仅注入年份
@@ -952,28 +1014,6 @@ public class ChatServiceImpl implements ChatService {
             logger.error("浏览器检索失败 - 查询: {}", request.getQuestion(), e);
             return "";
         }
-    }
-
-    /**
-     * 尝试根据自然语言创建备忘录
-     * 如果解析失败（不是提醒意图），则返回null
-     */
-    private com.github.app.dify.memo.resp.MemoResp tryCreateMemo(Long userId, String question) {
-        if (userId == null || question == null || question.trim().isEmpty()) {
-            return null;
-        }
-        try {
-            logger.info("尝试进行意图识别(备忘录): {}", question);
-            com.github.app.dify.memo.resp.MemoResp memoResp = memoService.create(userId, question);
-            if (memoResp != null) {
-                logger.info("成功识别并创建备忘录, id: {}", memoResp.getId());
-                return memoResp;
-            }
-        } catch (Exception e) {
-            // 解析失败或创建失败，不影响主流程
-            logger.debug("未识别到备忘录意图或创建失败: {}", e.getMessage());
-        }
-        return null;
     }
 
     private TraceHandle startBusinessTrace(String traceSource, Long userId, ChatRequest request, boolean stream) {

@@ -271,8 +271,9 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { getAppDetail, chatApp, chatAppStream, uploadFile } from '@/api/aiApp'
+import { createConfirmedMemo } from '@/api/memo'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { useTypewriter } from '@/composables/useTypewriter'
 import { processSSEStream } from '@/composables/useSSEStream'
@@ -329,6 +330,42 @@ const fullscreenPreviewTitle = computed(() => {
   if (!fullscreenPreview.value?.url) return '预览'
   return getFilenameFromUrl(fullscreenPreview.value.url) || '预览'
 })
+
+const formatMemoTime = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString('zh-CN', { hour12: false })
+}
+
+const confirmCreateMemo = async (memoCandidate) => {
+  if (!memoCandidate || !memoCandidate.content || !memoCandidate.remindAt) {
+    return
+  }
+  const intervalText = memoCandidate.intervalMinutes
+    ? `\n重复间隔：${memoCandidate.intervalMinutes} 分钟`
+    : ''
+  const message = `内容：${memoCandidate.content}\n时间：${formatMemoTime(memoCandidate.remindAt)}${intervalText}`
+
+  try {
+    await ElMessageBox.confirm(message, '确认创建备忘录？', {
+      confirmButtonText: '创建',
+      cancelButtonText: '取消',
+      type: 'warning',
+      distinguishCancelAndClose: true
+    })
+    await createConfirmedMemo({
+      content: memoCandidate.content,
+      remindAt: memoCandidate.remindAt,
+      intervalMinutes: memoCandidate.intervalMinutes
+    })
+    ElMessage.success('已为您创建备忘录提醒')
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error('创建备忘录失败：' + (error.message || '未知错误'))
+    }
+  }
+}
 
 const getComplexInputPlaceholder = (key) => {
   return `请输入 ${key} 的 JSON 格式，例如：\n[\n  {\n    "transfer_method": "local_file",\n    "upload_file_id": "file_id",\n    "type": "document"\n  }\n]`
@@ -793,8 +830,8 @@ const handleNormalChat = async (requestData) => {
   
   updateConversationId(res, conversationId)
   
-  if (res.memoId) {
-    ElMessage.success('已为您创建备忘录提醒')
+  if (res.memoCandidate) {
+    await confirmCreateMemo(res.memoCandidate)
   }
 
   messages.value.push({
@@ -879,10 +916,10 @@ const handleStreamChat = async (requestData) => {
           conversationId.value = json.conversation_id || json.conversationId
         }
 
-        // 自动创建备忘录提醒
-        if (json.memoId && !memoNotified) {
+        // 识别到备忘录候选项，先让用户确认
+        if (json.memoCandidate && !memoNotified) {
           memoNotified = true
-          ElMessage.success('已为您创建备忘录提醒')
+          confirmCreateMemo(json.memoCandidate)
         }
         
         // 处理错误事件

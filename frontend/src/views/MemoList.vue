@@ -69,10 +69,9 @@
           v-loading="loading"
           stripe
           style="width: 100%"
-          height="100%"
           :row-class-name="getRowClassName"
         >
-          <el-table-column prop="content" label="提醒内容" min-width="260" show-overflow-tooltip>
+          <el-table-column prop="content" label="提醒内容" min-width="320" show-overflow-tooltip>
             <template #default="{ row }">
               <div class="content-cell">
                 <el-icon class="content-icon"><Bell /></el-icon>
@@ -80,7 +79,7 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="提醒方式" width="130" align="center">
+          <el-table-column label="提醒方式" width="120" align="center">
             <template #default="{ row }">
               <el-tag v-if="row.intervalMinutes" type="primary" effect="plain" size="small">
                 {{ formatInterval(row.intervalMinutes) }}
@@ -88,7 +87,7 @@
               <el-tag v-else type="info" effect="plain" size="small">单次</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="remindAt" label="下次提醒" width="190" show-overflow-tooltip>
+          <el-table-column prop="remindAt" label="下次提醒" width="150" show-overflow-tooltip>
             <template #default="{ row }">
               <div class="time-cell">
                 <span>{{ formatTime(row.remindAt) }}</span>
@@ -96,25 +95,27 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="status" label="状态" width="100" align="center">
+          <el-table-column prop="status" label="状态" width="110" align="center">
             <template #default="{ row }">
               <el-tag :type="getStatusTagType(row.status)" size="small">
                 {{ getStatusText(row.status) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="190" align="center" fixed="right">
+          <el-table-column label="操作" width="136" align="center" fixed="right">
             <template #default="{ row }">
               <div class="row-actions">
                 <template v-if="row.status === 'pending'">
-                  <ElTooltip content="标记已提醒">
-                    <el-button size="small" type="success" plain @click="handleMarkDone(row.id)">
-                      标记
-                    </el-button>
+                  <ElTooltip content="标记已提醒" placement="top">
+                    <el-button :icon="Check" circle size="small" type="success" plain @click="handleMarkDone(row.id)" />
                   </ElTooltip>
-                  <el-button size="small" type="warning" plain @click="handleCancel(row.id)">取消</el-button>
+                  <ElTooltip content="取消提醒" placement="top">
+                    <el-button :icon="Close" circle size="small" type="warning" plain @click="handleCancel(row.id)" />
+                  </ElTooltip>
                 </template>
-                <el-button size="small" type="danger" plain @click="handleDelete(row.id)">删除</el-button>
+                <ElTooltip content="删除" placement="top">
+                  <el-button :icon="Delete" circle size="small" type="danger" plain @click="handleDelete(row.id)" />
+                </ElTooltip>
               </div>
             </template>
           </el-table-column>
@@ -169,7 +170,7 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, ElTooltip } from 'element-plus'
-import { Bell, CircleCheck, CircleClose, Clock, InfoFilled, Plus, Refresh } from '@element-plus/icons-vue'
+import { Bell, Check, CircleCheck, CircleClose, Clock, Close, Delete, InfoFilled, Plus, Refresh } from '@element-plus/icons-vue'
 import {
   getMemos,
   createMemo,
@@ -474,21 +475,40 @@ function getRowClassName({ row }) {
   flex: 1;
   min-height: 0;
   padding: var(--spacing-lg);
-  overflow: hidden;
+  overflow: auto;
 }
 
 :deep(.el-table) {
-  height: 100%;
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border-lighter);
+  box-shadow: var(--shadow-xs);
+}
+
+:deep(.el-table__inner-wrapper::before) {
+  display: none;
 }
 
 :deep(.el-table th) {
   background: var(--table-header-bg);
   color: var(--color-text-primary);
   font-weight: var(--font-weight-medium);
+}
+
+:deep(.el-table th .cell) {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+}
+
+:deep(.el-table td) {
+  padding: 10px 0;
+}
+
+:deep(.el-table .cell) {
+  padding: 0 14px;
 }
 
 :deep(.el-table__body tr:hover > td) {
@@ -506,6 +526,7 @@ function getRowClassName({ row }) {
   align-items: center;
   gap: var(--spacing-sm);
   color: var(--color-text-regular);
+  font-weight: var(--font-weight-medium);
 }
 
 .content-cell span {
@@ -518,6 +539,7 @@ function getRowClassName({ row }) {
 .content-icon {
   flex-shrink: 0;
   color: var(--color-primary);
+  font-size: 15px;
 }
 
 .time-cell {
@@ -526,6 +548,7 @@ function getRowClassName({ row }) {
   flex-direction: column;
   gap: 2px;
   color: var(--color-text-regular);
+  line-height: var(--line-height-tight);
 }
 
 .time-cell span,
@@ -544,8 +567,12 @@ function getRowClassName({ row }) {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-xs);
-  flex-wrap: wrap;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.row-actions :deep(.el-button) {
+  margin-left: 0;
 }
 
 .table-empty {

@@ -601,6 +601,7 @@ import { getKnowledgeBaseList } from '@/api/knowledgeBase'
 import { knowledgeBaseQAStream } from '@/api/knowledgeBaseQA'
 import { getDocumentList } from '@/api/documentReader'
 import { documentQAStream } from '@/api/documentReader'
+import { createConfirmedMemo } from '@/api/memo'
 import MessageList from '@/components/chat/MessageList.vue'
 import ModelSelector from '@/components/chat/ModelSelector.vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
@@ -679,6 +680,64 @@ const isViewSwitching = ref(false) // 视图切换动画状态
 const isNavigatingToFeature = ref(false) // 正在导航到功能页面
 const PORTAL_VIEW_STORAGE_PREFIX = 'portalCurrentView'
 const PORTAL_VIEW_OPTIONS = ['welcome', 'features']
+
+const formatMemoTime = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString('zh-CN', { hour12: false })
+}
+
+const confirmCreateMemo = async (memoCandidate) => {
+  if (!memoCandidate || !memoCandidate.content || !memoCandidate.remindAt) {
+    return
+  }
+
+  const intervalText = memoCandidate.intervalMinutes
+    ? `\n重复间隔：${memoCandidate.intervalMinutes} 分钟`
+    : ''
+  const message = `内容：${memoCandidate.content}\n时间：${formatMemoTime(memoCandidate.remindAt)}${intervalText}`
+
+  try {
+    await ElMessageBox.confirm(message, '确认创建备忘录？', {
+      confirmButtonText: '创建',
+      cancelButtonText: '取消',
+      type: 'warning',
+      distinguishCancelAndClose: true
+    })
+    await createConfirmedMemo({
+      content: memoCandidate.content,
+      remindAt: memoCandidate.remindAt,
+      intervalMinutes: memoCandidate.intervalMinutes
+    })
+    ElMessage.success('已为您创建备忘录提醒')
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error('创建备忘录失败：' + (error.message || '未知错误'))
+    }
+  }
+}
+
+const parseMemoCandidateFromAnswer = (answer) => {
+  if (!answer) {
+    return null
+  }
+
+  const match = String(answer).match(/我识别到你想创建备忘录："(.+?)"，提醒时间为\s*(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/)
+  if (!match) {
+    return null
+  }
+
+  const remindAt = new Date(match[2].replace(' ', 'T'))
+  if (Number.isNaN(remindAt.getTime())) {
+    return null
+  }
+
+  return {
+    content: match[1],
+    remindAt: remindAt.toISOString()
+  }
+}
 
 // 建议问题列表
 const suggestedQuestions = ref([
@@ -1610,6 +1669,7 @@ const handleKnowledgeBaseStreamResponse = async (kbId, question, requestConversa
   
   let rafId = null
   let pendingContent = null
+  let memoNotified = false
   
   const scheduleUpdate = (content) => {
     pendingContent = content
@@ -1700,6 +1760,11 @@ const handleKnowledgeBaseStreamResponse = async (kbId, question, requestConversa
               if (json.conversationId) {
                 conversationId.value = json.conversationId.toString()
               }
+
+              if (json.memoCandidate && !memoNotified) {
+                memoNotified = true
+                confirmCreateMemo(json.memoCandidate)
+              }
               
               if (json.answer !== undefined && json.answer !== null) {
                 if (!chatHistory.value[aiMessageIndex]) {
@@ -1760,6 +1825,10 @@ const handleKnowledgeBaseStreamResponse = async (kbId, question, requestConversa
           
           try {
             const json = JSON.parse(data)
+            if (json.memoCandidate && !memoNotified) {
+              memoNotified = true
+              confirmCreateMemo(json.memoCandidate)
+            }
             if (json.answer !== undefined && json.answer !== null && chatHistory.value[aiMessageIndex]) {
               chatHistory.value[aiMessageIndex].content = json.answer
               chatHistory.value[aiMessageIndex].isLoading = false
@@ -1911,6 +1980,7 @@ const handleStreamResponse = async (question, requestConversationId, userId, his
   
   let rafId = null
   let pendingContent = null
+  let memoNotified = false
   
   const scheduleUpdate = (content) => {
     pendingContent = content
@@ -2026,10 +2096,22 @@ const handleStreamResponse = async (question, requestConversationId, userId, his
               if (json.conversationId) {
                 conversationId.value = json.conversationId.toString()
               }
+
+              if (json.memoCandidate && !memoNotified) {
+                memoNotified = true
+                confirmCreateMemo(json.memoCandidate)
+              }
               
               if (json.answer !== undefined && json.answer !== null) {
                 if (!chatHistory.value[aiMessageIndex]) {
                   continue
+                }
+                if (!memoNotified) {
+                  const memoCandidate = parseMemoCandidateFromAnswer(json.answer)
+                  if (memoCandidate) {
+                    memoNotified = true
+                    confirmCreateMemo(memoCandidate)
+                  }
                 }
                 scheduleUpdate(json.answer)
               }
@@ -2046,6 +2128,13 @@ const handleStreamResponse = async (question, requestConversationId, userId, his
                 }
                 if (json.conversationId) {
                   conversationId.value = json.conversationId.toString()
+                }
+                if (!memoNotified) {
+                  const memoCandidate = parseMemoCandidateFromAnswer(json.answer)
+                  if (memoCandidate) {
+                    memoNotified = true
+                    confirmCreateMemo(memoCandidate)
+                  }
                 }
                 break
               }

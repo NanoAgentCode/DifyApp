@@ -427,7 +427,7 @@ onUnmounted(() => typewriter.destroy())
 
 // 监听最后一条消息的流式状态，驱动打字机
 // 使用 props.sending 作为流式指示器（全程为 true），而非 message.isLoading
-// 因为多个组件（Chat.vue、Portal.vue）在首个数据到达时就将 isLoading 设为 false
+// 因为多个聊天入口会在首个数据到达时就将 isLoading 设为 false
 watch(() => {
   const msgs = props.messages
   if (!msgs.length) return null

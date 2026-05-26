@@ -1,5 +1,6 @@
 package com.github.app.dify.chat.resp;
 
+import com.github.app.dify.memo.resp.MemoResp;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
@@ -19,6 +20,9 @@ public class ChatResponse {
 
     @Schema(description = "自动创建的备忘录ID")
     private Long memoId;
+
+    @Schema(description = "Memo candidate that requires user confirmation before creation")
+    private MemoResp memoCandidate;
 
     public String getAnswer() {
         return answer;
@@ -50,5 +54,13 @@ public class ChatResponse {
 
     public void setMemoId(Long memoId) {
         this.memoId = memoId;
+    }
+
+    public MemoResp getMemoCandidate() {
+        return memoCandidate;
+    }
+
+    public void setMemoCandidate(MemoResp memoCandidate) {
+        this.memoCandidate = memoCandidate;
     }
 }

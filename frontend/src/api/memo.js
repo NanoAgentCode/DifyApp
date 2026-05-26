@@ -32,6 +32,18 @@ export function createMemo(data) {
   })
 }
 
+export function createConfirmedMemo(data) {
+  return request({
+    url: '/api/memos/confirmed',
+    method: 'post',
+    data: {
+      content: data.content,
+      remindAt: data.remindAt,
+      intervalMinutes: data.intervalMinutes
+    }
+  })
+}
+
 /**
  * 标记为已提醒
  */
