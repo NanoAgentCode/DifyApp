@@ -695,6 +695,13 @@ public class ChatServiceImpl implements ChatService {
             systemMessageBuilder.append("\n").append(memoryContext).append("\n");
         }
 
+        String conversationSummary = getConversationSummaryForRequest(request, userId);
+        if (conversationSummary != null && !conversationSummary.trim().isEmpty()) {
+            systemMessageBuilder.append("\n【当前会话摘要】\n")
+                    .append(conversationSummary.trim())
+                    .append("\n请把以上摘要作为当前会话的历史上下文；若摘要与最近对话冲突，以最近对话为准。\n");
+        }
+
         // 如果提供了浏览器检索结果，在系统消息中强调要使用检索结果与时效性说明
         String retrievalTime = null;
         if (browserSearchContext != null && !browserSearchContext.trim().isEmpty()) {
@@ -947,6 +954,22 @@ public class ChatServiceImpl implements ChatService {
 
     private Integer getConversationType(ChatRequest request) {
         return request.getConversationType() != null ? request.getConversationType() : 1;
+    }
+
+    private String getConversationSummaryForRequest(ChatRequest request, Long userId) {
+        if (request == null || userId == null) {
+            return "";
+        }
+        Long conversationId = ConversationIdUtil.parseConversationId(request.getConversationId(), logger);
+        if (conversationId == null) {
+            return "";
+        }
+        try {
+            return chatHistoryService.getConversationSummary(conversationId, userId, false);
+        } catch (Exception e) {
+            logger.debug("读取会话摘要失败 - conversationId={}", conversationId, e);
+            return "";
+        }
     }
 
     private String getHistoryQuestion(ChatRequest request) {

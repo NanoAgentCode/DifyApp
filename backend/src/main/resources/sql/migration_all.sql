@@ -148,7 +148,33 @@ EXCEPTION
         RAISE WARNING 'USER_MEMORY作用域与时间元数据字段迁移失败：%', SQLERRM;
 END $$;
 
--- 7. DrawIO 历史记录返回数据迁移（新增）
+-- 7. 会话滚动摘要字段迁移（新增）
+-- 说明：为chat_conversation表添加summary/summary_updated_sequence/summary_update_time字段
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'chat_conversation') THEN
+        ALTER TABLE chat_conversation
+            ADD COLUMN IF NOT EXISTS summary TEXT,
+            ADD COLUMN IF NOT EXISTS summary_updated_sequence INTEGER,
+            ADD COLUMN IF NOT EXISTS summary_update_time TIMESTAMP;
+
+        COMMENT ON COLUMN chat_conversation.summary IS '会话滚动摘要';
+        COMMENT ON COLUMN chat_conversation.summary_updated_sequence IS '摘要已覆盖到的消息序号';
+        COMMENT ON COLUMN chat_conversation.summary_update_time IS '摘要更新时间';
+
+        CREATE INDEX IF NOT EXISTS idx_chat_conversation_summary_update_time
+            ON chat_conversation(summary_update_time);
+
+        RAISE NOTICE '已为chat_conversation表添加会话滚动摘要字段';
+    ELSE
+        RAISE NOTICE 'chat_conversation表不存在，跳过会话滚动摘要字段迁移';
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE WARNING '为chat_conversation表添加会话滚动摘要字段失败：%', SQLERRM;
+END $$;
+
+-- 8. DrawIO 历史记录返回数据迁移（新增）
 -- 说明：为DRAWIO_HISTORY表添加diagram_json字段
 DO $$
 BEGIN

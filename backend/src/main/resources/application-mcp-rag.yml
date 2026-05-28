@@ -11,6 +11,10 @@ rag:
   max-history-rounds: 10  # 最大历史对话轮数
   max-history-tokens: 2000  # 最大历史token数
   enable-summary: false  # 是否启用摘要
+  enable-conversation-summary: true  # 是否启用会话滚动摘要持久化
+  conversation-summary-threshold-rounds: 10  # 超过多少轮后生成会话摘要
+  conversation-summary-update-interval-rounds: 5  # 摘要生成后每新增多少轮更新一次
+  conversation-summary-max-messages: 40  # 单次摘要最多读取的消息数
 
 mcp:
   browser-search:

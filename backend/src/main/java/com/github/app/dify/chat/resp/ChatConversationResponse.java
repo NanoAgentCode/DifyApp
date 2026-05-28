@@ -44,6 +44,15 @@ public class ChatConversationResponse {
     @Schema(description = "更新时间")
     private Date updateTime;
 
+    @Schema(description = "会话滚动摘要")
+    private String summary;
+
+    @Schema(description = "摘要已覆盖到的消息序号")
+    private Integer summaryUpdatedSequence;
+
+    @Schema(description = "摘要更新时间")
+    private Date summaryUpdateTime;
+
     public Long getId() {
         return id;
     }
@@ -138,5 +147,29 @@ public class ChatConversationResponse {
 
     public void setUpdateTime(Date updateTime) {
         this.updateTime = updateTime;
+    }
+
+    public String getSummary() {
+        return summary;
+    }
+
+    public void setSummary(String summary) {
+        this.summary = summary;
+    }
+
+    public Integer getSummaryUpdatedSequence() {
+        return summaryUpdatedSequence;
+    }
+
+    public void setSummaryUpdatedSequence(Integer summaryUpdatedSequence) {
+        this.summaryUpdatedSequence = summaryUpdatedSequence;
+    }
+
+    public Date getSummaryUpdateTime() {
+        return summaryUpdateTime;
+    }
+
+    public void setSummaryUpdateTime(Date summaryUpdateTime) {
+        this.summaryUpdateTime = summaryUpdateTime;
     }
 }

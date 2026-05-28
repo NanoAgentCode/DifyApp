@@ -19,6 +19,10 @@ public class RagConfig {
     private int maxHistoryRounds = 10;
     private int maxHistoryTokens = 2000;
     private boolean enableSummary = false;
+    private boolean enableConversationSummary = true;
+    private int conversationSummaryThresholdRounds = 10;
+    private int conversationSummaryUpdateIntervalRounds = 5;
+    private int conversationSummaryMaxMessages = 40;
     private int maxSystemMessageLength = 32000;
 
     public int getChunkSize() {
@@ -91,6 +95,38 @@ public class RagConfig {
 
     public void setEnableSummary(boolean enableSummary) {
         this.enableSummary = enableSummary;
+    }
+
+    public boolean isEnableConversationSummary() {
+        return enableConversationSummary;
+    }
+
+    public void setEnableConversationSummary(boolean enableConversationSummary) {
+        this.enableConversationSummary = enableConversationSummary;
+    }
+
+    public int getConversationSummaryThresholdRounds() {
+        return conversationSummaryThresholdRounds;
+    }
+
+    public void setConversationSummaryThresholdRounds(int conversationSummaryThresholdRounds) {
+        this.conversationSummaryThresholdRounds = conversationSummaryThresholdRounds;
+    }
+
+    public int getConversationSummaryUpdateIntervalRounds() {
+        return conversationSummaryUpdateIntervalRounds;
+    }
+
+    public void setConversationSummaryUpdateIntervalRounds(int conversationSummaryUpdateIntervalRounds) {
+        this.conversationSummaryUpdateIntervalRounds = conversationSummaryUpdateIntervalRounds;
+    }
+
+    public int getConversationSummaryMaxMessages() {
+        return conversationSummaryMaxMessages;
+    }
+
+    public void setConversationSummaryMaxMessages(int conversationSummaryMaxMessages) {
+        this.conversationSummaryMaxMessages = conversationSummaryMaxMessages;
     }
 
     public int getMaxSystemMessageLength() {

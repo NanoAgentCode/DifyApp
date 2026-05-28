@@ -809,6 +809,9 @@ CREATE TABLE chat_conversation (
     type INTEGER,
     title VARCHAR(500),
     model_id BIGINT,
+    summary TEXT,
+    summary_updated_sequence INTEGER,
+    summary_update_time TIMESTAMP,
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted INTEGER DEFAULT 0
@@ -822,6 +825,9 @@ COMMENT ON COLUMN chat_conversation.knowledge_base_id IS '知识库ID（对于�
 COMMENT ON COLUMN chat_conversation.type IS '会话类型：1-普通聊天，2-知识库问答，3-文档问答';
 COMMENT ON COLUMN chat_conversation.title IS '会话标题（自动生成或用户自定义）';
 COMMENT ON COLUMN chat_conversation.model_id IS '模型ID（会话使用的模型，可选）';
+COMMENT ON COLUMN chat_conversation.summary IS '会话滚动摘要';
+COMMENT ON COLUMN chat_conversation.summary_updated_sequence IS '摘要已覆盖到的消息序号';
+COMMENT ON COLUMN chat_conversation.summary_update_time IS '摘要更新时间';
 COMMENT ON COLUMN chat_conversation.create_time IS '创建时间';
 COMMENT ON COLUMN chat_conversation.update_time IS '更新时间';
 COMMENT ON COLUMN chat_conversation.deleted IS '是否删除：0-未删除，1-已删除';
@@ -832,6 +838,7 @@ CREATE INDEX idx_chat_conversation_kb_id ON chat_conversation(knowledge_base_id)
 CREATE INDEX idx_chat_conversation_type ON chat_conversation(type);
 CREATE INDEX idx_chat_conversation_deleted ON chat_conversation(deleted);
 CREATE INDEX idx_chat_conversation_create_time ON chat_conversation(create_time);
+CREATE INDEX idx_chat_conversation_summary_update_time ON chat_conversation(summary_update_time);
 
 -- ============================================
 -- 18. 创建会话消息表 (chat_message)

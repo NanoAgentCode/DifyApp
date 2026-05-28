@@ -34,6 +34,11 @@ public interface ChatHistoryService {
      * 保存消息（带Token信息）
      */
     void saveMessage(Long conversationId, String role, String content, Long modelId, Long promptTokens, Long completionTokens, Long totalTokens);
+
+    /**
+     * 获取当前用户可访问会话的滚动摘要
+     */
+    String getConversationSummary(Long conversationId, Long userId, boolean isAdmin);
     
     /**
      * 获取我的会话列表（分页）

@@ -9,6 +9,7 @@ import com.github.app.dify.knowledgebase.repository.KnowledgeBaseRepository;
 import com.github.app.dify.chat.req.ChatHistoryRequest;
 import com.github.app.dify.chat.req.CreateConversationRequest;
 import com.github.app.dify.chat.resp.*;
+import com.github.app.dify.chat.service.ConversationSummaryService;
 import com.github.app.dify.chat.service.ChatHistoryService;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
@@ -23,6 +24,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.github.app.dify.chat.util.ChatDateTimeUtil;
 import com.github.app.dify.chat.util.ChatSoftDeleteUtil;
 import com.github.app.dify.common.util.DateTimeUtil;
@@ -54,6 +57,9 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
     
     @Autowired
     private KnowledgeBaseRepository knowledgeBaseRepository;
+
+    @Autowired
+    private ConversationSummaryService conversationSummaryService;
     
     /**
      * 创建新会话
@@ -157,6 +163,39 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
             }
             conversationRepository.save(conv);
         }
+        triggerSummaryUpdateAfterAssistantMessage(conversationId, role, modelId);
+    }
+
+    private void triggerSummaryUpdateAfterAssistantMessage(Long conversationId, String role, Long modelId) {
+        if (!"assistant".equalsIgnoreCase(role)) {
+            return;
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    conversationSummaryService.updateSummaryIfNeededAsync(conversationId, modelId);
+                }
+            });
+        } else {
+            conversationSummaryService.updateSummaryIfNeededAsync(conversationId, modelId);
+        }
+    }
+
+    @Override
+    public String getConversationSummary(Long conversationId, Long userId, boolean isAdmin) {
+        if (conversationId == null) {
+            return "";
+        }
+        Optional<ChatConversation> conversation = isAdmin
+                ? conversationRepository.findById(conversationId)
+                : conversationRepository.findByIdAndUserId(conversationId, userId);
+        if (conversation.isEmpty() ||
+                (conversation.get().getDeleted() != null && conversation.get().getDeleted() == 1)) {
+            return "";
+        }
+        String summary = conversation.get().getSummary();
+        return summary == null ? "" : summary.trim();
     }
     
     /**
@@ -554,6 +593,9 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         response.setTitle(conversation.getTitle());
         response.setCreateTime(conversation.getCreateTime());
         response.setUpdateTime(conversation.getUpdateTime());
+        response.setSummary(conversation.getSummary());
+        response.setSummaryUpdatedSequence(conversation.getSummaryUpdatedSequence());
+        response.setSummaryUpdateTime(conversation.getSummaryUpdateTime());
         
         // 获取用户名 - 性能优化：可以考虑批量查询，但单个会话查询影响不大
         Optional<User> user = userRepository.findById(conversation.getUserId());
@@ -656,6 +698,9 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
             response.setTitle(conv.getTitle());
             response.setCreateTime(conv.getCreateTime());
             response.setUpdateTime(conv.getUpdateTime());
+            response.setSummary(conv.getSummary());
+            response.setSummaryUpdatedSequence(conv.getSummaryUpdatedSequence());
+            response.setSummaryUpdateTime(conv.getSummaryUpdateTime());
             
             // 设置用户名
             User user = userMap.get(conv.getUserId());

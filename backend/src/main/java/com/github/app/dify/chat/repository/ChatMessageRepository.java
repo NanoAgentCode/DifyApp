@@ -19,6 +19,16 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
            "ORDER BY m.sequence ASC")
     List<ChatMessage> findByConversationId(@Param("conversationId") Long conversationId);
 
+    @Query("SELECT m FROM ChatMessage m WHERE m.conversationId = :conversationId " +
+           "AND m.sequence > :sequence ORDER BY m.sequence ASC")
+    List<ChatMessage> findByConversationIdAndSequenceGreaterThan(@Param("conversationId") Long conversationId,
+                                                                  @Param("sequence") Integer sequence);
+
+    @Query("SELECT m FROM ChatMessage m WHERE m.conversationId = :conversationId " +
+           "ORDER BY m.sequence DESC")
+    List<ChatMessage> findRecentByConversationId(@Param("conversationId") Long conversationId,
+                                                 org.springframework.data.domain.Pageable pageable);
+
     /**
      * 根据会话ID查找消息数量
      */

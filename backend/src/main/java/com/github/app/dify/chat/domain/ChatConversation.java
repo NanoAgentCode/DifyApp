@@ -67,6 +67,27 @@ public class ChatConversation extends BaseEntity {
     @Column(name = "model_id")
     private Long modelId;
 
+    /**
+     * 会话滚动摘要（用于长会话上下文压缩）
+     */
+    @Schema(description = "会话滚动摘要")
+    @Column(name = "summary", columnDefinition = "TEXT")
+    private String summary;
+
+    /**
+     * 摘要已覆盖到的消息序号
+     */
+    @Schema(description = "摘要已覆盖到的消息序号")
+    @Column(name = "summary_updated_sequence")
+    private Integer summaryUpdatedSequence;
+
+    /**
+     * 摘要更新时间
+     */
+    @Schema(description = "摘要更新时间")
+    @Column(name = "summary_update_time")
+    private java.util.Date summaryUpdateTime;
+
     // ========== 数据库索引 ==========
 
 }

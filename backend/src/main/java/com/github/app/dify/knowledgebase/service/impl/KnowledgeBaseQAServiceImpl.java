@@ -432,6 +432,12 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
         if (memoryContext != null && !memoryContext.trim().isEmpty()) {
             systemMessage.append("\n\n").append(memoryContext);
         }
+        String conversationSummary = getConversationSummaryForRequest(request);
+        if (conversationSummary != null && !conversationSummary.trim().isEmpty()) {
+            systemMessage.append("\n\n【当前会话摘要】\n")
+                    .append(conversationSummary.trim())
+                    .append("\n请把以上摘要作为当前会话的历史上下文；若摘要与最近对话冲突，以最近对话为准。");
+        }
         messages.add(SystemMessage.from(systemMessage.toString()));
 
         // 添加历史对话
@@ -449,6 +455,32 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
         messages.add(UserMessage.from(request.getQuestion()));
 
         return messages;
+    }
+
+    private String getConversationSummaryForRequest(KnowledgeBaseQARequest request) {
+        if (request == null || request.getUserId() == null) {
+            return "";
+        }
+        Long conversationId = ConversationIdUtil.parseConversationId(request.getConversationId(), logger);
+        if (conversationId == null) {
+            return "";
+        }
+        try {
+            return chatHistoryService.getConversationSummary(conversationId, request.getUserId(), false);
+        } catch (Exception e) {
+            logger.debug("读取会话摘要失败 - conversationId={}", conversationId, e);
+            return "";
+        }
+    }
+
+    private void appendConversationSummary(StringBuilder systemMessage, KnowledgeBaseQARequest request) {
+        String conversationSummary = getConversationSummaryForRequest(request);
+        if (conversationSummary == null || conversationSummary.trim().isEmpty()) {
+            return;
+        }
+        systemMessage.append("【当前会话摘要】\n")
+                .append(conversationSummary.trim())
+                .append("\n请把以上摘要作为当前会话的历史上下文；若摘要与最近对话冲突，以最近对话为准。\n\n");
     }
 
     /**
@@ -471,6 +503,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             if (memoryContext != null && !memoryContext.trim().isEmpty()) {
                 sys.append(memoryContext).append("\n\n");
             }
+            appendConversationSummary(sys, request);
 
             // 使用模板构建检索上下文
             Map<String, String> variables = new HashMap<>();
@@ -537,6 +570,7 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             if (memoryContext != null && !memoryContext.trim().isEmpty()) {
                 sys.append(memoryContext).append("\n\n");
             }
+            appendConversationSummary(sys, request);
 
             // 使用模板构建检索上下文
             Map<String, String> variables = new HashMap<>();
