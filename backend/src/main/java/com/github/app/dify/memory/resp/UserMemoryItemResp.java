@@ -31,6 +31,21 @@ public class UserMemoryItemResp {
     @Schema(description = "更新时间")
     private Date updateTime;
 
+    @Schema(description = "首次记录时间")
+    private Date firstSeenTime;
+
+    @Schema(description = "最近在对话中提及时间")
+    private Date lastMentionedTime;
+
+    @Schema(description = "最近被检索使用时间")
+    private Date lastAccessedTime;
+
+    @Schema(description = "被检索使用次数")
+    private Integer accessCount;
+
+    @Schema(description = "来源会话ID")
+    private Long sourceConversationId;
+
     public Long getId() {
         return id;
     }
@@ -93,6 +108,46 @@ public class UserMemoryItemResp {
 
     public void setUpdateTime(Date updateTime) {
         this.updateTime = updateTime;
+    }
+
+    public Date getFirstSeenTime() {
+        return firstSeenTime;
+    }
+
+    public void setFirstSeenTime(Date firstSeenTime) {
+        this.firstSeenTime = firstSeenTime;
+    }
+
+    public Date getLastMentionedTime() {
+        return lastMentionedTime;
+    }
+
+    public void setLastMentionedTime(Date lastMentionedTime) {
+        this.lastMentionedTime = lastMentionedTime;
+    }
+
+    public Date getLastAccessedTime() {
+        return lastAccessedTime;
+    }
+
+    public void setLastAccessedTime(Date lastAccessedTime) {
+        this.lastAccessedTime = lastAccessedTime;
+    }
+
+    public Integer getAccessCount() {
+        return accessCount;
+    }
+
+    public void setAccessCount(Integer accessCount) {
+        this.accessCount = accessCount;
+    }
+
+    public Long getSourceConversationId() {
+        return sourceConversationId;
+    }
+
+    public void setSourceConversationId(Long sourceConversationId) {
+        this.sourceConversationId = sourceConversationId;
     }
 }
 

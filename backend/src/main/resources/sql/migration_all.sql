@@ -85,6 +85,32 @@ BEGIN
         END;
 
         BEGIN
+            ALTER TABLE "USER_MEMORY" ADD COLUMN IF NOT EXISTS first_seen_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+            ALTER TABLE "USER_MEMORY" ADD COLUMN IF NOT EXISTS last_mentioned_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+            ALTER TABLE "USER_MEMORY" ADD COLUMN IF NOT EXISTS last_accessed_time TIMESTAMP;
+            ALTER TABLE "USER_MEMORY" ADD COLUMN IF NOT EXISTS access_count INTEGER DEFAULT 0;
+            ALTER TABLE "USER_MEMORY" ADD COLUMN IF NOT EXISTS source_conversation_id BIGINT;
+        EXCEPTION WHEN OTHERS THEN
+            ALTER TABLE user_memory ADD COLUMN IF NOT EXISTS first_seen_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+            ALTER TABLE user_memory ADD COLUMN IF NOT EXISTS last_mentioned_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+            ALTER TABLE user_memory ADD COLUMN IF NOT EXISTS last_accessed_time TIMESTAMP;
+            ALTER TABLE user_memory ADD COLUMN IF NOT EXISTS access_count INTEGER DEFAULT 0;
+            ALTER TABLE user_memory ADD COLUMN IF NOT EXISTS source_conversation_id BIGINT;
+        END;
+
+        BEGIN
+            UPDATE "USER_MEMORY"
+            SET first_seen_time = COALESCE(first_seen_time, create_time, CURRENT_TIMESTAMP),
+                last_mentioned_time = COALESCE(last_mentioned_time, update_time, create_time, CURRENT_TIMESTAMP),
+                access_count = COALESCE(access_count, 0);
+        EXCEPTION WHEN OTHERS THEN
+            UPDATE user_memory
+            SET first_seen_time = COALESCE(first_seen_time, create_time, CURRENT_TIMESTAMP),
+                last_mentioned_time = COALESCE(last_mentioned_time, update_time, create_time, CURRENT_TIMESTAMP),
+                access_count = COALESCE(access_count, 0);
+        END;
+
+        BEGIN
             ALTER TABLE "USER_MEMORY" DROP CONSTRAINT IF EXISTS uk_user_memory;
         EXCEPTION WHEN OTHERS THEN
             BEGIN
@@ -103,19 +129,23 @@ BEGIN
             CREATE INDEX IF NOT EXISTS idx_user_memory_scope ON "USER_MEMORY"(scope_type, scope_id);
             CREATE INDEX IF NOT EXISTS idx_user_memory_user_scope ON "USER_MEMORY"(user_id, scope_type, scope_id);
             CREATE INDEX IF NOT EXISTS idx_user_memory_user_scope_type ON "USER_MEMORY"(user_id, scope_type, scope_id, memory_type);
+            CREATE INDEX IF NOT EXISTS idx_user_memory_last_mentioned ON "USER_MEMORY"(last_mentioned_time DESC);
+            CREATE INDEX IF NOT EXISTS idx_user_memory_last_accessed ON "USER_MEMORY"(last_accessed_time DESC);
         EXCEPTION WHEN OTHERS THEN
             CREATE INDEX IF NOT EXISTS idx_user_memory_scope ON user_memory(scope_type, scope_id);
             CREATE INDEX IF NOT EXISTS idx_user_memory_user_scope ON user_memory(user_id, scope_type, scope_id);
             CREATE INDEX IF NOT EXISTS idx_user_memory_user_scope_type ON user_memory(user_id, scope_type, scope_id, memory_type);
+            CREATE INDEX IF NOT EXISTS idx_user_memory_last_mentioned ON user_memory(last_mentioned_time DESC);
+            CREATE INDEX IF NOT EXISTS idx_user_memory_last_accessed ON user_memory(last_accessed_time DESC);
         END;
 
-        RAISE NOTICE '已完成USER_MEMORY作用域字段迁移';
+        RAISE NOTICE '已完成USER_MEMORY作用域与时间元数据字段迁移';
     ELSE
         RAISE NOTICE 'USER_MEMORY表不存在，跳过作用域字段迁移';
     END IF;
 EXCEPTION
     WHEN OTHERS THEN
-        RAISE WARNING 'USER_MEMORY作用域字段迁移失败：%', SQLERRM;
+        RAISE WARNING 'USER_MEMORY作用域与时间元数据字段迁移失败：%', SQLERRM;
 END $$;
 
 -- 7. DrawIO 历史记录返回数据迁移（新增）

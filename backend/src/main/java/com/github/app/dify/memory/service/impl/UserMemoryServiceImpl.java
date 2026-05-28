@@ -30,8 +30,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -49,8 +52,8 @@ public class UserMemoryServiceImpl implements UserMemoryService {
     private static final String SCOPE_KNOWLEDGE_BASE = "knowledge_base";
     private static final String SCOPE_APP = "app";
 
-    private static final int MAX_RECENT_LONG_TERM = 30;
-    private static final int MAX_RECENT_ENTITY = 30;
+    private static final int MAX_RECENT_LONG_TERM = 80;
+    private static final int MAX_RECENT_ENTITY = 80;
     private static final int MAX_MEMORY_ITEMS_PER_TYPE = 200;
 
     private static final int MAX_CONTEXT_ITEMS_LONG_TERM = 8;
@@ -80,10 +83,8 @@ public class UserMemoryServiceImpl implements UserMemoryService {
         String q = question != null ? question.trim() : "";
         List<String> tokens = tokenizeForMatch(q);
 
-        List<UserMemory> longTerms = userMemoryRepository.findRecentByUserIdAndScopeAndType(
-                userId, scope.type, scope.id, TYPE_LONG_TERM, PageRequest.of(0, MAX_RECENT_LONG_TERM));
-        List<UserMemory> entities = userMemoryRepository.findRecentByUserIdAndScopeAndType(
-                userId, scope.type, scope.id, TYPE_ENTITY, PageRequest.of(0, MAX_RECENT_ENTITY));
+        List<UserMemory> longTerms = findScopedAndGlobalCandidates(userId, scope, TYPE_LONG_TERM, MAX_RECENT_LONG_TERM);
+        List<UserMemory> entities = findScopedAndGlobalCandidates(userId, scope, TYPE_ENTITY, MAX_RECENT_ENTITY);
 
         List<UserMemory> pickedLong = pickBest(longTerms, tokens, MAX_CONTEXT_ITEMS_LONG_TERM);
         List<UserMemory> pickedEnt = pickBest(entities, tokens, MAX_CONTEXT_ITEMS_ENTITY);
@@ -109,7 +110,7 @@ public class UserMemoryServiceImpl implements UserMemoryService {
                 if (line.isEmpty()) {
                     continue;
                 }
-                String item = "- " + trimToMax(line, MAX_CONTEXT_CHARS_PER_ITEM) + "\n";
+                String item = "- " + formatMemoryLine(m, line) + "\n";
                 if (totalChars + item.length() > contentBudget) {
                     break;
                 }
@@ -128,7 +129,7 @@ public class UserMemoryServiceImpl implements UserMemoryService {
                 if (line.isEmpty()) {
                     continue;
                 }
-                String item = "- " + trimToMax(line, MAX_CONTEXT_CHARS_PER_ITEM) + "\n";
+                String item = "- " + formatMemoryLine(m, line) + "\n";
                 if (totalChars + item.length() > contentBudget) {
                     break;
                 }
@@ -138,6 +139,8 @@ public class UserMemoryServiceImpl implements UserMemoryService {
         }
         sb.append("\n请在不暴露记忆原文来源的前提下，利用以上信息进行个性化回答；若记忆与问题无关，请忽略。");
         sb.append("若多条记忆涉及同一类偏好、习惯或计划（如饮食、运动等），以列表中靠前的表述为准（靠前的为更新后的表述），旧表述视为已被取代，不要依据旧表述做推荐。");
+        markMemoryAccessed(pickedLong);
+        markMemoryAccessed(pickedEnt);
         return sb.toString();
     }
 
@@ -248,6 +251,11 @@ public class UserMemoryServiceImpl implements UserMemoryService {
             r.setContent(m.getContent());
             r.setImportance(m.getImportance());
             r.setUpdateTime(m.getUpdateTime());
+            r.setFirstSeenTime(m.getFirstSeenTime());
+            r.setLastMentionedTime(m.getLastMentionedTime());
+            r.setLastAccessedTime(m.getLastAccessedTime());
+            r.setAccessCount(m.getAccessCount());
+            r.setSourceConversationId(m.getSourceConversationId());
             resp.add(r);
         }
         return resp;
@@ -369,10 +377,15 @@ public class UserMemoryServiceImpl implements UserMemoryService {
         Optional<UserMemory> existing = userMemoryRepository.findActiveByUserIdAndScopeAndTypeAndKey(userId, scope.type,
                 scope.id, type, key);
         UserMemory m;
+        Date now = new Date();
         if (existing.isPresent()) {
             m = existing.get();
             m.setContent(content);
             m.setImportance(importance);
+            m.setLastMentionedTime(now);
+            if (conversationId != null) {
+                m.setSourceConversationId(conversationId);
+            }
             MemoryDateTimeUtil.setUpdateTime(m);
         } else {
             m = new UserMemory();
@@ -383,6 +396,10 @@ public class UserMemoryServiceImpl implements UserMemoryService {
             m.setMemoryKey(key);
             m.setContent(content);
             m.setImportance(importance);
+            m.setFirstSeenTime(now);
+            m.setLastMentionedTime(now);
+            m.setAccessCount(0);
+            m.setSourceConversationId(conversationId);
             m.setDeleted(0);
             MemoryDateTimeUtil.setCreateAndUpdateTime(m);
         }
@@ -435,11 +452,33 @@ public class UserMemoryServiceImpl implements UserMemoryService {
         return new Scope(SCOPE_CHAT, null);
     }
 
-    /** 按重要度降序、更新时间降序排序，用于挑选记忆时的优先级 */
-    private static final Comparator<UserMemory> IMPORTANCE_THEN_RECENCY = Comparator
-            .<UserMemory>comparingInt(m -> m.getImportance() != null ? m.getImportance() : 0)
+    private List<UserMemory> findScopedAndGlobalCandidates(Long userId, Scope scope, String type, int limit) {
+        LinkedHashMap<Long, UserMemory> byId = new LinkedHashMap<>();
+        addCandidates(byId, userMemoryRepository.findRecentByUserIdAndScopeAndType(
+                userId, scope.type, scope.id, type, PageRequest.of(0, limit)));
+        if (!SCOPE_CHAT.equals(scope.type)) {
+            addCandidates(byId, userMemoryRepository.findRecentByUserIdAndScopeAndType(
+                    userId, SCOPE_CHAT, null, type, PageRequest.of(0, limit)));
+        }
+        return new ArrayList<>(byId.values());
+    }
+
+    private void addCandidates(Map<Long, UserMemory> byId, List<UserMemory> items) {
+        if (items == null) {
+            return;
+        }
+        for (UserMemory item : items) {
+            if (item != null && item.getId() != null) {
+                byId.putIfAbsent(item.getId(), item);
+            }
+        }
+    }
+
+    /** 相关性优先，其次按重要度与时间排序，用于挑选记忆时的优先级 */
+    private static final Comparator<ScoredMemory> MEMORY_SCORE = Comparator
+            .comparingDouble(ScoredMemory::score)
             .reversed()
-            .thenComparing(UserMemory::getUpdateTime, Comparator.nullsLast(Comparator.reverseOrder()));
+            .thenComparing(sm -> sm.memory().getUpdateTime(), Comparator.nullsLast(Comparator.reverseOrder()));
 
     private List<UserMemory> pickBest(List<UserMemory> candidates, List<String> tokens, int max) {
         if (candidates == null || candidates.isEmpty()) {
@@ -448,48 +487,60 @@ public class UserMemoryServiceImpl implements UserMemoryService {
         if (max <= 0) {
             return List.of();
         }
-        if (tokens == null || tokens.isEmpty()) {
-            List<UserMemory> copy = new ArrayList<>(candidates);
-            copy.sort(IMPORTANCE_THEN_RECENCY);
-            return copy.subList(0, Math.min(max, copy.size()));
-        }
-        List<UserMemory> matched = new ArrayList<>();
-        List<UserMemory> rest = new ArrayList<>();
+        List<ScoredMemory> scored = new ArrayList<>();
         for (UserMemory m : candidates) {
-            String c = m.getContent() != null ? m.getContent() : "";
-            String lower = c.toLowerCase(Locale.ROOT);
-            boolean hit = false;
-            for (String t : tokens) {
-                if (t.length() < 2) {
-                    continue;
-                }
-                if (lower.contains(t)) {
-                    hit = true;
-                    break;
-                }
-            }
-            if (hit) {
-                matched.add(m);
-            } else {
-                rest.add(m);
-            }
+            scored.add(new ScoredMemory(m, scoreMemory(m, tokens)));
         }
-        matched.sort(IMPORTANCE_THEN_RECENCY);
-        rest.sort(IMPORTANCE_THEN_RECENCY);
+        scored.sort(MEMORY_SCORE);
         List<UserMemory> out = new ArrayList<>();
-        for (UserMemory m : matched) {
+        for (ScoredMemory sm : scored) {
             if (out.size() >= max) {
                 break;
             }
-            out.add(m);
-        }
-        for (UserMemory m : rest) {
-            if (out.size() >= max) {
-                break;
-            }
-            out.add(m);
+            out.add(sm.memory());
         }
         return out;
+    }
+
+    private double scoreMemory(UserMemory memory, List<String> tokens) {
+        double score = 0.0;
+        score += (memory.getImportance() != null ? memory.getImportance() : 0) * 3.0;
+        score += recencyScore(memory.getLastMentionedTime() != null
+                ? memory.getLastMentionedTime()
+                : memory.getUpdateTime()) * 2.0;
+        score += recencyScore(memory.getLastAccessedTime()) * 0.5;
+
+        if (tokens != null && !tokens.isEmpty()) {
+            String haystack = ((memory.getMemoryKey() != null ? memory.getMemoryKey() : "") + " "
+                    + (memory.getContent() != null ? memory.getContent() : "")).toLowerCase(Locale.ROOT);
+            int hits = 0;
+            int strongHits = 0;
+            for (String token : tokens) {
+                if (token == null || token.length() < 2) {
+                    continue;
+                }
+                if (haystack.contains(token)) {
+                    hits++;
+                    if (token.length() >= 4) {
+                        strongHits++;
+                    }
+                }
+            }
+            score += hits * 4.0 + strongHits * 2.0;
+        }
+        return score;
+    }
+
+    private double recencyScore(Date date) {
+        if (date == null) {
+            return 0.0;
+        }
+        long ageMillis = Math.max(0L, System.currentTimeMillis() - date.getTime());
+        double ageDays = ageMillis / 86_400_000.0;
+        return Math.max(0.0, 1.0 / (1.0 + ageDays / 30.0));
+    }
+
+    private record ScoredMemory(UserMemory memory, double score) {
     }
 
     private List<String> tokenizeForMatch(String text) {
@@ -506,9 +557,75 @@ public class UserMemoryServiceImpl implements UserMemoryService {
             String s = p.trim();
             if (s.length() >= 2) {
                 out.add(s);
+                if (containsChinese(s) && s.length() > 4) {
+                    addChineseNgrams(out, s);
+                }
             }
         }
         return out;
+    }
+
+    private boolean containsChinese(String text) {
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c >= '\u4e00' && c <= '\u9fa5') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void addChineseNgrams(List<String> out, String text) {
+        int maxNgram = Math.min(4, text.length());
+        for (int n = 2; n <= maxNgram; n++) {
+            for (int i = 0; i + n <= text.length(); i++) {
+                String gram = text.substring(i, i + n);
+                if (!out.contains(gram)) {
+                    out.add(gram);
+                }
+            }
+        }
+    }
+
+    private String formatMemoryLine(UserMemory memory, String line) {
+        String content = trimToMax(line, MAX_CONTEXT_CHARS_PER_ITEM);
+        String timeHint = buildTimeHint(memory);
+        if (timeHint.isEmpty()) {
+            return content;
+        }
+        return content + "（" + timeHint + "）";
+    }
+
+    private String buildTimeHint(UserMemory memory) {
+        List<String> parts = new ArrayList<>();
+        if (memory.getLastMentionedTime() != null) {
+            parts.add("最近提及: " + formatTime(memory.getLastMentionedTime()));
+        } else if (memory.getUpdateTime() != null) {
+            parts.add("更新时间: " + formatTime(memory.getUpdateTime()));
+        }
+        if (memory.getFirstSeenTime() != null) {
+            parts.add("首次记录: " + formatTime(memory.getFirstSeenTime()));
+        }
+        return String.join(", ", parts);
+    }
+
+    private String formatTime(Date date) {
+        if (date == null) {
+            return "";
+        }
+        return new SimpleDateFormat("yyyy-MM-dd HH:mm").format(date);
+    }
+
+    private void markMemoryAccessed(List<UserMemory> memories) {
+        if (memories == null || memories.isEmpty()) {
+            return;
+        }
+        Date now = new Date();
+        for (UserMemory memory : memories) {
+            memory.setLastAccessedTime(now);
+            memory.setAccessCount((memory.getAccessCount() != null ? memory.getAccessCount() : 0) + 1);
+        }
+        userMemoryRepository.saveAll(memories);
     }
 
     private String safeOneLine(String s) {

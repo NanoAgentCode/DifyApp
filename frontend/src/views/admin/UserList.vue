@@ -372,6 +372,12 @@
                   </div>
                   <el-button size="small" plain @click="copyMemory(row)">复制内容</el-button>
                 </div>
+                <div class="memory-meta">
+                  <span>首次记录：{{ formatDate(row.firstSeenTime) }}</span>
+                  <span>最近提及：{{ formatDate(row.lastMentionedTime) }}</span>
+                  <span>最近使用：{{ formatDate(row.lastAccessedTime) }}</span>
+                  <span>使用次数：{{ row.accessCount || 0 }}</span>
+                </div>
                 <pre class="memory-content">{{ formatMemoryContent(row) }}</pre>
               </template>
             </el-table-column>
@@ -389,9 +395,9 @@
             </el-table-column>
             <el-table-column prop="memoryKey" label="Key" min-width="160" show-overflow-tooltip />
             <el-table-column prop="importance" label="重要度" width="90" align="center" />
-            <el-table-column prop="updateTime" label="更新时间" width="180" align="center">
+            <el-table-column prop="lastMentionedTime" label="最近提及" width="180" align="center">
               <template #default="{ row }">
-                {{ formatDate(row.updateTime) }}
+                {{ formatDate(row.lastMentionedTime || row.updateTime) }}
               </template>
             </el-table-column>
           <el-table-column label="操作" width="100" align="center" fixed="right">
@@ -1420,6 +1426,16 @@ onMounted(() => {
   font-size: var(--font-size-xs);
   line-height: var(--line-height-normal);
   margin: 0;
+}
+
+.memory-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0 0 8px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
 }
 
 .memory-snippet {

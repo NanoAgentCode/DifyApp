@@ -757,6 +757,11 @@ CREATE TABLE "USER_MEMORY" (
     memory_key VARCHAR(200) NOT NULL,
     content TEXT,
     importance INTEGER,
+    first_seen_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_mentioned_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_accessed_time TIMESTAMP,
+    access_count INTEGER DEFAULT 0,
+    source_conversation_id BIGINT,
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted INTEGER DEFAULT 0,
@@ -772,6 +777,11 @@ COMMENT ON COLUMN "USER_MEMORY".memory_type IS '记忆类型：long_term/entity'
 COMMENT ON COLUMN "USER_MEMORY".memory_key IS '记忆键（用于去重更新）';
 COMMENT ON COLUMN "USER_MEMORY".content IS '记忆内容';
 COMMENT ON COLUMN "USER_MEMORY".importance IS '重要度（0-5）';
+COMMENT ON COLUMN "USER_MEMORY".first_seen_time IS '首次记录时间';
+COMMENT ON COLUMN "USER_MEMORY".last_mentioned_time IS '最近在对话中提及时间';
+COMMENT ON COLUMN "USER_MEMORY".last_accessed_time IS '最近被检索使用时间';
+COMMENT ON COLUMN "USER_MEMORY".access_count IS '被检索使用次数';
+COMMENT ON COLUMN "USER_MEMORY".source_conversation_id IS '来源会话ID';
 COMMENT ON COLUMN "USER_MEMORY".create_time IS '创建时间';
 COMMENT ON COLUMN "USER_MEMORY".update_time IS '更新时间';
 COMMENT ON COLUMN "USER_MEMORY".deleted IS '是否删除：0-未删除，1-已删除';
@@ -782,6 +792,8 @@ CREATE INDEX idx_user_memory_user_scope ON "USER_MEMORY"(user_id, scope_type, sc
 CREATE INDEX idx_user_memory_type ON "USER_MEMORY"(memory_type);
 CREATE INDEX idx_user_memory_user_type ON "USER_MEMORY"(user_id, memory_type);
 CREATE INDEX idx_user_memory_user_scope_type ON "USER_MEMORY"(user_id, scope_type, scope_id, memory_type);
+CREATE INDEX idx_user_memory_last_mentioned ON "USER_MEMORY"(last_mentioned_time DESC);
+CREATE INDEX idx_user_memory_last_accessed ON "USER_MEMORY"(last_accessed_time DESC);
 CREATE INDEX idx_user_memory_deleted ON "USER_MEMORY"(deleted);
 
 -- ============================================
