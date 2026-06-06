@@ -24,6 +24,9 @@ public class AssistantChatReq {
     @Schema(description = "页面上下文")
     private AssistantPageContext pageContext;
 
+    @Schema(description = "Page context hash for server-side cache reuse")
+    private String pageContextHash;
+
     @Schema(description = "对话历史")
     private List<AssistantMessage> history;
 
@@ -57,6 +60,14 @@ public class AssistantChatReq {
 
     public void setPageContext(AssistantPageContext pageContext) {
         this.pageContext = pageContext;
+    }
+
+    public String getPageContextHash() {
+        return pageContextHash;
+    }
+
+    public void setPageContextHash(String pageContextHash) {
+        this.pageContextHash = pageContextHash;
     }
 
     public List<AssistantMessage> getHistory() {

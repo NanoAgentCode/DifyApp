@@ -19,9 +19,17 @@ public class AssistantContextSanitizer {
     private static final int MAX_TOTAL_SECTION_LENGTH = 9000;
     private static final int MAX_HISTORY_ITEMS = 8;
     private static final int MAX_HISTORY_CONTENT_LENGTH = 1200;
+    private static final int MAX_SUMMARY_SELECTION_LENGTH = 500;
+    private static final int MAX_SUMMARY_SECTION_LENGTH = 600;
+    private static final int MAX_SUMMARY_TOTAL_SECTION_LENGTH = 2400;
+    private static final int MAX_SUMMARY_SECTIONS = 6;
 
     public String sanitizeMessage(String message) {
         return truncate(cleanText(message), MAX_MESSAGE_LENGTH);
+    }
+
+    public String sanitizeContextHash(String contextHash) {
+        return truncate(cleanText(contextHash), 128);
     }
 
     public AssistantChatReq.AssistantPageContext sanitizePageContext(AssistantChatReq.AssistantPageContext context) {
@@ -72,6 +80,59 @@ public class AssistantContextSanitizer {
         meta.put("truncated", totalLength >= MAX_TOTAL_SECTION_LENGTH);
         sanitized.setMeta(meta);
         return sanitized;
+    }
+
+    public AssistantChatReq.AssistantPageContext summarizePageContext(AssistantChatReq.AssistantPageContext context) {
+        if (context == null) {
+            return null;
+        }
+
+        AssistantChatReq.AssistantPageContext summary = new AssistantChatReq.AssistantPageContext();
+        summary.setSource(truncate(cleanText(context.getSource()), 40));
+
+        if (context.getPage() != null) {
+            AssistantChatReq.PageInfo page = new AssistantChatReq.PageInfo();
+            page.setRoute(truncate(cleanText(context.getPage().getRoute()), 300));
+            page.setTitle(truncate(cleanText(context.getPage().getTitle()), 120));
+            page.setType(truncate(cleanText(context.getPage().getType()), 80));
+            summary.setPage(page);
+        }
+
+        if (context.getSelection() != null) {
+            AssistantChatReq.SelectionInfo selection = new AssistantChatReq.SelectionInfo();
+            selection.setText(truncate(cleanText(context.getSelection().getText()), MAX_SUMMARY_SELECTION_LENGTH));
+            summary.setSelection(selection);
+        }
+
+        List<AssistantChatReq.SectionInfo> sections = new ArrayList<>();
+        int totalLength = 0;
+        if (context.getSections() != null) {
+            for (AssistantChatReq.SectionInfo section : context.getSections()) {
+                if (section == null || sections.size() >= MAX_SUMMARY_SECTIONS || totalLength >= MAX_SUMMARY_TOTAL_SECTION_LENGTH) {
+                    break;
+                }
+                String content = truncate(cleanText(section.getContent()),
+                        Math.min(MAX_SUMMARY_SECTION_LENGTH, MAX_SUMMARY_TOTAL_SECTION_LENGTH - totalLength));
+                if (content == null || content.isBlank()) {
+                    continue;
+                }
+
+                AssistantChatReq.SectionInfo summarySection = new AssistantChatReq.SectionInfo();
+                summarySection.setType(truncate(cleanText(section.getType()), 40));
+                summarySection.setTitle(truncate(cleanText(section.getTitle()), 120));
+                summarySection.setContent(content);
+                sections.add(summarySection);
+                totalLength += content.length();
+            }
+        }
+        summary.setSections(sections);
+
+        HashMap<String, Object> meta = new HashMap<>();
+        meta.put("summary", true);
+        meta.put("summarySections", sections.size());
+        meta.put("summaryLength", totalLength);
+        summary.setMeta(meta);
+        return summary;
     }
 
     public List<AssistantChatReq.AssistantMessage> sanitizeHistory(List<AssistantChatReq.AssistantMessage> history) {

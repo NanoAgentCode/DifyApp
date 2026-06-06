@@ -2,6 +2,7 @@ package com.github.app.dify.assistant.service.impl;
 
 import com.github.app.dify.assistant.req.AssistantChatReq;
 import com.github.app.dify.assistant.service.AssistantService;
+import com.github.app.dify.assistant.util.AssistantContextCache;
 import com.github.app.dify.assistant.util.AssistantContextSanitizer;
 import com.github.app.dify.assistant.util.AssistantPromptBuilder;
 import com.github.app.dify.chat.req.ChatRequest;
@@ -16,30 +17,33 @@ import java.util.List;
 public class AssistantServiceImpl implements AssistantService {
 
     private final ChatService chatService;
+    private final AssistantContextCache contextCache;
     private final AssistantContextSanitizer sanitizer;
     private final AssistantPromptBuilder promptBuilder;
 
     public AssistantServiceImpl(ChatService chatService,
+                                AssistantContextCache contextCache,
                                 AssistantContextSanitizer sanitizer,
                                 AssistantPromptBuilder promptBuilder) {
         this.chatService = chatService;
+        this.contextCache = contextCache;
         this.sanitizer = sanitizer;
         this.promptBuilder = promptBuilder;
     }
 
     @Override
     public ChatResponse chat(AssistantChatReq request, Long userId) {
-        return chatService.chat(toChatRequest(request, false), userId);
+        return chatService.chat(toChatRequest(request, false, userId), userId);
     }
 
     @Override
     public Flux<ChatResponse> chatStream(AssistantChatReq request, Long userId) {
-        return chatService.chatStream(toChatRequest(request, true), userId);
+        return chatService.chatStream(toChatRequest(request, true, userId), userId);
     }
 
-    private ChatRequest toChatRequest(AssistantChatReq request, boolean stream) {
+    private ChatRequest toChatRequest(AssistantChatReq request, boolean stream, Long userId) {
         String message = sanitizer.sanitizeMessage(request.getMessage());
-        AssistantChatReq.AssistantPageContext context = sanitizer.sanitizePageContext(request.getPageContext());
+        AssistantChatReq.AssistantPageContext context = resolvePageContext(request, userId);
 
         ChatRequest chatRequest = new ChatRequest();
         chatRequest.setQuestion(promptBuilder.build(message, context));
@@ -54,6 +58,18 @@ public class AssistantServiceImpl implements AssistantService {
         chatRequest.setConversationTitle(buildConversationTitle(context, message));
         chatRequest.setHistory(convertHistory(sanitizer.sanitizeHistory(request.getHistory())));
         return chatRequest;
+    }
+
+    private AssistantChatReq.AssistantPageContext resolvePageContext(AssistantChatReq request, Long userId) {
+        String contextHash = sanitizer.sanitizeContextHash(request.getPageContextHash());
+        AssistantChatReq.AssistantPageContext context = sanitizer.sanitizePageContext(request.getPageContext());
+        if (context != null) {
+            contextCache.put(userId, contextHash, context);
+            return context;
+        }
+        return contextCache.get(userId, contextHash)
+                .map(sanitizer::summarizePageContext)
+                .orElse(null);
     }
 
     private String buildConversationTitle(AssistantChatReq.AssistantPageContext context, String message) {

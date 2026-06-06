@@ -89,6 +89,8 @@ import { assistantChatStream } from '@/api/assistant'
 import { collectAssistantPageContext } from '@/utils/assistantContextCollector'
 import { renderMarkdown } from '@/composables/useMarkdown'
 
+const CONTEXT_RESEND_INTERVAL_MS = 25 * 60 * 1000
+
 const visible = ref(false)
 const sending = ref(false)
 const input = ref('')
@@ -96,6 +98,7 @@ const messages = ref([])
 const pageContext = ref(null)
 const conversationId = ref(null)
 const messageListRef = ref(null)
+const sentContextHashes = ref(new Map())
 
 const pageTitle = computed(() => pageContext.value?.page?.title || '当前页面')
 const contextReady = computed(() => (pageContext.value?.sections || []).some(section => section.content))
@@ -153,6 +156,7 @@ const openDrawer = async () => {
 const clearMessages = () => {
   messages.value = []
   conversationId.value = null
+  sentContextHashes.value = new Map()
 }
 
 const insertNewline = () => {
@@ -166,6 +170,67 @@ const buildHistory = () => messages.value
     role: message.role === 'user' ? 'user' : 'assistant',
     content: message.content
   }))
+
+const normalizeContextForHash = (value) => {
+  if (Array.isArray(value)) {
+    return value.map(normalizeContextForHash)
+  }
+  if (value && typeof value === 'object') {
+    return Object.keys(value)
+      .filter(key => key !== 'generatedAt')
+      .sort()
+      .reduce((result, key) => {
+        const item = normalizeContextForHash(value[key])
+        if (item !== undefined) {
+          result[key] = item
+        }
+        return result
+      }, {})
+  }
+  return value
+}
+
+const stableStringify = (value) => JSON.stringify(normalizeContextForHash(value))
+
+const fallbackHash = (text) => {
+  let hash = 2166136261
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index)
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)
+  }
+  return `fnv1a-${(hash >>> 0).toString(16)}`
+}
+
+const buildContextHash = async (context) => {
+  if (!context) return null
+  const text = stableStringify(context)
+  if (!text) return null
+  if (!window.crypto?.subtle) {
+    return fallbackHash(text)
+  }
+  const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+  return Array.from(new Uint8Array(digest))
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+const buildAssistantPayload = async (message, history) => {
+  const pageContextHash = await buildContextHash(pageContext.value)
+  const lastSentAt = pageContextHash ? sentContextHashes.value.get(pageContextHash) : null
+  const cacheFresh = lastSentAt && Date.now() - lastSentAt < CONTEXT_RESEND_INTERVAL_MS
+  const shouldSendFullContext = !pageContextHash || !cacheFresh
+  return {
+    payload: {
+      message,
+      conversationId: conversationId.value,
+      pageContextHash,
+      pageContext: shouldSendFullContext ? pageContext.value : undefined,
+      history
+    },
+    pageContextHash,
+    sentFullContext: shouldSendFullContext && Boolean(pageContextHash)
+  }
+}
 
 const sendMessage = async () => {
   const message = input.value.trim()
@@ -192,16 +257,15 @@ const sendMessage = async () => {
   scrollToBottom()
 
   try {
-    const response = await assistantChatStream({
-      message,
-      conversationId: conversationId.value,
-      pageContext: pageContext.value,
-      history: historyForRequest
-    })
+    const { payload, pageContextHash, sentFullContext } = await buildAssistantPayload(message, historyForRequest)
+    const response = await assistantChatStream(payload)
 
     if (!response.ok || !response.body) {
       const errorText = await response.text().catch(() => '')
       throw new Error(errorText || `HTTP ${response.status}`)
+    }
+    if (sentFullContext) {
+      sentContextHashes.value.set(pageContextHash, Date.now())
     }
 
     const reader = response.body.getReader()
