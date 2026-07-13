@@ -1,7 +1,7 @@
 package com.github.app.dify.ops.userlog.aspect;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.app.dify.auth.util.JwtUtil;
+import com.github.app.dify.common.security.RequestUserResolver;
 import com.github.app.dify.ops.userlog.annotation.UserAction;
 import com.github.app.dify.ops.userlog.domain.UserActionLog;
 import com.github.app.dify.ops.userlog.service.UserActionLogService;
@@ -36,7 +36,7 @@ public class UserActionAspect {
     private UserActionLogService userActionLogService;
 
     @Autowired
-    private JwtUtil jwtUtil;
+    private RequestUserResolver requestUserResolver;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -127,45 +127,10 @@ public class UserActionAspect {
      * 填充用户信息
      */
     private void fillUserInfo(HttpServletRequest request, UserActionLog log) {
-        try {
-            // 先从request attribute中获取
-            Object userIdObj = request.getAttribute("userId");
-            Object usernameObj = request.getAttribute("username");
-
-            logger.info("AOP切面获取用户信息 - userId: {}, username: {}", userIdObj, usernameObj);
-
-            if (userIdObj != null) {
-                if (userIdObj instanceof Long) {
-                    log.setUserId((Long) userIdObj);
-                } else if (userIdObj instanceof Integer) {
-                    log.setUserId(((Integer) userIdObj).longValue());
-                }
-            }
-
-            if (usernameObj != null) {
-                log.setUsername(usernameObj.toString());
-            }
-
-            // 如果attribute中没有，尝试从Token中获取
-            if (log.getUserId() == null) {
-                String authorization = request.getHeader("Authorization");
-                if (authorization != null && authorization.startsWith("Bearer ")) {
-                    String token = authorization.substring(7);
-                    try {
-                        Long userId = jwtUtil.getUserIdFromToken(token);
-                        String username = jwtUtil.getUsernameFromToken(token);
-                        log.setUserId(userId);
-                        log.setUsername(username);
-                        logger.info("从Token获取用户信息 - userId: {}, username: {}", userId, username);
-                    } catch (Exception e) {
-                        // Token解析失败，忽略
-                        logger.warn("Token解析失败", e);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            logger.warn("获取用户信息失败", e);
-        }
+        requestUserResolver.resolve(request).ifPresent(user -> {
+            log.setUserId(user.userId());
+            log.setUsername(user.username());
+        });
     }
 
     /**

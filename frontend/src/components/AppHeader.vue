@@ -64,6 +64,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getStoredUserInfo, isAdminUser } from '@/utils/userSession'
 import { User, ArrowDown, ArrowUp } from '@element-plus/icons-vue'
 
 const props = defineProps({
@@ -99,24 +100,9 @@ const saveCollapsedState = (collapsed) => {
 const initialCollapsed = loadCollapsedState()
 const isCollapsed = ref(initialCollapsed)
 
-// 获取用户信息
-const getUserInfo = () => {
-  const userInfoStr = localStorage.getItem('userInfo')
-  if (userInfoStr) {
-    try {
-      return JSON.parse(userInfoStr)
-    } catch (e) {
-      console.error('解析用户信息失败', e)
-    }
-  }
-  return null
-}
-
 // 回到主页（根据角色跳转）
 const handleGoToHome = () => {
-  const info = getUserInfo()
-  const isAdmin = info?.role === 1
-  router.push(isAdmin ? '/admin/chat' : '/user/chat')
+  router.push(isAdminUser() ? '/admin/chat' : '/user/chat')
 }
 
 // 切换收起/展开
@@ -163,7 +149,7 @@ watch(() => props.modelValue, (newVal) => {
 })
 
 onMounted(() => {
-  userInfo.value = getUserInfo()
+  userInfo.value = getStoredUserInfo()
   // 确保父组件同步 localStorage 中的状态
   if (isCollapsed.value !== props.modelValue) {
     emit('update:modelValue', isCollapsed.value)

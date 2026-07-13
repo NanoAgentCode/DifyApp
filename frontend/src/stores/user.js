@@ -3,17 +3,18 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { getStoredUserInfo, isAdminUser, setStoredUserInfo } from '@/utils/userSession'
 
 export const useUserStore = defineStore('user', () => {
   // 状态
   const token = ref(localStorage.getItem('token') || '')
-  const userInfo = ref(JSON.parse(localStorage.getItem('userInfo') || 'null'))
+  const userInfo = ref(getStoredUserInfo())
 
   // Getters
   const isLoggedIn = computed(() => !!token.value)
-  const isAdmin = computed(() => userInfo.value?.role === 'ADMIN')
+  const isAdmin = computed(() => isAdminUser(userInfo.value))
   const username = computed(() => userInfo.value?.username || '')
-  const userId = computed(() => userInfo.value?.id)
+  const userId = computed(() => userInfo.value?.userId ?? userInfo.value?.id ?? null)
 
   // Actions
   function setToken(newToken) {
@@ -27,11 +28,7 @@ export const useUserStore = defineStore('user', () => {
 
   function setUserInfo(info) {
     userInfo.value = info
-    if (info) {
-      localStorage.setItem('userInfo', JSON.stringify(info))
-    } else {
-      localStorage.removeItem('userInfo')
-    }
+    setStoredUserInfo(info)
   }
 
   function login(tokenValue, userInfoValue) {
@@ -51,7 +48,7 @@ export const useUserStore = defineStore('user', () => {
   function updateUserInfo(updates) {
     if (userInfo.value) {
       userInfo.value = { ...userInfo.value, ...updates }
-      localStorage.setItem('userInfo', JSON.stringify(userInfo.value))
+      setStoredUserInfo(userInfo.value)
     }
   }
 
@@ -72,4 +69,3 @@ export const useUserStore = defineStore('user', () => {
     updateUserInfo
   }
 })
-

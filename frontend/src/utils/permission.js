@@ -1,10 +1,8 @@
+import { getStoredUserInfo } from '@/utils/userSession'
+
 export function getStoredPermissions() {
-  try {
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
-    return Array.isArray(userInfo.permissions) ? userInfo.permissions : []
-  } catch (e) {
-    return []
-  }
+  const userInfo = getStoredUserInfo()
+  return Array.isArray(userInfo?.permissions) ? userInfo.permissions : []
 }
 
 export function hasPermission(permissionCode) {

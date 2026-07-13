@@ -62,28 +62,18 @@ import { ArrowLeft } from '@element-plus/icons-vue'
 import { getAppList } from '@/api/aiApp'
 import AppIcon from '@/components/AppIcon.vue'
 import { useAppNavigation } from '@/composables/useAppNavigation'
+import { getStoredUserId, isAdminUser } from '@/utils/userSession'
 
 const router = useRouter()
 const { navigateToApp } = useAppNavigation()
 const loading = ref(false)
 const appList = ref([])
 
-// 获取用户信息
-const getUserInfo = () => {
-  try {
-    const userInfoStr = localStorage.getItem('userInfo')
-    return userInfoStr ? JSON.parse(userInfoStr) : null
-  } catch (e) {
-    return null
-  }
-}
-
 const fetchAppList = async () => {
   loading.value = true
   try {
-    const userInfo = getUserInfo()
-    const isAdmin = userInfo?.role === 1
-    const userId = userInfo?.userId
+    const isAdmin = isAdminUser()
+    const userId = getStoredUserId()
     
     const params = { status: 1 }
     if (!isAdmin && userId) {
