@@ -1,6 +1,27 @@
 <template>
   <div class="knowledge-base-management">
     <el-card>
+      <template v-if="userMode" #header>
+        <div class="card-header">
+          <div class="header-left">
+            <el-button type="primary" link @click="handleBack" style="margin-right: 10px">
+              <el-icon><ArrowLeft /></el-icon>
+              返回
+            </el-button>
+            <span>我的知识库</span>
+          </div>
+          <div class="header-right">
+            <el-button type="success" @click="handleImport">
+              <el-icon><UploadFilled /></el-icon>
+              导入知识库
+            </el-button>
+            <el-button type="primary" @click="handleCreate">
+              <el-icon><Plus /></el-icon>
+              创建知识库
+            </el-button>
+          </div>
+        </div>
+      </template>
       <!-- 搜索栏 -->
       <div class="search-bar">
         <div class="search-left">
@@ -42,7 +63,7 @@
             <el-option label="禁用" value="inactive" />
           </el-select>
         </div>
-        <div class="search-right">
+        <div v-if="!userMode" class="search-right">
           <el-button type="success" @click="handleImport">
             <el-icon><UploadFilled /></el-icon>
             导入知识库
@@ -57,7 +78,7 @@
       <!-- 知识库列表 -->
       <div class="table-container" style="padding: 0 20px;">
         <el-table
-          :data="knowledgeBases"
+          :data="tableKnowledgeBases"
           v-loading="loading"
           stripe
           :lazy="false"
@@ -79,7 +100,7 @@
             <el-tag type="info">{{ row.documentCount || 0 }} 个</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="可见性" width="100" align="center">
+        <el-table-column v-if="!userMode" label="可见性" width="100" align="center">
           <template #default="{ row }">
             <el-tooltip :content="row.isPublic ? '公开' : '私有'" placement="top">
               <el-icon :size="20" :color="row.isPublic ? '#67c23a' : '#909399'">
@@ -179,7 +200,7 @@
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :page-sizes="[10, 20, 50, 100, 200]"
-          :total="total"
+          :total="displayTotal"
           layout="total, sizes, prev, pager, next, jumper"
           @size-change="handleSizeChange"
           @current-change="handlePageChange"
@@ -617,7 +638,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, ElTooltip } from 'element-plus'
-import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Unlock, Lock, Check, Close, Warning, Link, QuestionFilled, DocumentCopy, Download } from '@element-plus/icons-vue'
+import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Unlock, Lock, Check, Close, Warning, Link, QuestionFilled, DocumentCopy, ArrowLeft, Download } from '@element-plus/icons-vue'
 import { 
   getKnowledgeBaseList, 
   createKnowledgeBase, 
@@ -632,6 +653,13 @@ import {
 import { getModelConfig } from '@/api/model'
 import { getModelPlainStyle } from '@/utils/modelColor'
 import { getVectorDatabaseList } from '@/api/vectorDatabase'
+
+const props = defineProps({
+  userMode: {
+    type: Boolean,
+    default: false
+  }
+})
 
 const knowledgeBases = ref([])
 const loading = ref(false)
@@ -672,6 +700,8 @@ const userInfo = ref(null)
 const isAdmin = computed(() => {
   return userInfo.value && userInfo.value.role === 1
 })
+
+const userMode = computed(() => props.userMode)
 
 onMounted(() => {
   const userInfoStr = localStorage.getItem('userInfo')
@@ -856,19 +886,50 @@ const getEmbeddingModelName = (modelId) => {
   }
 }
 
+const filteredKnowledgeBases = computed(() => {
+  if (!userMode.value) {
+    return knowledgeBases.value
+  }
+
+  let result = [...knowledgeBases.value]
+  if (searchKeyword.value) {
+    const keyword = searchKeyword.value.toLowerCase()
+    result = result.filter(kb =>
+      kb.name.toLowerCase().includes(keyword) ||
+      (kb.description && kb.description.toLowerCase().includes(keyword))
+    )
+  }
+  if (filterStatus.value) {
+    result = result.filter(kb => kb.status === filterStatus.value)
+  }
+  if (filterVectorStoreType.value) {
+    result = result.filter(kb => kb.vectorStoreType === filterVectorStoreType.value)
+  }
+  return result
+})
+
+const tableKnowledgeBases = computed(() => {
+  if (!userMode.value) {
+    return knowledgeBases.value
+  }
+  const start = (currentPage.value - 1) * pageSize.value
+  return filteredKnowledgeBases.value.slice(start, start + pageSize.value)
+})
+
+const displayTotal = computed(() => userMode.value ? filteredKnowledgeBases.value.length : total.value)
+
 
 // 加载知识库列表
 const loadKnowledgeBases = async () => {
   loading.value = true
   try {
-    const params = {
-      page: currentPage.value,
-      pageSize: pageSize.value
-    }
+    const params = userMode.value
+      ? { userId: userInfo.value?.userId }
+      : { page: currentPage.value, pageSize: pageSize.value }
     if (filterStatus.value) {
       params.status = statusMap[filterStatus.value]
     }
-    if (filterVectorStoreType.value) {
+    if (!userMode.value && filterVectorStoreType.value) {
       params.vectorStoreType = filterVectorStoreType.value
     }
     if (searchKeyword.value) {
@@ -902,6 +963,11 @@ const loadKnowledgeBases = async () => {
 
 // 搜索防抖处理
 const handleSearch = () => {
+  if (userMode.value) {
+    currentPage.value = 1
+    loadKnowledgeBases()
+    return
+  }
   // 清除之前的定时器
   if (searchTimer) {
     clearTimeout(searchTimer)
@@ -1035,8 +1101,13 @@ const handleGenerateSummaryFromView = async () => {
 
 const router = useRouter()
 
+const handleBack = () => {
+  router.push('/user/chat')
+}
+
 const handleDocuments = (row) => {
-  router.push(`/admin/knowledge-base/${row.id}/documents`)
+  const prefix = userMode.value ? '/user' : '/admin'
+  router.push(`${prefix}/knowledge-base/${row.id}/documents`)
 }
 
 const handleGenerateSummary = async (row) => {
@@ -1420,12 +1491,16 @@ const hasDocuments = computed(() => {
 const handleSizeChange = (size) => {
   pageSize.value = size
   currentPage.value = 1
-  loadKnowledgeBases()
+  if (!userMode.value) {
+    loadKnowledgeBases()
+  }
 }
 
 const handlePageChange = (page) => {
   currentPage.value = page
-  loadKnowledgeBases()
+  if (!userMode.value) {
+    loadKnowledgeBases()
+  }
 }
 
 // 组件卸载时清理定时器
@@ -1697,6 +1772,22 @@ const getVectorDatabaseDocumentCount = (db) => {
   background: var(--color-bg-tertiary);
   border-bottom: 1px solid var(--color-border-lighter);
   gap: var(--spacing-md);
+}
+
+.card-header,
+.header-left,
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.card-header {
+  justify-content: space-between;
+}
+
+.header-left,
+.header-right {
+  gap: var(--spacing-sm);
 }
 
 .search-left {

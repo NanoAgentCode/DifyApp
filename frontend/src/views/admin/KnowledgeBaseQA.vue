@@ -1,6 +1,27 @@
 <template>
   <div class="knowledge-base-qa">
     <el-card>
+      <template v-if="userMode" #header>
+        <div class="card-header">
+          <div class="header-left">
+            <el-button type="text" @click="handleBack" style="margin-right: 10px">
+              <el-icon><ArrowLeft /></el-icon>
+              返回
+            </el-button>
+            <span>知识检索</span>
+          </div>
+          <div class="header-right">
+            <el-button type="primary" @click="goToKnowledgeBaseManagement">
+              <el-icon><Setting /></el-icon>
+              知识库管理
+            </el-button>
+            <el-button type="primary" @click="handleClearHistory">
+              <el-icon><Delete /></el-icon>
+              清空历史
+            </el-button>
+          </div>
+        </div>
+      </template>
       <div class="qa-container">
         <!-- 左侧：知识库选择 -->
         <div class="left-panel">
@@ -127,7 +148,7 @@
                   v-model="selectedModelId"
                   :models="availableQAModels"
                   placeholder="选择问答模型（可搜索）"
-                  :disabled="sending || !isKnowledgeBaseActive(selectedKB.status) || !isEmbeddingModelEnabled(selectedKB.embeddingModelId) || !isVectorStoreTypeEnabled(selectedKB.vectorStoreType)"
+                  :disabled="sending || !selectedKB || !isKnowledgeBaseActive(selectedKB.status) || !isEmbeddingModelEnabled(selectedKB.embeddingModelId) || !isVectorStoreTypeEnabled(selectedKB.vectorStoreType)"
                 />
               </div>
               <!-- 向量化模型禁用提示 -->
@@ -139,7 +160,7 @@
                 style="margin-top: 10px;"
               >
                 <template #title>
-                  <span>该知识库使用的向量化模型"{{ getEmbeddingModelName(selectedKB.embeddingModelId) || '默认向量化模型' }}"已被禁用，无法进行问答。请在管理端大模型管理页面启用该向量化模型。</span>
+                  <span>该知识库使用的向量化模型"{{ getEmbeddingModelName(selectedKB.embeddingModelId) || '默认向量化模型' }}"已被禁用，无法进行问答。{{ userMode ? '请联系管理员启用该向量化模型。' : '请在管理端大模型管理页面启用该向量化模型。' }}</span>
                 </template>
               </el-alert>
               <!-- 向量库禁用提示 -->
@@ -151,7 +172,7 @@
                 style="margin-top: 10px;"
               >
                 <template #title>
-                  <span>该知识库使用的向量库类型"{{ getVectorStoreTypeName(selectedKB.vectorStoreType) }}"已被禁用，无法进行问答。请在向量库管理中启用该类型的向量库配置。</span>
+                  <span>该知识库使用的向量库类型"{{ getVectorStoreTypeName(selectedKB.vectorStoreType) }}"已被禁用，无法进行问答。{{ userMode ? '请联系管理员在向量库管理中启用该类型的向量库配置。' : '请在向量库管理中启用该类型的向量库配置。' }}</span>
                 </template>
               </el-alert>
               <!-- 知识库禁用提示 -->
@@ -163,13 +184,14 @@
                 style="margin-top: 10px;"
               >
                 <template #title>
-                  <span>该知识库已被禁用，无法进行检索。请在知识管理中启用该知识库。</span>
+                  <span>该知识库已被禁用，无法进行检索。{{ userMode ? '请联系管理员在知识管理中启用该知识库。' : '请在知识管理中启用该知识库。' }}</span>
                 </template>
               </el-alert>
             </div>
 
             <!-- 对话历史 -->
             <div class="chat-history" ref="chatHistoryRef">
+              <div class="chat-history-content">
               <div
                 v-for="(message, index) in chatHistory"
                 :key="index"
@@ -248,6 +270,7 @@
                   <div class="message-time">{{ message.time }}</div>
                 </div>
               </div>
+              </div>
             </div>
 
             <!-- 输入区域 -->
@@ -266,15 +289,21 @@
                   <el-checkbox v-model="useStream" size="small">流式响应</el-checkbox>
                   <span class="tips-text">按 Ctrl + Enter 或 Enter 发送</span>
                 </div>
-                <el-button
-                  type="primary"
-                  :disabled="!question.trim() || !selectedKB || sending || !isKnowledgeBaseActive(selectedKB?.status) || !isEmbeddingModelEnabled(selectedKB?.embeddingModelId) || !isVectorStoreTypeEnabled(selectedKB?.vectorStoreType)"
+                <div class="input-buttons">
+                  <el-button v-if="userMode" @click="handleNewConversation" :disabled="sending">
+                    <el-icon><Plus /></el-icon>
+                    开启新对话
+                  </el-button>
+                  <el-button
+                    type="primary"
+                    :disabled="!question.trim() || !selectedKB || sending || !isKnowledgeBaseActive(selectedKB?.status) || !isEmbeddingModelEnabled(selectedKB?.embeddingModelId) || !isVectorStoreTypeEnabled(selectedKB?.vectorStoreType)"
                     @click="handleSend"
-                  :loading="sending"
-                >
-                  <el-icon><Promotion /></el-icon>
-                  发送
-                </el-button>
+                    :loading="sending"
+                  >
+                    <el-icon><Promotion /></el-icon>
+                    发送
+                  </el-button>
+                </div>
               </div>
             </div>
             </div>
@@ -286,7 +315,8 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   Delete,
   Folder,
@@ -297,14 +327,25 @@ import {
   Promotion,
   Loading,
   Star,
+  Setting,
   Search,
+  Plus,
   Warning,
-  Refresh
+  Refresh,
+  ArrowLeft
 } from '@element-plus/icons-vue'
 import ModelSelector from '@/components/chat/ModelSelector.vue'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { useTypewriter } from '@/composables/useTypewriter'
 import { useKnowledgeBaseQA } from '@/composables/useKnowledgeBaseQA'
+
+const props = defineProps({
+  userMode: {
+    type: Boolean,
+    default: false
+  }
+})
+const userMode = computed(() => props.userMode)
 
 // 使用知识库问答 composable（管理员版本，不启用对话历史）
 const {
@@ -345,12 +386,14 @@ const {
   loadQAModels,
   handleSend,
   handleClearHistory,
+  handleNewConversation,
   handleRegenerate,
   scrollToBottom,
+  loadConversationHistory,
   cleanup
 } = useKnowledgeBaseQA({
-  enableConversationHistory: false, // admin版本不启用对话历史
-  isAdmin: true // admin版本是管理员
+  enableConversationHistory: props.userMode,
+  isAdmin: !props.userMode
 })
 
 // ---- 打字机效果 ----
@@ -400,6 +443,10 @@ const getRenderedContent = (message, index) => {
   return renderMarkdown(message.content)
 }
 
+const router = useRouter()
+const handleBack = () => router.push('/user/chat')
+const goToKnowledgeBaseManagement = () => router.push({ name: 'UserKnowledgeBaseManagement' })
+
 // 手动触发代码高亮（用于流式响应中逐步生成的代码块）
 const highlightCodeBlocks = () => {
   nextTick(() => {
@@ -430,11 +477,20 @@ const highlightCodeBlocks = () => {
   })
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadKnowledgeBases()
   loadEmbeddingModels()
   loadQAModels()
   loadVectorDatabases()
+  if (userMode.value) {
+    const continueConvId = localStorage.getItem('continueConversationId')
+    if (continueConvId) {
+      localStorage.removeItem('continueConversationId')
+      await loadConversationHistory(continueConvId)
+      await nextTick()
+      highlightCodeBlocks()
+    }
+  }
 })
 
 onUnmounted(() => {
@@ -508,6 +564,24 @@ html {
   flex-direction: column;
   overflow: hidden;
   padding: 0;
+}
+
+.card-header,
+.header-left,
+.header-right,
+.input-buttons {
+  display: flex;
+  align-items: center;
+}
+
+.card-header {
+  justify-content: space-between;
+}
+
+.header-left,
+.header-right,
+.input-buttons {
+  gap: var(--spacing-sm);
 }
 
 :deep(.el-card) {
@@ -845,6 +919,13 @@ html {
   flex-direction: column;
   gap: 20px;
   min-height: 0;
+}
+
+.chat-history-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
 }
 
 /* 隐藏对话历史滚动条 */
