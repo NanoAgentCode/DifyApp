@@ -1,221 +1,12 @@
 <template>
   <div class="ai-drawio-container">
     <el-container class="full-height">
-      <!-- 左侧工具栏 -->
-      <el-aside width="300px" class="toolbar-panel">
-        <div v-if="userMode" class="toolbar-header">
-          <h3 class="toolbar-title">
-            智能框图助手
-            <el-tooltip content="模型配置在系统配置中设置" placement="top">
-              <el-icon class="title-tip-icon"><InfoFilled /></el-icon>
-            </el-tooltip>
-          </h3>
-          <el-button link @click="handleBack" size="small">
-            <el-icon><ArrowLeft /></el-icon>
-            返回
-          </el-button>
-        </div>
-        <!-- 图表类型选择 -->
-        <div class="diagram-type-section">
-          <div class="section-title">图表类型</div>
-          <el-select 
-            v-model="selectedDiagramType" 
-            @change="onDiagramTypeChange"
-            class="diagram-type-select"
-            placeholder="请选择图表类型"
-          >
-            <el-option
-              v-for="type in diagramTypeOptions"
-              :key="type.value"
-              :label="type.label"
-              :value="type.value"
-            >
-              <div class="diagram-type-option">
-                <el-icon><component :is="getIconComponent(type.icon)" /></el-icon>
-                <span>{{ type.label }}</span>
-              </div>
-            </el-option>
-          </el-select>
-        </div>
-
-        <!-- 快速模板 -->
-        <div class="template-section" v-if="selectedDiagramType !== 'custom'">
-          <div class="section-title">快速模板</div>
-          <div class="template-list">
-            <div
-              v-for="template in availableTemplates"
-              :key="template.id"
-              class="template-item"
-              @click="loadTemplate(template)"
-            >
-              <el-icon><component :is="getIconComponent(template.icon)" /></el-icon>
-              <span>{{ template.name }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- AI 输入区域 -->
-        <div class="ai-input-section">
-          <el-input
-            v-model="aiPrompt"
-            type="textarea"
-            :rows="4"
-            :placeholder="currentPlaceholder"
-            class="prompt-input"
-          />
-          <div class="button-group">
-            <el-button 
-              type="primary" 
-              :loading="generating"
-              @click="handleGenerate"
-              :disabled="!aiPrompt.trim()"
-              class="action-button"
-            >
-              <el-icon><MagicStick /></el-icon>
-              生成图表
-            </el-button>
-            <el-button 
-              v-if="hasDiagram"
-              :loading="modifying"
-              @click="handleModify"
-              :disabled="!aiPrompt.trim()"
-              class="action-button"
-            >
-              <el-icon><Edit /></el-icon>
-              修改图表
-            </el-button>
-          </div>
-        </div>
-
-        <!-- 图表管理 -->
-        <el-divider style="margin: 8px 0;" />
-        <div class="diagram-management">
-          <div class="section-title">{{ userMode ? '图表操作' : '图表管理' }}</div>
-          <div class="management-buttons">
-            <el-button 
-              v-if="!userMode"
-              type="success" 
-              @click="handleSave"
-              :disabled="!hasDiagram"
-              class="management-button"
-            >
-              <el-icon><DocumentAdd /></el-icon>
-              保存图表
-            </el-button>
-            <el-button 
-              v-if="!userMode"
-              @click="handleLoadList"
-              class="management-button"
-            >
-              <el-icon><FolderOpened /></el-icon>
-              加载图表
-            </el-button>
-            <el-button 
-              @click="handleClear"
-              :disabled="!hasDiagram"
-              class="management-button"
-            >
-              <el-icon><Delete /></el-icon>
-              清空画布
-            </el-button>
-            <el-button
-              v-if="userMode"
-              @click="handleExport"
-              :disabled="!hasDiagram"
-              class="management-button"
-            >
-              <el-icon><Download /></el-icon>
-              导出图表
-            </el-button>
-          </div>
-        </div>
-
-        <!-- 历史记录 -->
-        <el-divider style="margin: 8px 0;" />
-        <div class="history-section">
-          <div class="section-title">历史记录</div>
-          <el-scrollbar class="history-scrollbar">
-            <div 
-              v-for="(item, index) in historyList"
-              :key="item?.id || index"
-              class="history-item"
-            >
-              <div class="history-prompt" @click="loadHistoryPrompt(item)">
-                {{ typeof item === 'string' ? item : item.prompt }}
-              </div>
-              <el-button
-                type="danger"
-                :icon="Delete"
-                size="small"
-                text
-                circle
-                @click.stop="deleteHistoryItem(item)"
-                class="history-delete-btn"
-                title="删除"
-              />
-            </div>
-            <el-empty v-if="historyList.length === 0" description="暂无历史记录" :image-size="60" />
-          </el-scrollbar>
-        </div>
-      </el-aside>
-
-      <!-- 主画布区域 -->
-      <el-main class="canvas-panel">
-        <div class="canvas-header">
-          <div class="canvas-title">
-            <el-icon><DataAnalysis /></el-icon>
-            <span>图表编辑器</span>
-          </div>
-          <div class="canvas-actions">
-            <el-button-group>
-              <el-button size="small" @click="zoomOut" :disabled="zoomLevel <= 0.5" title="缩小">
-                <el-icon><ZoomOut /></el-icon>
-              </el-button>
-              <el-button size="small" @click="resetZoom" title="重置缩放">
-                <span style="min-width: 50px;">{{ Math.round(zoomLevel * 100) }}%</span>
-              </el-button>
-              <el-button size="small" @click="zoomIn" :disabled="zoomLevel >= 2" title="放大">
-                <el-icon><ZoomIn /></el-icon>
-              </el-button>
-              <el-button size="small" @click="fitToWindow" title="适应窗口">
-                <el-icon><FullScreen /></el-icon>
-              </el-button>
-            </el-button-group>
-            <el-button v-if="!userMode" size="small" @click="handleExport">
-              <el-icon><Download /></el-icon>
-              导出
-            </el-button>
-            <el-button size="small" @click="handleImport">
-              <el-icon><Upload /></el-icon>
-              导入
-            </el-button>
-          </div>
-        </div>
-        
-        <!-- AntV Infographic 图表容器 -->
-        <div 
-          class="infographic-wrapper"
-          :class="{ dragging: isDragging }"
-          ref="infographicWrapper" 
-          @wheel="handleWheel"
-          @mousedown="handleMouseDown"
-          @mousemove="handleMouseMove"
-          @mouseup="handleMouseUp"
-          @mouseleave="handleMouseUp"
-        >
-          <div 
-            class="infographic-container" 
-            ref="infographicContainer"
-            :style="{ 
-              transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`, 
-              transformOrigin: 'top left',
-              cursor: isDragging ? 'grabbing' : 'grab'
-            }"
-          ></div>
-        </div>
-      </el-main>
+      <AIDrawIOToolbar
+        v-model:selected-diagram-type="selectedDiagramType"
+        v-model:ai-prompt="aiPrompt"
+        :user-mode="userMode" :handle-back="handleBack" :diagram-type-options="diagramTypeOptions" :get-icon-component="getIconComponent" :on-diagram-type-change="onDiagramTypeChange" :available-templates="availableTemplates" :load-template="loadTemplate" :current-placeholder="currentPlaceholder" :generating="generating" :modifying="modifying" :has-diagram="hasDiagram" :handle-generate="handleGenerate" :handle-modify="handleModify" :handle-save="handleSave" :handle-load-list="handleLoadList" :handle-clear="handleClear" :handle-export="handleExport" :history-list="historyList" :load-history-prompt="loadHistoryPrompt" :delete-history-item="deleteHistoryItem" />
+      <AIDrawIOEditorCanvas :user-mode="userMode" :zoom-level="zoomLevel" :zoom-in="zoomIn" :zoom-out="zoomOut" :reset-zoom="resetZoom" :fit-to-window="fitToWindow" :handle-export="handleExport" :handle-import="handleImport" :is-dragging="isDragging" :infographic-wrapper="infographicWrapper" :infographic-container="infographicContainer" :handle-wheel="handleWheel" :handle-mouse-down="handleMouseDown" :handle-mouse-move="handleMouseMove" :handle-mouse-up="handleMouseUp" :pan-offset="panOffset" />
     </el-container>
-
     <!-- 保存对话框 -->
     <el-dialog
       v-if="!userMode"
@@ -246,16 +37,16 @@
         <el-table-column prop="createTime" label="创建时间" width="180" />
         <el-table-column label="操作" width="150">
           <template #default="scope">
-            <el-button 
-              type="primary" 
-              size="small" 
+            <el-button
+              type="primary"
+              size="small"
               @click="loadDiagram(scope.row)"
             >
               加载
             </el-button>
-            <el-button 
-              type="danger" 
-              size="small" 
+            <el-button
+              type="danger"
+              size="small"
               @click="deleteDiagramItem(scope.row.id)"
             >
               删除
@@ -311,6 +102,10 @@ import {
   saveDiagram,
   saveHistory
 } from '@/api/drawio'
+import { loadInfographicEditor } from '@/composables/useInfographicEditor'
+import AIDrawIOToolbar from '@/components/drawio/AIDrawIOToolbar.vue'
+import AIDrawIOEditorCanvas from '@/components/drawio/AIDrawIOEditorCanvas.vue'
+import AIDrawIODialogs from '@/components/drawio/AIDrawIODialogs.vue'
 
 const props = defineProps({
   userMode: {
@@ -322,30 +117,7 @@ const userMode = computed(() => props.userMode)
 const router = useRouter()
 const handleBack = () => router.push('/user/chat')
 
-// 动态导入 AntV Infographic，只在访问 AIDrawIO 页面时才加载
-let Infographic = null
-const loadInfographic = async () => {
-  if (!Infographic) {
-    try {
-      const module = await import('@antv/infographic')
-      // 0.2.12 版本使用命名导出 { Infographic }
-      // 尝试多种导出方式以确保兼容性
-      Infographic = module.Infographic || 
-                    module.default?.Infographic || 
-                    module.default ||
-                    (module.default && typeof module.default === 'function' ? module.default : null)
-      
-      if (!Infographic) {
-        console.error('模块导出内容:', module)
-        throw new Error('无法从 @antv/infographic 加载 Infographic 类，请检查包是否正确安装')
-      }
-    } catch (error) {
-      console.error('加载 @antv/infographic 失败:', error)
-      throw new Error(`加载图表库失败: ${error.message || '未知错误'}。请确保已运行 npm install 并重启开发服务器。`)
-    }
-  }
-  return Infographic
-}
+const loadInfographic = loadInfographicEditor
 
 // AntV Infographic 图表相关
 const infographicContainer = ref(null)
@@ -507,7 +279,7 @@ const initInfographic = async () => {
 
   // 等待容器元素存在
   await nextTick()
-  
+
   // 使用 ref 获取容器元素（官方推荐方式）
   const container = infographicContainer.value
   if (!container) {
@@ -520,14 +292,14 @@ const initInfographic = async () => {
     if (!InfographicClass) {
       throw new Error('无法加载 Infographic 类')
     }
-    
+
     // 清空容器
     container.innerHTML = ''
-    
+
     // 确保容器有尺寸（如果容器尺寸为 0，可能导致渲染失败）
     const containerWidth = container.clientWidth || container.offsetWidth || 800
     const containerHeight = container.clientHeight || container.offsetHeight || 600
-    
+
     console.log('容器尺寸:', {
       clientWidth: container.clientWidth,
       clientHeight: container.clientHeight,
@@ -536,14 +308,14 @@ const initInfographic = async () => {
       computedWidth: containerWidth,
       computedHeight: containerHeight
     })
-    
+
     // 如果容器尺寸为 0，设置一个默认尺寸
     if (containerWidth === 0 || containerHeight === 0) {
       console.warn('容器尺寸为 0，设置默认尺寸')
       container.style.width = container.style.width || '800px'
       container.style.height = container.style.height || '600px'
     }
-    
+
     // Vue 3 官方推荐：直接传入 DOM 元素（ref.value）
     infographicInstance = new InfographicClass({
       container: container, // 直接传入 DOM 元素
@@ -600,15 +372,15 @@ const renderInfographic = async (infographicCode) => {
   try {
     // 清理代码：移除特殊字符和多余空白
     let codeToRender = infographicCode.trim()
-    
+
     // 移除零宽字符和其他特殊字符
     codeToRender = codeToRender.replace(/[\u200B-\u200D\uFEFF]/g, '')
-    
+
     // 移除末尾的特殊字符
     codeToRender = codeToRender.replace(/[\u200B-\u200D\uFEFF\s]+$/, '')
     codeToRender = normalizeInfographicTemplate(codeToRender)
     codeToRender = normalizeInfographicText(codeToRender)
-    
+
     // 确保以 infographic 开头
     if (!codeToRender.startsWith('infographic')) {
       const infographicIndex = codeToRender.indexOf('infographic')
@@ -616,34 +388,34 @@ const renderInfographic = async (infographicCode) => {
         codeToRender = codeToRender.substring(infographicIndex).trim()
       }
     }
-    
+
     // 调试：输出代码内容
     console.log('准备渲染的代码（前200字符）:', codeToRender.substring(0, 200))
     console.log('代码总长度:', codeToRender.length)
     console.log('代码末尾10个字符:', codeToRender.substring(codeToRender.length - 10))
     console.log('容器元素:', document.getElementById('admin-infographic-container'))
     console.log('Infographic 实例:', infographicInstance)
-    
+
     if (infographicInstance) {
       // 0.2.12 版本：render 方法支持多次调用以更新图表
       // 清空容器内容（如果之前有内容）
       if (container) {
         container.innerHTML = ''
       }
-      
+
       // 验证代码格式
       if (!codeToRender.startsWith('infographic')) {
         console.warn('代码格式可能不正确，不以 infographic 开头:', codeToRender.substring(0, 50))
       }
-      
+
       // 调用 render 方法
       try {
         console.log('调用 render 方法，代码长度:', codeToRender.length)
-        
+
         // render 方法是同步的，但渲染可能是异步的
         infographicInstance.render(codeToRender)
         console.log('render 方法调用完成（同步）')
-        
+
         // 检查是否有 on 方法可以监听渲染完成事件
         if (infographicInstance.on && typeof infographicInstance.on === 'function') {
           console.log('Infographic 实例支持事件监听')
@@ -657,7 +429,7 @@ const renderInfographic = async (infographicCode) => {
         })
         throw renderError
       }
-      
+
       // 等待多次，确保渲染完成（AntV Infographic 渲染可能是异步的）
       // 增加等待时间，因为复杂的图表可能需要更长时间渲染
       await nextTick()
@@ -665,21 +437,21 @@ const renderInfographic = async (infographicCode) => {
       await nextTick()
       await new Promise(resolve => setTimeout(resolve, 200)) // 再等待 200ms
       await nextTick()
-      
+
       // 检查容器是否有内容（使用多种方式检查）
       if (container) {
-        const hasContent = container.children.length > 0 || 
+        const hasContent = container.children.length > 0 ||
                           container.innerHTML.trim().length > 0 ||
                           container.querySelector('svg') !== null ||
                           container.querySelector('canvas') !== null ||
                           container.querySelector('div') !== null
-        
+
         // 检查容器内的所有元素
         const svgElements = container.querySelectorAll('svg')
         const canvasElements = container.querySelectorAll('canvas')
         const divElements = container.querySelectorAll('div')
         const allElements = container.querySelectorAll('*')
-        
+
         console.log('容器检查结果:', {
           childrenLength: container.children.length,
           innerHTMLLength: container.innerHTML.trim().length,
@@ -694,7 +466,7 @@ const renderInfographic = async (infographicCode) => {
           containerClasses: container.className,
           containerStyle: container.getAttribute('style')
         })
-        
+
         // 检查 Infographic 实例的方法
         console.log('Infographic 实例方法:', {
           hasRender: typeof infographicInstance.render === 'function',
@@ -704,7 +476,7 @@ const renderInfographic = async (infographicCode) => {
           hasGetOptions: typeof infographicInstance.getOptions === 'function',
           instanceKeys: Object.keys(infographicInstance).slice(0, 20)
         })
-        
+
         if (!hasContent) {
           console.warn('渲染后容器为空，可能渲染失败')
           console.warn('完整代码:', codeToRender)
@@ -720,10 +492,10 @@ const renderInfographic = async (infographicCode) => {
           return
         }
       }
-      
+
       currentDiagramJson.value = codeToRender
       hasDiagram.value = true
-      
+
       console.log('图表渲染完成，容器内容预览:', container?.innerHTML.substring(0, 200))
       ElMessage.success('图表渲染成功')
     } else {
@@ -836,7 +608,7 @@ const buildFullPrompt = (userPrompt) => {
     // 如果用户输入已经包含图表类型关键词，则不添加前缀
     const typeKeywords = ['流程图', '架构图', '思维导图', '时序图', 'UML', '组织架构', '网络图']
     const hasTypeKeyword = typeKeywords.some(keyword => userPrompt.includes(keyword))
-    
+
     if (!hasTypeKeyword) {
       return config.promptPrefix + userPrompt
     }
@@ -856,7 +628,7 @@ const handleGenerate = async () => {
     const fullPrompt = buildFullPrompt(aiPrompt.value)
     // 不传递modelId，让后端从系统配置读取
     const response = await generateDiagram(fullPrompt, null, selectedDiagramType.value)
-    
+
     if (response && response.diagramJson) {
       loadInfographicCode(response.diagramJson)
       // 保存历史记录到数据库
@@ -897,7 +669,7 @@ const handleModify = async () => {
   try {
     // 不传递modelId，让后端从系统配置读取
     const response = await modifyDiagram(currentDiagramJson.value, aiPrompt.value, null)
-    
+
     if (response && response.diagramJson) {
       loadInfographicCode(response.diagramJson)
       ElMessage.success('图表修改成功！')
@@ -983,7 +755,7 @@ const deleteDiagramItem = async (id) => {
       cancelButtonText: '取消',
       type: 'warning'
     })
-    
+
     await deleteDiagram(id)
     ElMessage.success('删除成功！')
     // 刷新列表
@@ -1033,31 +805,31 @@ const resetZoom = () => {
 const handleMouseDown = (e) => {
   // 只在鼠标左键按下时开始拖拽
   if (e.button !== 0) return
-  
+
   // 如果点击的是 SVG 内部的链接或按钮，不拖拽
   if (e.target.tagName === 'A' || e.target.closest('a')) {
     return
   }
-  
+
   isDragging.value = true
   dragStart.value = {
     x: e.clientX - panOffset.value.x,
     y: e.clientY - panOffset.value.y
   }
   lastPanOffset.value = { ...panOffset.value }
-  
+
   // 阻止默认行为
   e.preventDefault()
 }
 
 const handleMouseMove = (e) => {
   if (!isDragging.value) return
-  
+
   panOffset.value = {
     x: e.clientX - dragStart.value.x,
     y: e.clientY - dragStart.value.y
   }
-  
+
   e.preventDefault()
 }
 
@@ -1071,21 +843,21 @@ const fitToWindow = () => {
   if (!infographicContainer.value || !infographicWrapper.value) {
     return
   }
-  
+
   const svg = infographicContainer.value.querySelector('svg')
   if (!svg) {
     resetZoom()
     return
   }
-  
+
   try {
     const wrapperWidth = infographicWrapper.value.clientWidth
     const wrapperHeight = infographicWrapper.value.clientHeight
-    
+
     // 尝试多种方式获取 SVG 尺寸
     let svgWidth = 0
     let svgHeight = 0
-    
+
     if (svg.getBBox) {
       try {
         const bbox = svg.getBBox()
@@ -1095,12 +867,12 @@ const fitToWindow = () => {
         // getBBox 可能失败，使用备用方法
       }
     }
-    
+
     if (svgWidth === 0 || svgHeight === 0) {
       svgWidth = svg.clientWidth || svg.getAttribute('width') || svg.viewBox?.baseVal?.width || 0
       svgHeight = svg.clientHeight || svg.getAttribute('height') || svg.viewBox?.baseVal?.height || 0
     }
-    
+
     if (svgWidth > 0 && svgHeight > 0) {
       const scaleX = (wrapperWidth - 40) / svgWidth  // 留出边距
       const scaleY = (wrapperHeight - 40) / svgHeight
@@ -1130,7 +902,7 @@ const handleExport = () => {
     ElMessage.warning('没有可导出的图表')
     return
   }
-  
+
   // 创建下载链接
   const blob = new Blob([code], { type: 'text/plain' })
   const url = URL.createObjectURL(blob)
@@ -1141,7 +913,7 @@ const handleExport = () => {
   link.click()
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
-  
+
   ElMessage.success('图表已导出')
 }
 
@@ -1153,7 +925,7 @@ const handleImport = () => {
   input.onchange = (e) => {
     const file = e.target.files[0]
     if (!file) return
-    
+
     const reader = new FileReader()
     reader.onload = (event) => {
       try {
@@ -1220,7 +992,7 @@ const deleteHistoryItem = async (item) => {
 onMounted(async () => {
   // 加载历史记录列表
   await loadHistoryList()
-  
+
   // 等待 DOM 渲染完成后初始化 AntV Infographic
   await nextTick()
   await initInfographic()
@@ -1234,324 +1006,4 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
-/* ========== 页面容器 ========== */
-.ai-drawio-container {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-bg-secondary);
-}
-
-.full-height {
-  height: 100%;
-}
-
-/* ========== 工具栏面板 ========== */
-.toolbar-panel {
-  background: var(--color-bg-primary);
-  border-right: 1px solid var(--color-border-lighter);
-  padding: var(--spacing-md) var(--spacing-lg);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  height: 100%;
-  box-shadow: var(--shadow-sm);
-}
-
-.toolbar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-md);
-  padding-bottom: var(--spacing-md);
-  border-bottom: 1px solid var(--color-border-lighter);
-}
-
-.toolbar-title {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  margin: 0;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-}
-
-.title-tip-icon {
-  color: var(--color-text-secondary);
-  cursor: help;
-  font-size: var(--font-size-sm);
-}
-
-/* ========== 图表类型选择 ========== */
-.diagram-type-section {
-  margin-bottom: var(--spacing-md);
-  margin-left: 0;
-  margin-right: 0;
-  flex-shrink: 0;
-}
-
-.diagram-type-select {
-  width: 100%;
-}
-
-.diagram-type-option {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
-
-/* ========== 快速模板 ========== */
-.template-section {
-  margin-bottom: var(--spacing-md);
-  margin-left: 0;
-  margin-right: 0;
-  flex-shrink: 0;
-}
-
-.template-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-}
-
-.template-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xs) var(--spacing-sm);
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-base);
-  border: 1px solid var(--color-border-light);
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-tight);
-}
-
-.template-item:hover {
-  background: var(--color-bg-active);
-  border-color: var(--color-primary);
-  transform: translateX(2px);
-  box-shadow: var(--shadow-xs);
-}
-
-/* ========== AI输入区域 ========== */
-.ai-input-section {
-  margin-bottom: var(--spacing-md);
-  margin-left: 0;
-  margin-right: 0;
-  flex-shrink: 0;
-}
-
-.prompt-input {
-  margin-bottom: var(--spacing-sm);
-}
-
-.button-group {
-  display: flex;
-  gap: var(--spacing-sm);
-  width: 100%;
-  margin: 0;
-}
-
-.action-button {
-  flex: 1;
-  min-width: 0;
-  height: var(--button-height-md);
-  transition: all var(--transition-base);
-  border-radius: var(--radius-md);
-}
-
-.action-button:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-primary);
-}
-
-.action-button:active {
-  transform: translateY(0);
-}
-
-.diagram-management {
-  margin-top: 8px;
-  margin-left: 0;
-  margin-right: 0;
-  flex-shrink: 0;
-}
-
-.management-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 100%;
-  margin: 0;
-}
-
-.management-button {
-  width: 100%;
-  margin: 0 !important;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* ========== 区域标题 ========== */
-.section-title {
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-regular);
-  margin-bottom: var(--spacing-sm);
-  font-size: var(--font-size-sm);
-  flex-shrink: 0;
-}
-
-/* ========== 历史记录 ========== */
-.history-section {
-  margin-top: var(--spacing-sm);
-  margin-left: 0;
-  margin-right: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 150px;
-  overflow: hidden;
-}
-
-.history-scrollbar {
-  flex: 1;
-  min-height: 0;
-}
-
-.history-item {
-  padding: var(--spacing-sm);
-  margin-bottom: var(--spacing-sm);
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-md);
-  transition: all var(--transition-base);
-  border: 1px solid var(--color-border-light);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-sm);
-}
-
-.history-item:hover {
-  background: var(--color-bg-active);
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow-xs);
-  transform: translateX(2px);
-}
-
-.history-delete-btn {
-  flex-shrink: 0;
-  opacity: 0;
-  transition: opacity var(--transition-base);
-}
-
-.history-item:hover .history-delete-btn {
-  opacity: 1;
-}
-
-.history-prompt {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-regular);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  flex: 1;
-  cursor: pointer;
-  min-width: 0;
-  transition: color var(--transition-base);
-}
-
-.history-prompt:hover {
-  color: var(--color-primary);
-}
-
-/* ========== 画布面板 ========== */
-.canvas-panel {
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-bg-primary);
-}
-
-.canvas-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--spacing-md) var(--spacing-lg);
-  border-bottom: 1px solid var(--color-border-lighter);
-  background: var(--color-bg-tertiary);
-  box-shadow: var(--shadow-xs);
-}
-
-.canvas-title {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
-.canvas-actions {
-  display: flex;
-  gap: var(--spacing-sm);
-}
-
-/* ========== AntV Infographic图表容器 ========== */
-.infographic-wrapper {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border-lighter);
-  user-select: none;
-  box-shadow: var(--shadow-sm);
-}
-
-.infographic-wrapper.dragging {
-  cursor: grabbing;
-}
-
-.infographic-container {
-  /* 重要：不使用 flex 布局，让 @antv/infographic 自己控制内容 */
-  position: relative;
-  width: 100%;
-  height: 100%;
-  min-width: 800px;
-  min-height: 600px;
-  padding: var(--spacing-lg);
-  transition: transform var(--transition-base);
-  /* 确保容器是块级元素 */
-  display: block;
-}
-
-.infographic-container :deep(svg) {
-  max-width: none;
-  height: auto;
-  display: block;
-}
-
-/* @antv/infographic 渲染的内容样式 */
-.infographic-container :deep(> div) {
-  width: 100%;
-  height: 100%;
-}
-
-.infographic-error {
-  color: var(--color-danger);
-  padding: var(--spacing-lg);
-  text-align: center;
-  font-size: var(--font-size-sm);
-  background: var(--color-danger-light);
-  border-radius: var(--radius-md);
-  margin: var(--spacing-lg);
-}
-</style>
+<style src="./AIDrawIO.css"></style>
