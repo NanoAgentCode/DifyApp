@@ -4,7 +4,7 @@
  */
 import { ref, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import { chat } from '@/api/chat'
+import { chat, chatStream } from '@/api/chat'
 import { getAvailableQAModels } from '@/api/model'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { logger } from '@/utils/logger'
@@ -164,32 +164,16 @@ export function useChat(options = {}) {
     abortController = new AbortController()
 
     try {
-      // 创建带 AbortSignal 的 fetch 请求
-      const token = localStorage.getItem('token')
-      const headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'text/event-stream'
-      }
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
-
-      const { getFullAPIUrl } = await import('@/config/api')
-      const response = await fetch(getFullAPIUrl('/api/chat/stream'), {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        signal: abortController.signal,
-        body: JSON.stringify({
-          question: userQuestion,
-          conversationId: null,
-          userId: null,
-          history: null,
-          stream: true,
-          modelId: selectedModelId.value,
-          enableBrowserSearch: enableBrowserSearchValue.value
-        })
-      })
+      const response = await chatStream(
+        userQuestion,
+        null,
+        null,
+        null,
+        selectedModelId.value,
+        enableBrowserSearchValue.value,
+        [],
+        abortController.signal
+      )
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -294,4 +278,3 @@ export function useChat(options = {}) {
     cleanup
   }
 }
-

@@ -1,5 +1,6 @@
 import request from '@/utils/request'
 import { getFullAPIUrl } from '@/config/api'
+import { requestSSE } from '@/api/sse'
 
 /**
  * 智能问答（非流式）
@@ -79,73 +80,28 @@ export function chat(question, conversationId, userId, history, modelId, enableB
  * @param {boolean} enableBrowserSearch - 是否启用浏览器搜索
  * @param {File[]} files - 附件文件列表（可选）
  */
-export function chatStream(question, conversationId, userId, history, modelId, enableBrowserSearch = false, files = []) {
-  // 获取JWT token
-  const token = localStorage.getItem('token')
-  
+export function chatStream(question, conversationId, userId, history, modelId, enableBrowserSearch = false, files = [], signal) {
+  const data = {
+    question,
+    conversationId,
+    userId,
+    history,
+    stream: true,
+    modelId,
+    enableBrowserSearch
+  }
+
   // 如果有附件，使用multipart/form-data
   if (files && files.length > 0) {
     const formData = new FormData()
-    
-    // 添加请求数据
-    const requestData = {
-      question,
-      conversationId,
-      userId,
-      history,
-      stream: true,
-      modelId,
-      enableBrowserSearch
-    }
-    formData.append('request', JSON.stringify(requestData))
-    
-    // 添加文件
+    formData.append('request', JSON.stringify(data))
     files.forEach(file => {
       formData.append('files', file)
     })
-    
-    const headers = {
-      'Accept': 'text/event-stream'
-    }
-    
-    // 添加认证token
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`
-    }
-    
-    return fetch(getFullAPIUrl('/api/chat/stream'), {
-      method: 'POST',
-      headers: headers,
-      credentials: 'include',
-      body: formData
-    })
-  } else {
-    // 没有附件，使用原来的JSON方式
-    const headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'text/event-stream'
-    }
-    
-    // 添加认证token
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`
-    }
-    
-    return fetch(getFullAPIUrl('/api/chat/stream'), {
-      method: 'POST',
-      headers: headers,
-      credentials: 'include',
-      body: JSON.stringify({
-        question,
-        conversationId,
-        userId,
-        history,
-        stream: true,
-        modelId,
-        enableBrowserSearch
-      })
-    })
+    return requestSSE('/api/chat/stream', { body: formData, signal })
   }
+
+  return requestSSE('/api/chat/stream', { data, signal })
 }
 
 /**
@@ -170,18 +126,7 @@ export function createTaskRun(question, conversationId, userId, history, modelId
  * 获取任务模式结构化事件流
  */
 export function taskEventStream(runId) {
-  const token = localStorage.getItem('token')
-  const headers = {
-    Accept: 'text/event-stream'
-  }
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
-  }
-  return fetch(getFullAPIUrl(`/api/chat/tasks/${runId}/events`), {
-    method: 'GET',
-    headers,
-    credentials: 'include'
-  })
+  return requestSSE(`/api/chat/tasks/${runId}/events`, { method: 'GET' })
 }
 
 /**

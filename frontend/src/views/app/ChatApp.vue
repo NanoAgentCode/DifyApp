@@ -278,7 +278,7 @@ import { renderMarkdown } from '@/composables/useMarkdown'
 import { useTypewriter } from '@/composables/useTypewriter'
 import { processSSEStream } from '@/composables/useSSEStream'
 import { extractContent, updateConversationId } from '@/composables/useResponseHandler'
-import { getFullAPIUrl } from '@/config/api'
+import { requestSSE } from '@/api/sse'
 import AppPageHeader from '@/components/AppPageHeader.vue'
 import { UploadFilled, Document, Picture, Delete, Promotion, FullScreen, Close } from '@element-plus/icons-vue'
 import { buildMappedInputs } from '@/utils/difyInputMapping'
@@ -893,13 +893,8 @@ const handleStreamChat = async (requestData) => {
   let memoNotified = false
 
   try {
-    const response = await fetch(getFullAPIUrl(`/api/ai-apps/${route.params.id}/chat/stream`), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-      },
-      body: JSON.stringify(requestData)
+    const response = await requestSSE(`/api/ai-apps/${route.params.id}/chat/stream`, {
+      data: requestData
     })
 
     await processSSEStream(response, {

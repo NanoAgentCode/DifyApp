@@ -86,6 +86,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ChatDotRound, Close, Loading, Promotion, Refresh } from '@element-plus/icons-vue'
 import { assistantChatStream } from '@/api/assistant'
+import { processSSEStream } from '@/composables/useSSEStream'
 import { collectAssistantPageContext } from '@/utils/assistantContextCollector'
 import { renderMarkdown } from '@/composables/useMarkdown'
 
@@ -268,43 +269,21 @@ const sendMessage = async () => {
       sentContextHashes.value.set(pageContextHash, Date.now())
     }
 
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
-
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed.startsWith('data:')) continue
-
-        const payload = trimmed.slice(5).trim()
-        if (!payload || payload === '[DONE]') continue
-
-        try {
-          const json = JSON.parse(payload)
-          if (json.conversationId) {
-            conversationId.value = String(json.conversationId)
-          }
-          if (json.answer !== undefined && messages.value[assistantIndex]) {
-            messages.value[assistantIndex].content = json.answer || ''
-            messages.value[assistantIndex].loading = false
-            scrollToBottom()
-          }
-          if (json.finished && messages.value[assistantIndex]) {
-            messages.value[assistantIndex].loading = false
-          }
-        } catch (error) {
-          console.warn('解析页面助手流式数据失败:', error)
+    await processSSEStream(response, {
+      onData: (json) => {
+        if (json.conversationId) {
+          conversationId.value = String(json.conversationId)
+        }
+        if (json.answer !== undefined && messages.value[assistantIndex]) {
+          messages.value[assistantIndex].content = json.answer || ''
+          messages.value[assistantIndex].loading = false
+          scrollToBottom()
+        }
+        if (json.finished && messages.value[assistantIndex]) {
+          messages.value[assistantIndex].loading = false
         }
       }
-    }
+    })
   } catch (error) {
     console.error('页面助手发送失败:', error)
     ElMessage.error('页面助手暂时不可用，请稍后重试')

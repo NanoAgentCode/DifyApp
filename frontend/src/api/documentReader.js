@@ -312,34 +312,18 @@ export function documentQA(docId, question, conversationId, userId, history, mod
  * @param {array} history - 历史对话（可选）
  * @param {number} modelId - 模型ID
  */
-import { getFullAPIUrl } from '@/config/api'
+import { requestSSE } from '@/api/sse'
 
 export function documentQAStream(docId, question, conversationId, userId, history, modelId) {
-  // 获取JWT token
-  const token = localStorage.getItem('token')
-  
-  const headers = {
-    'Content-Type': 'application/json',
-    'Accept': 'text/event-stream'
-  }
-  
-  // 添加认证token
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-  
-  return fetch(getFullAPIUrl(`/api/document-reader/documents/${docId}/qa/stream`), {
-    method: 'POST',
-    headers: headers,
-    credentials: 'include',
-    body: JSON.stringify({
+  return requestSSE(`/api/document-reader/documents/${docId}/qa/stream`, {
+    data: {
       question,
       conversationId,
       userId,
       history,
       stream: true,
       modelId
-    })
+    }
   })
 }
 

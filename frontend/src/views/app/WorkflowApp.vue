@@ -331,7 +331,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, FullScreen, Document, Picture, Check, Close, Download, Loading, Clock } from '@element-plus/icons-vue'
 import { getAppDetail, workflowApp, workflowAppStream, uploadFile } from '@/api/aiApp'
-import { getFullAPIUrl } from '@/config/api'
+import { requestSSE } from '@/api/sse'
 import request from '@/utils/request'
 import AppPageHeader from '@/components/AppPageHeader.vue'
 import WorkflowInputSection from '@/components/workflow/WorkflowInputSection.vue'
@@ -789,13 +789,8 @@ const handleStreamWorkflow = async (requestData) => {
   let streamResult = ''
 
   try {
-    const response = await fetch(getFullAPIUrl(`/api/ai-apps/${route.params.id}/workflow/stream`), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-      },
-      body: JSON.stringify(requestData)
+    const response = await requestSSE(`/api/ai-apps/${route.params.id}/workflow/stream`, {
+      data: requestData
     })
 
     const { processSSEStream } = await import('@/composables/useSSEStream')
