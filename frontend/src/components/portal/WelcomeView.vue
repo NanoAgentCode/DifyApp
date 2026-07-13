@@ -69,13 +69,17 @@
             <div 
               v-for="(conversation, index) in recentConversations" 
               :key="conversation.id"
-              class="conversation-card"
+              v-memo="[conversation.id, conversation.title, conversation.updateTime, conversation.type, selectedConversationId === conversation.id]"
+              :class="['conversation-card', { 'conversation-selected': selectedConversationId === conversation.id }]"
               @click="$emit('conversation-click', conversation)"
             >
               <div class="conversation-content">
                 <el-icon class="conversation-icon"><ChatLineRound /></el-icon>
                 <div class="conversation-info">
-                  <span class="conversation-title">{{ conversation.title || '未命名会话' }}</span>
+                  <div class="conversation-title-row">
+                    <span class="conversation-title">{{ conversation.title || '未命名会话' }}</span>
+                    <el-tag v-if="conversation.type === 4" size="small" type="warning" class="conversation-task-tag">任务</el-tag>
+                  </div>
                   <span class="conversation-time" v-if="conversation.updateTime">
                     {{ formatConversationTime(conversation.updateTime) }}
                   </span>
@@ -138,6 +142,10 @@ const props = defineProps({
   isHeaderCollapsed: {
     type: Boolean,
     default: false
+  },
+  selectedConversationId: {
+    type: [String, Number],
+    default: null
   }
 })
 
@@ -400,6 +408,18 @@ const formatConversationTime = (timeStr) => {
   gap: var(--spacing-xs, 4px);
   flex: 1;
   min-width: 0;
+}
+
+.conversation-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs, 4px);
+  min-width: 0;
+}
+
+.conversation-selected {
+  border-color: var(--el-color-primary, #409eff);
+  background: var(--el-color-primary-light-9, #ecf5ff);
 }
 
 .conversation-title {

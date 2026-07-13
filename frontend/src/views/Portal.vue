@@ -35,280 +35,24 @@
           </div>
         </div>
 
-        <!-- 欢迎视图 -->
         <transition name="fade-slide" mode="out-in">
-          <div v-if="currentView === 'welcome'" key="welcome" class="view-content welcome-view">
-            <!-- 助手身份卡片 -->
-            <div class="assistant-card">
-              <div class="assistant-avatar">
-                <el-icon class="assistant-icon"><Service /></el-icon>
-              </div>
-              <div class="assistant-info">
-                <h2 class="assistant-name">NanoAgent</h2>
-                <p class="assistant-status">智能助手 · 随时为您服务</p>
-              </div>
-            </div>
+          <WelcomeView
+            v-if="currentView === 'welcome'"
+            key="welcome"
+            :recent-conversations="recentConversations"
+            :suggested-questions="suggestedQuestions"
+            :is-header-collapsed="isHeaderCollapsed"
+            :selected-conversation-id="selectedConversationId"
+            @conversation-click="handleConversationClick"
+            @prompt-click="handlePromptClick"
+          />
 
-            <!-- 欢迎消息卡片 -->
-            <div class="welcome-card">
-              <div class="welcome-message">
-                <p class="greeting-text">你好！我是NanoAgent，很高兴为你提供帮助。</p>
-                <p class="greeting-subtext">有什么问题或需要协助的地方吗？</p>
-              </div>
-              
-              <!-- 快速操作提示 -->
-              <div class="quick-actions">
-                <div class="action-item">
-                  <div class="action-icon">
-                    <el-icon><Search /></el-icon>
-                  </div>
-                  <div class="action-content">
-                    <span class="action-title">知识库问答</span>
-                    <span class="action-desc">输入 <kbd>@</kbd> 选择知识库</span>
-                  </div>
-                </div>
-                <div class="action-item">
-                  <div class="action-icon">
-                    <el-icon><Document /></el-icon>
-                  </div>
-                  <div class="action-content">
-                    <span class="action-title">文档对话</span>
-                    <span class="action-desc">输入 <kbd>/</kbd> 选择文档</span>
-                  </div>
-                </div>
-                <div class="action-item">
-                  <div class="action-icon">
-                    <el-icon><InfoFilled /></el-icon>
-                  </div>
-                  <div class="action-content">
-                    <span class="action-title">快捷键</span>
-                    <div class="action-desc shortcuts-desc">
-                      <kbd>Ctrl+1</kbd> 智能对话
-                      <span class="hint-separator">|</span>
-                      <kbd>Ctrl+2</kbd> 快捷入口
-                      <span class="hint-separator">|</span>
-                      <kbd>Ctrl+N</kbd> 新对话
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 最近会话或建议问题 - 两列布局 -->
-            <div class="suggestions-section">
-              <!-- 左侧：最近会话 -->
-              <div class="suggestions-column">
-                <div v-if="recentConversations.length > 0" class="recent-conversations">
-                  <div class="section-header">
-                    <el-icon class="section-icon"><Clock /></el-icon>
-                    <span class="section-title">最近会话</span>
-                  </div>
-                  <div class="conversations-list" :class="{ 'collapsed-mode': isHeaderCollapsed }">
-                    <div 
-                      v-for="(conversation, index) in recentConversations" 
-                      :key="conversation.id"
-                      v-memo="[conversation.id, conversation.title, conversation.updateTime, conversation.type, selectedConversationId === conversation.id]"
-                      :class="['conversation-card', { 'conversation-selected': selectedConversationId === conversation.id }]"
-                      @click="handleConversationClick(conversation)"
-                    >
-                      <div class="conversation-content">
-                        <el-icon class="conversation-icon"><ChatLineRound /></el-icon>
-                        <div class="conversation-info">
-                          <div class="conversation-title-row">
-                            <span class="conversation-title">{{ conversation.title || '未命名会话' }}</span>
-                            <el-tag v-if="conversation.type === 4" size="small" type="warning" class="conversation-task-tag">任务</el-tag>
-                          </div>
-                          <span class="conversation-time" v-if="conversation.updateTime">
-                            {{ formatConversationTime(conversation.updateTime) }}
-                          </span>
-                        </div>
-                      </div>
-                      <el-icon class="conversation-arrow"><ArrowRight /></el-icon>
-                    </div>
-                  </div>
-                </div>
-                <div v-else class="empty-column">
-                  <div class="empty-placeholder">
-                    <el-icon class="empty-icon"><ChatLineRound /></el-icon>
-                    <span class="empty-text">暂无最近会话</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 右侧：建议问题 -->
-              <div class="suggestions-column">
-                <div class="suggested-questions">
-                  <div class="section-header">
-                    <el-icon class="section-icon"><Star /></el-icon>
-                    <span class="section-title">快速开始</span>
-                  </div>
-                  <div class="questions-grid" :class="{ 'collapsed-mode': isHeaderCollapsed }">
-                    <div 
-                      v-for="(question, index) in displayedQuestions"
-                      :key="index"
-                      v-memo="[question.text, question.icon, index]"
-                      class="question-card"
-                      @click="handlePromptClick(question.text)"
-                    >
-                      <el-icon class="question-icon">
-                        <QuestionFilled v-if="question.icon === 'QuestionFilled'" />
-                        <Document v-else-if="question.icon === 'Document'" />
-                        <ChatDotRound v-else-if="question.icon === 'ChatDotRound'" />
-                        <Star v-else />
-                      </el-icon>
-                      <span class="question-text">{{ question.text }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 系统功能视图 -->
-          <div v-else-if="currentView === 'features'" key="features" class="view-content">
-            <div class="feature-entries">
-              <div class="feature-header">
-                <p class="feature-subtitle">选择功能模块，快速开始您的工作</p>
-              </div>
-              
-              <div class="feature-categories">
-                <!-- AI 应用类 -->
-                <div class="feature-category">
-                  <h3 class="category-title">
-                    <el-icon class="category-icon"><Grid /></el-icon>
-                    <span>AI 应用</span>
-                  </h3>
-                  <div class="feature-cards">
-                    <div 
-                      class="feature-card" 
-                      :class="{ 'navigating': isNavigatingToFeature }"
-                      @click="handleFeatureClick('apps')"
-                      role="button"
-                      tabindex="0"
-                      @keydown.enter="handleFeatureClick('apps')"
-                    >
-                      <div class="feature-card-icon">
-                        <el-icon class="feature-icon"><Grid /></el-icon>
-                      </div>
-                      <div class="feature-card-content">
-                        <h4 class="feature-card-title">智能应用</h4>
-                        <p class="feature-card-desc">创建和管理AI应用，构建智能工作流</p>
-                      </div>
-                      <el-icon class="feature-card-arrow"><ArrowRight /></el-icon>
-                    </div>
-                    
-                    <div 
-                      class="feature-card" 
-                      :class="{ 'navigating': isNavigatingToFeature }"
-                      @click="handleFeatureClick('ai-drawio')"
-                      role="button"
-                      tabindex="0"
-                      @keydown.enter="handleFeatureClick('ai-drawio')"
-                    >
-                      <div class="feature-card-icon">
-                        <el-icon class="feature-icon"><Picture /></el-icon>
-                      </div>
-                      <div class="feature-card-content">
-                        <h4 class="feature-card-title">智能框图</h4>
-                        <p class="feature-card-desc">AI驱动的思维导图和流程图生成</p>
-                      </div>
-                      <el-icon class="feature-card-arrow"><ArrowRight /></el-icon>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 知识管理类 -->
-                <div class="feature-category">
-                  <h3 class="category-title">
-                    <el-icon class="category-icon"><Folder /></el-icon>
-                    <span>知识管理</span>
-                  </h3>
-                  <div class="feature-cards">
-                    <div 
-                      class="feature-card" 
-                      :class="{ 'navigating': isNavigatingToFeature }"
-                      @click="handleFeatureClick('kb-qa')"
-                      role="button"
-                      tabindex="0"
-                      @keydown.enter="handleFeatureClick('kb-qa')"
-                    >
-                      <div class="feature-card-icon">
-                        <el-icon class="feature-icon"><Search /></el-icon>
-                      </div>
-                      <div class="feature-card-content">
-                        <h4 class="feature-card-title">知识检索</h4>
-                        <p class="feature-card-desc">基于知识库的智能问答和检索</p>
-                      </div>
-                      <el-icon class="feature-card-arrow"><ArrowRight /></el-icon>
-                    </div>
-                    
-                    <div 
-                      class="feature-card" 
-                      :class="{ 'navigating': isNavigatingToFeature }"
-                      @click="handleFeatureClick('knowledge-base')"
-                      role="button"
-                      tabindex="0"
-                      @keydown.enter="handleFeatureClick('knowledge-base')"
-                    >
-                      <div class="feature-card-icon">
-                        <el-icon class="feature-icon"><Folder /></el-icon>
-                      </div>
-                      <div class="feature-card-content">
-                        <h4 class="feature-card-title">知识管理</h4>
-                        <p class="feature-card-desc">管理知识库和文档，构建知识体系</p>
-                      </div>
-                      <el-icon class="feature-card-arrow"><ArrowRight /></el-icon>
-                    </div>
-                    
-                    <div 
-                      class="feature-card" 
-                      :class="{ 'navigating': isNavigatingToFeature }"
-                      @click="handleFeatureClick('document')"
-                      role="button"
-                      tabindex="0"
-                      @keydown.enter="handleFeatureClick('document')"
-                    >
-                      <div class="feature-card-icon">
-                        <el-icon class="feature-icon"><Document /></el-icon>
-                      </div>
-                      <div class="feature-card-content">
-                        <h4 class="feature-card-title">文档解读</h4>
-                        <p class="feature-card-desc">上传文档，AI智能解读和分析</p>
-                      </div>
-                      <el-icon class="feature-card-arrow"><ArrowRight /></el-icon>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 会话管理类 -->
-                <div class="feature-category">
-                  <h3 class="category-title">
-                    <el-icon class="category-icon"><Clock /></el-icon>
-                    <span>会话管理</span>
-                  </h3>
-                  <div class="feature-cards">
-                    <div 
-                      class="feature-card" 
-                      :class="{ 'navigating': isNavigatingToFeature }"
-                      @click="handleFeatureClick('chat-history')"
-                      role="button"
-                      tabindex="0"
-                      @keydown.enter="handleFeatureClick('chat-history')"
-                    >
-                      <div class="feature-card-icon">
-                        <el-icon class="feature-icon"><Clock /></el-icon>
-                      </div>
-                      <div class="feature-card-content">
-                        <h4 class="feature-card-title">会话历史</h4>
-                        <p class="feature-card-desc">查看和管理历史对话记录</p>
-                      </div>
-                      <el-icon class="feature-card-arrow"><ArrowRight /></el-icon>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <FeaturesView
+            v-else-if="currentView === 'features'"
+            key="features"
+            :is-navigating="isNavigatingToFeature"
+            @feature-click="handleFeatureClick"
+          />
         </transition>
       </div>
 
@@ -564,7 +308,6 @@ import {
   ChatLineRound,
   ArrowDown,
   ArrowUp,
-  ArrowRight,
   Paperclip,
   Promotion,
   Delete,
@@ -575,16 +318,12 @@ import {
   Clock,
   Picture,
   Refresh,
-  Service,
   Check,
   User,
   Grid,
   Search,
   Folder,
-  InfoFilled,
-  Star,
-  QuestionFilled,
-  ChatDotRound
+  InfoFilled
 } from '@element-plus/icons-vue'
 import {
   chat,
@@ -607,6 +346,8 @@ import ModelSelector from '@/components/chat/ModelSelector.vue'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import UserMemoryDialog from '@/components/UserMemoryDialog.vue'
 import AppHeader from '@/components/AppHeader.vue'
+import WelcomeView from '@/components/portal/WelcomeView.vue'
+import FeaturesView from '@/components/portal/FeaturesView.vue'
 
 // Utility: Simple debounce function
 const debounce = (fn, delay) => {
@@ -746,14 +487,6 @@ const suggestedQuestions = ref([
   { text: '解释一下人工智能的基本概念', icon: 'ChatDotRound' },
   { text: '推荐一些提高效率的方法', icon: 'Star' }
 ])
-
-// 根据顶部状态显示不同数量的建议问题
-const displayedQuestions = computed(() => {
-  // 展开状态显示3条，收起状态显示4条
-  return isHeaderCollapsed.value 
-    ? suggestedQuestions.value.slice(0, 4) 
-    : suggestedQuestions.value.slice(0, 3)
-})
 
 // Memoized computed properties for better performance
 const hasActiveSelection = computed(() => selectedKnowledgeBase.value || selectedDocument.value)
@@ -2344,36 +2077,6 @@ const handleRefresh = (showMessage = true) => {
   }
 }
 
-
-// 格式化会话时间
-const formatConversationTime = (timeStr) => {
-  if (!timeStr) return ''
-  
-  try {
-    const time = new Date(timeStr)
-    const now = new Date()
-    const diff = now - time
-    const diffDays = Math.floor(diff / (1000 * 60 * 60 * 24))
-    const diffHours = Math.floor(diff / (1000 * 60 * 60))
-    const diffMinutes = Math.floor(diff / (1000 * 60))
-    
-    if (diffDays === 0) {
-      if (diffHours === 0) {
-        if (diffMinutes < 1) return '刚刚'
-        return `${diffMinutes}分钟前`
-      }
-      return `${diffHours}小时前`
-    } else if (diffDays === 1) {
-      return '昨天'
-    } else if (diffDays < 7) {
-      return `${diffDays}天前`
-    } else {
-      return time.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
-    }
-  } catch (e) {
-    return ''
-  }
-}
 
 // 处理建议提示点击
 const handlePromptClick = (prompt) => {
