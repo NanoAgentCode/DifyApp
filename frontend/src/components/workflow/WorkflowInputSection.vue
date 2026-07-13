@@ -137,7 +137,7 @@
         <el-form-item v-if="appInfo?.fileUploadEnabled" label="文件上传">
           <el-upload
             ref="uploadRef"
-            v-model:file-list="fileList"
+            :file-list="fileList"
             :auto-upload="false"
             :on-change="handleFileChange"
             :on-remove="handleFileRemove"

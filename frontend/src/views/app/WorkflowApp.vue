@@ -10,199 +10,21 @@
       </template>
 
       <div class="workflow-content">
-        <div class="input-section" v-show="!isExecuting">
-          <h4>输入参数</h4>
-          <div class="input-section-body">
-            <el-form :model="inputs" :label-width="formLabelWidth">
-              <!-- 根据配置动态渲染输入字段 -->
-              <el-form-item
-                v-for="field in inputFields"
-                :key="field.key"
-                :label="field.label || field.key"
-                :required="field.required"
-                :style="field.style || {}"
-              >
-                <!-- 文本输入 -->
-                <el-input
-                  v-if="field.type === 'text'"
-                  v-model="inputs[field.key]"
-                  :placeholder="field.placeholder || `请输入${field.label || field.key}`"
-                  :style="{ width: (field.style && field.style.width) || '100%' }"
-                />
-                
-                <!-- 多行文本 -->
-                <el-input
-                  v-else-if="field.type === 'textarea'"
-                  v-model="inputs[field.key]"
-                  type="textarea"
-                  :rows="field.rows || 2"
-                  :placeholder="field.placeholder || `请输入${field.label || field.key}`"
-                  :style="{ width: (field.style && field.style.width) || '100%' }"
-                />
-                
-                <!-- 数字输入 -->
-                <el-input-number
-                  v-else-if="field.type === 'number'"
-                  v-model="inputs[field.key]"
-                  :placeholder="field.placeholder || `请输入${field.label || field.key}`"
-                  :style="{ width: (field.style && field.style.width) || '100%' }"
-                />
-                
-                <!-- 下拉选择 -->
-                <el-select
-                  v-else-if="field.type === 'select'"
-                  v-model="inputs[field.key]"
-                  :placeholder="field.placeholder || `请选择${field.label || field.key}`"
-                  :style="{ width: (field.style && field.style.width) || '100%' }"
-                >
-                  <el-option
-                    v-for="option in field.options || []"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </el-select>
-                
-                <!-- JSON编辑器 -->
-                <div v-else-if="field.type === 'json'" class="complex-input">
-                  <el-input
-                    v-model="inputsJson[field.key]"
-                    type="textarea"
-                    :rows="field.rows || 6"
-                    :placeholder="field.placeholder || getComplexInputPlaceholder(field.key)"
-                    @blur="validateAndUpdateJson(field.key)"
-                    :style="{ width: (field.style && field.style.width) || '100%' }"
-                  />
-                  <div class="input-tip">
-                    <el-text type="info" size="small">
-                      {{ field.helpText || '支持 JSON 格式，可以是字符串、数组或对象' }}
-                    </el-text>
-                  </div>
-                </div>
-                
-                <!-- 日期选择 -->
-                <el-date-picker
-                  v-else-if="field.type === 'date'"
-                  v-model="inputs[field.key]"
-                  type="date"
-                  :placeholder="field.placeholder || `请选择${field.label || field.key}`"
-                  :style="{ width: (field.style && field.style.width) || '100%' }"
-                />
-                
-                <!-- 开关 -->
-                <el-switch
-                  v-else-if="field.type === 'switch'"
-                  v-model="inputs[field.key]"
-                />
-                
-                <!-- 默认：文本输入 -->
-                <el-input
-                  v-else
-                  v-model="inputs[field.key]"
-                  :placeholder="field.placeholder || `请输入${field.label || field.key}`"
-                  :style="{ width: (field.style && field.style.width) || '100%' }"
-                />
-                
-                <!-- 帮助文本 -->
-                <div v-if="field.helpText" class="input-tip">
-                  <el-text type="info" size="small">
-                    {{ field.helpText }}
-                  </el-text>
-                </div>
-              </el-form-item>
-              
-              <!-- 兼容旧格式：如果没有配置字段，使用旧的渲染方式 -->
-              <template v-if="inputFields.length === 0">
-                <el-form-item
-                  v-for="(value, key) in inputs"
-                  :key="key"
-                  :label="key"
-                >
-                  <!-- 简单字符串输入 -->
-                  <el-input
-                    v-if="isSimpleValue(value)"
-                    v-model="inputs[key]"
-                    :placeholder="`请输入${key}`"
-                    type="textarea"
-                    :rows="2"
-                  />
-                  <!-- 复杂结构（数组或对象）使用 JSON 编辑器 -->
-                  <div v-else class="complex-input">
-                    <el-input
-                      v-model="inputsJson[key]"
-                      type="textarea"
-                      :rows="6"
-                      :placeholder="getComplexInputPlaceholder(key)"
-                      @blur="validateAndUpdateJson(key)"
-                    />
-                    <div class="input-tip">
-                      <el-text type="info" size="small">
-                        支持 JSON 格式，可以是字符串、数组或对象
-                      </el-text>
-                    </div>
-                  </div>
-                </el-form-item>
-              </template>
-              <!-- 文件上传区域 -->
-              <el-form-item v-if="appInfo?.fileUploadEnabled" label="文件上传">
-                <el-upload
-                  ref="uploadRef"
-                  v-model:file-list="fileList"
-                  :auto-upload="false"
-                  :on-change="handleFileChange"
-                  :on-remove="handleFileRemove"
-                  :limit="10"
-                  multiple
-                  drag
-                  list-type="text"
-                >
-                  <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-                  <div class="el-upload__text">
-                    将文件拖到此处，或<em>点击上传</em>
-                  </div>
-                  <template #tip>
-                    <div class="el-upload__tip">
-                      单个文件不超过10MB,选择文件后将立即上传到Dify。
-                    </div>
-                  </template>
-                  <template #file="{ file }">
-                    <div class="upload-file-item">
-                      <div class="file-info">
-                        <el-icon class="file-icon">
-                          <Document v-if="!isImageFile(file)" />
-                          <Picture v-else />
-                        </el-icon>
-                        <span class="file-name">{{ file.name }}</span>
-                        <span class="file-size">{{ formatFileSize(file.size) }}</span>
-                        <el-tag 
-                          :type="getFileStatusType(file.status)" 
-                          size="small"
-                          class="file-status"
-                        >
-                          {{ getFileStatusText(file.status) }}
-                        </el-tag>
-                      </div>
-                      <!-- 上传成功/失败信息 -->
-                      <div v-if="file.status === 'success'" class="file-success">
-                        <el-icon class="success-icon"><Check /></el-icon>
-                        <span>上传成功</span>
-                      </div>
-                      <div v-if="file.status === 'fail'" class="file-error">
-                        <el-icon class="error-icon"><Close /></el-icon>
-                        <span>上传失败</span>
-                      </div>
-                    </div>
-                  </template>
-                </el-upload>
-              </el-form-item>
-            </el-form>
-          </div>
-          <div class="input-actions-bar">
-            <el-button type="primary" @click="handleRun" :loading="loading">运行</el-button>
-            <el-button @click="handleClear">清空</el-button>
-          </div>
-        </div>
-
+        <WorkflowInputSection
+          v-show="!isExecuting"
+          :app-info="appInfo"
+          :inputs="inputs"
+          :inputs-json="inputsJson"
+          :input-fields="inputFields"
+          :form-label-width="formLabelWidth"
+          :file-list="fileList"
+          :loading="loading"
+          @run="handleRun"
+          @clear="handleClear"
+          @file-change="handleFileChange"
+          @file-remove="handleFileRemove"
+          @update:inputs="updateInputs"
+        />
         <!-- 工作流执行过程展示区域（时间轴样式） -->
         <div class="execution-section" v-show="isExecuting">
           <h4>工作流执行过程</h4>
@@ -512,6 +334,7 @@ import { getAppDetail, workflowApp, workflowAppStream, uploadFile } from '@/api/
 import { getFullAPIUrl } from '@/config/api'
 import request from '@/utils/request'
 import AppPageHeader from '@/components/AppPageHeader.vue'
+import WorkflowInputSection from '@/components/workflow/WorkflowInputSection.vue'
 import { logger } from '@/utils/logger'
 import { useThrottleFn } from '@/utils/debounce'
 import mammoth from 'mammoth'
@@ -549,6 +372,10 @@ const docxErrorMap = ref({})
 // 输入字段配置
 const inputFields = ref([])
 const formLabelWidth = ref('140px')
+
+const updateInputs = (updatedInputs) => {
+  Object.assign(inputs, updatedInputs)
+}
 
 // 缓存提取的文件列表（性能优化）
 const extractedFiles = computed(() => {
