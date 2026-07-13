@@ -2,6 +2,7 @@ package com.github.app.dify.knowledgebase.service.strategy;
 
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
+import com.github.app.dify.documentreader.repository.DocumentReaderRepository;
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import org.slf4j.Logger;
@@ -31,6 +32,9 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
     
     @Autowired
     private VectorDatabaseConfigResolver configResolver;
+
+    @Autowired(required = false)
+    private DocumentReaderRepository documentReaderRepository;
     
     // 为每个知识库缓存数据库连接
     private final Map<Long, Connection> connectionCache = new ConcurrentHashMap<>();

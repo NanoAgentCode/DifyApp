@@ -466,7 +466,11 @@ public class KnowledgeBaseQAServiceImpl implements KnowledgeBaseQAService {
             return "";
         }
         try {
-            return chatHistoryService.getConversationSummary(conversationId, request.getUserId(), false);
+            Long userId = Long.parseLong(request.getUserId());
+            return chatHistoryService.getConversationSummary(conversationId, userId, false);
+        } catch (NumberFormatException e) {
+            logger.debug("无效的用户ID，跳过会话摘要 - userId={}", request.getUserId());
+            return "";
         } catch (Exception e) {
             logger.debug("读取会话摘要失败 - conversationId={}", conversationId, e);
             return "";

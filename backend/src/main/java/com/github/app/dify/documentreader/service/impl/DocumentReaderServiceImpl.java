@@ -228,6 +228,21 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
         translationService.saveDocumentTranslation(documentId, userId, targetLang, content);
     }
 
+    @Override
+    public String getDocumentMindMap(Long documentId, Long userId) {
+        return guideMindMapService.getDocumentMindMap(documentId, userId);
+    }
+
+    @Override
+    public void saveDocumentMindMap(Long documentId, Long userId, String mindMapData) {
+        guideMindMapService.saveDocumentMindMap(documentId, userId, mindMapData);
+    }
+
+    @Override
+    public String generateDocumentMindMap(Long documentId, Long userId, Long modelId) {
+        return guideMindMapService.generateDocumentMindMap(documentId, userId, modelId);
+    }
+
     /**
      * 获取文档笔记
      */

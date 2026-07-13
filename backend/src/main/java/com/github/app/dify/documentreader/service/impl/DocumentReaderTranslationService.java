@@ -2,6 +2,7 @@ package com.github.app.dify.documentreader.service.impl;
 
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
+import com.github.app.dify.common.exception.NotFoundException;
 import com.github.app.dify.documentreader.domain.DocumentReader;
 import com.github.app.dify.documentreader.domain.DocumentTranslation;
 import com.github.app.dify.documentreader.repository.DocumentReaderRepository;
@@ -50,6 +51,7 @@ class DocumentReaderTranslationService {
     @Autowired private ModelConfigService modelConfigService;
     @Autowired private ModelLanguageModelFactory modelLanguageModelFactory;
     @Autowired private DocumentReaderAccessService documentReaderAccessService;
+    @Autowired private DocumentReaderGuideMindMapService guideMindMapService;
     /**
      * 翻译文档（懒加载模式：只翻译第一段）
      */
@@ -393,22 +395,6 @@ class DocumentReaderTranslationService {
         }
         translationRepository.save(translation);
     }
-
-    @Override
-    public String getDocumentMindMap(Long documentId, Long userId) {
-        return guideMindMapService.getDocumentMindMap(documentId, userId);
-    }
-
-    @Override
-    public void saveDocumentMindMap(Long documentId, Long userId, String mindMapData) {
-        guideMindMapService.saveDocumentMindMap(documentId, userId, mindMapData);
-    }
-
-    @Override
-    public String generateDocumentMindMap(Long documentId, Long userId, Long modelId) {
-        return guideMindMapService.generateDocumentMindMap(documentId, userId, modelId);
-    }
-
 
     private String detectDocumentLanguage(String text) {
         if (text == null || text.trim().isEmpty()) {
@@ -949,18 +935,8 @@ class DocumentReaderTranslationService {
         }
     }
 
-    /**
-     * 获取文档原文文本内容
-     */
-    @Override
-    public String getDocumentText(Long documentId, Long userId) {
-        validateDocumentAccess(documentId, userId);
-        DocumentReader document = getDocumentByIdAndValidateAccess(documentId, userId);
-        return extractDocumentText(document);
+    private String extractDocumentText(DocumentReader document) {
+        return guideMindMapService.extractDocumentText(document);
     }
-
-    /**
-     * 截断文本到指定长度
-     */
 
 }
