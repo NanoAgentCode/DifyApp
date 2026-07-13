@@ -1,283 +1,23 @@
 <template>
   <div class="statistics">
     <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>数据统计</span>
-          <el-button type="primary" @click="loadAllStatistics" :loading="loading">
-            <el-icon><Refresh /></el-icon>
-            刷新数据
-          </el-button>
-        </div>
-      </template>
-
+      <template #header><div class="card-header"><span>数据统计</span><el-button type="primary" @click="loadAllStatistics" :loading="loading"><el-icon><Refresh /></el-icon>刷新数据</el-button></div></template>
       <div v-loading="loading" class="statistics-content">
-        <!-- 概览统计卡片 -->
-        <div class="overview-cards">
-          <el-card class="stat-card" shadow="hover">
-            <div class="stat-item">
-              <div class="stat-label">用户总数</div>
-              <div class="stat-value">{{ overview?.totalUsers || 0 }}</div>
-            </div>
-          </el-card>
-          <el-card class="stat-card" shadow="hover">
-            <div class="stat-item">
-              <div class="stat-label">应用总数</div>
-              <div class="stat-value">{{ overview?.totalApps || 0 }}</div>
-            </div>
-          </el-card>
-          <el-card class="stat-card" shadow="hover">
-            <div class="stat-item">
-              <div class="stat-label">知识库总数</div>
-              <div class="stat-value">{{ overview?.totalKnowledgeBases || 0 }}</div>
-            </div>
-          </el-card>
-          <el-card class="stat-card" shadow="hover">
-            <div class="stat-item">
-              <div class="stat-label">会话总数</div>
-              <div class="stat-value">{{ overview?.totalConversations || 0 }}</div>
-            </div>
-          </el-card>
-          <el-card class="stat-card" shadow="hover">
-            <div class="stat-item">
-              <div class="stat-label">消息总数</div>
-              <div class="stat-value">{{ overview?.totalMessages || 0 }}</div>
-            </div>
-          </el-card>
-        </div>
-
-        <!-- 饼状图统计 -->
-        <el-card class="chart-card" shadow="hover">
-          <template #header>
-            <span>饼状图统计</span>
-          </template>
-          <div class="chart-container chart-container-pie">
-            <div class="chart-item">
-              <h3>用户角色分布</h3>
-              <v-chart v-if="users?.roleDistribution && Object.keys(users.roleDistribution).length > 0" :option="userRoleChartOption" style="height: 220px" />
-              <el-empty v-else description="暂无数据" :image-size="80" />
-            </div>
-            <div class="chart-item">
-              <h3>用户状态分布</h3>
-              <v-chart v-if="users?.statusDistribution && Object.keys(users.statusDistribution).length > 0" :option="userStatusChartOption" style="height: 220px" />
-              <el-empty v-else description="暂无数据" :image-size="80" />
-            </div>
-            <div class="chart-item">
-              <h3>应用类型分布</h3>
-              <v-chart v-if="apps?.typeDistribution && Object.keys(apps.typeDistribution).length > 0" :option="appTypeChartOption" style="height: 220px" />
-              <el-empty v-else description="暂无数据" :image-size="80" />
-            </div>
-            <div class="chart-item">
-              <h3>知识库状态分布</h3>
-              <v-chart v-if="knowledgeBases?.statusDistribution && Object.keys(knowledgeBases.statusDistribution).length > 0" :option="kbStatusChartOption" style="height: 220px" />
-              <el-empty v-else description="暂无数据" :image-size="80" />
-            </div>
-            <div class="chart-item">
-              <h3>对话类型分布</h3>
-              <v-chart v-if="chatHistory?.typeDistribution && Object.keys(chatHistory.typeDistribution).length > 0" :option="chatTypeChartOption" style="height: 220px" />
-              <el-empty v-else description="暂无数据" :image-size="80" />
-            </div>
-            <div v-if="modelTokens?.modelDistribution && Object.keys(modelTokens.modelDistribution).length > 0" class="chart-item">
-              <h3>模型使用占比（按使用次数）</h3>
-              <v-chart :option="modelDistributionChartOption" style="height: 220px" />
-            </div>
-          </div>
-        </el-card>
-
-        <!-- 柱状图统计 -->
-        <el-card class="chart-card bar-chart-card" shadow="hover">
-          <template #header>
-            <span>柱状图统计</span>
-          </template>
-          <el-tabs v-model="activeBarTab" type="card" class="trend-tabs" @tab-change="handleBarTabChange">
-            <el-tab-pane label="应用统计" name="apps" :lazy="true">
-              <div class="chart-item full-width bar-chart-item">
-                <div class="chart-title-bar">
-                  <h3>应用使用情况（Top 10）</h3>
-                </div>
-                <v-chart 
-                  v-if="activeBarTab === 'apps' && apps?.appUsage && apps.appUsage.length > 0" 
-                  :key="`app-usage-${chartUpdateKey}`"
-                  :option="appUsageChartOption" 
-                  class="bar-chart"
-                  autoresize
-                />
-                <el-empty v-else description="暂无数据" :image-size="80" />
-              </div>
-            </el-tab-pane>
-            
-            <el-tab-pane label="知识库统计" name="knowledgeBases" :lazy="true">
-              <div class="chart-item full-width bar-chart-item">
-                <div class="chart-title-bar">
-                  <h3>知识库使用情况（Top 10）</h3>
-                </div>
-                <v-chart 
-                  v-if="activeBarTab === 'knowledgeBases' && knowledgeBases?.kbUsage && knowledgeBases.kbUsage.length > 0" 
-                  :key="`kb-usage-${chartUpdateKey}`"
-                  :option="kbUsageChartOption" 
-                  class="bar-chart"
-                  autoresize
-                />
-                <el-empty v-else description="暂无数据" :image-size="80" />
-              </div>
-            </el-tab-pane>
-            
-            <el-tab-pane label="用户排行" name="users" :lazy="true">
-              <div class="chart-item full-width bar-chart-item">
-                <div class="chart-title-bar">
-                  <h3>用户对话排行（Top 10）</h3>
-                </div>
-                <v-chart 
-                  v-if="activeBarTab === 'users' && chatHistory?.userConversationRanks && chatHistory.userConversationRanks.length > 0" 
-                  :key="`user-rank-${chartUpdateKey}`"
-                  :option="userConversationRankChartOption" 
-                  class="bar-chart"
-                  autoresize
-                />
-                <el-empty v-else-if="activeBarTab === 'users'" description="暂无数据" :image-size="80" />
-              </div>
-            </el-tab-pane>
-            
-            <el-tab-pane label="模型Token统计" name="modelTokens" :lazy="true">
-              <div class="chart-item full-width bar-chart-item">
-                <div class="chart-title-bar">
-                  <h3>各模型Token使用量</h3>
-                </div>
-                <v-chart 
-                  v-if="activeBarTab === 'modelTokens' && modelTokens?.modelTokenUsage && modelTokens.modelTokenUsage.length > 0" 
-                  :key="`model-token-${chartUpdateKey}`"
-                  :option="modelTokenUsageChartOption" 
-                  class="bar-chart"
-                  autoresize
-                />
-                <el-empty v-else-if="activeBarTab === 'modelTokens'" description="暂无数据" :image-size="80" />
-              </div>
-            </el-tab-pane>
-          </el-tabs>
-        </el-card>
-
-        <!-- 时间曲线统计 -->
-        <el-card class="chart-card" shadow="hover">
-          <template #header>
-            <div class="time-trend-header">
-              <span>时间曲线统计</span>
-              <div class="header-controls">
-                <el-radio-group v-model="timeRange" size="small" @change="handleTimeRangeChange">
-                  <el-radio-button label="7">最近7天</el-radio-button>
-                  <el-radio-button label="30">最近30天</el-radio-button>
-                  <el-radio-button label="90">最近90天</el-radio-button>
-                </el-radio-group>
-              </div>
-            </div>
-          </template>
-          
-          <!-- 统计摘要卡片 -->
-          <div class="trend-summary-cards">
-            <el-card class="summary-card" shadow="hover">
-              <div class="summary-item">
-                <div class="summary-label">新增用户</div>
-                <div class="summary-value">{{ getTrendSummary('users') }}</div>
-                <div class="summary-trend" :class="getTrendClass('users')">
-                  <el-icon><ArrowUp v-if="getTrendDirection('users') === 'up'" /><ArrowDown v-else /></el-icon>
-                  <span>{{ getTrendPercent('users') }}</span>
-                </div>
-              </div>
-            </el-card>
-            <el-card class="summary-card" shadow="hover">
-              <div class="summary-item">
-                <div class="summary-label">新增会话</div>
-                <div class="summary-value">{{ getTrendSummary('conversations') }}</div>
-                <div class="summary-trend" :class="getTrendClass('conversations')">
-                  <el-icon><ArrowUp v-if="getTrendDirection('conversations') === 'up'" /><ArrowDown v-else /></el-icon>
-                  <span>{{ getTrendPercent('conversations') }}</span>
-                </div>
-              </div>
-            </el-card>
-            <el-card class="summary-card" shadow="hover">
-              <div class="summary-item">
-                <div class="summary-label">新增消息</div>
-                <div class="summary-value">{{ getTrendSummary('messages') }}</div>
-                <div class="summary-trend" :class="getTrendClass('messages')">
-                  <el-icon><ArrowUp v-if="getTrendDirection('messages') === 'up'" /><ArrowDown v-else /></el-icon>
-                  <span>{{ getTrendPercent('messages') }}</span>
-                </div>
-              </div>
-            </el-card>
-            <el-card class="summary-card" shadow="hover">
-              <div class="summary-item">
-                <div class="summary-label">Token使用</div>
-                <div class="summary-value">{{ formatTokenCount(getTrendSummary('tokens')) }}</div>
-                <div class="summary-trend" :class="getTrendClass('tokens')">
-                  <el-icon><ArrowUp v-if="getTrendDirection('tokens') === 'up'" /><ArrowDown v-else /></el-icon>
-                  <span>{{ getTrendPercent('tokens') }}</span>
-                </div>
-              </div>
-            </el-card>
-          </div>
-
-          <!-- 趋势图表 -->
-          <el-tabs v-model="activeTrendTab" type="card" class="trend-tabs" @tab-change="handleTabChange">
-            <el-tab-pane label="用户趋势" name="users" :lazy="true">
-              <div class="chart-item full-width">
-                <div class="chart-title-bar">
-                  <h3>用户注册趋势</h3>
-                  <el-tag type="info" size="small">{{ timeRange }}天数据</el-tag>
-                </div>
-                <v-chart 
-                  v-if="activeTrendTab === 'users' && users?.registrationTrend && users.registrationTrend.length > 0" 
-                  :key="`user-trend-${timeRange}-${chartUpdateKey}`"
-                  :option="userRegistrationTrendOption" 
-                  style="height: 350px" 
-                  autoresize
-                />
-                <el-empty v-else description="暂无数据" :image-size="80" />
-              </div>
-            </el-tab-pane>
-            
-            <el-tab-pane label="会话趋势" name="chat" :lazy="true">
-              <div class="chart-item full-width">
-                <div class="chart-title-bar">
-                  <h3>会话与消息趋势</h3>
-                  <el-tag type="info" size="small">{{ timeRange }}天数据</el-tag>
-                </div>
-                <v-chart 
-                  v-if="activeTrendTab === 'chat' && chatHistory?.dailyStatistics && chatHistory.dailyStatistics.length > 0" 
-                  :key="`chat-trend-${timeRange}-${chartUpdateKey}`"
-                  :option="chatTrendChartOption" 
-                  style="height: 350px" 
-                  autoresize
-                />
-                <el-empty v-else description="暂无数据" :image-size="80" />
-              </div>
-            </el-tab-pane>
-            
-            <el-tab-pane label="Token趋势" name="tokens" :lazy="true">
-              <div class="chart-item full-width">
-                <div class="chart-title-bar">
-                  <h3>Token使用趋势</h3>
-                  <el-tag type="info" size="small">{{ timeRange }}天数据</el-tag>
-                </div>
-                <v-chart 
-                  v-if="activeTrendTab === 'tokens' && modelTokens?.tokenTrend !== null && modelTokens?.tokenTrend !== undefined && modelTokens.tokenTrend.length > 0" 
-                  :key="`token-trend-${timeRange}-${chartUpdateKey}`"
-                  :option="tokenTrendChartOption" 
-                  style="height: 350px" 
-                  autoresize
-                />
-                <el-empty v-else description="暂无数据" :image-size="80" />
-              </div>
-            </el-tab-pane>
-          </el-tabs>
-        </el-card>
+        <StatisticsOverviewCards :overview="overview" />
+        <StatisticsPieCharts :users="users" :apps="apps" :knowledge-bases="knowledgeBases" :chat-history="chatHistory" :model-tokens="modelTokens" :user-role-chart-option="userRoleChartOption" :user-status-chart-option="userStatusChartOption" :app-type-chart-option="appTypeChartOption" :kb-status-chart-option="kbStatusChartOption" :chat-type-chart-option="chatTypeChartOption" :model-distribution-chart-option="modelDistributionChartOption" />
+        <StatisticsBarCharts v-model:active-bar-tab="activeBarTab" :apps="apps" :knowledge-bases="knowledgeBases" :chat-history="chatHistory" :model-tokens="modelTokens" :chart-update-key="chartUpdateKey" :app-usage-chart-option="appUsageChartOption" :kb-usage-chart-option="kbUsageChartOption" :user-conversation-rank-chart-option="userConversationRankChartOption" :model-token-usage-chart-option="modelTokenUsageChartOption" @tab-change="handleBarTabChange" />
+        <StatisticsTrendCharts v-model:time-range="timeRange" v-model:active-trend-tab="activeTrendTab" :users="users" :chat-history="chatHistory" :model-tokens="modelTokens" :chart-update-key="chartUpdateKey" :user-registration-trend-option="userRegistrationTrendOption" :chat-trend-chart-option="chatTrendChartOption" :token-trend-chart-option="tokenTrendChartOption" :get-trend-summary="getTrendSummary" :get-trend-class="getTrendClass" :get-trend-direction="getTrendDirection" :get-trend-percent="getTrendPercent" :format-token-count="formatTokenCount" @time-range-change="handleTimeRangeChange" @tab-change="handleTabChange" />
       </div>
     </el-card>
   </div>
 </template>
-
 <script setup>
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { logger } from '@/utils/logger'
-import { ElMessage } from 'element-plus'
+import StatisticsOverviewCards from '@/components/statistics/StatisticsOverviewCards.vue'
+import StatisticsPieCharts from '@/components/statistics/StatisticsPieCharts.vue'
+import StatisticsBarCharts from '@/components/statistics/StatisticsBarCharts.vue'
+import StatisticsTrendCharts from '@/components/statistics/StatisticsTrendCharts.vue'
 import { Refresh, ArrowUp, ArrowDown } from '@element-plus/icons-vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -289,10 +29,7 @@ import {
   GridComponent
 } from 'echarts/components'
 import VChart from 'vue-echarts'
-import {
-  getAllStatistics,
-  getChatHistoryStatistics
-} from '@/api/statistics'
+import { useStatisticsData } from '@/composables/useStatisticsData'
 
 // 注册ECharts组件
 use([
@@ -306,21 +43,17 @@ use([
   GridComponent
 ])
 
-const loading = ref(false)
-const overview = ref(null)
-const users = ref(null)
-const apps = ref(null)
-const knowledgeBases = ref(null)
-const modelTokens = ref(null)
-const chatHistory = ref(null)
-
-// 时间曲线统计相关
 const timeRange = ref('30')
 const activeTrendTab = ref('users')
-// 柱状图统计相关
 const activeBarTab = ref('apps')
-// 图表强制更新key，用于在数据加载完成后强制重新渲染图表
 const chartUpdateKey = ref(0)
+const { loading, overview, users, apps, knowledgeBases, modelTokens, chatHistory, loadAllStatistics } = useStatisticsData(
+  timeRange,
+  async () => {
+    await nextTick()
+    chartUpdateKey.value++
+  }
+)
 
 // 统一的X轴标签显示间隔计算函数
 const getXAxisInterval = (rangeDays) => {
@@ -370,19 +103,19 @@ const ensureCompleteDateRange = (dataArray, dateKey, valueKeys, expectedDays) =>
     }
     return result
   }
-  
+
   // 如果数据条数已经等于期望天数，直接返回（后端已保证完整）
   if (dataArray.length === expectedDays) {
     return dataArray
   }
-  
+
   // 如果数据条数不够，补充缺失日期
   if (dataArray.length < expectedDays) {
     logger.debug(`后端数据条目不足：期望${expectedDays}天，实际${dataArray.length}天，正在补充缺失日期`)
-    
+
     const fullDateRange = generateDateRange(expectedDays)
     const dataMap = new Map()
-    
+
     // 将现有数据转换为Map，以日期为key（优化：使用for循环）
     for (let i = 0; i < dataArray.length; i++) {
       const item = dataArray[i]
@@ -396,13 +129,13 @@ const ensureCompleteDateRange = (dataArray, dateKey, valueKeys, expectedDays) =>
         dataMap.set(dateStr, item)
       }
     }
-    
+
     // 为每个日期创建数据对象，缺失的日期值设为0（优化：使用for循环）
     const filledData = []
     for (let i = 0; i < fullDateRange.length; i++) {
       const date = fullDateRange[i]
       const normalizedDate = date.split(' ')[0].split('T')[0]
-      
+
       if (dataMap.has(normalizedDate)) {
         const existingItem = dataMap.get(normalizedDate)
         filledData.push({ ...existingItem, [dateKey]: normalizedDate })
@@ -415,16 +148,16 @@ const ensureCompleteDateRange = (dataArray, dateKey, valueKeys, expectedDays) =>
         filledData.push(missingItem)
       }
     }
-    
+
     return filledData
   }
-  
+
   // 如果数据条数超过期望天数，截取最近N天
   if (dataArray.length > expectedDays) {
     logger.debug(`后端数据条目过多：期望${expectedDays}天，实际${dataArray.length}天，截取最近${expectedDays}天`)
     return dataArray.slice(-expectedDays)
   }
-  
+
   return dataArray
 }
 
@@ -515,17 +248,17 @@ const userRegistrationTrendOption = computed(() => {
   // 确保依赖timeRange，使其响应式更新
   const currentTimeRange = timeRange.value
   const currentData = users.value?.registrationTrend
-  
+
   if (!currentData || currentData.length === 0) {
-    return { 
+    return {
       title: { text: '暂无数据', left: 'center', top: 'middle' },
       grid: { left: '3%', right: '4%', bottom: '25%', containLabel: true }
     }
   }
-  
+
   // 根据timeRange确定天数
   const rangeDays = parseInt(currentTimeRange) || 30
-  
+
   // 使用后端返回的数据，如果数据条目不够则补充缺失日期（保护性措施）
   const completeData = ensureCompleteDateRange(currentData, 'date', ['count'], rangeDays)
   // 优化：使用for循环替代map
@@ -535,16 +268,16 @@ const userRegistrationTrendOption = computed(() => {
     dates.push(completeData[i].date)
     counts.push(completeData[i].count || 0)
   }
-  
+
   // 确保dates数组有效且长度正确
   if (!dates || dates.length === 0) {
     logger.debug('用户趋势：dates数组为空')
-    return { 
+    return {
       title: { text: '数据错误', left: 'center', top: 'middle' },
       grid: { left: '3%', right: '4%', bottom: '25%', containLabel: true }
     }
   }
-  
+
   return {
     tooltip: {
       trigger: 'axis',
@@ -894,17 +627,17 @@ const chatTrendChartOption = computed(() => {
   // 确保依赖timeRange，使其响应式更新
   const currentTimeRange = timeRange.value
   const currentData = chatHistory.value?.dailyStatistics
-  
+
   if (!currentData || currentData.length === 0) {
-    return { 
+    return {
       title: { text: '暂无数据', left: 'center', top: 'middle' },
       grid: { left: '3%', right: '4%', bottom: '25%', containLabel: true }
     }
   }
-  
+
   // 根据timeRange确定天数
   const rangeDays = parseInt(currentTimeRange) || 30
-  
+
   // 使用后端返回的数据，如果数据条目不够则补充缺失日期（保护性措施）
   const completeData = ensureCompleteDateRange(currentData, 'date', ['conversationCount', 'messageCount'], rangeDays)
   // 优化：使用for循环替代map
@@ -916,16 +649,16 @@ const chatTrendChartOption = computed(() => {
     conversationCounts.push(completeData[i].conversationCount || 0)
     messageCounts.push(completeData[i].messageCount || 0)
   }
-  
+
   // 确保dates数组有效且长度正确
   if (!dates || dates.length === 0) {
     logger.debug('会话趋势：dates数组为空')
-    return { 
+    return {
       title: { text: '数据错误', left: 'center', top: 'middle' },
       grid: { left: '3%', right: '4%', bottom: '25%', containLabel: true }
     }
   }
-  
+
   return {
     tooltip: {
       trigger: 'axis',
@@ -1114,9 +847,9 @@ const modelDistributionChartOption = computed(() => {
     tooltip: {
       trigger: 'item',
       formatter: function(params) {
-        return params.seriesName + '<br/>' + 
-               params.name + ': ' + 
-               params.value.toLocaleString() + ' 次 (' + 
+        return params.seriesName + '<br/>' +
+               params.name + ': ' +
+               params.value.toLocaleString() + ' 次 (' +
                params.percent + '%)'
       }
     },
@@ -1163,7 +896,7 @@ const tokenTrendChartOption = computed(() => {
     // 确保依赖timeRange，使其响应式更新
     const currentTimeRange = timeRange.value
     const currentData = modelTokens.value?.tokenTrend
-    
+
     // 数据验证
     if (!currentData) {
       logger.debug('Token趋势数据不存在')
@@ -1172,7 +905,7 @@ const tokenTrendChartOption = computed(() => {
         grid: { left: '3%', right: '4%', bottom: '25%', containLabel: true }
       }
     }
-    
+
     if (currentData.length === 0) {
       logger.debug('Token趋势数据为空数组')
       return {
@@ -1180,18 +913,18 @@ const tokenTrendChartOption = computed(() => {
         grid: { left: '3%', right: '4%', bottom: '25%', containLabel: true }
       }
     }
-    
+
     // 根据timeRange确定天数
     const rangeDays = parseInt(currentTimeRange) || 30
-    
+
     // 按模型分组数据
     const modelDataMap = new Map()
     const allDates = new Set()
-    
+
     // 收集所有日期和按模型分组的数据
     currentData.forEach(item => {
       if (!item.modelId || !item.modelName) return
-      
+
       const modelKey = `${item.modelId}_${item.modelName}`
       if (!modelDataMap.has(modelKey)) {
         modelDataMap.set(modelKey, {
@@ -1200,11 +933,11 @@ const tokenTrendChartOption = computed(() => {
           data: new Map()
         })
       }
-      
+
       allDates.add(item.date)
       modelDataMap.get(modelKey).data.set(item.date, item)
     })
-    
+
     // 生成完整的日期范围
     const fullDateRange = []
     const today = new Date()
@@ -1215,18 +948,18 @@ const tokenTrendChartOption = computed(() => {
       fullDateRange.push(dateStr)
       allDates.add(dateStr)
     }
-    
+
     const dates = Array.from(allDates).sort()
-    
+
     // 为每个模型生成数据系列
     const series = []
     const legendData = []
     const colors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399', '#606266']
     let colorIndex = 0
-    
+
     // 存储每个数据点的完整信息，用于tooltip
     const dataPointMap = new Map() // key: `${modelKey}_${date}`, value: item数据
-    
+
     modelDataMap.forEach((modelInfo, modelKey) => {
       const modelData = []
       dates.forEach((date, dateIdx) => {
@@ -1239,7 +972,7 @@ const tokenTrendChartOption = computed(() => {
           modelData.push(0)
         }
       })
-      
+
       series.push({
         name: modelInfo.modelName,
         type: 'line',
@@ -1257,11 +990,11 @@ const tokenTrendChartOption = computed(() => {
         // 存储模型key，用于tooltip查找
         modelKey: modelKey
       })
-      
+
       legendData.push(modelInfo.modelName)
       colorIndex++
     })
-    
+
     // 确保日期数据有效
     if (!dates || dates.length === 0) {
       logger.debug('Token趋势数据日期为空')
@@ -1270,7 +1003,7 @@ const tokenTrendChartOption = computed(() => {
         grid: { left: '3%', right: '4%', bottom: '25%', containLabel: true }
       }
     }
-    
+
     // 调试日志
     logger.debug('Token趋势图表配置（按模型分组）', {
       timeRange: currentTimeRange,
@@ -1280,23 +1013,23 @@ const tokenTrendChartOption = computed(() => {
       firstDate: dates[0],
       lastDate: dates[dates.length - 1]
     })
-    
+
     // 创建tooltip formatter，将数据映射关系存储在闭包中
     const tooltipFormatter = ((modelDataMapRef, datesRef) => {
       return (params) => {
         try {
           if (!params || params.length === 0) return ''
-          
+
           const dateIndex = params[0].dataIndex
           if (dateIndex === undefined || dateIndex === null || dateIndex < 0 || dateIndex >= datesRef.length) {
             return ''
           }
-          
+
           const date = datesRef[dateIndex]
           if (!date) return ''
-          
+
           let result = `<div style="margin-bottom: 8px;"><strong>${date}</strong></div>`
-          
+
           params.forEach(param => {
             try {
               const modelName = param.seriesName
@@ -1321,7 +1054,7 @@ const tokenTrendChartOption = computed(() => {
               logger.debug('Tooltip formatter error for param:', e)
             }
           })
-          
+
           return result
         } catch (e) {
           logger.error('Tooltip formatter error:', e)
@@ -1329,7 +1062,7 @@ const tokenTrendChartOption = computed(() => {
         }
       }
     })(modelDataMap, dates)
-    
+
     return {
     tooltip: {
       trigger: 'axis',
@@ -1397,42 +1130,6 @@ const tokenTrendChartOption = computed(() => {
   }
 })
 
-// 加载所有统计数据
-const loadAllStatistics = async () => {
-  loading.value = true
-  try {
-    // 根据timeRange确定天数
-    const rangeDays = parseInt(timeRange.value) || 30
-    logger.debug('加载统计数据，时间范围:', rangeDays, '天')
-    
-    // 加载主要统计数据（传递时间范围参数）
-    const statsResponse = await getAllStatistics(rangeDays)
-    overview.value = statsResponse.overview
-    users.value = statsResponse.users
-    apps.value = statsResponse.apps
-    knowledgeBases.value = statsResponse.knowledgeBases
-    modelTokens.value = statsResponse.modelTokens
-    
-    // 调试：输出统计数据
-    logger.debug('用户趋势数据长度:', statsResponse.users?.registrationTrend?.length || 0)
-    logger.debug('Token趋势数据长度:', statsResponse.modelTokens?.tokenTrend?.length || 0)
-
-    // 加载会话历史统计（传递时间范围参数）
-    const chatHistoryResponse = await getChatHistoryStatistics(rangeDays)
-    chatHistory.value = chatHistoryResponse
-    logger.debug('会话趋势数据长度:', chatHistoryResponse?.dailyStatistics?.length || 0)
-    
-    // 数据加载完成后，等待DOM更新，然后强制更新图表
-    await nextTick()
-    chartUpdateKey.value++
-  } catch (error) {
-    logger.error('加载统计数据失败:', error)
-    ElMessage.error('加载统计数据失败：' + (error.message || '未知错误'))
-  } finally {
-    loading.value = false
-  }
-}
-
 // 时间范围变化处理
 const handleTimeRangeChange = (value) => {
   // 时间范围改变时，重新加载数据
@@ -1466,7 +1163,7 @@ const handleBarTabChange = (tabName) => {
 const getTrendSummary = (type) => {
   const range = parseInt(timeRange.value)
   let data = []
-  
+
   switch (type) {
     case 'users':
       data = users.value?.registrationTrend || []
@@ -1483,7 +1180,7 @@ const getTrendSummary = (type) => {
     default:
       return 0
   }
-  
+
   return data.slice(-range).reduce((sum, item) => sum + (item.count || 0), 0)
 }
 
@@ -1491,7 +1188,7 @@ const getTrendSummary = (type) => {
 const getTrendDirection = (type) => {
   const range = parseInt(timeRange.value)
   let data = []
-  
+
   switch (type) {
     case 'users':
       data = users.value?.registrationTrend || []
@@ -1520,7 +1217,7 @@ const getTrendDirection = (type) => {
     default:
       return 'stable'
   }
-  
+
   if (data.length < 2) return 'stable'
   const sliced = data.slice(-range)
   const first = sliced.slice(0, Math.floor(sliced.length / 2)).reduce((sum, item) => sum + (item.count || 0), 0)
@@ -1532,7 +1229,7 @@ const getTrendDirection = (type) => {
 const getTrendPercent = (type) => {
   const range = parseInt(timeRange.value)
   let data = []
-  
+
   switch (type) {
     case 'users':
       data = users.value?.registrationTrend || []
@@ -1567,7 +1264,7 @@ const getTrendPercent = (type) => {
     default:
       return '0%'
   }
-  
+
   if (data.length < 2) return '0%'
   const sliced = data.slice(-range)
   const first = sliced.slice(0, Math.floor(sliced.length / 2)).reduce((sum, item) => sum + (item.count || 0), 0)
@@ -1613,431 +1310,4 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
-/* ========== 页面容器 ========== */
-.statistics {
-  padding: var(--spacing-lg);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--color-bg-secondary);
-}
-
-/* ========== 卡片样式 ========== */
-:deep(.el-card) {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  margin: 0;
-  border-radius: var(--card-border-radius);
-  box-shadow: var(--card-shadow);
-  transition: box-shadow var(--transition-base);
-}
-
-:deep(.el-card:hover) {
-  box-shadow: var(--card-shadow-hover);
-}
-
-:deep(.el-card__header) {
-  flex-shrink: 0;
-  padding: var(--spacing-md) var(--card-padding);
-  background: var(--color-bg-tertiary);
-  border-bottom: 1px solid var(--color-border-lighter);
-}
-
-:deep(.el-card__body) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: var(--spacing-md);
-  min-height: 0;
-  background: var(--color-bg-primary);
-}
-
-/* ========== 卡片头部 ========== */
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-header span {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
-/* ========== 内容区域 ========== */
-.statistics-content {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-bottom: var(--spacing-lg);
-  box-sizing: border-box;
-}
-
-/* ========== 概览统计卡片 ========== */
-.overview-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-lg);
-}
-
-.stat-card {
-  text-align: center;
-  transition: all var(--transition-base);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-}
-
-.stat-item {
-  padding: var(--spacing-md);
-}
-
-.stat-label {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  margin-bottom: var(--spacing-sm);
-  font-weight: var(--font-weight-medium);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.stat-value {
-  font-size: var(--font-size-3xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-primary);
-  line-height: var(--line-height-tight);
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark-1) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.chart-card {
-  margin-bottom: var(--spacing-lg);
-  transition: all var(--transition-base);
-}
-
-.chart-card:hover {
-  box-shadow: var(--card-shadow-hover);
-}
-
-/* 确保最后一个卡片有足够的底部空间 */
-.chart-card:last-child {
-  margin-bottom: 0;
-}
-
-/* 柱状图统计卡片特殊处理，减少底部空白 */
-.bar-chart-card :deep(.el-card__body) {
-  padding: 12px;
-  padding-bottom: 12px;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.bar-chart-card .trend-tabs {
-  margin-bottom: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.bar-chart-card .trend-tabs :deep(.el-tabs__content) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding-top: 16px;
-  padding-bottom: 0;
-}
-
-.bar-chart-card .trend-tabs :deep(.el-tab-pane) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding-bottom: 0;
-}
-
-/* 选项卡切换过渡动画 */
-.bar-chart-card .trend-tabs :deep(.el-tabs__content) {
-  position: relative;
-}
-
-.bar-chart-card .trend-tabs :deep(.el-tab-pane) {
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.bar-chart-card .trend-tabs :deep(.el-tab-pane.is-active) {
-  animation: tabFadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: opacity, transform; /* 硬件加速 */
-}
-
-/* 柱状图项样式 */
-.bar-chart-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 12px;
-  padding-top: 8px;
-  padding-bottom: 12px;
-}
-
-.bar-chart {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-}
-
-.chart-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: var(--spacing-lg);
-}
-
-/* 饼状图容器 - 使用3列布局，更整齐 */
-.chart-container-pie {
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--spacing-lg);
-}
-
-.chart-item {
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  border: 1px solid var(--color-border-lighter);
-  transition: all var(--transition-base);
-}
-
-.chart-item:hover {
-  box-shadow: var(--shadow-sm);
-  border-color: var(--color-border-base);
-}
-
-.chart-item h3 {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  margin-bottom: var(--spacing-md);
-}
-
-/* 柱状图和时间曲线容器 - 单列布局 */
-.chart-container .chart-item.full-width {
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  border: 1px solid var(--color-border-light);
-  transition: all var(--transition-base);
-}
-
-.chart-container .chart-item.full-width:hover {
-  box-shadow: var(--shadow-md);
-  border-color: var(--color-border-base);
-  transform: translateY(-2px);
-}
-
-.chart-container .chart-item h3 {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  margin-bottom: var(--spacing-md);
-}
-
-@media (max-width: 1400px) {
-  .chart-container-pie {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 900px) {
-  .chart-container-pie {
-    grid-template-columns: 1fr;
-  }
-}
-
-.chart-item {
-  /* 移除固定最小高度，让内容自适应图表高度 */
-  display: flex;
-  flex-direction: column;
-  background: #fafafa;
-  border-radius: 6px;
-  padding: 16px;
-  border: 1px solid #e4e7ed;
-  transition: all 0.3s;
-}
-
-.chart-item:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  border-color: #c0c4cc;
-}
-
-.chart-item.full-width {
-  grid-column: 1 / -1;
-  padding-bottom: 12px;
-  padding-top: 8px;
-}
-
-.chart-item h3 {
-  margin: 0 0 12px 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #303133;
-  text-align: center;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #e4e7ed;
-}
-
-.empty-tip {
-  grid-column: 1 / -1;
-  padding: 40px;
-  text-align: center;
-}
-
-/* 时间曲线统计样式 */
-.time-trend-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.trend-summary-cards {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.summary-card {
-  text-align: center;
-}
-
-.summary-item {
-  padding: 12px;
-}
-
-.summary-label {
-  font-size: 13px;
-  color: #909399;
-  margin-bottom: 8px;
-}
-
-.summary-value {
-  font-size: 24px;
-  font-weight: bold;
-  color: #303133;
-  margin-bottom: 8px;
-}
-
-.summary-trend {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  font-size: 12px;
-}
-
-.summary-trend.trend-up {
-  color: #67c23a;
-}
-
-.summary-trend.trend-down {
-  color: #f56c6c;
-}
-
-.summary-trend.trend-stable {
-  color: #909399;
-}
-
-.trend-tabs {
-  margin-top: 16px;
-}
-
-.trend-tabs :deep(.el-tabs__content) {
-  padding-top: 16px;
-  padding-bottom: 0;
-}
-
-.trend-tabs :deep(.el-tab-pane) {
-  padding-bottom: 0;
-}
-
-/* 选项卡切换过渡动画 */
-.trend-tabs :deep(.el-tabs__content) {
-  position: relative;
-}
-
-.trend-tabs :deep(.el-tab-pane) {
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.trend-tabs :deep(.el-tab-pane.is-active) {
-  animation: tabFadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: opacity, transform; /* 硬件加速 */
-}
-
-@keyframes tabFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.chart-title-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid #e4e7ed;
-}
-
-.chart-title-bar h3 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #303133;
-}
-
-@media (max-width: 1200px) {
-  .trend-summary-cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 768px) {
-  .trend-summary-cards {
-    grid-template-columns: 1fr;
-  }
-  
-  .time-trend-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-}
-</style>
-
+<style src="./Statistics.css"></style>
