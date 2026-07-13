@@ -1,0 +1,722 @@
+.document-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--el-bg-color-page, #f5f7fa);
+}
+
+.viewer-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: var(--el-bg-color, #ffffff);
+  border-bottom: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.back-button:hover {
+  background-color: var(--el-color-primary-light-9, #ecf5ff);
+  color: var(--el-color-primary, #409eff);
+  transform: translateX(-2px);
+}
+
+.document-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--el-text-color-primary, #303133);
+  max-width: 500px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-action-btn {
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.toolbar-action-btn:hover {
+  background-color: var(--el-color-primary-light-9, #ecf5ff);
+  color: var(--el-color-primary, #409eff);
+}
+
+.viewer-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  padding: 0;
+  transform-origin: top center;
+  transition: transform 0.3s ease;
+  background: var(--el-bg-color-page, #f5f7fa);
+}
+
+.pdf-container {
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--el-bg-color-page, #f5f7fa);
+}
+
+.pdf-viewer-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 20px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  gap: 20px;
+}
+
+.pdf-page-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.pdf-page-number {
+  text-align: center;
+  color: var(--el-text-color-secondary, #909399);
+  font-size: 14px;
+  margin-bottom: 10px;
+  padding: 8px;
+  background: var(--el-bg-color-page, #f5f7fa);
+  border-radius: var(--el-border-radius-base, 4px);
+  width: 100%;
+  max-width: 100%;
+}
+
+.pdf-embed {
+  width: 100%;
+  max-width: 100%;
+  box-shadow: var(--el-box-shadow-light, 0 2px 12px 0 rgba(0, 0, 0, 0.1));
+  border-radius: var(--el-border-radius-base, 4px);
+  background: var(--el-bg-color, #ffffff);
+}
+
+.pdf-embed .pdf-page {
+  position: relative;
+}
+
+.pdf-embed canvas {
+  width: 100% !important;
+  height: auto !important;
+  display: block;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.pdf-embed .textLayer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  opacity: 1;
+  line-height: 1.0;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.pdf-embed .textLayer > span {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+}
+
+.pdf-embed .textLayer .highlight {
+  margin: -1px;
+  padding: 1px;
+  background-color: rgba(180, 0, 170, 0.2);
+  border-radius: 4px;
+}
+
+.pdf-embed .textLayer .highlight.selected {
+  background-color: rgba(0, 100, 0, 0.2);
+}
+
+/* 保留旧的样式以防万一（已废弃） */
+.pdf-html-content {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  background: var(--el-bg-color, #ffffff);
+  padding: 20px;
+  border-radius: var(--el-border-radius-base, 4px);
+  box-shadow: var(--el-box-shadow-light, 0 2px 12px 0 rgba(0, 0, 0, 0.1));
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.pdf-html-content .pdf-page-wrapper {
+  width: 100%;
+  margin-bottom: 30px;
+  page-break-after: always;
+  box-sizing: border-box;
+}
+
+.pdf-html-content .pdf-page-wrapper:last-child {
+  margin-bottom: 0;
+}
+
+.pdf-html-content .pdf-page-number {
+  text-align: center;
+  color: var(--el-text-color-secondary, #909399);
+  font-size: 14px;
+  margin-bottom: 10px;
+  padding: 8px;
+  background: var(--el-bg-color-page, #f5f7fa);
+  border-radius: var(--el-border-radius-base, 4px);
+}
+
+.pdf-html-content .pdf-page-image {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  display: block;
+  margin: 0 auto;
+  box-shadow: var(--el-box-shadow-light, 0 2px 12px 0 rgba(0, 0, 0, 0.1));
+  border-radius: var(--el-border-radius-base, 4px);
+  object-fit: contain;
+  box-sizing: border-box;
+}
+
+.pdf-pages-placeholder {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 40px;
+  box-sizing: border-box;
+}
+
+.placeholder-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--el-text-color-secondary, #909399);
+  font-size: 14px;
+  padding: 16px 24px;
+  background: var(--el-bg-color, #ffffff);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.placeholder-loading .loading-icon {
+  font-size: 20px;
+  animation: rotate 1s linear infinite;
+  margin-bottom: 0;
+}
+
+.pdf-page-error {
+  text-align: center;
+  color: var(--el-color-danger, #f56c6c);
+  padding: 20px;
+  background: var(--el-bg-color-page, #f5f7fa);
+  border-radius: var(--el-border-radius-base, 4px);
+}
+
+.pdf-error-message {
+  text-align: center;
+  color: var(--el-color-danger, #f56c6c);
+  padding: 40px;
+  background: var(--el-bg-color-page, #f5f7fa);
+  border-radius: var(--el-border-radius-base, 4px);
+}
+
+.pdf-iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+  border: none;
+  background: var(--el-bg-color, #ffffff);
+}
+
+.image-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--el-bg-color-page, #f5f7fa);
+}
+
+.document-image {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.markdown-container {
+  width: 100%;
+  max-width: 900px;
+  min-height: 100%;
+  padding: 20px;
+  background: var(--el-bg-color, #ffffff);
+  border-radius: var(--el-border-radius-base, 4px);
+  box-shadow: var(--el-box-shadow-light, 0 2px 12px 0 rgba(0, 0, 0, 0.1));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.markdown-content {
+  width: 100%;
+  line-height: 1.6;
+  color: var(--el-text-color-primary, #303133);
+}
+
+.text-container {
+  width: 100%;
+  max-width: 900px;
+  min-height: 100%;
+  padding: 20px;
+  background: var(--el-bg-color, #ffffff);
+  border-radius: var(--el-border-radius-base, 4px);
+  box-shadow: var(--el-box-shadow-light, 0 2px 12px 0 rgba(0, 0, 0, 0.1));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.text-content {
+  width: 100%;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: 'Courier New', monospace;
+  line-height: 1.6;
+  color: var(--el-text-color-primary, #303133);
+  margin: 0;
+}
+
+.docx-container {
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px 20px;
+  background: #d0d0d0; /* 模拟Word的灰色背景 */
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(0,0,0,0.03) 1px, rgba(0,0,0,0.03) 2px);
+}
+
+.docx-content {
+  width: 100%;
+  max-width: 816px; /* A4纸张宽度（210mm）在96dpi下的像素值 */
+  min-height: 1056px; /* A4纸张高度（297mm）在96dpi下的像素值 */
+  padding: 96px 96px 96px 96px; /* 上下左右各2.54cm（1英寸）的页边距 */
+  margin: 0 auto;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    0 4px 16px rgba(0, 0, 0, 0.1);
+  line-height: 1.15; /* Word默认行距 */
+  color: #000000;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+  font-size: 11pt; /* Word默认字体大小 */
+  text-align: left;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  box-sizing: border-box;
+}
+
+.docx-content p {
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  line-height: 1.15;
+  font-size: 11pt;
+  color: #000000;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+}
+
+.docx-content p + p {
+  margin-top: 0;
+}
+
+.docx-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* 标题样式 - 模拟Word标题格式 */
+.docx-content h1 {
+  margin: 12pt 0 6pt 0;
+  padding: 0;
+  font-size: 16pt;
+  font-weight: bold;
+  color: #000000;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+  line-height: 1.15;
+  page-break-after: avoid;
+}
+
+.docx-content h2 {
+  margin: 12pt 0 6pt 0;
+  padding: 0;
+  font-size: 14pt;
+  font-weight: bold;
+  color: #000000;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+  line-height: 1.15;
+  page-break-after: avoid;
+}
+
+.docx-content h3 {
+  margin: 12pt 0 6pt 0;
+  padding: 0;
+  font-size: 12pt;
+  font-weight: bold;
+  color: #000000;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+  line-height: 1.15;
+  page-break-after: avoid;
+}
+
+.docx-content h4,
+.docx-content h5,
+.docx-content h6 {
+  margin: 12pt 0 6pt 0;
+  padding: 0;
+  font-size: 11pt;
+  font-weight: bold;
+  color: #000000;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+  line-height: 1.15;
+  page-break-after: avoid;
+}
+
+.docx-content ul,
+.docx-content ol {
+  margin: 0;
+  padding-left: 36pt; /* Word默认列表缩进 */
+  line-height: 1.15;
+}
+
+.docx-content ul {
+  list-style-type: disc;
+}
+
+.docx-content ol {
+  list-style-type: decimal;
+}
+
+.docx-content li {
+  margin: 0;
+  padding: 0;
+  line-height: 1.15;
+  font-size: 11pt;
+  color: #000000;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+}
+
+.docx-content li p {
+  margin: 0;
+  padding: 0;
+}
+
+.docx-content li + li {
+  margin-top: 0;
+}
+
+.docx-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 6pt 0;
+  border: 0.5pt solid #000000;
+  font-size: 11pt;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+}
+
+.docx-content table td,
+.docx-content table th {
+  border: 0.5pt solid #000000;
+  padding: 4pt 5.4pt; /* Word默认单元格内边距 */
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.15;
+  color: #000000;
+}
+
+.docx-content table th {
+  background-color: #f2f2f2; /* Word表头默认背景色 */
+  font-weight: bold;
+  text-align: center;
+}
+
+.docx-content :deep(table tr:nth-child(even)) {
+  background-color: #ffffff;
+}
+
+.docx-content :deep(table tr:nth-child(odd)) {
+  background-color: #ffffff;
+}
+
+.docx-content img {
+  max-width: 100%;
+  height: auto;
+  margin: 6pt 0;
+  display: block;
+  border: none;
+  box-shadow: none;
+}
+
+.docx-content img[style*="float: left"] {
+  float: left;
+  margin-right: 12pt;
+  margin-bottom: 6pt;
+}
+
+.docx-content img[style*="float: right"] {
+  float: right;
+  margin-left: 12pt;
+  margin-bottom: 6pt;
+}
+
+/* 文本格式样式 */
+.docx-content strong,
+.docx-content b {
+  font-weight: bold;
+  color: #000000;
+}
+
+.docx-content em,
+.docx-content i {
+  font-style: italic;
+  color: #000000;
+}
+
+.docx-content u {
+  text-decoration: underline;
+  color: #000000;
+}
+
+.docx-content s,
+.docx-content strike {
+  text-decoration: line-through;
+  color: #000000;
+}
+
+.docx-content code {
+  font-family: 'Courier New', monospace;
+  font-size: 10pt;
+  background-color: #f5f5f5;
+  padding: 2pt 4pt;
+  border-radius: 2pt;
+}
+
+.docx-content blockquote {
+  margin: 12pt 0;
+  padding: 0 12pt;
+  border-left: 3pt solid #cccccc;
+  color: #666666;
+  font-style: italic;
+}
+
+.docx-content hr {
+  border: none;
+  border-top: 0.5pt solid #000000;
+  margin: 12pt 0;
+  width: 100%;
+}
+
+/* 超链接样式 */
+.docx-content a {
+  color: #0563c1;
+  text-decoration: underline;
+}
+
+.docx-content a:hover {
+  color: #0563c1;
+  text-decoration: underline;
+}
+
+.docx-content .docx-error-message {
+  color: #c00000;
+  padding: 20px;
+  text-align: center;
+  background: #fff4f4;
+  border: 1px solid #ffcccc;
+  font-size: 11pt;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+}
+
+.docx-content .docx-tip-message {
+  color: #666666;
+  padding: 20px;
+  text-align: center;
+  background: #f5f5f5;
+  font-size: 11pt;
+  font-family: 'Calibri', 'Microsoft YaHei', 'SimSun', 'Times New Roman', Arial, sans-serif;
+}
+
+.other-document-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.unsupported-message {
+  text-align: center;
+  padding: 40px;
+  background: var(--el-bg-color, #ffffff);
+  border-radius: var(--el-border-radius-base, 4px);
+  box-shadow: var(--el-box-shadow-light, 0 2px 12px 0 rgba(0, 0, 0, 0.1));
+}
+
+.message-icon {
+  font-size: 48px;
+  color: var(--el-text-color-placeholder, #909399);
+  margin-bottom: 16px;
+}
+
+.unsupported-message p {
+  margin: 8px 0;
+  color: var(--el-text-color-regular, #606266);
+}
+
+.message-tip {
+  font-size: 14px;
+  color: var(--el-text-color-placeholder, #909399);
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 100%;
+  flex: 1;
+  color: var(--el-text-color-placeholder, #909399);
+}
+
+.loading-icon {
+  font-size: 48px;
+  animation: rotate 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.viewer-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--el-bg-color, #ffffff);
+  border-top: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  flex-shrink: 0;
+}
+
+.controls-left,
+.controls-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.page-jump-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-separator {
+  color: var(--el-text-color-placeholder, #909399);
+  font-size: 14px;
+}
+
+.total-pages {
+  color: var(--el-text-color-regular, #606266);
+  font-size: 14px;
+  min-width: 30px;
+}
+
+.zoom-reset-text {
+  font-size: 14px;
+  color: var(--el-text-color-regular, #606266);
+  min-width: 50px;
+  text-align: center;
+}
+
+.text-selection-popup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--el-bg-color, #ffffff);
+  border: 1px solid var(--el-color-primary, #409eff);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
+  animation: popupFadeIn 0.2s ease-out;
+  z-index: 1000;
+}
+
+@keyframes popupFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.text-selection-popup .el-button {
+  margin: 0;
+}
