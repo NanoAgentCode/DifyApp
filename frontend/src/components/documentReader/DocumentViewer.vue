@@ -224,6 +224,7 @@ import { ElMessage } from 'element-plus'
 import { ArrowLeft, Star, Share, Download, Loading, Document, ArrowRight, Minus, Plus, DocumentAdd, Close, ChatLineRound, FullScreen, Search } from '@element-plus/icons-vue'
 import { getDocumentContent } from '@/api/documentReader'
 import { renderMarkdown } from '@/composables/useMarkdown'
+import { usePdfLazyRendering } from '@/composables/usePdfLazyRendering'
 
 // 动态导入 PDF 相关库，避免阻塞初始加载
 let VuePdfEmbed = null
@@ -312,43 +313,32 @@ const isImageType = computed(() => {
 })
 
 const pdfSource = ref(null)
-const pdfEmbedRef = ref(null)
 const imageUrl = ref('')
 const markdownContent = ref('')
 const textContent = ref('')
 const docxContent = ref('')
 const loading = ref(false)
 
-// PDF总页数
-const pdfTotalPages = ref(1)
-
-// 懒加载：当前已渲染的页数（初始只渲染 INITIAL_PDF_PAGES 页）
-const INITIAL_PDF_PAGES = 3
-const PDF_PAGES_PER_BATCH = 5
-const visiblePageCount = ref(INITIAL_PDF_PAGES)
-const loadingMorePages = ref(false)
-const pdfViewerWrapperRef = ref(null)
-const pdfPlaceholderRef = ref(null)
-let pdfLazyObserver = null
-
-// 已渲染的页码数组（懒加载，只包含已渲染的页）
-const visiblePdfPageNumbers = computed(() => {
-  const count = Math.min(visiblePageCount.value, pdfTotalPages.value)
-  return Array.from({ length: count }, (_, i) => i + 1)
-})
-
-// 占位符高度（估算未渲染部分的高度，每页约 1100px）
-const placeholderHeight = computed(() => {
-  const unrenderedPages = pdfTotalPages.value - visiblePageCount.value
-  return unrenderedPages > 0 ? `${unrenderedPages * 1100}px` : '0px'
-})
-
-// 设置PDF embed ref（仅用于第一页）
-const setPdfEmbedRef = (el) => {
-  if (el) {
-    pdfEmbedRef.value = el
+const {
+  pdfTotalPages,
+  visiblePageCount,
+  loadingMorePages,
+  pdfViewerWrapperRef,
+  pdfPlaceholderRef,
+  visiblePdfPageNumbers,
+  placeholderHeight,
+  setPdfEmbedRef,
+  setPdfTotalPages,
+  resetPdfLazyRendering,
+  initPdfLazyLoading,
+  handlePdfPageRendered,
+  cleanupPdfLazyLoading
+} = usePdfLazyRendering({
+  onTotalPages: (totalPages) => emit('update:totalPages', totalPages),
+  onFirstPageRendered: () => {
+    loading.value = false
   }
-}
+})
 
 const renderedMarkdown = computed(() => {
   if (!markdownContent.value) return ''
@@ -361,13 +351,7 @@ const loadDocumentContent = async () => {
   
   // 重置所有内容
   pdfSource.value = null
-  pdfTotalPages.value = 1 // 重置总页数，初始显示第一页
-  visiblePageCount.value = INITIAL_PDF_PAGES // 重置懒加载状态
-  // 清理旧的观察器
-  if (pdfLazyObserver) {
-    pdfLazyObserver.disconnect()
-    pdfLazyObserver = null
-  }
+  resetPdfLazyRendering()
   imageUrl.value = ''
   markdownContent.value = ''
   textContent.value = ''
@@ -414,10 +398,7 @@ const loadDocumentContent = async () => {
           const pdfDocument = await loadingTask.promise
           
           if (pdfDocument && pdfDocument.numPages) {
-            pdfTotalPages.value = pdfDocument.numPages
-            emit('update:totalPages', pdfDocument.numPages)
-            // 重置懒加载状态
-            visiblePageCount.value = INITIAL_PDF_PAGES
+            setPdfTotalPages(pdfDocument.numPages)
             // 初始化懒加载观察器
             nextTick(() => initPdfLazyLoading())
           }
@@ -706,109 +687,6 @@ const handleKeyDown = (event) => {
   // ESC退出全屏
   else if (key === 'Escape' && isFullScreen.value) {
     handleFullScreen()
-  }
-}
-
-// 初始化 PDF 懒加载观察器
-const initPdfLazyLoading = () => {
-  // 清理旧的观察器
-  if (pdfLazyObserver) {
-    pdfLazyObserver.disconnect()
-    pdfLazyObserver = null
-  }
-  
-  if (!pdfPlaceholderRef.value || pdfTotalPages.value <= visiblePageCount.value) return
-  
-  pdfLazyObserver = new IntersectionObserver(
-    (entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting && !loadingMorePages.value) {
-          loadMorePdfPages()
-        }
-      })
-    },
-    {
-      root: pdfViewerWrapperRef.value,
-      rootMargin: '400px 0px', // 提前 400px 触发加载
-      threshold: 0
-    }
-  )
-  
-  if (pdfPlaceholderRef.value) {
-    pdfLazyObserver.observe(pdfPlaceholderRef.value)
-  }
-}
-
-// 加载更多 PDF 页面
-const loadMorePdfPages = () => {
-  if (loadingMorePages.value) return
-  if (visiblePageCount.value >= pdfTotalPages.value) {
-    // 所有页面已渲染，断开观察器
-    if (pdfLazyObserver) {
-      pdfLazyObserver.disconnect()
-      pdfLazyObserver = null
-    }
-    return
-  }
-  
-  loadingMorePages.value = true
-  const newCount = Math.min(visiblePageCount.value + PDF_PAGES_PER_BATCH, pdfTotalPages.value)
-  visiblePageCount.value = newCount
-  
-  // 等待 DOM 更新后重新观察占位符
-  nextTick(() => {
-    loadingMorePages.value = false
-    // 如果还有未渲染的页，重新观察新的占位符
-    if (visiblePageCount.value < pdfTotalPages.value && pdfPlaceholderRef.value && pdfLazyObserver) {
-      pdfLazyObserver.observe(pdfPlaceholderRef.value)
-    } else if (pdfLazyObserver) {
-      pdfLazyObserver.disconnect()
-      pdfLazyObserver = null
-    }
-  })
-}
-
-// PDF页面渲染完成回调
-const handlePdfPageRendered = async (pageNum, info) => {
-  // 只在第一页渲染时获取总页数并更新状态
-  if (pageNum === 1) {
-    loading.value = false
-    
-    // 尝试从vue-pdf-embed获取总页数
-    try {
-      if (pdfEmbedRef.value && pdfEmbedRef.value.pdf) {
-        const pdf = pdfEmbedRef.value.pdf
-        if (pdf && pdf.numPages) {
-          pdfTotalPages.value = pdf.numPages
-          emit('update:totalPages', pdf.numPages)
-          // 初始化懒加载（如果 pdfjs 未能提前获取总页数）
-          if (visiblePageCount.value >= pdf.numPages) {
-            visiblePageCount.value = INITIAL_PDF_PAGES
-          }
-          nextTick(() => initPdfLazyLoading())
-          return
-        }
-      }
-      
-      // 如果从 ref 获取失败，尝试从 info 参数获取
-      if (info && typeof info === 'object' && info.numPages) {
-        pdfTotalPages.value = info.numPages
-        emit('update:totalPages', info.numPages)
-        nextTick(() => initPdfLazyLoading())
-        return
-      } else if (pdfEmbedRef.value) {
-        // info 为 undefined 或无效值，尝试延迟获取
-        setTimeout(() => {
-          if (pdfEmbedRef.value?.pdf?.numPages) {
-            pdfTotalPages.value = pdfEmbedRef.value.pdf.numPages
-            emit('update:totalPages', pdfEmbedRef.value.pdf.numPages)
-            nextTick(() => initPdfLazyLoading())
-          }
-        }, 100)
-      }
-    } catch (error) {
-      console.warn('获取PDF总页数失败:', error)
-    }
   }
 }
 
@@ -1152,11 +1030,7 @@ onBeforeUnmount(() => {
     viewerContent.removeEventListener('dblclick', handleDoubleClick)
   }
   
-  // 清理 PDF 懒加载观察器
-  if (pdfLazyObserver) {
-    pdfLazyObserver.disconnect()
-    pdfLazyObserver = null
-  }
+  cleanupPdfLazyLoading()
   
   // 清理PDF源（如果是Blob URL）
   if (pdfSource.value && typeof pdfSource.value === 'string' && pdfSource.value.startsWith('blob:')) {

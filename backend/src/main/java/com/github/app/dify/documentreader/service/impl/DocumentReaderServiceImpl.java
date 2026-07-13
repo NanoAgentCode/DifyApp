@@ -118,6 +118,12 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     @Autowired
     private SystemConfigService systemConfigService;
 
+    @Autowired
+    private DocumentReaderAccessService documentReaderAccessService;
+
+    @Autowired
+    private DocumentReaderNotesService documentReaderNotesService;
+
     /**
      * 上传文档
      */
@@ -205,17 +211,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
      * 获取文档并验证访问权限
      */
     private DocumentReader getDocumentByIdAndValidateAccess(Long documentId, Long userId) {
-        Optional<DocumentReader> optional = documentRepository.findByIdAndDeleted(documentId, 0);
-        if (!optional.isPresent()) {
-            throw new NotFoundException("文档不存在");
-        }
-
-        DocumentReader document = optional.get();
-        if (!document.getUserId().equals(userId)) {
-            throw new BusinessException("无权访问此文档", ErrorCode.FORBIDDEN);
-        }
-
-        return document;
+        return documentReaderAccessService.getDocumentAndValidateAccess(documentId, userId);
     }
 
     /**
@@ -1041,10 +1037,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
      */
     @Override
     public String getDocumentNotes(Long documentId, Long userId) {
-        validateDocumentAccess(documentId, userId);
-        return notesRepository.findByDocumentId(documentId)
-                .map(DocumentNotes::getContent)
-                .orElse("");
+        return documentReaderNotesService.getNotes(documentId, userId);
     }
 
     /**
@@ -1053,21 +1046,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     @Transactional
     @Override
     public void saveDocumentNotes(Long documentId, Long userId, String content) {
-        validateDocumentAccess(documentId, userId);
-
-        Optional<DocumentNotes> optional = notesRepository.findByDocumentId(documentId);
-        DocumentNotes notes;
-        if (optional.isPresent()) {
-            notes = optional.get();
-            notes.setContent(content);
-            DocumentReaderDateTimeUtil.setUpdateTime(notes);
-        } else {
-            notes = new DocumentNotes();
-            notes.setDocumentId(documentId);
-            notes.setContent(content);
-            DocumentReaderDateTimeUtil.setCreateAndUpdateTime(notes);
-        }
-        notesRepository.save(notes);
+        documentReaderNotesService.saveNotes(documentId, userId, content);
     }
 
     // 私有辅助方法
@@ -1119,7 +1098,7 @@ public class DocumentReaderServiceImpl implements DocumentReaderService {
     }
 
     private void validateDocumentAccess(Long documentId, Long userId) {
-        getDocumentByIdAndValidateAccess(documentId, userId);
+        documentReaderAccessService.validateAccess(documentId, userId);
     }
 
     /**

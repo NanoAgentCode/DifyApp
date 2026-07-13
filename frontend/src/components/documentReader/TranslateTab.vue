@@ -150,7 +150,8 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Switch, Refresh, Loading, Document, Edit, FullScreen, Close, Check } from '@element-plus/icons-vue'
-import { translateDocument, getDocumentTranslation, saveDocumentTranslation, getDocumentText, getDocumentSegments, translateDocumentSegment } from '@/api/documentReader'
+import { translateDocument, getDocumentTranslation, saveDocumentTranslation, getDocumentText } from '@/api/documentReader'
+import { useDocumentSegmentTranslation } from '@/composables/useDocumentSegmentTranslation'
 import { debounce } from '@/utils/debounce'
 
 const props = defineProps({
@@ -178,18 +179,27 @@ const isScrolling = ref(false) // 防止滚动循环
 const isFullscreen = ref(false) // 全屏状态
 const translateTabRef = ref(null) // 翻译组件引用
 
-// 懒加载相关状态
-const segmentsInfo = ref(null) // 分段信息
-const loadedSegments = ref(new Set()) // 已加载的分段索引
-const loadingSegments = ref(new Set()) // 正在加载的分段索引
-const segmentTranslations = ref([]) // 分段翻译内容数组
 const translationContainerRef = ref(null) // 翻译内容容器引用
-const isUpdatingContent = ref(false) // 标记是否正在更新内容，防止滚动事件触发
-const lastScrollTop = ref(0) // 记录上次滚动位置
-const lastScrollTime = ref(0) // 记录上次滚动时间
 const selectedTextInfo = ref(null) // 选中的文本信息
 const highlightTimeout = ref(null) // 高亮清除定时器
 const pageHeight = ref(0) // 页面高度（用于页面对齐）
+
+const {
+  segmentsInfo,
+  loadedSegments,
+  loadingSegments,
+  segmentTranslations,
+  resetSegmentTranslations,
+  loadSegmentsInfo,
+  loadTranslationSegment,
+  handleTranslationScrollForLazyLoad
+} = useDocumentSegmentTranslation({
+  docId: computed(() => props.docId),
+  targetLanguage,
+  translationContent,
+  translationContainerRef,
+  onSegmentError: (message) => ElMessage.error(message)
+})
 
 // 分析文本结构，提取段落分隔信息
 function analyzeTextStructure(text) {
@@ -844,10 +854,7 @@ const handleTranslate = async () => {
   
   // 重新翻译：清空现有翻译内容
   translationContent.value = ''
-  segmentsInfo.value = null
-  loadedSegments.value.clear()
-  loadingSegments.value.clear()
-  segmentTranslations.value = []
+  resetSegmentTranslations()
   
   translating.value = true
   try {
@@ -873,489 +880,6 @@ const handleTranslate = async () => {
     translating.value = false
   }
 }
-
-// 加载分段信息
-const loadSegmentsInfo = async () => {
-  try {
-    const response = await getDocumentSegments(props.docId)
-    segmentsInfo.value = response
-    // 初始化分段翻译数组
-    if (segmentsInfo.value && segmentsInfo.value.totalSegments) {
-      segmentTranslations.value = new Array(segmentsInfo.value.totalSegments).fill(null)
-    }
-  } catch (error) {
-    console.error('加载分段信息失败:', error)
-  }
-}
-
-// 加载指定分段的翻译
-// 加载分段翻译（懒加载）- 优化版本
-const loadTranslationSegment = async (segmentIndex) => {
-  // 验证分段索引有效性
-  if (!Number.isInteger(segmentIndex) || segmentIndex < 0) {
-    console.warn(`无效的分段索引: ${segmentIndex}`)
-    return
-  }
-  
-  // 检查分段信息是否已加载
-  if (!segmentsInfo.value || !Number.isInteger(segmentsInfo.value.totalSegments) || segmentsInfo.value.totalSegments <= 0) {
-    console.warn('分段信息未加载，无法加载分段翻译')
-    return
-  }
-  
-  const totalSegments = segmentsInfo.value.totalSegments
-  
-  // 检查索引是否超出范围
-  if (segmentIndex >= totalSegments) {
-    console.warn(`分段索引 ${segmentIndex} 超出范围，总段数: ${totalSegments}`)
-    return
-  }
-  
-  // 防止重复加载
-  if (loadingSegments.value.has(segmentIndex)) {
-    return // 正在加载中，跳过
-  }
-  
-  if (loadedSegments.value.has(segmentIndex)) {
-    // 已加载，检查是否需要更新显示
-    if (segmentTranslations.value[segmentIndex] && !isUpdatingContent.value) {
-      requestAnimationFrame(() => {
-        updateTranslationDisplay()
-      })
-    }
-    return
-  }
-  
-  if (!targetLanguage.value) {
-    console.warn('未选择目标语言，无法加载翻译分段')
-    return
-  }
-  
-  // 如果正在更新内容，延迟加载
-  if (isUpdatingContent.value) {
-    setTimeout(() => {
-      loadTranslationSegment(segmentIndex)
-    }, 100)
-    return
-  }
-  
-  loadingSegments.value.add(segmentIndex)
-  
-  try {
-    const response = await translateDocumentSegment(props.docId, targetLanguage.value, segmentIndex)
-    let content = ''
-    if (typeof response === 'string') {
-      content = response
-    } else if (response && typeof response === 'object') {
-      content = response.content || response.data?.content || ''
-    }
-    
-    if (content && content.trim()) {
-      // 确保数组大小足够
-      if (segmentTranslations.value.length <= segmentIndex) {
-        const oldLength = segmentTranslations.value.length
-        segmentTranslations.value.length = totalSegments
-        for (let i = oldLength; i < totalSegments; i++) {
-          if (segmentTranslations.value[i] === undefined) {
-            segmentTranslations.value[i] = null
-          }
-        }
-      }
-      
-      segmentTranslations.value[segmentIndex] = content
-      loadedSegments.value.add(segmentIndex)
-      
-      // 批量更新：延迟更新显示，避免频繁更新导致卡顿
-      if (!isUpdatingContent.value) {
-        // 使用 requestAnimationFrame 优化更新时机
-        requestAnimationFrame(() => {
-          updateTranslationDisplay()
-        })
-      }
-    } else {
-      console.warn(`分段 ${segmentIndex} 翻译内容为空`)
-      // 标记为已处理，避免重复请求
-      loadedSegments.value.add(segmentIndex)
-    }
-  } catch (error) {
-    console.error(`加载分段 ${segmentIndex} 翻译失败:`, error)
-    
-    // 处理不同类型的错误
-    if (error.message) {
-      if (error.message.includes('分段索引无效') || error.message.includes('索引无效')) {
-        console.warn(`分段索引 ${segmentIndex} 无效，停止加载`)
-        // 标记为已处理，避免重复请求
-        loadedSegments.value.add(segmentIndex)
-        return
-      }
-      
-      if (error.message.includes('文档不存在')) {
-        ElMessage.error('文档不存在，请刷新页面重试')
-        return
-      }
-      
-      if (error.message.includes('未配置可用的模型')) {
-        ElMessage.error('未配置翻译模型，请联系管理员')
-        return
-      }
-    }
-    
-    // 只在用户主动操作时显示错误消息，避免自动加载时的错误提示
-    // 错误消息会在用户点击翻译按钮时显示
-  } finally {
-    loadingSegments.value.delete(segmentIndex)
-  }
-}
-
-// 智能合并分段翻译，保持段落结构
-const smartJoinSegments = (segments) => {
-  if (segments.length === 0) return ''
-  
-  const result = []
-  for (let i = 0; i < segments.length; i++) {
-    const segment = segments[i]
-    if (!segment) continue
-    
-    // 检查分段是否为空（只包含空白字符）
-    const trimmed = segment.trim()
-    if (trimmed === '') {
-      // 空分段，如果前一个分段存在，添加一个换行
-      if (i > 0 && segments[i - 1] && segments[i - 1].trim()) {
-        // 检查是否已经有换行，避免重复
-        if (result.length > 0 && !result[result.length - 1].endsWith('\n\n')) {
-          result.push('\n')
-        }
-      }
-      continue
-    }
-    
-    // 检查分段边界，智能添加分隔符
-    if (result.length > 0) {
-      const prevSegment = segments[i - 1]
-      if (prevSegment && prevSegment.trim()) {
-        const prevTrimmed = prevSegment.trim()
-        const prevEndsWithPunctuation = /[。.！!？?]$/.test(prevTrimmed)
-        const prevEndsWithNewline = prevSegment.endsWith('\n') || prevSegment.endsWith('\n\n')
-        const currentStartsWithNewline = segment.startsWith('\n')
-        
-        // 如果前一个分段以换行结尾，或当前分段以换行开头
-        if (prevEndsWithNewline || currentStartsWithNewline) {
-          // 检查是否需要额外的段落分隔
-          if (prevEndsWithPunctuation && !currentStartsWithNewline) {
-            result.push('\n\n')
-          } else {
-            result.push('\n')
-          }
-        } else {
-          // 根据标点符号判断是否需要段落分隔
-          if (prevEndsWithPunctuation) {
-            // 前一个分段以标点结尾，使用双换行作为段落分隔
-            result.push('\n\n')
-          } else {
-            // 其他情况，使用单换行
-            result.push('\n')
-          }
-        }
-      } else {
-        // 前一个分段为空，添加单换行
-        result.push('\n')
-      }
-    }
-    
-    // 添加当前分段（保留原始格式，但移除首尾空白）
-    result.push(trimmed)
-  }
-  
-  return result.join('')
-}
-
-// 更新翻译显示内容（按索引顺序追加，避免覆盖）
-const updateTranslationDisplay = () => {
-  if (isUpdatingContent.value) {
-    return // 防止重复更新
-  }
-  
-  isUpdatingContent.value = true
-  
-  // 保存当前滚动位置
-  const container = translationContainerRef.value
-  const savedScrollTop = container ? container.scrollTop : 0
-  
-  // 按索引顺序收集所有已翻译的分段，确保按顺序追加
-  // 使用总段数作为遍历范围，确保所有分段都被检查
-  const totalSegments = segmentsInfo.value?.totalSegments || segmentTranslations.value.length
-  const translatedParts = []
-  
-  // 确保 segmentTranslations 数组大小正确
-  if (segmentTranslations.value.length < totalSegments) {
-    // 数组大小不足，扩展数组
-    const oldLength = segmentTranslations.value.length
-    segmentTranslations.value.length = totalSegments
-    for (let i = oldLength; i < totalSegments; i++) {
-      if (segmentTranslations.value[i] === undefined) {
-        segmentTranslations.value[i] = null
-      }
-    }
-  }
-  
-  // 遍历所有可能的分段索引（0 到 totalSegments-1）
-  for (let i = 0; i < totalSegments; i++) {
-    // 检查分段是否有翻译内容
-    const segmentContent = segmentTranslations.value[i]
-    if (segmentContent && typeof segmentContent === 'string' && segmentContent.trim() !== '') {
-      // 有翻译内容，按索引顺序添加到数组
-      translatedParts.push({
-        index: i,
-        content: segmentContent
-      })
-    }
-  }
-  
-  // 按索引排序，确保顺序正确（虽然理论上应该已经有序，但为了安全还是排序）
-  translatedParts.sort((a, b) => a.index - b.index)
-  
-  // 验证索引顺序（用于调试）
-  if (translatedParts.length > 1) {
-    const indices = translatedParts.map(p => p.index)
-    for (let i = 1; i < indices.length; i++) {
-      if (indices[i] <= indices[i - 1]) {
-        console.error('分段索引顺序异常:', indices, '总段数:', totalSegments)
-        console.error('已加载的分段:', Array.from(loadedSegments.value).sort((a, b) => a - b))
-      }
-    }
-  }
-  
-  // 如果没有任何翻译内容，返回空字符串
-  if (translatedParts.length === 0) {
-    translationContent.value = ''
-    isUpdatingContent.value = false
-    return
-  }
-  
-  // 直接按索引顺序合并分段内容
-  // 由于 translatedParts 已经按索引排序，直接提取内容即可
-  const contentArray = translatedParts.map(item => item.content)
-  
-  // 使用智能合并，保持段落结构
-  // smartJoinSegments 会处理分段之间的分隔符
-  translationContent.value = smartJoinSegments(contentArray)
-  
-  // 在下一个tick恢复滚动位置
-  setTimeout(() => {
-    if (container) {
-      // 恢复滚动位置，但允许向下滚动（如果内容增加了）
-      const newScrollHeight = container.scrollHeight
-      const maxScrollTop = newScrollHeight - container.clientHeight
-      container.scrollTop = Math.min(savedScrollTop, maxScrollTop)
-    }
-    isUpdatingContent.value = false
-  }, 0)
-}
-
-// 智能合并分段，保持分段顺序和段落结构
-const smartJoinSegmentsWithIndices = (segments) => {
-  if (!segments || segments.length === 0) return ''
-  
-  const result = []
-  let lastValidIndex = -1
-  
-  // 按索引顺序处理分段
-  for (let i = 0; i < segments.length; i++) {
-    const segment = segments[i]
-    
-    // 跳过未定义的分段（还未加载）
-    if (segment === undefined) {
-      continue
-    }
-    
-    // 处理空分段（已加载但为空）
-    if (segment === null || segment === '') {
-      // 如果前一个有效分段存在，添加换行
-      if (lastValidIndex >= 0 && result.length > 0) {
-        if (!result[result.length - 1].endsWith('\n\n')) {
-          result.push('\n')
-        }
-      }
-      continue
-    }
-    
-    // 处理有效分段
-    const trimmed = segment.trim()
-    if (trimmed === '') {
-      // 只包含空白字符的分段
-      if (lastValidIndex >= 0 && result.length > 0) {
-        if (!result[result.length - 1].endsWith('\n\n')) {
-          result.push('\n')
-        }
-      }
-      continue
-    }
-    
-    // 检查分段边界，智能添加分隔符
-    if (result.length > 0 && lastValidIndex >= 0) {
-      const prevSegment = segments[lastValidIndex]
-      if (prevSegment && prevSegment.trim()) {
-        const prevTrimmed = prevSegment.trim()
-        const prevEndsWithPunctuation = /[。.！!？?]$/.test(prevTrimmed)
-        const prevEndsWithNewline = prevSegment.endsWith('\n') || prevSegment.endsWith('\n\n')
-        const currentStartsWithNewline = segment.startsWith('\n')
-        
-        // 如果前一个分段以换行结尾，或当前分段以换行开头
-        if (prevEndsWithNewline || currentStartsWithNewline) {
-          // 检查是否需要额外的段落分隔
-          if (prevEndsWithPunctuation && !currentStartsWithNewline) {
-            result.push('\n\n')
-          } else {
-            result.push('\n')
-          }
-        } else {
-          // 根据标点符号判断是否需要段落分隔
-          if (prevEndsWithPunctuation) {
-            // 前一个分段以标点结尾，使用双换行作为段落分隔
-            result.push('\n\n')
-          } else {
-            // 其他情况，使用单换行
-            result.push('\n')
-          }
-        }
-      } else {
-        // 前一个分段为空，添加单换行
-        result.push('\n')
-      }
-    }
-    
-    // 添加当前分段（保留原始格式，但移除首尾空白）
-    result.push(trimmed)
-    lastValidIndex = i
-  }
-  
-  return result.join('')
-}
-
-// 处理翻译内容滚动（懒加载）- 使用防抖和节流优化
-// 滚动懒加载处理 - 优化版本
-const handleTranslationScrollForLazyLoad = debounce(() => {
-  // 如果正在更新内容，跳过滚动处理
-  if (isUpdatingContent.value) {
-    return
-  }
-  
-  // 确保分段信息存在且有效
-  if (!translationContainerRef.value || !segmentsInfo.value || !segmentsInfo.value.totalSegments || segmentsInfo.value.totalSegments <= 0) {
-    return
-  }
-  
-  const container = translationContainerRef.value
-  const scrollTop = container.scrollTop
-  const scrollHeight = container.scrollHeight
-  const clientHeight = container.clientHeight
-  
-  // 如果内容高度小于容器高度，不需要懒加载
-  if (scrollHeight <= clientHeight) {
-    return
-  }
-  
-  // 检查滚动是否真的发生了变化（避免重复处理）
-  const now = Date.now()
-  if (Math.abs(scrollTop - lastScrollTop.value) < 10 && now - lastScrollTime.value < 100) {
-    return // 滚动位置变化很小且时间间隔很短，跳过
-  }
-  
-  lastScrollTop.value = scrollTop
-  lastScrollTime.value = now
-  
-  // 获取最新的总段数，确保使用正确的值
-  const totalSegments = segmentsInfo.value.totalSegments
-  if (!Number.isInteger(totalSegments) || totalSegments <= 0) {
-    return
-  }
-  
-  // 计算当前滚动位置对应的分段索引（页面索引）
-  // 使用更准确的计算方式：基于已加载内容的高度比例
-  const scrollRatio = (scrollHeight - clientHeight) > 0 
-    ? scrollTop / (scrollHeight - clientHeight) 
-    : 0
-  
-  // 确保 scrollRatio 是有效数字
-  if (isNaN(scrollRatio) || !isFinite(scrollRatio)) {
-    return
-  }
-  
-  // 限制 scrollRatio 在 [0, 1] 范围内
-  const clampedRatio = Math.max(0, Math.min(1, scrollRatio))
-  const currentSegmentIndex = Math.min(
-    Math.max(0, Math.floor(clampedRatio * totalSegments)),
-    totalSegments - 1
-  )
-  
-  // 检查是否滚动到底部（距离底部小于100px视为到底部）
-  const scrollBottom = scrollTop + clientHeight
-  const isNearBottom = scrollHeight - scrollBottom < 100
-  
-  // 如果滚动到底部，查找下一个未翻译的分段并自动加载
-  if (isNearBottom) {
-    // 从已加载的最大索引开始，向后查找第一个未翻译的分段
-    let startIndex = currentSegmentIndex
-    
-    if (loadedSegments.value.size > 0) {
-      // 找到已加载的最大索引，并过滤掉无效的索引
-      const loadedIndices = Array.from(loadedSegments.value).filter(idx => 
-        Number.isInteger(idx) && idx >= 0 && idx < totalSegments
-      )
-      if (loadedIndices.length > 0) {
-        const maxLoadedIndex = Math.max(...loadedIndices)
-        // 计算下一个索引，但确保不超过总段数
-        const nextIndex = maxLoadedIndex + 1
-        if (nextIndex < totalSegments) {
-          startIndex = Math.max(currentSegmentIndex, nextIndex)
-        } else {
-          // 如果下一个索引已经超出范围，说明所有分段都已加载
-          return
-        }
-      }
-    }
-    
-    // 确保 startIndex 在有效范围内
-    startIndex = Math.max(0, Math.min(startIndex, totalSegments - 1))
-    
-    // 从起始索引开始，向后查找第一个未翻译的分段（最多查找5个，避免一次性加载太多）
-    const maxSearchCount = 5
-    let searchCount = 0
-    for (let i = startIndex; i < totalSegments && searchCount < maxSearchCount; i++) {
-      // 再次检查索引有效性（双重保险）
-      if (!Number.isInteger(i) || i < 0 || i >= totalSegments) {
-        break
-      }
-      
-      // 确保分段信息仍然有效（防止在循环过程中分段信息发生变化）
-      if (!segmentsInfo.value || segmentsInfo.value.totalSegments !== totalSegments) {
-        console.warn('分段信息已变化，停止加载')
-        break
-      }
-      
-      if (!loadedSegments.value.has(i) && !loadingSegments.value.has(i)) {
-        // 找到未翻译的分段，自动加载（loadTranslationSegment 内部会再次验证索引）
-        loadTranslationSegment(i)
-        break
-      }
-      searchCount++
-    }
-  } else {
-    // 未到底部时，预加载当前分段及后续2个分段（减少预加载数量，避免一次性加载太多）
-    const preloadCount = 2
-    let loadedCount = 0
-    for (let i = 0; i < preloadCount && loadedCount < 2; i++) {
-      const segmentIndex = currentSegmentIndex + i
-      // 严格检查索引范围，使用 totalSegments 变量
-      if (Number.isInteger(segmentIndex) && segmentIndex >= 0 && segmentIndex < totalSegments) {
-        if (!loadedSegments.value.has(segmentIndex) && !loadingSegments.value.has(segmentIndex)) {
-          loadTranslationSegment(segmentIndex)
-          loadedCount++
-        }
-      }
-    }
-  }
-}, 500) // 防抖时间500ms，减少触发频率
 
 // 语言切换
 const handleLanguageChange = () => {
@@ -1480,11 +1004,7 @@ watch(() => props.docId, () => {
     translationContent.value = ''
     originalText.value = ''
     hasAutoTranslated.value = false
-    // 重置懒加载状态
-    segmentsInfo.value = null
-    loadedSegments.value.clear()
-    loadingSegments.value.clear()
-    segmentTranslations.value = []
+    resetSegmentTranslations()
     loadOriginalText()
     // 不再自动翻译，用户需要手动点击翻译按钮
   }
@@ -1495,11 +1015,7 @@ watch(() => targetLanguage.value, () => {
   if (props.docId && targetLanguage.value) {
     translationContent.value = ''
     hasAutoTranslated.value = false
-    // 重置懒加载状态
-    segmentsInfo.value = null
-    loadedSegments.value.clear()
-    loadingSegments.value.clear()
-    segmentTranslations.value = []
+    resetSegmentTranslations()
     // 不再自动翻译，用户需要手动点击翻译按钮
   }
 })
