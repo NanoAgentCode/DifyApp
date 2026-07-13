@@ -3,6 +3,18 @@
     <el-container class="full-height">
       <!-- 左侧工具栏 -->
       <el-aside width="300px" class="toolbar-panel">
+        <div v-if="userMode" class="toolbar-header">
+          <h3 class="toolbar-title">
+            智能框图助手
+            <el-tooltip content="模型配置在系统配置中设置" placement="top">
+              <el-icon class="title-tip-icon"><InfoFilled /></el-icon>
+            </el-tooltip>
+          </h3>
+          <el-button link @click="handleBack" size="small">
+            <el-icon><ArrowLeft /></el-icon>
+            返回
+          </el-button>
+        </div>
         <!-- 图表类型选择 -->
         <div class="diagram-type-section">
           <div class="section-title">图表类型</div>
@@ -78,9 +90,10 @@
         <!-- 图表管理 -->
         <el-divider style="margin: 8px 0;" />
         <div class="diagram-management">
-          <div class="section-title">图表管理</div>
+          <div class="section-title">{{ userMode ? '图表操作' : '图表管理' }}</div>
           <div class="management-buttons">
             <el-button 
+              v-if="!userMode"
               type="success" 
               @click="handleSave"
               :disabled="!hasDiagram"
@@ -90,6 +103,7 @@
               保存图表
             </el-button>
             <el-button 
+              v-if="!userMode"
               @click="handleLoadList"
               class="management-button"
             >
@@ -104,6 +118,15 @@
               <el-icon><Delete /></el-icon>
               清空画布
             </el-button>
+            <el-button
+              v-if="userMode"
+              @click="handleExport"
+              :disabled="!hasDiagram"
+              class="management-button"
+            >
+              <el-icon><Download /></el-icon>
+              导出图表
+            </el-button>
           </div>
         </div>
 
@@ -113,11 +136,13 @@
           <div class="section-title">历史记录</div>
           <el-scrollbar class="history-scrollbar">
             <div 
-              v-for="item in historyList" 
-              :key="item.id"
+              v-for="(item, index) in historyList"
+              :key="item?.id || index"
               class="history-item"
             >
-              <div class="history-prompt" @click="loadHistoryPrompt(item)">{{ item.prompt }}</div>
+              <div class="history-prompt" @click="loadHistoryPrompt(item)">
+                {{ typeof item === 'string' ? item : item.prompt }}
+              </div>
               <el-button
                 type="danger"
                 :icon="Delete"
@@ -156,7 +181,7 @@
                 <el-icon><FullScreen /></el-icon>
               </el-button>
             </el-button-group>
-            <el-button size="small" @click="handleExport">
+            <el-button v-if="!userMode" size="small" @click="handleExport">
               <el-icon><Download /></el-icon>
               导出
             </el-button>
@@ -193,6 +218,7 @@
 
     <!-- 保存对话框 -->
     <el-dialog
+      v-if="!userMode"
       v-model="saveDialogVisible"
       title="保存图表"
       width="400px"
@@ -210,6 +236,7 @@
 
     <!-- 加载图表对话框 -->
     <el-dialog
+      v-if="!userMode"
       v-model="loadDialogVisible"
       title="加载图表"
       width="600px"
@@ -242,8 +269,10 @@
 
 <script setup>
 import {computed, nextTick, onMounted, onUnmounted, ref} from 'vue'
+import {useRouter} from 'vue-router'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import {
+  ArrowLeft,
   Box,
   Cloudy,
   Connection,
@@ -258,6 +287,7 @@ import {
   Folder,
   FolderOpened,
   FullScreen,
+  InfoFilled,
   Lock,
   MagicStick,
   Menu,
@@ -281,6 +311,16 @@ import {
   saveDiagram,
   saveHistory
 } from '@/api/drawio'
+
+const props = defineProps({
+  userMode: {
+    type: Boolean,
+    default: false
+  }
+})
+const userMode = computed(() => props.userMode)
+const router = useRouter()
+const handleBack = () => router.push('/user/chat')
 
 // 动态导入 AntV Infographic，只在访问 AIDrawIO 页面时才加载
 let Infographic = null
@@ -1217,6 +1257,32 @@ onUnmounted(() => {
   overflow: hidden;
   height: 100%;
   box-shadow: var(--shadow-sm);
+}
+
+.toolbar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-lighter);
+}
+
+.toolbar-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.title-tip-icon {
+  color: var(--color-text-secondary);
+  cursor: help;
+  font-size: var(--font-size-sm);
 }
 
 /* ========== 图表类型选择 ========== */
