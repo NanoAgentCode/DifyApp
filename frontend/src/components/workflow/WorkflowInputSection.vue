@@ -303,30 +303,56 @@ const handleFileRemove = (file, fileList) => {
 <style scoped>
 /* 从 WorkflowApp.vue 复制相关样式 */
 .input-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   margin-bottom: var(--spacing-lg, 20px);
-  padding: var(--spacing-lg, 20px);
-  background: var(--el-bg-color, #ffffff);
-  border-radius: var(--el-border-radius-base, 4px);
-  border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  padding: var(--spacing-lg);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-lighter);
+  transition: all var(--transition-base);
+}
+
+.input-section:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-base);
 }
 
 .input-section h4 {
-  margin: 0 0 var(--spacing-md, 16px) 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--el-text-color-primary, #303133);
+  margin: 0 0 var(--spacing-lg) 0;
+  padding-bottom: var(--spacing-md);
+  border-bottom: 2px solid var(--color-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
 }
 
 .input-section-body {
-  margin-bottom: var(--spacing-md, 16px);
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .input-actions-bar {
+  margin-top: var(--spacing-md);
   display: flex;
-  gap: var(--spacing-sm, 8px);
+  gap: var(--spacing-md);
   justify-content: flex-end;
   padding-top: var(--spacing-md, 16px);
-  border-top: 1px solid var(--el-border-color-lighter, #e4e7ed);
+  border-top: 1px solid var(--color-border-lighter);
+  background: var(--color-bg-primary);
+  flex-shrink: 0;
+}
+
+.input-actions-bar .el-button {
+  transition: all var(--transition-base);
+}
+
+.input-actions-bar .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .complex-input {

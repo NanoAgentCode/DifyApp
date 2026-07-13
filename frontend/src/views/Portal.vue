@@ -2715,8 +2715,8 @@ onUnmounted(() => {
 
 /* 顶部收起时，调整欢迎区域高度 */
 .portal-content.content-header-collapsed .welcome-section {
-  height: calc(100vh - 40px) !important; /* 视口高度 - 上下padding（20px + 20px） */
-  max-height: calc(100vh - 40px) !important;
+  height: auto !important;
+  max-height: none !important;
 }
 
 /* 顶部系统图标（在 padding-top 位置） */
@@ -2726,15 +2726,16 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  height: calc(100vh - 100px); /* 视口高度 - header高度(60px) - 上下padding(20px + 20px) */
-  max-height: calc(100vh - 100px);
+  flex: 1;
+  min-height: 0;
   padding: 12px 20px 0 20px !important; /* 去掉底部内边距 */
   width: 100%;
   max-width: 1200px;
   min-width: 600px; /* 最小宽度，确保在小屏幕上也有良好显示 */
   margin: 0 auto 0 auto; /* 去掉底部外边距 */
   box-sizing: border-box;
-  overflow: hidden; /* 防止溢出 */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* 中等屏幕自适应 */

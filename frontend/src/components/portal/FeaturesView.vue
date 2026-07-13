@@ -330,4 +330,33 @@ defineEmits(['feature-click'])
     grid-template-columns: 1fr;
   }
 }
+
+/* 保持门户功能入口与 2026-06-06 基线一致。 */
+.features-view { max-width: none; margin: 0; padding: 0; height: 100%; overflow: hidden; }
+.feature-entries { width: 100%; max-width: 1000px; height: 100%; margin: 0 auto; padding: 16px 20px; box-sizing: border-box; align-items: stretch; justify-content: flex-start; gap: 0; overflow-y: auto; overflow-x: hidden; }
+.feature-header { margin-bottom: 24px; flex-shrink: 0; }
+.feature-subtitle { font-size: var(--font-size-sm); color: var(--color-text-primary); line-height: var(--line-height-normal); }
+.feature-categories { gap: var(--spacing-lg); width: 100%; flex: 1; min-height: 0; overflow-y: auto; }
+.feature-category { gap: var(--spacing-md); flex-shrink: 0; }
+.category-title { gap: var(--spacing-sm); padding-bottom: var(--spacing-md); border-bottom: 2px solid var(--color-border-base); font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
+.category-icon { font-size: var(--font-size-lg); color: var(--color-primary); transition: all var(--transition-base); }
+.category-title:hover .category-icon { transform: scale(1.1); }
+.feature-cards { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; width: 100%; }
+.feature-card { gap: var(--spacing-md); padding: var(--spacing-lg); background: var(--color-bg-primary); border-color: var(--color-border-lighter); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); transition: all var(--transition-base); }
+.feature-card::before { left: 0; width: 4px; background: var(--color-primary); transform: scaleY(0); transform-origin: top; transition: transform var(--transition-base); }
+.feature-card:hover { transform: translateY(-4px); border-color: var(--color-primary); background: var(--color-bg-primary); box-shadow: var(--shadow-primary-lg); }
+.feature-card:hover::before { transform: scaleY(1); }
+.feature-card.navigating { transform: scale(.98); }
+.feature-card-icon { border-radius: var(--radius-xl); background: linear-gradient(135deg, var(--color-primary-light-5) 0%, var(--color-primary-light-4) 100%); transition: all var(--transition-base); box-shadow: var(--shadow-xs); }
+.feature-card:hover .feature-card-icon { background: linear-gradient(135deg, var(--color-primary-light-4) 0%, var(--color-primary-light-3) 100%); transform: scale(1.05); box-shadow: var(--shadow-sm); }
+.feature-icon { color: var(--color-primary); transition: transform var(--transition-base); }
+.feature-card:hover .feature-icon { transform: scale(1.1) rotate(5deg); }
+.feature-card-content { display: flex; flex-direction: column; gap: 6px; }
+.feature-card-title { margin: 0; font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); transition: color var(--transition-base); }
+.feature-card:hover .feature-card-title { color: var(--color-primary); }
+.feature-card-desc { font-size: var(--font-size-sm); color: var(--color-text-secondary); line-height: var(--line-height-normal); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
+.feature-card-arrow { font-size: var(--font-size-lg); color: var(--color-text-placeholder); }
+
+@media (max-width: 1024px) and (min-width: 769px) { .feature-entries { max-width: 900px; padding: 16px; } .feature-cards { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; } .feature-card { padding: 18px; } .feature-card-icon { width: 50px; height: 50px; } .feature-icon { font-size: 24px; } }
+@media (max-width: 768px) { .feature-entries { padding: 16px; margin-top: 0; } .feature-header { margin-bottom: 32px; } .feature-subtitle { font-size: 13px; } .feature-categories { gap: 32px; } .category-title { font-size: 16px; } .feature-cards { gap: 12px; } .feature-card { padding: 16px; } .feature-card-icon { width: 48px; height: 48px; } .feature-icon { font-size: 22px; } .feature-card-title { font-size: 15px; } .feature-card-desc { font-size: 12px; } }
 </style>

@@ -4,12 +4,12 @@
       <template #header>
         <div class="card-header">
           <div>
-            <div class="page-title">Skills Management</div>
-            <div class="page-subtitle">Manage skill availability, visibility, metadata and skill file preview.</div>
+            <div class="page-title">技能管理</div>
+            <div class="page-subtitle">管理技能可用性、用户可见性、配置信息及技能文件预览。</div>
           </div>
           <div class="header-actions">
-            <el-button :loading="syncing" @click="handleSync">Sync</el-button>
-            <el-button type="primary" :loading="loading" @click="loadSkills">Refresh</el-button>
+            <el-button :loading="syncing" @click="handleSync">同步技能</el-button>
+            <el-button type="primary" :loading="loading" @click="loadSkills">刷新</el-button>
           </div>
         </div>
       </template>
@@ -17,47 +17,47 @@
       <div class="toolbar">
         <el-input
           v-model="searchKeyword"
-          placeholder="Search by key, name, path or description"
+          placeholder="搜索技能键、名称、路径或描述"
           clearable
           class="toolbar-input"
         />
-        <el-select v-model="statusFilter" clearable placeholder="Config status" class="toolbar-select">
-          <el-option label="Saved" value="saved" />
-          <el-option label="Discovered only" value="discovered" />
-          <el-option label="Missing source" value="missing" />
-          <el-option label="Usable" value="usable" />
-          <el-option label="Unavailable" value="unusable" />
+        <el-select v-model="statusFilter" clearable placeholder="配置状态" class="toolbar-select">
+          <el-option label="已保存" value="saved" />
+          <el-option label="仅已发现" value="discovered" />
+          <el-option label="来源缺失" value="missing" />
+          <el-option label="可用" value="usable" />
+          <el-option label="不可用" value="unusable" />
         </el-select>
-        <el-select v-model="enabledFilter" clearable placeholder="Enabled" class="toolbar-select">
-          <el-option label="Enabled" value="enabled" />
-          <el-option label="Disabled" value="disabled" />
+        <el-select v-model="enabledFilter" clearable placeholder="启用状态" class="toolbar-select">
+          <el-option label="已启用" value="enabled" />
+          <el-option label="已禁用" value="disabled" />
         </el-select>
-        <el-select v-model="visibilityFilter" clearable placeholder="Visible to user" class="toolbar-select">
-          <el-option label="Visible" value="visible" />
-          <el-option label="Hidden" value="hidden" />
+        <el-select v-model="visibilityFilter" clearable placeholder="用户可见性" class="toolbar-select">
+          <el-option label="可见" value="visible" />
+          <el-option label="隐藏" value="hidden" />
         </el-select>
       </div>
 
       <div class="summary-row">
-        <el-tag type="info">Total {{ filteredSkillList.length }}</el-tag>
-        <el-tag type="success">Enabled {{ enabledCount }}</el-tag>
-        <el-tag type="warning">Visible {{ visibleCount }}</el-tag>
-        <el-tag type="primary">Saved {{ savedCount }}</el-tag>
-        <el-tag type="danger">Missing {{ missingCount }}</el-tag>
-        <el-tag :type="unusableCount ? 'danger' : 'success'">Unavailable {{ unusableCount }}</el-tag>
+        <el-tag type="info">总计 {{ filteredSkillList.length }}</el-tag>
+        <el-tag type="success">已启用 {{ enabledCount }}</el-tag>
+        <el-tag type="warning">用户可见 {{ visibleCount }}</el-tag>
+        <el-tag type="primary">已保存 {{ savedCount }}</el-tag>
+        <el-tag type="danger">来源缺失 {{ missingCount }}</el-tag>
+        <el-tag :type="unusableCount ? 'danger' : 'success'">不可用 {{ unusableCount }}</el-tag>
       </div>
 
       <div class="table-wrapper">
         <el-table v-loading="loading" :data="filteredSkillList" border stripe height="100%">
-          <el-table-column prop="skillKey" label="Skill Key" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="skillName" label="Name" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="skillPath" label="Path" min-width="220" show-overflow-tooltip />
-          <el-table-column label="Status" width="130" align="center">
+          <el-table-column prop="skillKey" label="技能键" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="skillName" label="技能名称" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="skillPath" label="技能路径" min-width="220" show-overflow-tooltip />
+          <el-table-column label="状态" width="130" align="center">
             <template #default="{ row }">
               <el-tag :type="getSourceTagType(row)" size="small">{{ getSourceLabel(row) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="Usability" width="130" align="center">
+          <el-table-column label="可用性" width="130" align="center">
             <template #default="{ row }">
               <el-tooltip
                 :content="formatAvailabilityIssues(row.availabilityIssues)"
@@ -65,12 +65,12 @@
                 placement="top"
               >
                 <el-tag :type="row.usable ? 'success' : 'danger'" size="small">
-                  {{ row.usable ? 'Usable' : 'Invalid' }}
+                  {{ row.usable ? '可用' : '不可用' }}
                 </el-tag>
               </el-tooltip>
             </template>
           </el-table-column>
-          <el-table-column label="Enabled" width="100" align="center">
+          <el-table-column label="启用" width="100" align="center">
             <template #default="{ row }">
               <el-switch
                 v-model="row.enabled"
@@ -79,7 +79,7 @@
               />
             </template>
           </el-table-column>
-          <el-table-column label="Visible" width="100" align="center">
+          <el-table-column label="可见" width="100" align="center">
             <template #default="{ row }">
               <el-switch
                 v-model="row.visibleToUser"
@@ -88,21 +88,21 @@
               />
             </template>
           </el-table-column>
-          <el-table-column label="Description" min-width="260">
+          <el-table-column label="描述" min-width="260">
             <template #default="{ row }">
               <div class="ellipsis-text">{{ row.description || row.fileDescription || '-' }}</div>
             </template>
           </el-table-column>
-          <el-table-column prop="updateTime" label="Updated" min-width="180">
+          <el-table-column prop="updateTime" label="更新时间" min-width="180">
             <template #default="{ row }">
               {{ formatDate(row.updateTime) }}
             </template>
           </el-table-column>
-          <el-table-column label="Actions" width="220" fixed="right" align="center">
+          <el-table-column label="操作" width="220" fixed="right" align="center">
             <template #default="{ row }">
               <div class="action-group">
-                <el-button size="small" @click="handlePreview(row)">Preview</el-button>
-                <el-button size="small" type="primary" @click="handleEdit(row)">Edit</el-button>
+                <el-button size="small" @click="handlePreview(row)">预览</el-button>
+                <el-button size="small" type="primary" @click="handleEdit(row)">编辑</el-button>
                 <el-button
                   v-if="row._saved"
                   size="small"
@@ -110,7 +110,7 @@
                   :loading="savingKey === row.skillKey"
                   @click="handleDeleteRow(row)"
                 >
-                  Delete
+                  删除
                 </el-button>
                 <el-button
                   v-else
@@ -119,7 +119,7 @@
                   :loading="savingKey === row.skillKey"
                   @click="handleCreateRow(row)"
                 >
-                  Save
+                  保存
                 </el-button>
               </div>
             </template>
@@ -128,21 +128,21 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="editDialogVisible" title="Edit Skill" width="760px" destroy-on-close>
+    <el-dialog v-model="editDialogVisible" title="编辑技能" width="760px" destroy-on-close>
       <el-form :model="editForm" label-width="120px">
-        <el-form-item label="Skill Key">
+        <el-form-item label="技能键">
           <el-input v-model="editForm.skillKey" disabled />
         </el-form-item>
-        <el-form-item label="Skill Name">
+        <el-form-item label="技能名称">
           <el-input v-model="editForm.skillName" maxlength="200" show-word-limit />
         </el-form-item>
-        <el-form-item label="Enabled">
+        <el-form-item label="启用">
           <el-switch v-model="editForm.enabled" />
         </el-form-item>
-        <el-form-item label="Visible To User">
+        <el-form-item label="用户可见">
           <el-switch v-model="editForm.visibleToUser" />
         </el-form-item>
-        <el-form-item label="Description">
+        <el-form-item label="描述">
           <el-input v-model="editForm.description" type="textarea" :rows="4" maxlength="1000" show-word-limit />
         </el-form-item>
         <el-form-item label="Ext JSON">
@@ -152,29 +152,29 @@
             :rows="10"
             placeholder='{"allowedCommands":["npm","mvn"]}'
           />
-          <div class="form-tip">Leave blank if the skill only provides prompt context.</div>
+          <div class="form-tip">仅提供提示词上下文的技能可留空。</div>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="editDialogVisible = false">Cancel</el-button>
-        <el-button type="primary" :loading="savingDetail" @click="submitEdit">Save</el-button>
+        <el-button @click="editDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="savingDetail" @click="submitEdit">保存</el-button>
       </template>
     </el-dialog>
 
-    <el-drawer v-model="previewVisible" title="Skill Preview" size="55%">
+    <el-drawer v-model="previewVisible" title="技能预览" size="55%">
       <div v-loading="previewLoading" class="preview-panel">
         <div v-if="previewDetail" class="preview-meta">
           <el-descriptions :column="1" border>
-            <el-descriptions-item label="Skill Key">{{ previewDetail.skillKey }}</el-descriptions-item>
-            <el-descriptions-item label="Skill Name">{{ previewDetail.skillName || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="Path">{{ previewDetail.skillPath || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="Description">{{ previewDetail.description || previewDetail.fileDescription || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="技能键">{{ previewDetail.skillKey }}</el-descriptions-item>
+            <el-descriptions-item label="技能名称">{{ previewDetail.skillName || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="路径">{{ previewDetail.skillPath || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="描述">{{ previewDetail.description || previewDetail.fileDescription || '-' }}</el-descriptions-item>
           </el-descriptions>
         </div>
         <div class="preview-section">
-          <div class="section-title">Availability</div>
+          <div class="section-title">可用性</div>
           <el-alert
-            :title="previewDetail?.usable ? 'Skill is usable' : 'Skill is unavailable'"
+            :title="previewDetail?.usable ? '技能可用' : '技能不可用'"
             :type="previewDetail?.usable ? 'success' : 'error'"
             :closable="false"
             show-icon
@@ -196,7 +196,7 @@
         </div>
         <div class="preview-section">
           <div class="section-title">SKILL.md</div>
-          <pre class="code-block">{{ previewDetail?.skillContent || 'No skill file content found.' }}</pre>
+          <pre class="code-block">{{ previewDetail?.skillContent || '未找到技能文件内容。' }}</pre>
         </div>
       </div>
     </el-drawer>
@@ -311,7 +311,7 @@ const loadSkills = async () => {
     const data = await getAdminSkillList()
     skillList.value = (Array.isArray(data) ? data : []).map(normalizeRow)
   } catch (error) {
-    ElMessage.error('Failed to load skills: ' + (error.message || 'unknown error'))
+    ElMessage.error('加载技能列表失败：' + (error.message || '未知错误'))
   } finally {
     loading.value = false
   }
@@ -321,10 +321,10 @@ const handleSync = async () => {
   syncing.value = true
   try {
     const data = await syncSkills()
-    ElMessage.success(`Sync completed, added ${data?.syncedCount ?? 0} skill configs`)
+    ElMessage.success(`同步完成，新增 ${data?.syncedCount ?? 0} 条技能配置`)
     await loadSkills()
   } catch (error) {
-    ElMessage.error('Sync failed: ' + (error.message || 'unknown error'))
+    ElMessage.error('同步失败：' + (error.message || '未知错误'))
   } finally {
     syncing.value = false
   }
@@ -341,9 +341,9 @@ const persistRow = async row => {
       extJson: row.extJson || null
     })
     Object.assign(row, normalizeRow(data))
-    ElMessage.success('Skill config saved')
+    ElMessage.success('技能配置已保存')
   } catch (error) {
-    ElMessage.error(error.response?.data?.message || error.message || 'Save failed')
+    ElMessage.error(error.response?.data?.message || error.message || '保存失败')
     await loadSkills()
   } finally {
     savingKey.value = ''
@@ -372,7 +372,7 @@ const handleEdit = async row => {
     }
     editDialogVisible.value = true
   } catch (error) {
-    ElMessage.error('Failed to load skill detail: ' + (error.message || 'unknown error'))
+    ElMessage.error('加载技能详情失败：' + (error.message || '未知错误'))
   } finally {
     savingDetail.value = false
   }
@@ -397,9 +397,9 @@ const submitEdit = async () => {
     }
 
     editDialogVisible.value = false
-    ElMessage.success('Skill updated')
+    ElMessage.success('技能已更新')
   } catch (error) {
-    ElMessage.error(error.response?.data?.message || error.message || 'Update failed')
+    ElMessage.error(error.response?.data?.message || error.message || '更新失败')
   } finally {
     savingDetail.value = false
   }
@@ -412,7 +412,7 @@ const handlePreview = async row => {
   try {
     previewDetail.value = await getAdminSkillDetail(row.skillKey)
   } catch (error) {
-    ElMessage.error('Failed to load preview: ' + (error.message || 'unknown error'))
+    ElMessage.error('加载技能预览失败：' + (error.message || '未知错误'))
   } finally {
     previewLoading.value = false
   }
@@ -420,18 +420,18 @@ const handlePreview = async row => {
 
 const handleDeleteRow = async row => {
   try {
-    await ElMessageBox.confirm(`Delete saved config for "${row.skillKey}"?`, 'Confirm', {
-      confirmButtonText: 'Delete',
-      cancelButtonText: 'Cancel',
+    await ElMessageBox.confirm(`确认删除技能“${row.skillKey}”的已保存配置吗？`, '提示', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
       type: 'warning'
     })
     savingKey.value = row.skillKey
     await deleteSkillConfig(row.skillKey)
-    ElMessage.success('Skill config deleted')
+    ElMessage.success('技能配置已删除')
     await loadSkills()
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error(error.message || 'Delete failed')
+      ElMessage.error(error.message || '删除失败')
     }
   } finally {
     savingKey.value = ''
@@ -440,12 +440,12 @@ const handleDeleteRow = async row => {
 
 const getSourceLabel = row => {
   if (!row.sourceExists) {
-    return 'Missing'
+    return '来源缺失'
   }
   if (row.usable === false) {
-    return 'Invalid'
+    return '不可用'
   }
-  return row._saved ? 'Saved' : 'Discovered'
+  return row._saved ? '已保存' : '已发现'
 }
 
 const getSourceTagType = row => {

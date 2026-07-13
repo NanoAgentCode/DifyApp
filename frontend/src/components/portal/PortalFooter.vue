@@ -12,7 +12,7 @@ import { InfoFilled } from '@element-plus/icons-vue'
 </script>
 
 <style scoped>
-.portal-footer { text-align: center; padding: 10px 20px; background: linear-gradient(180deg, rgba(255, 255, 255, .95) 0%, rgba(255, 255, 255, .98) 100%); border-top: 1px solid rgba(0, 0, 0, .04); transition: all .3s ease; }
+.portal-footer { text-align: center; padding: 10px 20px; background: linear-gradient(180deg, rgba(255, 255, 255, .95) 0%, rgba(255, 255, 255, .98) 100%); backdrop-filter: blur(10px); border-top: 1px solid var(--el-border-color-lighter, #e4e7ed); position: sticky; bottom: 0; z-index: 10; box-shadow: 0 -2px 12px rgba(0, 0, 0, .04); transition: all .3s ease; }
 .portal-footer:hover { box-shadow: 0 -4px 16px rgba(0, 0, 0, .06); }
 .footer-content { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 14px; border-radius: 20px; background: rgba(64, 158, 255, .06); transition: all .3s ease; }
 .portal-footer:hover .footer-content { background: rgba(64, 158, 255, .1); transform: translateY(-1px); }
