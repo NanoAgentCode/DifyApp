@@ -1,7 +1,5 @@
 package com.github.app.dify.analytics.analysis.service.impl;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.app.dify.analytics.analysis.req.DataAnalysisSettingsReq;
 import com.github.app.dify.analytics.analysis.req.GraphQAReq;
 import com.github.app.dify.analytics.analysis.req.GraphRAGReq;
@@ -26,7 +24,6 @@ import com.github.app.dify.chat.repository.ChatMessageRepository;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.datasource.domain.DataSource;
-import com.github.app.dify.datasource.service.DataSourceService;
 import com.github.app.dify.datasource.service.DatabaseConnectionService;
 import com.github.app.dify.knowledgebase.domain.KnowledgeBase;
 import com.github.app.dify.knowledgebase.domain.KnowledgeBaseDocument;
@@ -41,8 +38,6 @@ import com.github.app.dify.ops.trace.core.TraceSanitizer;
 import com.github.app.dify.ops.trace.core.TraceStepCollector;
 import com.github.app.dify.ops.trace.model.TraceHandle;
 import com.github.app.dify.ops.trace.model.TraceStartRequest;
-import com.github.app.dify.system.domain.SystemConfig;
-import com.github.app.dify.system.repository.SystemConfigRepository;
 import com.github.app.dify.system.util.SkillLoader;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.Values;
@@ -74,20 +69,6 @@ public class DataAnalysisServiceImpl implements DataAnalysisService {
 
     private static final Logger logger = LoggerFactory.getLogger(DataAnalysisServiceImpl.class);
 
-    private static final String CONFIG_GROUP = "analysis";
-
-    private static final String KEY_ENABLED = "analysis.etl.enabled";
-    private static final String KEY_INTERVAL_MINUTES = "analysis.etl.intervalMinutes";
-    private static final String KEY_NEO4J_DATASOURCE_ID = "analysis.neo4j.dataSourceId";
-
-    private static final String KEY_LAST_RUN_AT_MS = "analysis.etl.lastRunAtMs";
-    private static final String KEY_LAST_SUCCESS_AT_MS = "analysis.etl.lastSuccessAtMs";
-    private static final String KEY_LAST_STATUS = "analysis.etl.lastStatus";
-    private static final String KEY_LAST_MESSAGE = "analysis.etl.lastMessage";
-    private static final String KEY_LAST_DURATION_MS = "analysis.etl.lastDurationMs";
-    private static final String KEY_LAST_METRICS_JSON = "analysis.etl.lastMetricsJson";
-
-    private static final int DEFAULT_INTERVAL_MINUTES = 60;
     private static final int BATCH_SIZE = 500;
     private static final long GRAPH_QUERY_SLOW_MS = 1500L;
     private static final long GRAPH_RAG_SLOW_MS = 5000L;
@@ -111,10 +92,7 @@ public class DataAnalysisServiceImpl implements DataAnalysisService {
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     @Autowired
-    private SystemConfigRepository systemConfigRepository;
-
-    @Autowired
-    private DataSourceService dataSourceService;
+    private DataAnalysisConfigService dataAnalysisConfigService;
 
     @Autowired
     private DatabaseConnectionService databaseConnectionService;
@@ -156,110 +134,40 @@ public class DataAnalysisServiceImpl implements DataAnalysisService {
     @Autowired
     private TraceSanitizer traceSanitizer;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
     @Override
     public DataAnalysisSettingsResp getSettings() {
-        DataAnalysisSettingsResp resp = new DataAnalysisSettingsResp();
-        resp.setEnabled(readBoolean());
-        resp.setIntervalMinutes(readInt());
-        resp.setNeo4jDataSourceId(readLong(KEY_NEO4J_DATASOURCE_ID, null));
-        return resp;
+        return dataAnalysisConfigService.getSettings();
     }
 
     @Override
     public DataAnalysisSettingsResp updateSettings(DataAnalysisSettingsReq req, Long userId, String username) {
-        Integer intervalMinutes = req.getIntervalMinutes();
-        if (intervalMinutes != null && intervalMinutes <= 0) {
-            throw new BusinessException("同步间隔必须大于0", ErrorCode.BAD_REQUEST);
-        }
-        if (intervalMinutes != null && intervalMinutes > 1440) {
-            throw new BusinessException("同步间隔不能超过1440分钟", ErrorCode.BAD_REQUEST);
-        }
-
-        Long neo4jDataSourceId = req.getNeo4jDataSourceId();
-        if (neo4jDataSourceId != null) {
-            DataSource dataSource = dataSourceService.getDataSourceEntityById(neo4jDataSourceId);
-            if (!"neo4j".equalsIgnoreCase(dataSource.getType())) {
-                throw new BusinessException("所选数据源不是Neo4j类型", ErrorCode.BAD_REQUEST);
-            }
-            if (dataSource.getStatus() != null && dataSource.getStatus() == 0) {
-                throw new BusinessException("所选Neo4j数据源已禁用", ErrorCode.BAD_REQUEST);
-            }
-        }
-
-        writeConfig(KEY_ENABLED, String.valueOf(Boolean.TRUE.equals(req.getEnabled())), "boolean", "是否启用定时同步", userId, username);
-        if (intervalMinutes != null) {
-            writeConfig(KEY_INTERVAL_MINUTES, String.valueOf(intervalMinutes), "number", "同步间隔（分钟）", userId, username);
-        }
-        if (neo4jDataSourceId != null) {
-            writeConfig(KEY_NEO4J_DATASOURCE_ID, String.valueOf(neo4jDataSourceId), "number", "Neo4j 数据源ID", userId, username);
-        } else {
-            deleteConfig(KEY_NEO4J_DATASOURCE_ID, userId, username);
-        }
-
-        return getSettings();
+        return dataAnalysisConfigService.updateSettings(req, userId, username);
     }
 
     @Override
     public DataAnalysisStatusResp getStatus() {
-        DataAnalysisStatusResp resp = new DataAnalysisStatusResp();
-
-        DataAnalysisSettingsResp settings = getSettings();
-        resp.setEnabled(settings.getEnabled());
-        resp.setNeo4jDataSourceId(settings.getNeo4jDataSourceId());
-        resp.setIntervalMinutes(settings.getIntervalMinutes());
-        resp.setRunning(running.get());
-
-        Long dataSourceId = settings.getNeo4jDataSourceId();
-        if (dataSourceId != null) {
-            try {
-                DataSource ds = dataSourceService.getDataSourceEntityById(dataSourceId);
-                resp.setNeo4jDataSourceName(ds.getName());
-            } catch (Exception e) {
-                resp.setNeo4jDataSourceName(null);
-            }
-        }
-
-        resp.setLastRunAtMs(readLong(KEY_LAST_RUN_AT_MS, null));
-        resp.setLastSuccessAtMs(readLong(KEY_LAST_SUCCESS_AT_MS, null));
-        resp.setLastStatus(readString(KEY_LAST_STATUS, "never"));
-        resp.setLastMessage(readString(KEY_LAST_MESSAGE, null));
-        resp.setLastDurationMs(readLong(KEY_LAST_DURATION_MS, null));
-
-        String metricsJson = readString(KEY_LAST_METRICS_JSON, null);
-        if (metricsJson != null && !metricsJson.trim().isEmpty()) {
-            try {
-                Map<String, Object> metrics = objectMapper.readValue(metricsJson, new TypeReference<Map<String, Object>>() {});
-                resp.setMetrics(metrics);
-            } catch (Exception e) {
-                resp.setMetrics(null);
-            }
-        }
-
-        return resp;
+        return dataAnalysisConfigService.getStatus(running.get());
     }
-
     @Override
     public void triggerRun(Long userId, String username) {
-        DataAnalysisSettingsResp settings = getSettings();
-        getValidatedNeo4jDataSourceOrThrow(settings);
+        DataAnalysisSettingsResp settings = dataAnalysisConfigService.getSettings();
+        dataAnalysisConfigService.getValidatedNeo4jDataSourceOrThrow(settings);
         taskExecutor.execute(() -> runInternal(userId, username, true));
     }
 
     @Override
     public void runIfDue() {
-        boolean enabled = readBoolean();
+        boolean enabled = dataAnalysisConfigService.readBoolean();
         if (!enabled) {
             return;
         }
 
-        Integer intervalMinutes = readInt();
+        Integer intervalMinutes = dataAnalysisConfigService.readIntervalMinutes();
         if (intervalMinutes == null || intervalMinutes <= 0) {
-            intervalMinutes = DEFAULT_INTERVAL_MINUTES;
+            intervalMinutes = DataAnalysisConfigService.DEFAULT_INTERVAL_MINUTES;
         }
 
-        Long lastRunAtMs = readLong(KEY_LAST_RUN_AT_MS, null);
+        Long lastRunAtMs = dataAnalysisConfigService.readLong(DataAnalysisConfigService.KEY_LAST_RUN_AT_MS, null);
         long now = System.currentTimeMillis();
         if (lastRunAtMs == null) {
             taskExecutor.execute(() -> runInternal(0L, "system", false));
@@ -274,14 +182,14 @@ public class DataAnalysisServiceImpl implements DataAnalysisService {
 
     @Override
     public GraphViewResp getGraphView(Integer limit, String keyword, String nodeLabel, String relationshipType, Integer depth) {
-        DataAnalysisSettingsResp settings = getSettings();
+        DataAnalysisSettingsResp settings = dataAnalysisConfigService.getSettings();
         int safeLimit = sanitizeLimit(limit, 200, 2000);
         int safeDepth = sanitizeDepth(depth);
         String safeKeyword = safeTrim(keyword);
         String safeNodeLabel = normalizeGraphLabel(nodeLabel);
         String safeRelationshipType = normalizeRelationshipType(relationshipType);
 
-        DataSource neo4jDataSource = getValidatedNeo4jDataSourceOrThrow(settings);
+        DataSource neo4jDataSource = dataAnalysisConfigService.getValidatedNeo4jDataSourceOrThrow(settings);
 
         Map<String, GraphNodeResp> nodeMap = new LinkedHashMap<>();
         List<GraphLinkResp> links = new ArrayList<>();
@@ -393,8 +301,8 @@ public class DataAnalysisServiceImpl implements DataAnalysisService {
 
     @Override
     public GraphQAResp answerGraphQuestion(GraphQAReq req) {
-        DataAnalysisSettingsResp settings = getSettings();
-        DataSource neo4jDataSource = getValidatedNeo4jDataSourceOrThrow(settings);
+        DataAnalysisSettingsResp settings = dataAnalysisConfigService.getSettings();
+        DataSource neo4jDataSource = dataAnalysisConfigService.getValidatedNeo4jDataSourceOrThrow(settings);
         String question = safeTrim(req.getQuestion());
         int safeLimit = sanitizeLimit(req.getLimit(), 10, 50);
         GraphQAPlan plan = planGraphQuestion(question, safeLimit);
@@ -415,8 +323,8 @@ public class DataAnalysisServiceImpl implements DataAnalysisService {
     @Override
     public GraphRAGResp answerGraphRAG(GraphRAGReq req, Long userId) {
         long totalStart = System.currentTimeMillis();
-        DataAnalysisSettingsResp settings = getSettings();
-        DataSource neo4jDataSource = getValidatedNeo4jDataSourceOrThrow(settings);
+        DataAnalysisSettingsResp settings = dataAnalysisConfigService.getSettings();
+        DataSource neo4jDataSource = dataAnalysisConfigService.getValidatedNeo4jDataSourceOrThrow(settings);
         String question = sanitizeGraphRagQuestion(req.getQuestion());
         int safeLimit = sanitizeLimit(req.getLimit(), 12, GRAPH_RAG_MAX_LIMIT);
         int safeDepth = sanitizeDepth(req.getDepth());
@@ -1353,54 +1261,39 @@ public class DataAnalysisServiceImpl implements DataAnalysisService {
         }
     }
 
-    private DataSource getValidatedNeo4jDataSourceOrThrow(DataAnalysisSettingsResp settings) {
-        Long neo4jDataSourceId = settings.getNeo4jDataSourceId();
-        if (neo4jDataSourceId == null) {
-            throw new BusinessException("未配置Neo4j数据源", ErrorCode.BAD_REQUEST);
-        }
-        DataSource neo4jDataSource = dataSourceService.getDataSourceEntityById(neo4jDataSourceId);
-        if (!"neo4j".equalsIgnoreCase(neo4jDataSource.getType())) {
-            throw new BusinessException("配置的数据源不是Neo4j类型", ErrorCode.BAD_REQUEST);
-        }
-        if (neo4jDataSource.getStatus() != null && neo4jDataSource.getStatus() == 0) {
-            throw new BusinessException("配置的Neo4j数据源已禁用", ErrorCode.BAD_REQUEST);
-        }
-        return neo4jDataSource;
-    }
-
     private void runInternal(Long userId, String username, boolean force) {
         if (!running.compareAndSet(false, true)) {
             return;
         }
 
         long start = System.currentTimeMillis();
-        writeRuntimeStatus("running", "同步任务开始", start, null, null, userId, username);
+        dataAnalysisConfigService.writeRuntimeStatus("running", "同步任务开始", start, null, null, userId, username);
 
         try {
-            DataAnalysisSettingsResp settings = getSettings();
+            DataAnalysisSettingsResp settings = dataAnalysisConfigService.getSettings();
             if (!Boolean.TRUE.equals(settings.getEnabled()) && !force) {
-                writeRuntimeStatus("never", "同步未启用", null, null, null, userId, username);
+                dataAnalysisConfigService.writeRuntimeStatus("never", "同步未启用", null, null, null, userId, username);
                 return;
             }
 
             DataSource neo4jDataSource;
             try {
-                neo4jDataSource = getValidatedNeo4jDataSourceOrThrow(settings);
+                neo4jDataSource = dataAnalysisConfigService.getValidatedNeo4jDataSourceOrThrow(settings);
             } catch (BusinessException ex) {
-                writeRuntimeStatus("failed", ex.getMessage(), null, null, null, userId, username);
+                dataAnalysisConfigService.writeRuntimeStatus("failed", ex.getMessage(), null, null, null, userId, username);
                 return;
             }
 
             Map<String, Object> metrics = syncToNeo4j(neo4jDataSource);
 
             long duration = System.currentTimeMillis() - start;
-            writeRuntimeStatus("success", "同步成功", null, System.currentTimeMillis(), duration, userId, username);
-            writeConfig(KEY_LAST_METRICS_JSON, objectMapper.writeValueAsString(metrics), "json", "最近一次同步指标", userId, username);
+            dataAnalysisConfigService.writeRuntimeStatus("success", "同步成功", null, System.currentTimeMillis(), duration, userId, username);
+            dataAnalysisConfigService.writeMetrics(metrics, userId, username);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - start;
             String message = e.getMessage() != null ? e.getMessage() : "同步失败";
             logger.error("数据同步到Neo4j失败", e);
-            writeRuntimeStatus("failed", message, null, null, duration, userId, username);
+            dataAnalysisConfigService.writeRuntimeStatus("failed", message, null, null, duration, userId, username);
         } finally {
             running.set(false);
         }
@@ -2027,105 +1920,6 @@ public class DataAnalysisServiceImpl implements DataAnalysisService {
         }
     }
 
-    private void writeRuntimeStatus(String status, String message, Long lastRunAtMs, Long lastSuccessAtMs, Long durationMs, Long userId, String username) {
-        if (lastRunAtMs != null) {
-            writeConfig(KEY_LAST_RUN_AT_MS, String.valueOf(lastRunAtMs), "number", "最近一次开始同步时间（毫秒）", userId, username);
-        }
-        if (lastSuccessAtMs != null) {
-            writeConfig(KEY_LAST_SUCCESS_AT_MS, String.valueOf(lastSuccessAtMs), "number", "最近一次同步成功时间（毫秒）", userId, username);
-        }
-        if (durationMs != null) {
-            writeConfig(KEY_LAST_DURATION_MS, String.valueOf(durationMs), "number", "最近一次同步耗时（毫秒）", userId, username);
-        }
-        if (status != null) {
-            writeConfig(KEY_LAST_STATUS, status, "string", "最近一次同步状态", userId, username);
-        }
-        if (message != null) {
-            writeConfig(KEY_LAST_MESSAGE, message, "string", "最近一次同步消息", userId, username);
-        }
-    }
-
-    private void writeConfig(String key, String value, String type, String description, Long userId, String username) {
-        Optional<SystemConfig> optional = systemConfigRepository.findByConfigKeyAndNotDeleted(key);
-        SystemConfig config;
-        if (optional.isPresent()) {
-            config = optional.get();
-        } else {
-            Optional<SystemConfig> deletedOptional = systemConfigRepository.findByConfigKey(key);
-            if (deletedOptional.isPresent()) {
-                config = deletedOptional.get();
-                config.setDeleted(0);
-            } else {
-                config = new SystemConfig();
-                config.setConfigKey(key);
-                config.setDeleted(0);
-                config.setCreator(username);
-                config.setCreatorId(userId);
-                config.setCreateTime(new Date());
-            }
-        }
-
-        config.setConfigValue(value);
-        config.setConfigGroup(CONFIG_GROUP);
-        config.setConfigType(type);
-            config.setDescription(description);
-        config.setUpdateTime(new Date());
-        systemConfigRepository.save(config);
-    }
-
-    private void deleteConfig(String key, Long userId, String username) {
-        Optional<SystemConfig> optional = systemConfigRepository.findByConfigKeyAndNotDeleted(key);
-        if (!optional.isPresent()) {
-            return;
-        }
-        SystemConfig config = optional.get();
-        config.setDeleted(1);
-        config.setUpdateTime(new Date());
-        systemConfigRepository.save(config);
-    }
-
-    private String readString(String key, String defaultValue) {
-        Optional<SystemConfig> optional = systemConfigRepository.findByConfigKeyAndNotDeleted(key);
-        return optional.map(SystemConfig::getConfigValue).orElse(defaultValue);
-    }
-
-    private Boolean readBoolean() {
-        String v = readString(DataAnalysisServiceImpl.KEY_ENABLED, null);
-        if (v == null || v.trim().isEmpty()) {
-            return false;
-        }
-        return "true".equalsIgnoreCase(v.trim());
-    }
-
-    private Integer readInt() {
-        String v = readString(DataAnalysisServiceImpl.KEY_INTERVAL_MINUTES, null);
-        if (v == null) {
-            return DataAnalysisServiceImpl.DEFAULT_INTERVAL_MINUTES;
-        }
-        if (v.trim().isEmpty()) {
-            return DataAnalysisServiceImpl.DEFAULT_INTERVAL_MINUTES;
-        }
-        try {
-            return Integer.parseInt(v.trim());
-        } catch (Exception e) {
-            return DataAnalysisServiceImpl.DEFAULT_INTERVAL_MINUTES;
-        }
-    }
-
-    private Long readLong(String key, Long defaultValue) {
-        String v = readString(key, null);
-        if (v == null) {
-            return defaultValue;
-        }
-        if (v.trim().isEmpty()) {
-            return defaultValue;
-        }
-        try {
-            return Long.parseLong(v.trim());
-        } catch (Exception e) {
-            return defaultValue;
-        }
-    }
 }
 
 
