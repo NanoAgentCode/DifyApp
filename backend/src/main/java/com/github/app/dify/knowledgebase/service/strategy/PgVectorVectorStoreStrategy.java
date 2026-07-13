@@ -29,74 +29,14 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
     @Autowired
     private com.github.app.dify.knowledgebase.util.VectorDatabaseConfigHelper configHelper;
     
-    @Autowired(required = false)
-    private com.github.app.dify.system.config.DocumentReaderConfig documentReaderConfig;
-    
-    @Autowired(required = false)
-    private com.github.app.dify.knowledgebase.repository.VectorDatabaseRepository vectorDatabaseRepository;
-    
-    @Autowired(required = false)
-    private com.github.app.dify.knowledgebase.repository.KnowledgeBaseRepository knowledgeBaseRepository;
-    
-    @Autowired(required = false)
-    private com.github.app.dify.documentreader.repository.DocumentReaderRepository documentReaderRepository;
+    @Autowired
+    private VectorDatabaseConfigResolver configResolver;
     
     // 为每个知识库缓存数据库连接
     private final Map<Long, Connection> connectionCache = new ConcurrentHashMap<>();
     private final Map<Long, String> lastUrlCache = new ConcurrentHashMap<>();
     private final Map<Long, String> lastUsernameCache = new ConcurrentHashMap<>();
     private final Map<Long, String> lastPasswordCache = new ConcurrentHashMap<>();
-    
-    /**
-     * 获取知识库的向量数据库配置
-     * 优先从vectorDatabaseId获取具体实例，如果没有则使用类型查找
-     */
-    private VectorDatabase getVectorDatabaseConfig(Long knowledgeBaseId) {
-        try {
-            // 如果是文档解读（knowledgeBaseId为0），从DocumentReaderConfig读取vectorDatabaseId
-            if (knowledgeBaseId != null && knowledgeBaseId == 0L && documentReaderConfig != null) {
-                Long vectorDatabaseId = documentReaderConfig.getVectorDatabaseId();
-                if (vectorDatabaseId != null && vectorDatabaseRepository != null) {
-                    java.util.Optional<VectorDatabase> config = vectorDatabaseRepository.findById(vectorDatabaseId);
-                    if (config.isPresent()) {
-                        logger.debug("从文档解读配置读取向量数据库配置 - 配置ID: {}", vectorDatabaseId);
-                        return config.get();
-                    } else {
-                        logger.warn("文档解读配置的向量数据库ID不存在: {}, 使用类型配置", vectorDatabaseId);
-                    }
-                }
-            }
-            
-            // 从知识库读取vectorDatabaseId
-            if (knowledgeBaseRepository != null) {
-                assert knowledgeBaseId != null;
-                java.util.Optional<com.github.app.dify.knowledgebase.domain.KnowledgeBase> kb =
-                        knowledgeBaseRepository.findById(knowledgeBaseId);
-                if (kb.isPresent() && kb.get().getVectorDatabaseId() != null) {
-                    Long vectorDatabaseId = kb.get().getVectorDatabaseId();
-                    if (vectorDatabaseRepository != null) {
-                        java.util.Optional<VectorDatabase> config = vectorDatabaseRepository.findById(vectorDatabaseId);
-                        if (config.isPresent()) {
-                            logger.debug("从知识库读取向量数据库配置 - 知识库ID: {}, 配置ID: {}", 
-                                    knowledgeBaseId, vectorDatabaseId);
-                            return config.get();
-                        }
-                    }
-                }
-            }
-            
-            // 如果没有指定配置，使用默认的pgvector配置
-            VectorDatabase defaultConfig = configHelper.getConfigByType("pgvector");
-            if (defaultConfig != null) {
-                logger.debug("使用默认pgvector配置 - 知识库ID: {}", knowledgeBaseId);
-                return defaultConfig;
-            }
-        } catch (Exception e) {
-            logger.warn("获取向量数据库配置失败 - 知识库ID: {}", knowledgeBaseId, e);
-        }
-        
-        return null;
-    }
     
     /**
      * 获取指定知识库的数据库连接
@@ -107,7 +47,7 @@ public class PgVectorVectorStoreStrategy implements VectorStoreStrategy {
         String currentUsername;
         String currentPassword;
         
-        VectorDatabase config = getVectorDatabaseConfig(knowledgeBaseId);
+        VectorDatabase config = configResolver.resolve(knowledgeBaseId, getType());
         if (config != null) {
             currentUrl = config.getUrl();
             // 使用工具类提取用户名和密码

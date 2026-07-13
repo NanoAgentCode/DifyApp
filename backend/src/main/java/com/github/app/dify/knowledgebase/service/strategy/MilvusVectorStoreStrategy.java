@@ -5,7 +5,6 @@ import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.system.config.MilvusConfig;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
-import com.github.app.dify.knowledgebase.repository.KnowledgeBaseRepository;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.DataType;
 import io.milvus.grpc.SearchResults;
@@ -40,11 +39,8 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
     @Autowired
     private MilvusConfig milvusConfig;
 
-    @Autowired(required = false)
-    private KnowledgeBaseRepository knowledgeBaseRepository;
-
     @Autowired
-    private com.github.app.dify.knowledgebase.util.VectorDatabaseConfigHelper configHelper;
+    private VectorDatabaseConfigResolver configResolver;
 
     // 为每个知识库缓存Milvus客户端（ConcurrentHashMap 保证多线程安全）
     private final java.util.concurrent.ConcurrentHashMap<Long, MilvusServiceClient> clientCache = new java.util.concurrent.ConcurrentHashMap<>();
@@ -56,15 +52,12 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
      * 获取指定知识库的Milvus客户端
      */
     private MilvusServiceClient getMilvusClient(Long knowledgeBaseId) {
-        // 获取知识库的向量存储类型
-        String vectorStoreType = getVectorStoreType(knowledgeBaseId);
-
         // 获取对应的配置
         String currentUrl;
         String currentApiKey;
 
         // 使用 MilvusConfig 或数据库中的 milvus 配置
-        VectorDatabase config = configHelper.getConfigByType("milvus");
+        VectorDatabase config = configResolver.resolve(knowledgeBaseId, getType());
         if (config != null) {
             currentUrl = config.getUrl();
             currentApiKey = config.getApiKey();
@@ -135,33 +128,10 @@ public class MilvusVectorStoreStrategy implements VectorStoreStrategy {
             assert currentApiKey != null;
             lastApiKeyCache.put(knowledgeBaseId, currentApiKey);
 
-            logger.debug("为知识库创建Milvus客户端 - 知识库ID: {}, 类型: {}, 主机: {}, 端口: {}",
-                    knowledgeBaseId, vectorStoreType, host, port);
+            logger.debug("为知识库创建Milvus客户端 - 知识库ID: {}, 主机: {}, 端口: {}",
+                    knowledgeBaseId, host, port);
         }
         return client;
-    }
-
-    /**
-     * 获取知识库的向量存储类型
-     */
-    private String getVectorStoreType(Long knowledgeBaseId) {
-        if (knowledgeBaseRepository == null) {
-            return "milvus"; // 默认
-        }
-        try {
-            return knowledgeBaseRepository.findById(knowledgeBaseId)
-                    .map(kb -> {
-                        String type = kb.getVectorStoreType();
-                        if ("milvus".equalsIgnoreCase(type)) {
-                            return type;
-                        }
-                        return "milvus"; // 默认
-                    })
-                    .orElse("milvus");
-        } catch (Exception e) {
-            logger.warn("获取知识库向量存储类型失败，使用默认值milvus - 知识库ID: {}", knowledgeBaseId, e);
-            return "milvus";
-        }
     }
 
     /**

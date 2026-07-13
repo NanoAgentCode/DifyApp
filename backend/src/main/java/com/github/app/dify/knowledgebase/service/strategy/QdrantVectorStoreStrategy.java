@@ -3,31 +3,23 @@ package com.github.app.dify.knowledgebase.service.strategy;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.system.config.QdrantConfig;
-import com.github.app.dify.system.config.DocumentReaderConfig;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
-import com.github.app.dify.knowledgebase.domain.KnowledgeBase;
-import com.github.app.dify.knowledgebase.repository.KnowledgeBaseRepository;
-import com.github.app.dify.knowledgebase.repository.VectorDatabaseRepository;
-import com.github.app.dify.knowledgebase.util.VectorDatabaseConfigHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 import java.time.Duration;
 import java.util.*;
-import java.util.Optional;
 /**
  * Qdrant向量存储策略实现
  */
 @Service
-public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
+public class QdrantVectorStoreStrategy extends AbstractHttpVectorStoreStrategy implements VectorStoreStrategy {
     
     private static final Logger logger = LoggerFactory.getLogger(QdrantVectorStoreStrategy.class);
     
@@ -39,29 +31,15 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
     @Autowired
     private QdrantConfig qdrantConfig;
     
-    @Autowired(required = false)
-    private KnowledgeBaseRepository knowledgeBaseRepository;
-    
-    @Autowired(required = false)
-    private VectorDatabaseRepository vectorDatabaseRepository;
-    
     @Autowired
-    private VectorDatabaseConfigHelper configHelper;
-    
-    @Autowired(required = false)
-    private DocumentReaderConfig documentReaderConfig;
-    
-    // 为每个知识库缓存WebClient（ConcurrentHashMap 保证多线程安全）
-    private final java.util.concurrent.ConcurrentHashMap<Long, WebClient> webClientCache = new java.util.concurrent.ConcurrentHashMap<>();
-    private final java.util.concurrent.ConcurrentHashMap<Long, String> lastUrlCache = new java.util.concurrent.ConcurrentHashMap<>();
-    private final java.util.concurrent.ConcurrentHashMap<Long, String> lastApiKeyCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private VectorDatabaseConfigResolver configResolver;
     
     /**
      * 获取指定知识库的WebClient
      */
     private WebClient getWebClient(Long knowledgeBaseId) {
         // 获取知识库的向量数据库配置
-        VectorDatabase vectorDatabaseConfig = getVectorDatabaseConfig(knowledgeBaseId);
+        VectorDatabase vectorDatabaseConfig = configResolver.resolve(knowledgeBaseId, getType());
         
         String currentUrl;
         String currentApiKey;
@@ -78,80 +56,8 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
             logger.debug("使用默认Qdrant配置 - 知识库ID: {}, URL: {}", knowledgeBaseId, currentUrl);
         }
         
-        // 检查缓存
-        String lastUrl = lastUrlCache.get(knowledgeBaseId);
-        String lastApiKey = lastApiKeyCache.get(knowledgeBaseId);
-        WebClient webClient = webClientCache.get(knowledgeBaseId);
-        
-        if (webClient == null || 
-            !currentUrl.equals(lastUrl) || 
-            (currentApiKey != null ? !currentApiKey.equals(lastApiKey) : lastApiKey != null)) {
-            
-            WebClient.Builder builder = WebClient.builder()
-                    .baseUrl(currentUrl)
-                    .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-            
-            if (currentApiKey != null && !currentApiKey.trim().isEmpty()) {
-                builder.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + currentApiKey);
-            }
-            
-            webClient = builder.build();
-            webClientCache.put(knowledgeBaseId, webClient);
-            lastUrlCache.put(knowledgeBaseId, currentUrl);
-            assert currentApiKey != null;
-            lastApiKeyCache.put(knowledgeBaseId, currentApiKey);
-            logger.debug("重新创建Qdrant WebClient - 知识库ID: {}, URL: {}", knowledgeBaseId, currentUrl);
-        }
-        return webClient;
-    }
-    
-    /**
-     * 获取知识库的向量数据库配置
-     */
-    private VectorDatabase getVectorDatabaseConfig(Long knowledgeBaseId) {
-        try {
-            // 如果是文档解读（knowledgeBaseId为0），从DocumentReaderConfig读取vectorDatabaseId
-            if (knowledgeBaseId != null && knowledgeBaseId == 0L && documentReaderConfig != null) {
-                Long vectorDatabaseId = documentReaderConfig.getVectorDatabaseId();
-                if (vectorDatabaseId != null && vectorDatabaseRepository != null) {
-                    Optional<VectorDatabase> config = vectorDatabaseRepository.findById(vectorDatabaseId);
-                    if (config.isPresent()) {
-                        logger.debug("从文档解读配置读取向量数据库配置 - 配置ID: {}", vectorDatabaseId);
-                        return config.get();
-                    } else {
-                        logger.warn("文档解读配置的向量数据库ID不存在: {}, 使用默认配置", vectorDatabaseId);
-                    }
-                }
-            }
-            
-            // 从知识库读取vectorDatabaseId
-            if (knowledgeBaseRepository != null) {
-                assert knowledgeBaseId != null;
-                Optional<KnowledgeBase> kb = knowledgeBaseRepository.findById(knowledgeBaseId);
-                if (kb.isPresent() && kb.get().getVectorDatabaseId() != null) {
-                    Long vectorDatabaseId = kb.get().getVectorDatabaseId();
-                    if (vectorDatabaseRepository != null) {
-                        Optional<VectorDatabase> config = vectorDatabaseRepository.findById(vectorDatabaseId);
-                        if (config.isPresent()) {
-                            logger.debug("从知识库读取向量数据库配置 - 知识库ID: {}, 配置ID: {}", 
-                                    knowledgeBaseId, vectorDatabaseId);
-                            return config.get();
-                        }
-                    }
-                }
-            }
-            
-            // 如果没有指定配置，使用默认的Qdrant配置
-            VectorDatabase defaultConfig = configHelper.getConfigByType("qdrant");
-            if (defaultConfig != null) {
-                logger.debug("使用默认Qdrant配置 - 知识库ID: {}", knowledgeBaseId);
-                return defaultConfig;
-            }
-        } catch (Exception e) {
-            logger.warn("获取向量数据库配置失败 - 知识库ID: {}", knowledgeBaseId, e);
-        }
-        
-        return null;
+        return getCachedWebClient(knowledgeBaseId, currentUrl, currentApiKey,
+                org.springframework.http.HttpHeaders.AUTHORIZATION, builder -> { });
     }
     
     /**
@@ -162,7 +68,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
         String collectionName = getCollectionName(knowledgeBaseId);
         
         WebClient webClient = getWebClient(knowledgeBaseId);
-        VectorDatabase config = getVectorDatabaseConfig(knowledgeBaseId);
+        VectorDatabase config = configResolver.resolve(knowledgeBaseId, getType());
         int timeout = config != null && config.getTimeout() != null ? config.getTimeout() : qdrantConfig.getTimeout();
         
         try {
@@ -335,7 +241,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
                     pointsCountBefore, knowledgeBaseId, documentId, collectionName);
             
             WebClient webClient = getWebClient(knowledgeBaseId);
-            VectorDatabase config = getVectorDatabaseConfig(knowledgeBaseId);
+            VectorDatabase config = configResolver.resolve(knowledgeBaseId, getType());
             int timeout = config != null && config.getTimeout() != null ? config.getTimeout() : qdrantConfig.getTimeout();
             
             Map<String, Object> response = webClient
@@ -446,7 +352,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
                     knowledgeBaseId, collectionName, queryVector.size(), topK, requestBody);
             
             WebClient webClient = getWebClient(knowledgeBaseId);
-            VectorDatabase config = getVectorDatabaseConfig(knowledgeBaseId);
+            VectorDatabase config = configResolver.resolve(knowledgeBaseId, getType());
             int timeout = config != null && config.getTimeout() != null ? config.getTimeout() : qdrantConfig.getTimeout();
             
             Map<String, Object> response = webClient
@@ -541,7 +447,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
         try {
             String checkUrl = "/collections/" + collectionName;
             WebClient webClient = getWebClient(knowledgeBaseId);
-            VectorDatabase config = getVectorDatabaseConfig(knowledgeBaseId);
+            VectorDatabase config = configResolver.resolve(knowledgeBaseId, getType());
             int timeout = config != null && config.getTimeout() != null ? config.getTimeout() : qdrantConfig.getTimeout();
             
             Map<String, Object> response = webClient
@@ -586,7 +492,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
         try {
             String checkUrl = "/collections/" + collectionName;
             WebClient webClient = getWebClient(knowledgeBaseId);
-            VectorDatabase config = getVectorDatabaseConfig(knowledgeBaseId);
+            VectorDatabase config = configResolver.resolve(knowledgeBaseId, getType());
             int timeout = config != null && config.getTimeout() != null ? config.getTimeout() : qdrantConfig.getTimeout();
             
             Map<String, Object> response = webClient
@@ -662,7 +568,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
                     knowledgeBaseId, documentId, collectionName, requestBody);
             
             WebClient webClient = getWebClient(knowledgeBaseId);
-            VectorDatabase config = getVectorDatabaseConfig(knowledgeBaseId);
+            VectorDatabase config = configResolver.resolve(knowledgeBaseId, getType());
             int timeout = config != null && config.getTimeout() != null ? config.getTimeout() : qdrantConfig.getTimeout();
             
             webClient
@@ -718,7 +624,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
         try {
             String deleteUrl = "/collections/" + collectionName;
             WebClient webClient = getWebClient(knowledgeBaseId);
-            VectorDatabase config = getVectorDatabaseConfig(knowledgeBaseId);
+            VectorDatabase config = configResolver.resolve(knowledgeBaseId, getType());
             int timeout = config != null && config.getTimeout() != null ? config.getTimeout() : qdrantConfig.getTimeout();
             
             webClient
@@ -739,7 +645,7 @@ public class QdrantVectorStoreStrategy implements VectorStoreStrategy {
         try {
             String checkUrl = "/collections/" + collectionName;
             WebClient webClient = getWebClient(knowledgeBaseId);
-            VectorDatabase vectorDbConfig = getVectorDatabaseConfig(knowledgeBaseId);
+            VectorDatabase vectorDbConfig = configResolver.resolve(knowledgeBaseId, getType());
             int timeout = vectorDbConfig != null && vectorDbConfig.getTimeout() != null ? vectorDbConfig.getTimeout() : qdrantConfig.getTimeout();
             
             Map<String, Object> response = webClient

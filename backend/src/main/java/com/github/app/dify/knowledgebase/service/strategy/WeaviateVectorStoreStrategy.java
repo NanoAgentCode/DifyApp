@@ -4,14 +4,11 @@ import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
 import com.github.app.dify.system.config.WeaviateConfig;
 import com.github.app.dify.knowledgebase.service.VectorStoreStrategy;
-import com.github.app.dify.knowledgebase.repository.KnowledgeBaseRepository;
 import com.github.app.dify.knowledgebase.domain.VectorDatabase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -27,7 +24,7 @@ import java.security.NoSuchAlgorithmException;
  * Weaviate向量存储服务（使用HTTP REST API）
  */
 @Service
-public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
+public class WeaviateVectorStoreStrategy extends AbstractHttpVectorStoreStrategy implements VectorStoreStrategy {
 
     private static final Logger logger = LoggerFactory.getLogger(WeaviateVectorStoreStrategy.class);
 
@@ -154,30 +151,22 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
     @Autowired
     private WeaviateConfig weaviateConfig;
 
-    @Autowired(required = false)
-    private KnowledgeBaseRepository knowledgeBaseRepository;
-
     @Autowired
     private com.github.app.dify.knowledgebase.util.VectorDatabaseConfigHelper configHelper;
 
-    // 为每个知识库缓存WebClient（因为不同知识库可能使用不同的配置）
-    private final java.util.concurrent.ConcurrentHashMap<Long, WebClient> clientCache = new java.util.concurrent.ConcurrentHashMap<>();
-    private final java.util.concurrent.ConcurrentHashMap<Long, String> lastUrlCache = new java.util.concurrent.ConcurrentHashMap<>();
-    private final java.util.concurrent.ConcurrentHashMap<Long, String> lastApiKeyCache = new java.util.concurrent.ConcurrentHashMap<>();
+    @Autowired
+    private VectorDatabaseConfigResolver configResolver;
 
     /**
      * 获取指定知识库的WebClient
      */
     private WebClient getWebClient(Long knowledgeBaseId) {
-        // 获取知识库的向量存储类型
-        String vectorStoreType = getVectorStoreType(knowledgeBaseId);
-
         // 获取对应的配置
         String currentUrl;
         String currentApiKey;
 
         // 使用 WeaviateConfig 或数据库中的 weaviate 配置
-        VectorDatabase config = configHelper.getConfigByType("weaviate");
+        VectorDatabase config = configResolver.resolve(knowledgeBaseId, getType());
         if (config != null) {
             currentUrl = config.getUrl();
             currentApiKey = config.getApiKey();
@@ -186,59 +175,8 @@ public class WeaviateVectorStoreStrategy implements VectorStoreStrategy {
             currentApiKey = weaviateConfig.getApiKey();
         }
 
-        // 检查缓存
-        String lastUrl = lastUrlCache.get(knowledgeBaseId);
-        String lastApiKey = lastApiKeyCache.get(knowledgeBaseId);
-        WebClient client = clientCache.get(knowledgeBaseId);
-
-        if (client == null ||
-                !currentUrl.equals(lastUrl) ||
-                (currentApiKey != null ? !currentApiKey.equals(lastApiKey) : lastApiKey != null)) {
-
-            WebClient.Builder builder = WebClient.builder()
-                    .baseUrl(currentUrl)
-                    .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                    // 增加缓冲区大小以支持大批量向量插入响应（默认256KB，增加到50MB）
-                    .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(50 * 1024 * 1024));
-
-            if (currentApiKey != null && !currentApiKey.trim().isEmpty()) {
-                // Weaviate使用X-API-Key头
-                builder.defaultHeader("X-API-Key", currentApiKey);
-            }
-
-            client = builder.build();
-            clientCache.put(knowledgeBaseId, client);
-            lastUrlCache.put(knowledgeBaseId, currentUrl);
-            assert currentApiKey != null;
-            lastApiKeyCache.put(knowledgeBaseId, currentApiKey);
-
-            logger.debug("为知识库创建Weaviate WebClient - 知识库ID: {}, 类型: {}, URL: {}",
-                    knowledgeBaseId, vectorStoreType, currentUrl);
-        }
-        return client;
-    }
-
-    /**
-     * 获取知识库的向量存储类型
-     */
-    private String getVectorStoreType(Long knowledgeBaseId) {
-        if (knowledgeBaseRepository == null) {
-            return "weaviate"; // 默认
-        }
-        try {
-            return knowledgeBaseRepository.findById(knowledgeBaseId)
-                    .map(kb -> {
-                        String type = kb.getVectorStoreType();
-                        if ("weaviate".equalsIgnoreCase(type)) {
-                            return type;
-                        }
-                        return "weaviate"; // 默认
-                    })
-                    .orElse("weaviate");
-        } catch (Exception e) {
-            logger.warn("获取知识库向量存储类型失败，使用默认值weaviate - 知识库ID: {}", knowledgeBaseId, e);
-            return "weaviate";
-        }
+        return getCachedWebClient(knowledgeBaseId, currentUrl, currentApiKey, "X-API-Key",
+                builder -> builder.codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(50 * 1024 * 1024)));
     }
 
     /**
