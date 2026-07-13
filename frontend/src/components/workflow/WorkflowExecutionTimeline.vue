@@ -138,8 +138,6 @@ const formatJson = (value) => {
     return String(value)
   }
 }
-const formatDuration = (ms) => !ms ? "" : ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(2)}s`
-const formatJson = (value) => typeof value === "string" ? value : JSON.stringify(value, null, 2)
 </script>
 <style scoped>
 .execution-section {

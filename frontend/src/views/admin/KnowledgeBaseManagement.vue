@@ -1,648 +1,19 @@
 <template>
   <div class="knowledge-base-management">
-    <el-card>
-      <template v-if="userMode" #header>
-        <div class="card-header">
-          <div class="header-left">
-            <el-button type="primary" link @click="handleBack" style="margin-right: 10px">
-              <el-icon><ArrowLeft /></el-icon>
-              返回
-            </el-button>
-            <span>我的知识库</span>
-          </div>
-          <div class="header-right">
-            <el-button type="success" @click="handleImport">
-              <el-icon><UploadFilled /></el-icon>
-              导入知识库
-            </el-button>
-            <el-button type="primary" @click="handleCreate">
-              <el-icon><Plus /></el-icon>
-              创建知识库
-            </el-button>
-          </div>
-        </div>
-      </template>
-      <!-- 搜索栏 -->
-      <div class="search-bar">
-        <div class="search-left">
-          <el-input
-            v-model="searchKeyword"
-            placeholder="搜索知识库名称或描述"
-            clearable
-            style="width: 300px"
-            @input="handleSearch"
-          >
-            <template #prefix>
-              <el-icon><Search /></el-icon>
-            </template>
-          </el-input>
-          <el-select
-            v-model="filterVectorStoreType"
-            placeholder="筛选向量库"
-            clearable
-            style="width: 150px"
-            @change="handleFilter"
-          >
-            <el-option label="全部" value="" />
-            <el-option label="Qdrant" value="qdrant" />
-            <el-option label="FAISS" value="faiss" />
-            <el-option label="Milvus" value="milvus" />
-            <el-option label="Chroma" value="chroma" />
-            <el-option label="Weaviate" value="weaviate" />
-            <el-option label="PgVector" value="pgvector" />
-          </el-select>
-          <el-select
-            v-model="filterStatus"
-            placeholder="筛选状态"
-            clearable
-            style="width: 150px"
-            @change="handleFilter"
-          >
-            <el-option label="全部" value="" />
-            <el-option label="启用" value="active" />
-            <el-option label="禁用" value="inactive" />
-          </el-select>
-        </div>
-        <div v-if="!userMode" class="search-right">
-          <el-button type="success" @click="handleImport">
-            <el-icon><UploadFilled /></el-icon>
-            导入知识库
-          </el-button>
-          <el-button type="primary" @click="handleCreate">
-            <el-icon><Plus /></el-icon>
-            创建知识库
-          </el-button>
-        </div>
-      </div>
-
-      <!-- 知识库列表 -->
-      <div class="table-container" style="padding: 0 20px;">
-        <el-table
-          :data="tableKnowledgeBases"
-          v-loading="loading"
-          stripe
-          :lazy="false"
-          :row-key="row => row.id"
-          :default-sort="{ prop: 'createTime', order: 'descending' }"
-        >
-        <el-table-column prop="id" label="ID" width="80" align="center" />
-        <el-table-column label="知识库名称" min-width="200">
-          <template #default="{ row }">
-            <div class="kb-name-cell">
-              <el-icon class="kb-icon"><Document /></el-icon>
-              <span>{{ row.name }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="description" label="描述" min-width="250" show-overflow-tooltip />
-        <el-table-column label="文档数量" width="120" align="center">
-          <template #default="{ row }">
-            <el-tag type="info">{{ row.documentCount || 0 }} 个</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column v-if="!userMode" label="可见性" width="100" align="center">
-          <template #default="{ row }">
-            <el-tooltip :content="row.isPublic ? '公开' : '私有'" placement="top">
-              <el-icon :size="20" :color="row.isPublic ? '#67c23a' : '#909399'">
-                <Unlock v-if="row.isPublic" />
-                <Lock v-else />
-              </el-icon>
-            </el-tooltip>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tooltip :content="getStatusText(row.status)" placement="top">
-              <el-icon :size="20" :color="isActive(row.status) ? '#67c23a' : '#909399'">
-                <Check v-if="isActive(row.status)" />
-                <Close v-else />
-              </el-icon>
-            </el-tooltip>
-          </template>
-        </el-table-column>
-        <el-table-column label="向量化模型" width="180" align="center">
-          <template #default="{ row }">
-            <el-tag 
-              v-if="getEmbeddingModelName(row.embeddingModelId)" 
-              size="small"
-              effect="plain"
-              class="kb-embedding-model-tag"
-              :style="getModelPlainStyle(row.embeddingModelId)"
-            >
-              {{ getEmbeddingModelName(row.embeddingModelId) }}
-            </el-tag>
-            <span v-else class="kb-cell-empty">-</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="向量存储" width="180" align="center">
-          <template #default="{ row }">
-            <el-tag 
-              :type="getVectorStoreTypeTag(row.vectorStoreType)"
-              size="small"
-            >
-              {{ getVectorStoreInstanceName(row) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="180" align="center">
-          <template #default="{ row }">
-            {{ formatDate(row.createTime) }}
-          </template>
-        </el-table-column>
-            <el-table-column label="操作" width="280" fixed="right" align="center">
-              <template #default="{ row }">
-                <div class="action-buttons-row">
-                  <el-tooltip content="可以通过查看详情看摘要" placement="top">
-                    <el-button 
-                      size="small" 
-                      type="warning" 
-                      @click="handleGenerateSummary(row)"
-                    >
-                      <el-icon><DocumentCopy /></el-icon>
-                      摘要
-                    </el-button>
-                  </el-tooltip>
-                  <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
-                  <el-dropdown @command="(command) => handleDropdownCommand(command, row)">
-                    <el-button size="small" type="primary">
-                      更多<el-icon class="el-icon--right"><arrow-down /></el-icon>
-                    </el-button>
-                    <template #dropdown>
-                      <el-dropdown-menu>
-                        <el-dropdown-item command="view">
-                          <el-icon><View /></el-icon>
-                          查看详情
-                        </el-dropdown-item>
-                        <el-dropdown-item command="edit">
-                          <el-icon><Edit /></el-icon>
-                          编辑信息
-                        </el-dropdown-item>
-                        <el-dropdown-item command="documents">
-                          <el-icon><Document /></el-icon>
-                          文件管理
-                        </el-dropdown-item>
-                        <el-dropdown-item command="export">
-                          <el-icon><Download /></el-icon>
-                          导出知识库
-                        </el-dropdown-item>
-                      </el-dropdown-menu>
-                    </template>
-                  </el-dropdown>
-                </div>
-              </template>
-            </el-table-column>
-        </el-table>
-      </div>
-
-      <!-- 分页 -->
-      <div class="pagination" style="padding: 0 20px 20px 20px;">
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50, 100, 200]"
-          :total="displayTotal"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-        />
-      </div>
-    </el-card>
-
-    <!-- 创建/编辑对话框 -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="dialogTitle"
-      width="700px"
-      :close-on-click-modal="false"
-      :lock-scroll="true"
-      @close="handleDialogClose"
-    >
-      <el-form
-        ref="formRef"
-        :model="formData"
-        :rules="formRules"
-        label-width="120px"
-        label-position="right"
-      >
-        <el-form-item label="知识库名称" prop="name">
-          <el-input v-model="formData.name" placeholder="请输入知识库名称" />
-        </el-form-item>
-        <el-form-item label="描述" prop="description">
-          <el-input
-            v-model="formData.description"
-            type="textarea"
-            :rows="4"
-            placeholder="请输入知识库描述"
-          />
-        </el-form-item>
-        <el-form-item label="可见性" prop="isPublic" v-if="isAdmin">
-          <el-radio-group v-model="formData.isPublic" class="visibility-radio-group">
-            <el-radio :label="true" class="visibility-radio-item">
-              <div class="radio-content">
-                <span class="radio-label">公开</span>
-                <span class="radio-description">所有用户都可以访问</span>
-              </div>
-            </el-radio>
-            <el-radio :label="false" class="visibility-radio-item">
-              <div class="radio-content">
-                <span class="radio-label">私有</span>
-                <span class="radio-description">只有创建者可以访问</span>
-              </div>
-            </el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item v-else>
-          <el-alert
-            type="info"
-            :closable="false"
-            show-icon
-          >
-            <template #title>
-              <span>普通用户只能创建私有知识库</span>
-            </template>
-          </el-alert>
-        </el-form-item>
-        <el-form-item prop="embeddingModelId">
-          <template #label>
-            <span>向量化模型</span>
-            <el-tooltip
-              v-if="!(isEdit && hasDocuments)"
-              content="用于文档向量化的模型，如果不选择则使用系统默认向量化模型"
-              placement="top"
-            >
-              <el-icon style="margin-left: 4px; color: #909399; cursor: help;">
-                <QuestionFilled />
-              </el-icon>
-            </el-tooltip>
-          </template>
-          <el-select
-            v-model="formData.embeddingModelId"
-            :placeholder="isEdit && hasDocuments ? (getEmbeddingModelName(formData.embeddingModelId) || '默认模型') : '选择向量化模型（不选择则使用默认模型）'"
-            clearable
-            style="width: 100%"
-            :disabled="isEdit && hasDocuments"
-          >
-            <el-option
-              v-for="model in embeddingModels"
-              :key="model.id"
-              :label="model.name"
-              :value="model.id"
-            >
-              <div class="kb-embedding-option-row">
-                <el-tag size="small" effect="plain" class="kb-embedding-option-tag kb-embedding-model-tag" :style="getModelPlainStyle(model.id)">
-                  {{ model.name }}
-                </el-tag>
-                <el-tag v-if="model.isDefault" type="primary" size="small" class="kb-embedding-default-tag">
-                  默认
-                </el-tag>
-              </div>
-            </el-option>
-          </el-select>
-          <div v-if="isEdit && hasDocuments" class="form-item-hint form-item-hint-warning">
-            <el-icon><Warning /></el-icon>
-            <span>当前使用：<strong>{{ getEmbeddingModelName(formData.embeddingModelId) || '默认模型' }}</strong>。已有文档，无法修改。</span>
-          </div>
-        </el-form-item>
-        <el-form-item prop="topK">
-          <template #label>
-            <span>Top-K检索数量</span>
-            <el-tooltip
-              content="检索时返回的最相关文档片段数量（1-50），如果不设置则使用系统全局配置"
-              placement="top"
-            >
-              <el-icon style="margin-left: 4px; color: #909399; cursor: help;">
-                <QuestionFilled />
-              </el-icon>
-            </el-tooltip>
-          </template>
-          <el-input-number
-            v-model="formData.topK"
-            :min="1"
-            :max="50"
-            :step="1"
-            placeholder="不设置则使用全局配置"
-            style="width: 100%"
-            clearable
-          />
-        </el-form-item>
-        <el-form-item prop="vectorStoreType">
-          <template #label>
-            <span>向量存储</span>
-            <el-tooltip
-              v-if="!formData.vectorStoreType"
-              content="请选择向量存储实例。将显示所有启用的向量库配置。"
-              placement="top"
-            >
-              <el-icon style="margin-left: 4px; color: #909399; cursor: help;">
-                <QuestionFilled />
-              </el-icon>
-            </el-tooltip>
-          </template>
-          <el-select
-            v-model="formData.vectorStoreType"
-            placeholder="选择向量存储实例"
-            clearable
-            style="width: 100%"
-            :disabled="isEdit && hasDocuments"
-            filterable
-            popper-class="vector-store-select-dropdown"
-          >
-            <el-option
-              v-for="db in creatableVectorDatabases"
-              :key="db.id"
-              :label="db.name"
-              :value="`${db.type}_${db.id}`"
-            >
-                <div style="display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 4px 0;">
-                  <!-- 第一行：实例名称和标签 -->
-                  <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-                    <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
-                      <span style="font-weight: 600; font-size: 14px; color: #303133; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ db.name }}</span>
-                      <el-tag v-if="db.isDefault" type="primary" size="small" style="flex-shrink: 0;">默认</el-tag>
-                      <span style="font-size: 12px; color: #909399; flex-shrink: 0;">{{ getVectorDatabaseDocumentCount(db) }} 个文档</span>
-                    </div>
-                    <el-tag :type="getVectorStoreTypeTag(db.type)" size="small" style="flex-shrink: 0;">
-                      {{ getVectorStoreTypeName(db.type) }}
-                    </el-tag>
-                  </div>
-                  <!-- 第二行：URL地址 -->
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <el-icon style="font-size: 12px; color: #909399;"><Link /></el-icon>
-                    <span style="font-size: 12px; color: #909399; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">{{ db.url || '未配置URL' }}</span>
-                  </div>
-                </div>
-            </el-option>
-          </el-select>
-          <div v-if="isEdit && hasDocuments" class="form-item-hint form-item-hint-warning">
-            <el-icon><Warning /></el-icon>
-            <span>当前使用：<strong>{{ getVectorStoreTypeNameFromValue(formData.vectorStoreType) }}</strong>。已有文档，无法修改。</span>
-          </div>
-          <div v-else-if="formData.vectorStoreType" class="form-item-hint form-item-description">
-            <span class="description-label">{{ getVectorStoreTypeNameFromValue(formData.vectorStoreType) }}：</span>
-            <span class="description-text">{{ getVectorStoreTypeDescriptionFromValue(formData.vectorStoreType) }}</span>
-          </div>
-        </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-radio-group v-model="formData.status">
-            <el-radio label="active">启用</el-radio>
-            <el-radio label="inactive">禁用</el-radio>
-          </el-radio-group>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 查看详情对话框 -->
-    <el-dialog
-      v-model="viewDialogVisible"
-      title="知识库详情"
-      width="700px"
-      :lock-scroll="true"
-    >
-      <el-descriptions :column="2" border v-if="currentKB">
-        <el-descriptions-item label="ID">{{ currentKB.id }}</el-descriptions-item>
-        <el-descriptions-item label="名称">{{ currentKB.name }}</el-descriptions-item>
-        <el-descriptions-item label="向量化模型" :span="2">
-          <el-tag 
-            v-if="getEmbeddingModelName(currentKB.embeddingModelId)" 
-            size="small"
-            effect="plain"
-            class="kb-embedding-model-tag"
-            :style="getModelPlainStyle(currentKB.embeddingModelId)"
-          >
-            {{ getEmbeddingModelName(currentKB.embeddingModelId) }}
-          </el-tag>
-          <span v-else style="color: #909399;">-</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="Top-K检索数量" :span="2">
-          <el-tag v-if="currentKB.topK" type="info">{{ currentKB.topK }}</el-tag>
-          <span v-else style="color: #909399;">使用全局配置</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="向量存储类型" :span="2">
-          <el-tag 
-            :type="getVectorStoreTypeTag(currentKB.vectorStoreType)"
-          >
-            {{ getVectorStoreTypeDisplayName(currentKB.vectorStoreType) }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="状态" :span="2">
-          <el-tag :type="isActive(currentKB.status) ? 'success' : 'info'">
-            {{ getStatusText(currentKB.status) }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="文档总数">{{ currentKB.documentCount || 0 }} 个</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ formatDate(currentKB.createTime) }}</el-descriptions-item>
-        <el-descriptions-item label="成功文档">
-          <el-tag type="success" size="small">{{ currentKB.successDocumentCount || 0 }} 个</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="失败文档">
-          <el-tag type="danger" size="small">{{ currentKB.failedDocumentCount || 0 }} 个</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="描述" :span="2">{{ currentKB.description || '无' }}</el-descriptions-item>
-        <el-descriptions-item label="智能摘要" :span="2">
-          <div v-if="currentKB.summary" style="max-width: 600px; word-wrap: break-word; line-height: 1.6;">
-            {{ currentKB.summary }}
-          </div>
-          <div v-else style="color: #909399; font-style: italic;">
-            暂无摘要
-            <el-button 
-              type="primary" 
-              size="small" 
-              style="margin-left: 10px;"
-              @click="handleGenerateSummaryFromView"
-            >
-              生成摘要
-            </el-button>
-          </div>
-        </el-descriptions-item>
-      </el-descriptions>
-      <template #footer>
-        <el-button @click="viewDialogVisible = false">关闭</el-button>
-        <el-button 
-          v-if="currentKB && !currentKB.summary" 
-          type="primary" 
-          @click="handleGenerateSummaryFromView"
-        >
-          生成摘要
-        </el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 导入知识库对话框 -->
-    <el-dialog 
-      v-model="importDialogVisible" 
-      title="导入知识库" 
-      width="700px" 
-      :close-on-click-modal="false"
-      :lock-scroll="true"
-      class="import-dialog"
-    >
-      <div class="import-dialog-content">
-        <!-- 文件上传区域 -->
-        <div class="upload-section">
-          <template v-if="importFileList.length === 0">
-            <el-upload
-              :auto-upload="false"
-              :on-change="handleFileChange"
-              :file-list="importFileList"
-              accept=".zip"
-              drag
-              :limit="1"
-              class="import-upload"
-            >
-              <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-              <div class="el-upload__text">拖拽ZIP文件到此处或<em>点击上传</em></div>
-            </el-upload>
-          </template>
-          <div v-else class="file-selected-card">
-            <!-- 文件信息 -->
-            <div class="file-info-row">
-              <el-icon class="file-icon"><Document /></el-icon>
-              <span class="file-name">{{ importFileList[0].name }}</span>
-              <el-button 
-                type="primary" 
-                link 
-                size="small" 
-                @click="handleReSelectFile"
-                :disabled="importing"
-                class="re-select-btn"
-              >
-                重新选择
-              </el-button>
-            </div>
-            
-            <!-- 文件预览 -->
-            <div v-if="previewFiles.length > 0" class="preview-section">
-              <div class="preview-header">
-                <span class="preview-count">共 {{ previewFiles.length }} 个文件</span>
-                <el-tooltip content="导入后将自动进行向量化处理" placement="top">
-                  <el-icon class="preview-tip-icon"><QuestionFilled /></el-icon>
-                </el-tooltip>
-              </div>
-              <div class="preview-table-wrapper">
-                <el-table :data="previewFiles" size="small" max-height="140">
-                  <el-table-column prop="fileName" label="文件名" min-width="200" show-overflow-tooltip />
-                  <el-table-column prop="fileType" label="类型" width="80" align="center">
-                    <template #default="{ row }">
-                      <span class="file-type-tag">{{ row.fileType }}</span>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="fileSize" label="大小" width="100" align="right">
-                    <template #default="{ row }">
-                      {{ formatFileSize(row.fileSize) }}
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- 知识库信息（文件上传后显示） -->
-        <div v-if="importFileList.length > 0" class="form-section">
-          <el-form 
-            :model="importForm" 
-            :rules="importRules" 
-            ref="importFormRef" 
-            label-width="90px"
-            label-position="right"
-          >
-            <div class="form-section-header">
-              <span class="form-section-title">知识库信息</span>
-              <el-tooltip content="请确认知识库的基本信息，默认使用ZIP文件名作为知识库名称" placement="top">
-                <el-icon class="form-section-icon"><InfoFilled /></el-icon>
-              </el-tooltip>
-            </div>
-            
-            <el-form-item label="名称" prop="name" required>
-              <el-input 
-                v-model="importForm.name" 
-                placeholder="请输入知识库名称"
-                :disabled="importing"
-                clearable
-              />
-            </el-form-item>
-            
-            <el-form-item label="描述">
-              <el-input 
-                v-model="importForm.description" 
-                type="textarea" 
-                :rows="2"
-                placeholder="请输入知识库描述（可选）"
-                :disabled="importing"
-                maxlength="500"
-                show-word-limit
-              />
-            </el-form-item>
-            
-            <!-- 高级配置（折叠） -->
-            <el-collapse class="advanced-config-collapse" :border="false">
-              <el-collapse-item title="高级配置" name="advanced">
-                <el-form-item label="向量存储类型">
-                  <el-select 
-                    v-model="importForm.vectorStoreType" 
-                    placeholder="使用系统默认值" 
-                    :disabled="importing"
-                    clearable
-                    style="width: 100%"
-                  >
-                    <el-option label="使用默认值" value="" />
-                    <el-option label="Qdrant" value="qdrant" />
-                    <el-option label="FAISS" value="faiss" />
-                    <el-option label="Milvus" value="milvus" />
-                    <el-option label="Chroma" value="chroma" />
-                    <el-option label="Weaviate" value="weaviate" />
-                    <el-option label="PgVector" value="pgvector" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="是否公开" v-if="isAdmin">
-                  <div class="switch-with-tooltip">
-                    <el-switch 
-                      v-model="importForm.isPublic" 
-                      :disabled="importing"
-                      active-text="公开"
-                      inactive-text="私有"
-                    />
-                    <el-tooltip content="公开：所有用户都可以访问；私有：只有创建者可以访问" placement="top">
-                      <el-icon class="switch-tooltip-icon"><QuestionFilled /></el-icon>
-                    </el-tooltip>
-                  </div>
-                </el-form-item>
-              </el-collapse-item>
-            </el-collapse>
-          </el-form>
-        </div>
-      </div>
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="importDialogVisible = false" :disabled="importing">取消</el-button>
-          <el-button 
-            type="primary" 
-            @click="handleConfirmImport" 
-            :loading="importing"
-            :disabled="importFileList.length === 0 || !importForm.name"
-          >
-            <el-icon v-if="!importing"><UploadFilled /></el-icon>
-            开始导入
-          </el-button>
-        </div>
-      </template>
-    </el-dialog>
+    <KnowledgeBaseListPanel v-model:search-keyword="searchKeyword" v-model:filter-vector-store-type="filterVectorStoreType" v-model:filter-status="filterStatus" v-model:current-page="currentPage" v-model:page-size="pageSize" :user-mode="userMode" :knowledge-bases="tableKnowledgeBases" :loading="loading" :display-total="displayTotal" :get-status-text="getStatusText" :is-active="isActive" :get-embedding-model-name="getEmbeddingModelName" :get-model-plain-style="getModelPlainStyle" :get-vector-store-type-tag="getVectorStoreTypeTag" :get-vector-store-instance-name="getVectorStoreInstanceName" :format-date="formatDate" @search="handleSearch" @filter="handleFilter" @create="handleCreate" @import="handleImport" @back="handleBack" @summary="handleGenerateSummary" @delete="handleDelete" @dropdown="({ command, row }) => handleDropdownCommand(command, row)" @size-change="handleSizeChange" @page-change="handlePageChange" />
+    <KnowledgeBaseFormDialog ref="formRef" v-model:visible="dialogVisible" :dialog-title="dialogTitle" :form-data="formData" :form-rules="formRules" :is-admin="isAdmin" :is-edit="isEdit" :has-documents="hasDocuments" :embedding-models="embeddingModels" :creatable-vector-databases="creatableVectorDatabases" :get-embedding-model-name="getEmbeddingModelName" :get-model-plain-style="getModelPlainStyle" :get-vector-database-document-count="getVectorDatabaseDocumentCount" :get-vector-store-type-tag="getVectorStoreTypeTag" :get-vector-store-type-name="getVectorStoreTypeName" :get-vector-store-type-name-from-value="getVectorStoreTypeNameFromValue" :get-vector-store-type-description-from-value="getVectorStoreTypeDescriptionFromValue" @close="handleDialogClose" @submit="handleSubmit" />
+    <KnowledgeBaseDetailDialog v-model:visible="viewDialogVisible" :current-k-b="currentKB" :get-embedding-model-name="getEmbeddingModelName" :get-model-plain-style="getModelPlainStyle" :get-vector-store-type-tag="getVectorStoreTypeTag" :get-vector-store-type-display-name="getVectorStoreTypeDisplayName" :is-active="isActive" :get-status-text="getStatusText" :format-date="formatDate" @generate-summary="handleGenerateSummaryFromView" />
+    <KnowledgeBaseImportDialog ref="importFormRef" v-model:visible="importDialogVisible" :import-file-list="importFileList" :importing="importing" :preview-files="previewFiles" :import-form="importForm" :import-rules="importRules" :is-admin="isAdmin" :format-file-size="formatFileSize" @file-change="handleFileChange" @reselect-file="handleReSelectFile" @confirm-import="handleConfirmImport" />
   </div>
 </template>
-
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox, ElTooltip } from 'element-plus'
-import { Plus, Search, Document, ArrowDown, UploadFilled, View, Edit, Unlock, Lock, Check, Close, Warning, Link, QuestionFilled, DocumentCopy, ArrowLeft, Download } from '@element-plus/icons-vue'
-import { 
-  getKnowledgeBaseList, 
-  createKnowledgeBase, 
-  updateKnowledgeBase, 
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  getKnowledgeBaseList,
+  createKnowledgeBase,
+  updateKnowledgeBase,
   deleteKnowledgeBase,
   getKnowledgeBaseDetail,
   generateKnowledgeBaseSummary,
@@ -653,6 +24,10 @@ import {
 import { getModelConfig } from '@/api/model'
 import { getModelPlainStyle } from '@/utils/modelColor'
 import { getVectorDatabaseList } from '@/api/vectorDatabase'
+import KnowledgeBaseListPanel from '@/components/knowledgebase/KnowledgeBaseListPanel.vue'
+import KnowledgeBaseFormDialog from '@/components/knowledgebase/KnowledgeBaseFormDialog.vue'
+import KnowledgeBaseDetailDialog from '@/components/knowledgebase/KnowledgeBaseDetailDialog.vue'
+import KnowledgeBaseImportDialog from '@/components/knowledgebase/KnowledgeBaseImportDialog.vue'
 
 const props = defineProps({
   userMode: {
@@ -734,7 +109,7 @@ const getDefaultVectorStoreType = () => {
     if (!vectorDatabases.value || vectorDatabases.value.length === 0) {
       return 'qdrant'
     }
-    
+
     // 查找默认的向量库配置
     const defaultDb = vectorDatabases.value.find(db => db.isDefault && db.enabled)
     if (defaultDb && defaultDb.type) {
@@ -758,7 +133,7 @@ const loadVectorDatabases = async () => {
   try {
     const response = await getVectorDatabaseList()
     vectorDatabases.value = response || []
-    
+
     // 计算启用的向量库类型
     const enabledTypes = new Set()
     vectorDatabases.value.forEach(db => {
@@ -767,18 +142,18 @@ const loadVectorDatabases = async () => {
       }
     })
     enabledVectorStoreTypes.value = Array.from(enabledTypes)
-    
+
     // 如果表单还没有设置向量存储类型，或者当前是默认值，则更新为默认向量库类型
     if (!formData.value.vectorStoreType || formData.value.vectorStoreType === 'qdrant' || !formData.value.vectorStoreType.includes('_')) {
       const defaultType = getDefaultVectorStoreType()
       // 查找默认实例，转换为 type_id 格式
-      const defaultDb = vectorDatabases.value.find(db => 
+      const defaultDb = vectorDatabases.value.find(db =>
         db.type === defaultType && db.isDefault && db.enabled
       )
       if (defaultDb) {
         formData.value.vectorStoreType = `${defaultDb.type}_${defaultDb.id}`
       } else {
-        const firstDb = vectorDatabases.value.find(db => 
+        const firstDb = vectorDatabases.value.find(db =>
           db.type === defaultType && db.enabled
         )
         if (firstDb) {
@@ -807,7 +182,7 @@ const getEnabledVectorDatabasesByType = (type) => {
   if (!vectorDatabases.value || vectorDatabases.value.length === 0) {
     return []
   }
-  return vectorDatabases.value.filter(db => 
+  return vectorDatabases.value.filter(db =>
     db.type && db.type.toLowerCase() === type.toLowerCase() && db.enabled
   )
 }
@@ -935,9 +310,9 @@ const loadKnowledgeBases = async () => {
     if (searchKeyword.value) {
       params.keyword = searchKeyword.value
     }
-    
+
     const response = await getKnowledgeBaseList(params)
-    
+
     // 检查是否是分页响应
     if (response && typeof response === 'object' && 'content' in response && 'total' in response) {
       // 分页响应
@@ -1019,7 +394,7 @@ const handleCreate = () => {
         console.warn('获取默认向量存储类型失败，使用默认值 qdrant', e)
       }
     }
-    
+
     formData.value = {
       name: '',
       description: '',
@@ -1182,7 +557,7 @@ const handleExport = async (row) => {
   try {
     ElMessage.info('正在导出知识库，请稍候...')
     const response = await exportKnowledgeBase(row.id)
-    
+
     // 创建下载链接
     const url = window.URL.createObjectURL(response)
     const link = document.createElement('a')
@@ -1192,7 +567,7 @@ const handleExport = async (row) => {
     link.click()
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
-    
+
     ElMessage.success('导出成功')
   } catch (error) {
     ElMessage.error('导出失败：' + (error.message || '未知错误'))
@@ -1239,10 +614,10 @@ const handleImport = () => {
 const extractKnowledgeBaseName = (fileName) => {
   // 去掉.zip扩展名（不区分大小写）
   let name = fileName.replace(/\.zip$/i, '')
-  
+
   // 去掉路径（只取文件名，支持Windows和Unix路径分隔符）
   name = name.split('/').pop().split('\\').pop()
-  
+
   // 如果提取失败或为空，使用默认值
   return name.trim() || '导入的知识库'
 }
@@ -1250,22 +625,22 @@ const extractKnowledgeBaseName = (fileName) => {
 // 文件上传处理
 const handleFileChange = (file, fileList) => {
   importFileList.value = fileList
-  
+
   if (fileList.length > 0) {
     const zipFile = fileList[0].raw || fileList[0]
-    
+
     // 提取默认知识库名称
     const fileName = zipFile.name
     const extractedName = extractKnowledgeBaseName(fileName)
-    
+
     // 如果知识库名称为空，自动填充默认名称
     if (!importForm.value.name) {
       importForm.value.name = extractedName
     }
-    
+
     // 保存默认名称用于显示
     defaultName.value = extractedName
-    
+
     // 可选：预览ZIP内容
     previewZipContent(zipFile)
   }
@@ -1295,21 +670,21 @@ const previewZipContent = async (file) => {
 // 确认导入
 const handleConfirmImport = async () => {
   if (!importFormRef.value) return
-  
+
   await importFormRef.value.validate(async (valid) => {
     if (!valid) return
-    
+
     if (importFileList.value.length === 0) {
       ElMessage.warning('请选择ZIP文件')
       return
     }
-    
+
     importing.value = true
     try {
       const formData = new FormData()
       formData.append('file', importFileList.value[0].raw)
       formData.append('knowledgeBaseName', importForm.value.name)
-      
+
       if (importForm.value.description) {
         formData.append('description', importForm.value.description)
       }
@@ -1319,9 +694,9 @@ const handleConfirmImport = async () => {
       if (importForm.value.isPublic !== undefined) {
         formData.append('isPublic', importForm.value.isPublic)
       }
-      
+
       const result = await importKnowledgeBase(formData)
-      
+
       if (result.status === 'SUCCESS') {
         ElMessage.success(`导入成功！共导入 ${result.successCount} 个文档`)
       } else if (result.status === 'PARTIAL_SUCCESS') {
@@ -1332,7 +707,7 @@ const handleConfirmImport = async () => {
       } else {
         ElMessage.error('导入失败：' + (result.message || '未知错误'))
       }
-      
+
       // 关闭对话框并刷新列表
       importDialogVisible.value = false
       loadKnowledgeBases()
@@ -1350,22 +725,22 @@ const doSubmit = async (force = false) => {
     description: formData.value.description,
     status: statusMap[formData.value.status]
   }
-  
+
   // 只有管理员可以设置公开/私有，普通用户创建的知识库强制为私有
   if (isAdmin.value && formData.value.isPublic !== undefined) {
     data.isPublic = formData.value.isPublic
   }
-  
+
   // 添加向量化模型ID（如果选择了）
   if (formData.value.embeddingModelId) {
     data.embeddingModelId = formData.value.embeddingModelId
   }
-  
+
   // 添加topK（如果设置了）
   if (formData.value.topK !== null && formData.value.topK !== undefined) {
     data.topK = formData.value.topK
   }
-  
+
   // 添加vectorStoreType和vectorDatabaseId（如果设置了）
   // 如果value是 type_id 格式，提取type和ID
   if (formData.value.vectorStoreType) {
@@ -1390,7 +765,7 @@ const doSubmit = async (force = false) => {
       data.vectorStoreType = vectorStoreValue
     }
   }
-  
+
   if (isEdit.value) {
     await updateKnowledgeBase(currentEditId.value, data)
     ElMessage.success('编辑成功')
@@ -1405,10 +780,10 @@ const doSubmit = async (force = false) => {
           } catch (error) {
             // 检查是否是重复名称错误（通过状态码或错误代码）
             const isDuplicateError = error.response && (
-              error.response.status === 409 || 
+              error.response.status === 409 ||
               (error.response.data && error.response.data.code === 'DUPLICATE_NAME')
             )
-            
+
             if (isDuplicateError && !force) {
               // 显示确认对话框
               try {
@@ -1457,13 +832,13 @@ const handleDialogClose = () => {
   let defaultVectorStoreValue = getDefaultVectorStoreType()
   // 查找默认实例，转换为 type_id 格式
   if (vectorDatabases.value && vectorDatabases.value.length > 0) {
-    const defaultDb = vectorDatabases.value.find(db => 
+    const defaultDb = vectorDatabases.value.find(db =>
       db.type === defaultVectorStoreValue && db.isDefault && db.enabled
     )
     if (defaultDb) {
       defaultVectorStoreValue = `${defaultDb.type}_${defaultDb.id}`
     } else {
-      const firstDb = vectorDatabases.value.find(db => 
+      const firstDb = vectorDatabases.value.find(db =>
         db.type === defaultVectorStoreValue && db.enabled
       )
       if (firstDb) {
@@ -1587,30 +962,30 @@ const getVectorStoreInstanceName = (row) => {
     // 如果还没有加载向量库列表，返回类型名称作为后备
     return getVectorStoreTypeName(row.vectorStoreType)
   }
-  
+
   // 优先使用 vectorDatabaseId 进行精确匹配
   if (row.vectorDatabaseId) {
-    const db = vectorDatabases.value.find(db => 
+    const db = vectorDatabases.value.find(db =>
       db.id === row.vectorDatabaseId && db.enabled
     )
     if (db) {
       return db.name
     }
   }
-  
+
   // 兼容旧数据：如果没有 vectorDatabaseId，则按类型查找
   const type = row.vectorStoreType
   if (!type) return '-'
-  
+
   // 查找该类型的默认实例
-  const defaultDb = vectorDatabases.value.find(db => 
+  const defaultDb = vectorDatabases.value.find(db =>
     db.type === type && db.isDefault && db.enabled
   )
   if (defaultDb) {
     return defaultDb.name
   }
   // 如果没有默认实例，使用第一个启用的实例
-  const firstDb = vectorDatabases.value.find(db => 
+  const firstDb = vectorDatabases.value.find(db =>
     db.type === type && db.enabled
   )
   if (firstDb) {
@@ -1635,7 +1010,7 @@ const getVectorDatabaseDocumentCount = (db) => {
   if (!knowledgeBases.value || knowledgeBases.value.length === 0) {
     return 0
   }
-  
+
   // 获取当前管理员ID
   const userInfoStr = localStorage.getItem('userInfo')
   let currentUserId = null
@@ -1647,7 +1022,7 @@ const getVectorDatabaseDocumentCount = (db) => {
       console.error('解析用户信息失败', e)
     }
   }
-  
+
   // 根据向量库实例ID精确统计文档数量（只统计当前管理员的知识库）
   let totalCount = 0
   knowledgeBases.value.forEach(kb => {
@@ -1655,7 +1030,7 @@ const getVectorDatabaseDocumentCount = (db) => {
     if (currentUserId && kb.creatorId !== currentUserId) {
       return // 跳过其他用户的知识库
     }
-    
+
     // 优先使用 vectorDatabaseId 进行精确匹配
     if (kb.vectorDatabaseId === db.id) {
       totalCount += (kb.documentCount || 0)
@@ -1669,734 +1044,4 @@ const getVectorDatabaseDocumentCount = (db) => {
 
 </script>
 
-<style scoped>
-/* 向量存储下拉菜单样式 */
-:deep(.vector-store-select-dropdown) {
-  min-width: 550px !important;
-  max-width: none !important;
-}
-
-:deep(.vector-store-select-dropdown .el-select-dropdown__item) {
-  padding: var(--spacing-sm) var(--spacing-lg) !important;
-  height: auto;
-  min-height: 48px;
-  overflow: visible !important;
-}
-
-:deep(.vector-store-select-dropdown .el-select-dropdown__item > span) {
-  overflow: visible !important;
-  width: 100% !important;
-  display: block !important;
-}
-
-:deep(.vector-store-select-dropdown .el-select-dropdown__item .el-tag) {
-  flex-shrink: 0 !important;
-  white-space: nowrap !important;
-}
-
-.kb-embedding-option-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-}
-
-.kb-embedding-option-tag,
-.kb-embedding-default-tag {
-  flex-shrink: 0;
-}
-
-.kb-embedding-default-tag {
-  margin-left: var(--spacing-sm);
-}
-
-.kb-cell-empty {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
-}
-
-.kb-embedding-model-tag {
-  font-weight: var(--tag-font-weight);
-}
-
-/* ========== 页面容器 ========== */
-.knowledge-base-management {
-  padding: var(--spacing-lg);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--color-bg-secondary);
-}
-
-/* ========== 卡片样式 ========== */
-:deep(.el-card) {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  margin: 0;
-  border-radius: var(--card-border-radius);
-  box-shadow: var(--card-shadow);
-  transition: box-shadow var(--transition-base);
-}
-
-:deep(.el-card:hover) {
-  box-shadow: var(--card-shadow-hover);
-}
-
-:deep(.el-card__header) {
-  background: var(--color-bg-tertiary);
-  border-bottom: 1px solid var(--color-border-lighter);
-  padding: var(--spacing-md) var(--card-padding);
-}
-
-:deep(.el-card__body) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 0;
-  min-height: 0;
-  background: var(--color-bg-primary);
-}
-
-/* ========== 搜索栏 ========== */
-.search-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--spacing-lg);
-  flex-shrink: 0;
-  padding: var(--spacing-lg);
-  background: var(--color-bg-tertiary);
-  border-bottom: 1px solid var(--color-border-lighter);
-  gap: var(--spacing-md);
-}
-
-.card-header,
-.header-left,
-.header-right {
-  display: flex;
-  align-items: center;
-}
-
-.card-header {
-  justify-content: space-between;
-}
-
-.header-left,
-.header-right {
-  gap: var(--spacing-sm);
-}
-
-.search-left {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  flex: 1;
-}
-
-.search-right {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.search-left :deep(.el-input__wrapper),
-.search-left :deep(.el-select .el-input__wrapper) {
-  border-radius: var(--radius-md);
-  transition: all var(--transition-base);
-}
-
-.search-left :deep(.el-input__wrapper:hover) {
-  box-shadow: var(--shadow-xs);
-}
-
-.search-left :deep(.el-input__wrapper.is-focus) {
-  box-shadow: var(--shadow-primary);
-}
-
-/* ========== 知识库名称单元格 ========== */
-.kb-name-cell {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
-
-.kb-icon {
-  color: var(--color-primary);
-  font-size: 18px;
-  transition: all var(--transition-base);
-}
-
-.kb-name-cell:hover .kb-icon {
-  transform: scale(1.1);
-}
-
-/* 减少名称和描述列之间的间距 */
-:deep(.el-table__body-wrapper .el-table__body tr td:nth-child(3)) {
-  padding-right: 8px;
-}
-
-:deep(.el-table__body-wrapper .el-table__body tr td:nth-child(4)) {
-  padding-left: 8px;
-}
-
-/* ========== 表格容器 ========== */
-.table-container {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 0 var(--spacing-lg);
-}
-
-:deep(.el-table) {
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--color-bg-primary);
-}
-
-:deep(.el-table__header) {
-  background: var(--table-header-bg);
-}
-
-:deep(.el-table th) {
-  background: var(--table-header-bg);
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
-  border-bottom: 2px solid var(--color-border-base);
-}
-
-:deep(.el-table td) {
-  border-bottom: 1px solid var(--table-border-color);
-}
-
-:deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
-  background-color: var(--color-bg-tertiary);
-}
-
-:deep(.el-table__body tr:hover > td) {
-  background-color: var(--table-row-hover-bg);
-  transition: background-color var(--transition-fast);
-}
-
-/* ========== 分页 ========== */
-.pagination {
-  margin-top: var(--spacing-lg);
-  padding: var(--spacing-lg);
-  display: flex;
-  justify-content: flex-end;
-  flex-shrink: 0;
-  background: var(--color-bg-tertiary);
-  border-top: 1px solid var(--color-border-lighter);
-}
-
-:deep(.el-pagination) {
-  justify-content: flex-end;
-}
-
-:deep(.el-pagination .el-pager li) {
-  border-radius: var(--radius-sm);
-  transition: all var(--transition-base);
-}
-
-:deep(.el-pagination .el-pager li:hover) {
-  background-color: var(--color-bg-hover);
-}
-
-:deep(.el-pagination .el-pager li.is-active) {
-  background-color: var(--color-primary);
-  color: #ffffff;
-}
-
-.doc-management {
-  padding: 10px 0;
-}
-
-.upload-section {
-  padding: var(--spacing-lg);
-  border: 2px dashed var(--color-border-base);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-bg-tertiary);
-  transition: all var(--transition-base);
-}
-
-.upload-section:hover {
-  border-color: var(--color-primary);
-  background-color: var(--color-primary-light-5);
-}
-
-.upload-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.doc-list-section {
-  margin-top: 20px;
-}
-
-.section-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 16px;
-  font-weight: 500;
-  margin-bottom: 10px;
-}
-
-/* 紧凑表格样式 */
-.compact-table :deep(.el-table__cell) {
-  padding: 8px 0;
-}
-
-.compact-table :deep(.el-button) {
-  padding: 5px 10px;
-  font-size: 12px;
-}
-
-.compact-table :deep(.el-tag) {
-  font-size: 12px;
-  padding: 0 6px;
-  height: 22px;
-  line-height: 22px;
-}
-
-.action-buttons-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-}
-
-.action-buttons-row .el-button {
-  flex-shrink: 0;
-  margin: 0;
-}
-
-.action-buttons-row .el-button + .el-button {
-  margin-left: 0;
-}
-
-/* 可见性单选按钮组样式 */
-.visibility-radio-group {
-  display: flex;
-  flex-direction: row;
-  gap: 12px;
-}
-
-.visibility-radio-item {
-  flex: 1;
-  display: flex;
-  align-items: flex-start;
-  padding: var(--spacing-md);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  transition: all var(--transition-base);
-  margin: 0;
-  min-height: 80px;
-  cursor: pointer;
-}
-
-.visibility-radio-item:hover {
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow-xs);
-  transform: translateY(-1px);
-}
-
-.visibility-radio-item.is-checked {
-  border-color: var(--color-primary);
-  background-color: var(--color-bg-active);
-  box-shadow: var(--shadow-primary);
-}
-
-.visibility-radio-item :deep(.el-radio__input) {
-  margin-top: 2px;
-  flex-shrink: 0;
-}
-
-.visibility-radio-item :deep(.el-radio__label) {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-left: 10px;
-  line-height: 1.5;
-  width: 100%;
-  overflow: hidden;
-}
-
-.radio-content {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
-  min-width: 0;
-}
-
-.radio-label {
-  font-weight: 500;
-  color: #303133;
-  font-size: 14px;
-  line-height: 1.4;
-  word-break: break-word;
-}
-
-.radio-description {
-  font-size: 12px;
-  color: #909399;
-  line-height: 1.5;
-  word-break: break-word;
-}
-
-.form-item-hint {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 6px;
-  line-height: 1.5;
-}
-
-.form-item-hint-warning {
-  color: #e6a23c;
-  display: flex;
-  align-items: flex-start;
-  gap: 4px;
-}
-
-.form-item-hint-warning .el-icon {
-  margin-top: 2px;
-  flex-shrink: 0;
-}
-
-.form-item-description {
-  padding: 8px 12px;
-  background-color: #f5f7fa;
-  border-radius: 4px;
-  border-left: 3px solid #409eff;
-}
-
-.form-item-description .description-label {
-  font-weight: 500;
-  color: #303133;
-}
-
-.form-item-description .description-text {
-  color: #606266;
-}
-
-/* ========== 导入对话框样式 ========== */
-:deep(.import-dialog .el-dialog__header) {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--color-border-lighter);
-}
-
-:deep(.import-dialog .el-dialog__title) {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--color-text-primary);
-}
-
-:deep(.import-dialog .el-dialog__body) {
-  padding: 0;
-}
-
-.import-dialog-content {
-  display: flex;
-  flex-direction: column;
-}
-
-/* 上传区域 */
-.upload-section {
-  padding: 24px 20px;
-}
-
-.import-upload {
-  width: 100%;
-}
-
-.import-upload :deep(.el-upload-dragger) {
-  width: 100%;
-  height: 120px;
-  border: 1px dashed var(--color-border);
-  border-radius: 4px;
-  background: var(--color-bg-tertiary);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.import-upload :deep(.el-upload-dragger:focus),
-.import-upload :deep(.el-upload-dragger:focus-visible) {
-  outline: none;
-}
-
-.import-upload :deep(.el-icon--upload) {
-  font-size: 32px;
-  color: var(--color-text-placeholder);
-  margin-bottom: 8px;
-}
-
-.import-upload :deep(.el-upload__text) {
-  color: var(--color-text-regular);
-  font-size: 13px;
-}
-
-.import-upload :deep(.el-upload__text em) {
-  color: var(--color-primary);
-  font-style: normal;
-}
-
-/* 文件选择后的卡片 */
-.file-selected-card {
-  width: 100%;
-}
-
-.file-info-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.file-icon {
-  color: var(--color-primary);
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.file-name {
-  flex: 1;
-  font-size: 14px;
-  color: var(--color-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.re-select-btn {
-  flex-shrink: 0;
-  padding: 0;
-}
-
-/* 预览区域 */
-.preview-section {
-  margin-top: 16px;
-}
-
-.preview-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-
-.preview-count {
-  font-size: 13px;
-  color: var(--color-text-regular);
-}
-
-.preview-tip-icon {
-  color: var(--color-text-placeholder);
-  font-size: 14px;
-  cursor: help;
-}
-
-.preview-table-wrapper {
-  width: 100%;
-  border: 1px solid var(--color-border-lighter);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.preview-table-wrapper :deep(.el-table) {
-  border: none;
-}
-
-.preview-table-wrapper :deep(.el-table th) {
-  background: var(--color-bg-tertiary);
-  border: none;
-  padding: 10px 0;
-  font-size: 12px;
-  color: var(--color-text-placeholder);
-  font-weight: 500;
-}
-
-.preview-table-wrapper :deep(.el-table td) {
-  border: none;
-  padding: 10px 0;
-  font-size: 13px;
-}
-
-.preview-table-wrapper :deep(.el-table tr) {
-  background: transparent;
-}
-
-.preview-table-wrapper :deep(.el-table tr:hover > td) {
-  background: var(--color-bg-tertiary);
-}
-
-.file-type-tag {
-  display: inline-block;
-  padding: 2px 8px;
-  background: var(--color-bg-tertiary);
-  border-radius: 2px;
-  font-size: 12px;
-  color: var(--color-text-regular);
-}
-
-/* 表单区域 */
-.form-section {
-  padding: 20px;
-  background: var(--color-bg-tertiary);
-  border-top: 1px solid var(--color-border-lighter);
-}
-
-.form-section-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 20px;
-}
-
-.form-section-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-primary);
-}
-
-.form-section-icon {
-  color: var(--color-text-placeholder);
-  font-size: 14px;
-  cursor: help;
-  flex-shrink: 0;
-}
-
-:deep(.form-section .el-form-item) {
-  margin-bottom: 18px;
-}
-
-:deep(.form-section .el-form-item:last-child) {
-  margin-bottom: 0;
-}
-
-:deep(.form-section .el-form-item__label) {
-  padding-bottom: 0;
-  line-height: 32px;
-  font-weight: 400;
-  color: var(--color-text-regular);
-  font-size: 13px;
-}
-
-:deep(.form-section .el-input__wrapper) {
-  box-shadow: 0 0 0 1px var(--color-border) inset;
-}
-
-:deep(.form-section .el-input__wrapper:hover) {
-  box-shadow: 0 0 0 1px var(--color-border-base) inset;
-}
-
-:deep(.form-section .el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1px var(--color-primary) inset;
-}
-
-.upload-tip-wrapper {
-  display: flex;
-  justify-content: center;
-  margin-top: 8px;
-}
-
-.upload-tip-icon {
-  color: var(--color-text-placeholder);
-  font-size: 16px;
-  cursor: help;
-}
-
-
-.input-with-tooltip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
-
-.input-with-tooltip :deep(.el-input) {
-  flex: 1;
-}
-
-.input-with-tooltip :deep(.el-input__wrapper) {
-  box-shadow: none;
-}
-
-.input-with-tooltip :deep(.el-input__wrapper.is-focus) {
-  box-shadow: none;
-}
-
-.input-with-tooltip :deep(.el-input__wrapper:hover) {
-  box-shadow: none;
-}
-
-.input-tooltip-icon {
-  color: var(--color-info);
-  font-size: 16px;
-  cursor: help;
-  flex-shrink: 0;
-}
-
-.switch-with-tooltip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.switch-tooltip-icon {
-  color: var(--color-text-placeholder);
-  font-size: 16px;
-  cursor: help;
-  flex-shrink: 0;
-}
-
-.advanced-config-collapse {
-  margin-top: 0;
-}
-
-.advanced-config-collapse :deep(.el-collapse-item__header) {
-  padding: 0;
-  background: transparent;
-  border: none;
-  font-size: 13px;
-  color: var(--color-text-regular);
-  height: auto;
-  line-height: 1.5;
-  font-weight: 400;
-}
-
-.advanced-config-collapse :deep(.el-collapse-item__content) {
-  padding: 16px 0 0 0;
-}
-
-.advanced-config-collapse :deep(.el-collapse-item__content .el-form-item) {
-  margin-bottom: 18px;
-}
-
-.advanced-config-collapse :deep(.el-collapse-item__content .el-form-item:last-child) {
-  margin-bottom: 0;
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 20px;
-  border-top: 1px solid var(--color-border-lighter);
-  background: var(--color-bg-primary);
-}
-
-.dialog-footer .el-button {
-  min-width: 88px;
-}
-</style>
-
+<style src="./KnowledgeBaseManagement.css"></style>
