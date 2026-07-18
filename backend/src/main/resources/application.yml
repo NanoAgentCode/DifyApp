@@ -1,6 +1,30 @@
 spring:
   profiles:
     active: dev  # 默认激活开发环境，可通过启动参数覆盖：--spring.profiles.active=prod
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS_ENABLE:true}
+            required: ${MAIL_SMTP_STARTTLS_REQUIRED:false}
+          connectiontimeout: ${MAIL_CONNECTION_TIMEOUT:5000}
+          timeout: ${MAIL_TIMEOUT:10000}
+          writetimeout: ${MAIL_WRITE_TIMEOUT:10000}
+
+auth:
+  verification-code:
+    from: ${MAIL_FROM:noreply@difyapp.local}
+    ttl-minutes: ${EMAIL_CODE_TTL_MINUTES:5}
+    cooldown-seconds: ${EMAIL_CODE_COOLDOWN_SECONDS:60}
+    hourly-limit: ${EMAIL_CODE_HOURLY_LIMIT:10}
+    max-attempts: ${EMAIL_CODE_MAX_ATTEMPTS:5}
 
 observability:
   enabled: true  # 是否启用监控

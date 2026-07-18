@@ -19,6 +19,21 @@ services:
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-rustfsadmin}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-rustfsadmin}
       - JWT_SECRET=${JWT_SECRET:-}
+      - SPRING_DATA_REDIS_HOST=${SPRING_DATA_REDIS_HOST:-redis}
+      - SPRING_DATA_REDIS_PORT=${SPRING_DATA_REDIS_PORT:-6379}
+      - SPRING_DATA_REDIS_PASSWORD=${SPRING_DATA_REDIS_PASSWORD:-}
+      - MAIL_HOST=${MAIL_HOST:-}
+      - MAIL_PORT=${MAIL_PORT:-587}
+      - MAIL_USERNAME=${MAIL_USERNAME:-}
+      - MAIL_PASSWORD=${MAIL_PASSWORD:-}
+      - MAIL_FROM=${MAIL_FROM:-noreply@difyapp.local}
+      - MAIL_SMTP_AUTH=${MAIL_SMTP_AUTH:-true}
+      - MAIL_SMTP_STARTTLS_ENABLE=${MAIL_SMTP_STARTTLS_ENABLE:-true}
+      - MAIL_SMTP_STARTTLS_REQUIRED=${MAIL_SMTP_STARTTLS_REQUIRED:-false}
+      - EMAIL_CODE_TTL_MINUTES=${EMAIL_CODE_TTL_MINUTES:-5}
+      - EMAIL_CODE_COOLDOWN_SECONDS=${EMAIL_CODE_COOLDOWN_SECONDS:-60}
+      - EMAIL_CODE_HOURLY_LIMIT=${EMAIL_CODE_HOURLY_LIMIT:-10}
+      - EMAIL_CODE_MAX_ATTEMPTS=${EMAIL_CODE_MAX_ATTEMPTS:-5}
       # Spring Boot配置可以通过环境变量覆盖
       # 例如：SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/postgres
       # SPRING_DATASOURCE_USERNAME=postgres
@@ -35,6 +50,8 @@ services:
       - ./data:/app/data
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       rustfs:
         condition: service_healthy
@@ -94,6 +111,24 @@ services:
     networks:
       - difyapp-network
 
+  # Redis：缓存及邮箱验证码的一次性存储
+  redis:
+    image: redis:7-alpine
+    container_name: difyapp-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - difyapp-network
+
   # RustFS 对象存储（从外部依赖服务引用）
   rustfs:
     image: rustfs/rustfs:latest
@@ -132,6 +167,8 @@ services:
 
 volumes:
   postgres-data:
+    driver: local
+  redis-data:
     driver: local
   rustfs-data:
     driver: local

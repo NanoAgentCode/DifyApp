@@ -23,6 +23,7 @@ public class AuthConverterUtil {
         UserResp resp = new UserResp();
         resp.setId(user.getId());
         resp.setUsername(user.getUsername());
+        resp.setEmail(user.getEmail());
         resp.setRole(user.getRole());
         resp.setStatus(user.getStatus());
         resp.setCreateTime(user.getCreateTime());

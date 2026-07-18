@@ -3,6 +3,8 @@ package com.github.app.dify.auth.service;
 import com.github.app.dify.auth.domain.User;
 import com.github.app.dify.auth.req.LoginRequest;
 import com.github.app.dify.auth.req.RegisterRequest;
+import com.github.app.dify.auth.req.ForgotPasswordRequest;
+import com.github.app.dify.auth.req.VerificationCodeRequest;
 import com.github.app.dify.auth.resp.LoginResponse;
 import com.github.app.dify.auth.resp.RegisterResponse;
 import com.github.app.dify.auth.resp.UserResp;
@@ -24,6 +26,16 @@ public interface AuthService {
      * 只有状态为已激活（1）的用户才能登录
      */
     LoginResponse login(LoginRequest request);
+
+    /**
+     * 发送注册或重置密码验证码。
+     */
+    void sendVerificationCode(VerificationCodeRequest request);
+
+    /**
+     * 使用邮箱验证码重置本人密码。
+     */
+    void resetPasswordByEmail(ForgotPasswordRequest request);
     
     /**
      * 管理员审核用户（激活用户）
@@ -45,6 +57,11 @@ public interface AuthService {
      * 根据用户名获取用户信息
      */
     User getUserByUsername(String username);
+
+    /**
+     * 根据用户名或邮箱获取用户。
+     */
+    User getUserByAccount(String account);
     
     /**
      * 获取所有用户列表（管理员使用）

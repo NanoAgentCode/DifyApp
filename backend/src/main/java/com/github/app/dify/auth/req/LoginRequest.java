@@ -9,9 +9,9 @@ import jakarta.validation.constraints.Size;
 @Schema(description = "登录请求")
 public class LoginRequest {
     
-    @NotBlank(message = "用户名不能为空")
-    @Size(max = 64, message = "用户名长度不能超过64")
-    @Schema(description = "用户名")
+    @NotBlank(message = "用户名或邮箱不能为空")
+    @Size(max = 254, message = "用户名或邮箱长度不能超过254")
+    @Schema(description = "用户名或邮箱")
     private String username;
     
     @NotBlank(message = "密码不能为空")

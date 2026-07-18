@@ -19,24 +19,30 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * 根据用户名查找用户
      */
     Optional<User> findByUsername(String username);
+
+    Optional<User> findByEmailIgnoreCase(String email);
     
     /**
      * 检查用户名是否存在
      */
     boolean existsByUsername(String username);
+
+    boolean existsByEmailIgnoreCase(String email);
     
     /**
      * 根据关键词搜索用户（用户名）
      */
     @Query("SELECT u FROM User u WHERE (u.deleted IS NULL OR u.deleted = 0) " +
-           "AND LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+           "AND (LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(COALESCE(u.email, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     List<User> searchByKeyword(@Param("keyword") String keyword);
     
     /**
      * 根据关键词、状态和角色搜索用户
      */
     @Query("SELECT u FROM User u WHERE (u.deleted IS NULL OR u.deleted = 0) " +
-           "AND (:keyword IS NULL OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+           "AND (:keyword IS NULL OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(COALESCE(u.email, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
            "AND (:status IS NULL OR u.status = :status) " +
            "AND (:role IS NULL OR u.role = :role)")
     List<User> searchByFilters(@Param("keyword") String keyword, 
@@ -47,7 +53,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * 根据关键词、状态和角色搜索用户（分页）
      */
     @Query("SELECT u FROM User u WHERE (u.deleted IS NULL OR u.deleted = 0) " +
-           "AND (:keyword IS NULL OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+           "AND (:keyword IS NULL OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(COALESCE(u.email, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
            "AND (:status IS NULL OR u.status = :status) " +
            "AND (:role IS NULL OR u.role = :role)")
     Page<User> searchByFiltersWithPagination(@Param("keyword") String keyword, 

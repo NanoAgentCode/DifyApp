@@ -11,7 +11,7 @@
       <div class="search-bar">
         <el-input
           v-model="searchKeyword"
-          placeholder="搜索用户名"
+          placeholder="搜索用户名或邮箱"
           clearable
           style="width: 300px"
           @input="handleSearch"
@@ -57,6 +57,9 @@
         >
         <el-table-column prop="id" label="ID" width="80" align="center" />
         <el-table-column prop="username" label="用户名" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="email" label="邮箱" min-width="190" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.email || '—' }}</template>
+        </el-table-column>
         <el-table-column prop="role" label="角色" min-width="120" align="center">
           <template #default="scope">
             <div class="role-tags">

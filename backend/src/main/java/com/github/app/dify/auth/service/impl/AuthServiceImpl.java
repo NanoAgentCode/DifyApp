@@ -4,10 +4,14 @@ import com.github.app.dify.auth.domain.User;
 import com.github.app.dify.auth.repository.UserRepository;
 import com.github.app.dify.auth.req.LoginRequest;
 import com.github.app.dify.auth.req.RegisterRequest;
+import com.github.app.dify.auth.req.ForgotPasswordRequest;
+import com.github.app.dify.auth.req.VerificationCodePurpose;
+import com.github.app.dify.auth.req.VerificationCodeRequest;
 import com.github.app.dify.auth.resp.LoginResponse;
 import com.github.app.dify.auth.resp.RegisterResponse;
 import com.github.app.dify.auth.resp.UserResp;
 import com.github.app.dify.auth.service.AuthService;
+import com.github.app.dify.auth.service.EmailVerificationService;
 import com.github.app.dify.auth.util.JwtUtil;
 import com.github.app.dify.auth.util.AuthConverterUtil;
 import com.github.app.dify.auth.util.AuthDateTimeUtil;
@@ -28,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Locale;
 import java.util.stream.Collectors;
 /**
  * 认证服务实现
@@ -45,6 +50,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private RbacService rbacService;
+
+    @Autowired
+    private EmailVerificationService emailVerificationService;
     
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     
@@ -55,15 +63,26 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
+        String username = request.getUsername().trim();
+        String email = normalizeEmail(request.getEmail());
+
         // 检查用户名是否已存在
-        if (userRepository.existsByUsername(request.getUsername())) {
+        if (userRepository.existsByUsername(username)) {
             throw new BusinessException("用户名已存在", ErrorCode.USER_ALREADY_EXISTS);
         }
-        
+        if (userRepository.existsByEmailIgnoreCase(email)) {
+            throw new BusinessException("邮箱已注册", ErrorCode.USER_ALREADY_EXISTS);
+        }
+
+        emailVerificationService.verifyAndConsume(
+                email, VerificationCodePurpose.REGISTER, request.getVerificationCode());
+
         // 创建新用户
         User user = new User();
-        user.setUsername(request.getUsername());
+        user.setUsername(username);
+        user.setEmail(email);
         user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setPasswordVersion(0);
         user.setRole(2); // 默认角色为普通用户
         user.setStatus(0); // 状态为待审核
         AuthDateTimeUtil.setCreateAndUpdateTime(user);
@@ -76,6 +95,7 @@ public class AuthServiceImpl implements AuthService {
         RegisterResponse response = new RegisterResponse();
         response.setUserId(user.getId());
         response.setUsername(user.getUsername());
+        response.setEmail(user.getEmail());
         response.setStatus(user.getStatus());
         response.setMessage("注册成功，请等待管理员审核");
         
@@ -89,7 +109,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public LoginResponse login(LoginRequest request) {
         // 查找用户
-        Optional<User> optional = userRepository.findByUsername(request.getUsername());
+        Optional<User> optional = findByAccount(request.getUsername());
         if (optional.isEmpty()) {
             throw new BusinessException("用户名或密码错误", ErrorCode.LOGIN_FAILED);
         }
@@ -116,7 +136,8 @@ public class AuthServiceImpl implements AuthService {
         }
         
         // 生成JWT Token
-        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
+        String token = jwtUtil.generateToken(
+                user.getId(), user.getUsername(), user.getRole(), passwordVersion(user));
         
         logger.info("用户登录成功 - 用户名: {}, 用户ID: {}, 角色: {}", 
                 user.getUsername(), user.getId(), user.getRole());
@@ -125,12 +146,55 @@ public class AuthServiceImpl implements AuthService {
         response.setToken(token);
         response.setUserId(user.getId());
         response.setUsername(user.getUsername());
+        response.setEmail(user.getEmail());
         response.setRole(user.getRole());
         response.setStatus(user.getStatus());
         response.setRoles(rbacService.getUserRoles(user.getId()));
         response.setPermissions(rbacService.getUserPermissionCodes(user.getId()));
         
         return response;
+    }
+
+    @Override
+    public void sendVerificationCode(VerificationCodeRequest request) {
+        String email = normalizeEmail(request.getEmail());
+        if (request.getPurpose() == VerificationCodePurpose.REGISTER) {
+            if (userRepository.existsByEmailIgnoreCase(email)) {
+                throw new BusinessException("邮箱已注册", ErrorCode.USER_ALREADY_EXISTS);
+            }
+            emailVerificationService.sendCode(email, request.getPurpose());
+            return;
+        }
+
+        Optional<User> user = userRepository.findByEmailIgnoreCase(email);
+        if (user.isPresent() && (user.get().getDeleted() == null || user.get().getDeleted() == 0)) {
+            emailVerificationService.sendCode(email, request.getPurpose());
+        }
+        // 重置密码场景始终返回成功，避免泄露邮箱是否已注册。
+    }
+
+    @Override
+    @Transactional
+    public void resetPasswordByEmail(ForgotPasswordRequest request) {
+        String email = normalizeEmail(request.getEmail());
+        Optional<User> optional = userRepository.findByEmailIgnoreCase(email);
+
+        emailVerificationService.verifyAndConsume(
+                email, VerificationCodePurpose.RESET_PASSWORD, request.getVerificationCode());
+
+        if (optional.isEmpty() || (optional.get().getDeleted() != null && optional.get().getDeleted() == 1)) {
+            throw new BusinessException("邮箱验证码错误或已过期", ErrorCode.CAPTCHA_ERROR);
+        }
+
+        User user = optional.get();
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new BusinessException("新密码不能与原密码相同", ErrorCode.PASSWORD_SAME_AS_OLD);
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setPasswordVersion(passwordVersion(user) + 1);
+        AuthDateTimeUtil.setUpdateTime(user);
+        userRepository.save(user);
+        logger.info("用户通过邮箱验证码重置密码成功 - 用户ID: {}, 用户名: {}", user.getId(), user.getUsername());
     }
     
     /**
@@ -204,6 +268,12 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("用户不存在", ErrorCode.USER_NOT_FOUND);
         }
         return optional.get();
+    }
+
+    @Override
+    public User getUserByAccount(String account) {
+        return findByAccount(account)
+                .orElseThrow(() -> new BusinessException("用户不存在", ErrorCode.USER_NOT_FOUND));
     }
     
     /**
@@ -308,6 +378,7 @@ public class AuthServiceImpl implements AuthService {
         
         // 更新密码
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordVersion(passwordVersion(user) + 1);
         AuthDateTimeUtil.setUpdateTime(user);
         userRepository.save(user);
         
@@ -331,7 +402,11 @@ public class AuthServiceImpl implements AuthService {
         User user = optional.get();
         
         // 更新密码（管理员重置不需要验证原密码）
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new BusinessException("新密码不能与原密码相同", ErrorCode.PASSWORD_SAME_AS_OLD);
+        }
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordVersion(passwordVersion(user) + 1);
         AuthDateTimeUtil.setUpdateTime(user);
         userRepository.save(user);
         
@@ -380,6 +455,20 @@ public class AuthServiceImpl implements AuthService {
      */
     private boolean isSuperAdmin(User user) {
         return "admin".equals(user.getUsername()) || (user.getId() != null && user.getId() == 1L);
+    }
+
+    private Optional<User> findByAccount(String account) {
+        String normalized = account == null ? "" : account.trim();
+        Optional<User> byUsername = userRepository.findByUsername(normalized);
+        return byUsername.isPresent() ? byUsername : userRepository.findByEmailIgnoreCase(normalized);
+    }
+
+    private String normalizeEmail(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private int passwordVersion(User user) {
+        return user.getPasswordVersion() == null ? 0 : user.getPasswordVersion();
     }
     
 }

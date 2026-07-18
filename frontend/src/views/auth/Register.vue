@@ -10,17 +10,44 @@
       >
         <el-form-item prop="username">
           <el-input
-            v-model="registerForm.username"
+            v-model.trim="registerForm.username"
             placeholder="请输入用户名"
             size="large"
             prefix-icon="User"
           />
         </el-form-item>
+        <el-form-item prop="email">
+          <el-input
+            v-model.trim="registerForm.email"
+            placeholder="请输入邮箱"
+            size="large"
+            prefix-icon="Message"
+          />
+        </el-form-item>
+        <el-form-item prop="verificationCode">
+          <div class="code-row">
+            <el-input
+              v-model.trim="registerForm.verificationCode"
+              placeholder="请输入6位邮箱验证码"
+              maxlength="6"
+              inputmode="numeric"
+              size="large"
+            />
+            <el-button
+              size="large"
+              :loading="codeLoading"
+              :disabled="countdown > 0"
+              @click="handleSendCode"
+            >
+              {{ countdown > 0 ? `${countdown}s 后重发` : '获取验证码' }}
+            </el-button>
+          </div>
+        </el-form-item>
         <el-form-item prop="password">
           <el-input
             v-model="registerForm.password"
             type="password"
-            placeholder="请输入密码（至少6位）"
+            placeholder="8-64位，需包含字母和数字"
             size="large"
             prefix-icon="Lock"
             show-password
@@ -60,18 +87,23 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { onBeforeUnmount, ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { register } from '@/api/auth'
+import { register, sendVerificationCode } from '@/api/auth'
 
 const router = useRouter()
 
 const registerFormRef = ref(null)
 const loading = ref(false)
+const codeLoading = ref(false)
+const countdown = ref(0)
+let countdownTimer = null
 
 const registerForm = reactive({
   username: '',
+  email: '',
+  verificationCode: '',
   password: '',
   confirmPassword: ''
 })
@@ -84,19 +116,63 @@ const validateConfirmPassword = (rule, value, callback) => {
   }
 }
 
+const validatePassword = (rule, value, callback) => {
+  if (!/^(?=.*[A-Za-z])(?=.*\d).+$/.test(value || '')) {
+    callback(new Error('密码必须同时包含字母和数字'))
+  } else {
+    callback()
+  }
+}
+
 const registerRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 64, message: '用户名长度在3到64个字符', trigger: 'blur' }
+    { min: 3, max: 64, message: '用户名长度在3到64个字符', trigger: 'blur' },
+    { pattern: /^[\p{L}\p{N}._-]+$/u, message: '用户名只能包含字母、数字、点、下划线和连字符', trigger: 'blur' }
+  ],
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { type: 'email', message: '邮箱格式不正确', trigger: 'blur' }
+  ],
+  verificationCode: [
+    { required: true, message: '请输入邮箱验证码', trigger: 'blur' },
+    { pattern: /^\d{6}$/, message: '验证码必须为6位数字', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 255, message: '密码长度至少6位', trigger: 'blur' }
+    { min: 8, max: 64, message: '密码长度必须在8-64之间', trigger: 'blur' },
+    { validator: validatePassword, trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, message: '请再次输入密码', trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' }
   ]
+}
+
+const startCountdown = () => {
+  clearInterval(countdownTimer)
+  countdown.value = 60
+  countdownTimer = setInterval(() => {
+    countdown.value -= 1
+    if (countdown.value <= 0) clearInterval(countdownTimer)
+  }, 1000)
+}
+
+const handleSendCode = async () => {
+  if (!registerFormRef.value) return
+  try {
+    await registerFormRef.value.validateField('email')
+    codeLoading.value = true
+    await sendVerificationCode(registerForm.email, 'REGISTER')
+    ElMessage.success('验证码已发送，请查收邮件')
+    startCountdown()
+  } catch (error) {
+    if (error?.response) {
+      ElMessage.error(error.response.data?.message || '验证码发送失败')
+    }
+  } finally {
+    codeLoading.value = false
+  }
 }
 
 const handleRegister = async () => {
@@ -108,6 +184,8 @@ const handleRegister = async () => {
       try {
         const response = await register({
           username: registerForm.username,
+          email: registerForm.email,
+          verificationCode: registerForm.verificationCode,
           password: registerForm.password
         })
         
@@ -118,7 +196,7 @@ const handleRegister = async () => {
           router.push('/login')
         }, 1500)
       } catch (error) {
-        ElMessage.error(error.response?.data?.error || error.message || '注册失败')
+        ElMessage.error(error.response?.data?.message || error.message || '注册失败')
       } finally {
         loading.value = false
       }
@@ -129,6 +207,8 @@ const handleRegister = async () => {
 const goToLogin = () => {
   router.push('/login')
 }
+
+onBeforeUnmount(() => clearInterval(countdownTimer))
 </script>
 
 <style scoped>
@@ -230,6 +310,16 @@ const goToLogin = () => {
   color: var(--color-primary);
 }
 
+.code-row {
+  display: flex;
+  width: 100%;
+  gap: var(--spacing-sm);
+}
+
+.code-row .el-button {
+  min-width: 118px;
+}
+
 /* ========== 注册按钮 ========== */
 .register-button {
   width: 100%;
@@ -275,6 +365,24 @@ const goToLogin = () => {
 .login-link :deep(.el-link:hover) {
   color: var(--color-primary-light-1);
   text-decoration: underline;
+}
+
+@media (max-width: 520px) {
+  .register-container {
+    align-items: flex-start;
+    overflow-y: auto;
+    padding: var(--spacing-lg) 0;
+  }
+
+  .register-box {
+    width: 94%;
+    padding: var(--spacing-xl) var(--spacing-md);
+  }
+
+  .code-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 </style>
 

@@ -24,7 +24,7 @@
         <el-input
           v-model="form.newPassword"
           type="password"
-          placeholder="请输入新密码（至少6位）"
+          placeholder="8-64位，需包含字母和数字"
           show-password
         />
       </el-form-item>
@@ -79,13 +79,22 @@ const validateConfirmPassword = (rule, value, callback) => {
   }
 }
 
+const validatePassword = (rule, value, callback) => {
+  if (!/^(?=.*[A-Za-z])(?=.*\d).+$/.test(value || '')) {
+    callback(new Error('密码必须同时包含字母和数字'))
+  } else {
+    callback()
+  }
+}
+
 const rules = {
   oldPassword: [
     { required: true, message: '请输入原密码', trigger: 'blur' }
   ],
   newPassword: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, max: 255, message: '密码长度必须在6-255之间', trigger: 'blur' }
+    { min: 8, max: 64, message: '密码长度必须在8-64之间', trigger: 'blur' },
+    { validator: validatePassword, trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, message: '请再次输入新密码', trigger: 'blur' },
@@ -129,7 +138,7 @@ const handleSubmit = async () => {
         handleClose()
         emit('success')
       } catch (error) {
-        ElMessage.error(error.response?.data?.error || error.message || '修改密码失败')
+        ElMessage.error(error.response?.data?.message || error.message || '修改密码失败')
       } finally {
         loading.value = false
       }

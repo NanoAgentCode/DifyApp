@@ -95,7 +95,7 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 import HomeFloatingButton from '@/components/HomeFloatingButton.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
@@ -107,11 +107,13 @@ import { getAvailableQAModels, getAvailableQAModelsForRAG } from '@/api/model'
 import { getConfigValue, setOrUpdateConfig, getConfigsByGroup } from '@/api/systemConfig'
 import { logger } from '@/utils/logger'
 import { useMemoReminder } from '@/composables/useMemoReminder'
+import { useUserStore } from '@/stores/user'
 
 useMemoReminder()
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 
 // 判断是否为门户模式
 const isPortalMode = computed(() => {
@@ -392,18 +394,9 @@ const handleCommand = (command) => {
 }
 
 const handlePasswordChangeSuccess = () => {
-  // 密码修改成功后，可以选择退出登录或刷新页面
-  ElMessageBox.confirm('密码已修改，需要重新登录', '提示', {
-    confirmButtonText: '重新登录',
-    cancelButtonText: '稍后',
-    type: 'success'
-  }).then(() => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('userInfo')
-    router.push('/login')
-  }).catch(() => {
-    // 用户选择稍后
-  })
+  showChangePasswordDialog.value = false
+  userStore.logout()
+  router.replace('/login')
 }
 
 // 处理帮助按钮点击

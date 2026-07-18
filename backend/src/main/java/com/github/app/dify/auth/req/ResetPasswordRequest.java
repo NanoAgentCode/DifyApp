@@ -2,6 +2,7 @@ package com.github.app.dify.auth.req;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 /**
  * 管理员重置用户密码请求
@@ -10,7 +11,8 @@ import jakarta.validation.constraints.Size;
 public class ResetPasswordRequest {
     
     @NotBlank(message = "新密码不能为空")
-    @Size(min = 6, max = 255, message = "新密码长度必须在6-255之间")
+    @Size(min = 8, max = 64, message = "新密码长度必须在8-64之间")
+    @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).+$", message = "新密码必须同时包含字母和数字")
     @Schema(description = "新密码")
     private String newPassword;
     

@@ -40,7 +40,8 @@ export function resetPassword(userId, newPassword) {
     method: 'post',
     data: {
       newPassword
-    }
+    },
+    skipRetry: true
   })
 }
 

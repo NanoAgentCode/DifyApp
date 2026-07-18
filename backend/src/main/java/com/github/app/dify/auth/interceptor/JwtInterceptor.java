@@ -60,6 +60,14 @@ public class JwtInterceptor implements HandlerInterceptor {
                 }
                 
                 User user = userOptional.get();
+
+                Integer tokenPasswordVersion = jwtUtil.getPasswordVersionFromToken(token);
+                int currentPasswordVersion = user.getPasswordVersion() == null ? 0 : user.getPasswordVersion();
+                if (tokenPasswordVersion == null || tokenPasswordVersion != currentPasswordVersion) {
+                    logger.info("密码已变更，旧Token失效 - 用户ID: {}", userId);
+                    writeErrorResponse(response, ErrorCode.UNAUTHORIZED, ErrorCode.TOKEN_INVALID, "密码已变更，请重新登录");
+                    return false;
+                }
                 
                 // 检查用户是否已删除
                 if (user.getDeleted() != null && user.getDeleted() == 1) {

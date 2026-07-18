@@ -36,7 +36,7 @@ export function createRetryInterceptor(config = {}) {
     requestInterceptor: (requestConfig) => {
       // 为每个请求添加重试计数器
       requestConfig._retryCount = 0
-      requestConfig._maxRetries = retries
+      requestConfig._maxRetries = requestConfig.skipRetry ? 0 : retries
       requestConfig._retryDelay = retryDelay
       requestConfig._shouldRetry = shouldRetry
       requestConfig._onRetry = onRetry

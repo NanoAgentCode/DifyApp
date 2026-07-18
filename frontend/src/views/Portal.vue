@@ -315,6 +315,7 @@ import WelcomeView from '@/components/portal/WelcomeView.vue'
 import FeaturesView from '@/components/portal/FeaturesView.vue'
 import PortalViewTabs from '@/components/portal/PortalViewTabs.vue'
 import PortalFooter from '@/components/portal/PortalFooter.vue'
+import { useUserStore } from '@/stores/user'
 
 // Utility: Simple debounce function
 const debounce = (fn, delay) => {
@@ -326,6 +327,7 @@ const debounce = (fn, delay) => {
 }
 
 const router = useRouter()
+const userStore = useUserStore()
 
 // 基础状态
 const question = ref('')
@@ -588,8 +590,9 @@ const handleCommand = (command) => {
 
 // 处理密码修改成功
 const handlePasswordChangeSuccess = () => {
-  ElMessage.success('密码修改成功')
   showChangePasswordDialog.value = false
+  userStore.logout()
+  router.replace('/login')
 }
 
 // Smooth view switching with animation

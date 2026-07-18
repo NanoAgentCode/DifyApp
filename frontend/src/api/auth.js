@@ -7,7 +7,8 @@ export function register(data) {
   return request({
     url: '/api/auth/register',
     method: 'post',
-    data
+    data,
+    skipRetry: true
   })
 }
 
@@ -19,6 +20,30 @@ export function login(data) {
     url: '/api/auth/login',
     method: 'post',
     data
+  })
+}
+
+/**
+ * 发送注册或重置密码邮箱验证码
+ */
+export function sendVerificationCode(email, purpose) {
+  return request({
+    url: '/api/auth/verification-code',
+    method: 'post',
+    data: { email, purpose },
+    skipRetry: true
+  })
+}
+
+/**
+ * 使用邮箱验证码找回密码
+ */
+export function forgotPassword(data) {
+  return request({
+    url: '/api/auth/forgot-password',
+    method: 'post',
+    data,
+    skipRetry: true
   })
 }
 
@@ -70,6 +95,7 @@ export function changePassword(data) {
   return request({
     url: '/api/auth/change-password',
     method: 'post',
-    data
+    data,
+    skipRetry: true
   })
 }

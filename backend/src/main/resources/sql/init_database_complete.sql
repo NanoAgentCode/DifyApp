@@ -42,7 +42,9 @@ DROP TABLE IF EXISTS "SYS_USER" CASCADE;
 CREATE TABLE "SYS_USER" (
     id BIGSERIAL PRIMARY KEY,
     username VARCHAR(64) NOT NULL UNIQUE,
+    email VARCHAR(254) UNIQUE,
     password VARCHAR(255) NOT NULL,
+    password_version INTEGER NOT NULL DEFAULT 0,
     role INTEGER DEFAULT 2,
     status INTEGER DEFAULT 0,
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -53,7 +55,9 @@ CREATE TABLE "SYS_USER" (
 COMMENT ON TABLE "SYS_USER" IS '用户表';
 COMMENT ON COLUMN "SYS_USER".id IS '用户编号';
 COMMENT ON COLUMN "SYS_USER".username IS '用户名';
+COMMENT ON COLUMN "SYS_USER".email IS '注册邮箱（新用户需验证码校验）';
 COMMENT ON COLUMN "SYS_USER".password IS '密码（BCrypt加密）';
+COMMENT ON COLUMN "SYS_USER".password_version IS '密码版本，用于密码变更后废止旧JWT';
 COMMENT ON COLUMN "SYS_USER".role IS '角色：1-管理员，2-普通用户';
 COMMENT ON COLUMN "SYS_USER".status IS '状态：0-待审核，1-已激活，2-已禁用';
 COMMENT ON COLUMN "SYS_USER".create_time IS '创建时间';
@@ -62,6 +66,7 @@ COMMENT ON COLUMN "SYS_USER".deleted IS '是否删除：0-未删除，1-已删�
 
 -- 创建索引
 CREATE INDEX idx_user_username ON "SYS_USER"(username);
+CREATE UNIQUE INDEX idx_user_email ON "SYS_USER"(LOWER(email)) WHERE email IS NOT NULL;
 CREATE INDEX idx_user_status ON "SYS_USER"(status);
 CREATE INDEX idx_user_role ON "SYS_USER"(role);
 

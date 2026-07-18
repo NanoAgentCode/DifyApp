@@ -17,6 +17,9 @@ public class LoginResponse {
     
     @Schema(description = "用户名")
     private String username;
+
+    @Schema(description = "邮箱")
+    private String email;
     
     @Schema(description = "角色：1-管理员，2-普通用户")
     private Integer role;
@@ -53,6 +56,14 @@ public class LoginResponse {
     
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
     
     public Integer getRole() {

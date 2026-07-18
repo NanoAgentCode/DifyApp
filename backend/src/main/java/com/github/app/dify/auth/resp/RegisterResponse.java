@@ -12,6 +12,9 @@ public class RegisterResponse {
     
     @Schema(description = "用户名")
     private String username;
+
+    @Schema(description = "邮箱")
+    private String email;
     
     @Schema(description = "状态：0-待审核，1-已激活，2-已禁用")
     private Integer status;
@@ -34,6 +37,14 @@ public class RegisterResponse {
     
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
     
     public Integer getStatus() {

@@ -11,7 +11,7 @@
         <el-form-item prop="username">
           <el-input
             v-model="loginForm.username"
-            placeholder="请输入用户名"
+            placeholder="请输入用户名或邮箱"
             size="large"
             prefix-icon="User"
           />
@@ -26,6 +26,11 @@
             @keyup.enter="handleLogin"
           />
         </el-form-item>
+        <div class="password-actions">
+          <el-link type="primary" :underline="false" @click="showForgotPassword = true">
+            忘记密码？
+          </el-link>
+        </div>
         <el-form-item>
           <el-button
             type="primary"
@@ -45,6 +50,7 @@
         </el-form-item>
       </el-form>
     </div>
+    <ForgotPasswordDialog v-model="showForgotPassword" />
   </div>
 </template>
 
@@ -54,11 +60,13 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { login } from '@/api/auth'
 import { getFirstPermittedPath } from '@/utils/permission'
+import ForgotPasswordDialog from '@/components/ForgotPasswordDialog.vue'
 
 const router = useRouter()
 
 const loginFormRef = ref(null)
 const loading = ref(false)
+const showForgotPassword = ref(false)
 
 const loginForm = reactive({
   username: '',
@@ -67,7 +75,7 @@ const loginForm = reactive({
 
 const loginRules = {
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' }
+    { required: true, message: '请输入用户名或邮箱', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' }
@@ -96,6 +104,7 @@ const handleLogin = async () => {
         localStorage.setItem('userInfo', JSON.stringify({
           userId: response.userId,
           username: response.username,
+          email: response.email,
           role: response.role,
           status: response.status,
           roles: response.roles || [],
@@ -107,7 +116,7 @@ const handleLogin = async () => {
         const preferred = response.role === 1 ? '/admin/chat' : '/user/chat'
         router.push(getFirstPermittedPath(preferred, response.role === 1 ? '/admin' : '/user'))
       } catch (error) {
-        ElMessage.error(error.response?.data?.error || error.message || '登录失败')
+        ElMessage.error(error.response?.data?.message || error.message || '登录失败')
       } finally {
         loading.value = false
       }
@@ -192,6 +201,14 @@ const goToRegister = () => {
 
 .login-form :deep(.el-form-item) {
   margin-bottom: var(--spacing-lg);
+}
+
+.password-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: calc(var(--spacing-md) * -1);
+  margin-bottom: var(--spacing-lg);
+  font-size: var(--font-size-sm);
 }
 
 .login-form :deep(.el-input__wrapper) {

@@ -36,6 +36,14 @@ public class User extends BaseEntity {
     @Length(max= 64,message="编码长度不能超过64")
     @Column(name = "username", unique = true)
     private String username;
+
+    /**
+     * 注册邮箱。历史用户可能为空，新注册用户必须提供并完成验证码校验。
+     */
+    @Size(max = 254, message = "邮箱长度不能超过254")
+    @Schema(description = "邮箱")
+    @Column(name = "email", unique = true, length = 254)
+    private String email;
     
     /**
      * 密码（加密后）
@@ -45,6 +53,13 @@ public class User extends BaseEntity {
     @Schema(description = "密码（加密后）")
     @Length(max= 255,message="编码长度不能超过255")
     private String password;
+
+    /**
+     * 密码版本。每次修改/重置密码后递增，用于立即废止旧JWT。
+     */
+    @Schema(description = "密码版本")
+    @Column(name = "password_version", nullable = false)
+    private Integer passwordVersion = 0;
     
     /**
      * 角色：1-管理员，2-普通用户

@@ -69,13 +69,15 @@ public class JwtUtil {
      * @param userId 用户ID
      * @param username 用户名
      * @param role 角色
+     * @param passwordVersion 密码版本，用于密码变更后废止旧Token
      * @return JWT Token
      */
-    public String generateToken(Long userId, String username, Integer role) {
+    public String generateToken(Long userId, String username, Integer role, Integer passwordVersion) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("username", username);
         claims.put("role", role);
+        claims.put("passwordVersion", passwordVersion == null ? 0 : passwordVersion);
         
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
@@ -151,6 +153,17 @@ public class JwtUtil {
             }
         }
         return null;
+    }
+
+    public Integer getPasswordVersionFromToken(String token) {
+        Claims claims = getClaimsFromToken(token);
+        if (claims != null) {
+            Object passwordVersion = claims.get("passwordVersion");
+            if (passwordVersion instanceof Number) {
+                return ((Number) passwordVersion).intValue();
+            }
+        }
+        return 0;
     }
     
     /**

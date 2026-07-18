@@ -1,9 +1,11 @@
 package com.github.app.dify.auth.controller;
 
 import com.github.app.dify.auth.req.ChangePasswordRequest;
+import com.github.app.dify.auth.req.ForgotPasswordRequest;
 import com.github.app.dify.auth.req.LoginRequest;
 import com.github.app.dify.auth.req.RegisterRequest;
 import com.github.app.dify.auth.req.ResetPasswordRequest;
+import com.github.app.dify.auth.req.VerificationCodeRequest;
 import com.github.app.dify.auth.resp.LoginResponse;
 import com.github.app.dify.auth.resp.RegisterResponse;
 import com.github.app.dify.auth.resp.UserResp;
@@ -76,6 +78,29 @@ public class AuthController {
             throw e;
         }
     }
+
+    /**
+     * 发送注册或找回密码邮箱验证码。
+     */
+    @Operation(summary = "发送邮箱验证码")
+    @PostMapping("/verification-code")
+    public ResponseEntity<Void> sendVerificationCode(
+            @Validated @RequestBody VerificationCodeRequest request) {
+        authService.sendVerificationCode(request);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 忘记密码：通过注册邮箱验证码重置密码。
+     */
+    @UserAction(module = "用户管理", actionType = "找回密码", description = "用户通过邮箱验证码重置密码", logParams = false)
+    @Operation(summary = "通过邮箱验证码重置密码")
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(
+            @Validated @RequestBody ForgotPasswordRequest request) {
+        authService.resetPasswordByEmail(request);
+        return ResponseEntity.ok().build();
+    }
     
     /**
      * 用户登录
@@ -90,7 +115,7 @@ public class AuthController {
             // 先查询用户，即使登录失败也要记录用户名
             com.github.app.dify.auth.domain.User user = null;
             try {
-                user = authService.getUserByUsername(request.getUsername());
+                user = authService.getUserByAccount(request.getUsername());
             } catch (Exception e) {
                 // 用户不存在，忽略，稍后会在login中抛出异常
             }
