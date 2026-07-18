@@ -238,7 +238,7 @@
                 size="small"
                 @click="handleApprove(scope.row)"
               >
-                审核通过
+                审核
               </el-button>
               <el-tooltip
                 v-if="scope.row.status === 1"
