@@ -9,6 +9,6 @@ export function assistantChat(data) {
   })
 }
 
-export function assistantChatStream(data) {
-  return requestSSE('/api/assistant/stream', { data })
+export function assistantChatStream(data, signal) {
+  return requestSSE('/api/assistant/stream', { data, signal })
 }
