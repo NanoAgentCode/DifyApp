@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title th:text="${subject}">邮箱验证码</title>
+  <style>
+    @media only screen and (max-width: 620px) {
+      .email-shell { width: 100% !important; }
+      .content-cell { padding: 32px 24px !important; }
+      .code-value { font-size: 30px !important; letter-spacing: 7px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#f5f7fa;color:#303133;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',Arial,sans-serif;">
+  <div th:text="${preheader}" style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+    邮箱验证码及有效期
+  </div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background-color:#f5f7fa;">
+    <tr>
+      <td align="center" style="padding:40px 16px;">
+        <table role="presentation" class="email-shell" width="600" cellspacing="0" cellpadding="0" border="0" style="width:600px;max-width:600px;background-color:#ffffff;border:1px solid #ebeef5;border-radius:16px;box-shadow:0 12px 32px rgba(48,49,51,0.08);overflow:hidden;">
+          <tr>
+            <td th:style="|height:6px;background-color:${brandColor};font-size:0;line-height:0;|" style="height:6px;background-color:#409eff;font-size:0;line-height:0;">&nbsp;</td>
+          </tr>
+          <tr>
+            <td class="content-cell" style="padding:42px 48px 38px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="padding-bottom:32px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td th:text="${#strings.substring(brandName, 0, 1)}" th:style="|width:42px;height:42px;background-color:${brandColor};border-radius:12px;color:#ffffff;font-size:21px;font-weight:700;line-height:42px;|" width="42" height="42" align="center" valign="middle" style="width:42px;height:42px;background-color:#409eff;border-radius:12px;color:#ffffff;font-size:21px;font-weight:700;line-height:42px;">D</td>
+                        <td th:text="${brandName}" style="padding-left:12px;color:#303133;font-size:20px;font-weight:700;letter-spacing:0.2px;">DifyApp</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <span th:style="|display:inline-block;padding:5px 10px;background-color:#ecf5ff;border-radius:999px;color:${brandColor};font-size:12px;font-weight:600;line-height:18px;|" style="display:inline-block;padding:5px 10px;background-color:#ecf5ff;border-radius:999px;color:#337ecc;font-size:12px;font-weight:600;line-height:18px;">邮箱验证</span>
+                    <h1 th:text="${title}" style="margin:16px 0 10px;color:#303133;font-size:28px;line-height:1.35;font-weight:700;">完成邮箱验证</h1>
+                    <p th:text="${intro}" style="margin:0;color:#606266;font-size:15px;line-height:1.8;">请在页面输入以下验证码。</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:28px 0 24px;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background-color:#f7fbff;border:1px solid #d9ecff;border-radius:12px;">
+                      <tr>
+                        <td align="center" style="padding:22px 16px 20px;">
+                          <div style="margin-bottom:9px;color:#909399;font-size:12px;line-height:18px;letter-spacing:1px;">验证码</div>
+                          <div th:text="${code}" th:style="|color:${brandColor};font-family:Consolas,Monaco,'Courier New',monospace;font-size:36px;font-weight:700;line-height:1.2;letter-spacing:10px;white-space:nowrap;|" class="code-value" style="color:#2b6cb0;font-family:Consolas,Monaco,'Courier New',monospace;font-size:36px;font-weight:700;line-height:1.2;letter-spacing:10px;white-space:nowrap;">123456</div>
+                          <div style="margin-top:12px;color:#606266;font-size:13px;line-height:20px;">有效期 <strong th:text="|${ttlMinutes} 分钟|" style="color:#303133;">5 分钟</strong></div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td th:text="${nextStep}" th:style="|padding:14px 16px;background-color:#fafafa;border-left:3px solid ${brandColor};border-radius:6px;color:#606266;font-size:13px;line-height:1.7;|" style="padding:14px 16px;background-color:#fafafa;border-left:3px solid #409eff;border-radius:6px;color:#606266;font-size:13px;line-height:1.7;">
+                    完成验证后即可继续操作。
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-top:24px;color:#909399;font-size:12px;line-height:1.8;">
+                    为保障账号安全，请勿向任何人泄露验证码。若非本人操作，请忽略此邮件，无需进行其他处理。
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:22px 24px;background-color:#fafafa;border-top:1px solid #ebeef5;color:#a8abb2;font-size:12px;line-height:1.7;">
+              此邮件由 <span th:text="${brandName}">DifyApp</span> 系统自动发送，请勿直接回复。
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

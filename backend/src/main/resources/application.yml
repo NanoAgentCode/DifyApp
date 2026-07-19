@@ -21,6 +21,9 @@ spring:
 auth:
   verification-code:
     from: ${MAIL_FROM:noreply@difyapp.local}
+    sender-name: ${MAIL_SENDER_NAME:DifyApp}
+    brand-name: ${EMAIL_BRAND_NAME:DifyApp}
+    brand-color: '${EMAIL_BRAND_COLOR:#409EFF}'
     ttl-minutes: ${EMAIL_CODE_TTL_MINUTES:5}
     cooldown-seconds: ${EMAIL_CODE_COOLDOWN_SECONDS:60}
     hourly-limit: ${EMAIL_CODE_HOURLY_LIMIT:10}

@@ -1,16 +1,17 @@
 package com.github.app.dify.auth.service.impl;
 
+import com.github.app.dify.auth.config.VerificationCodeProperties;
 import com.github.app.dify.auth.req.VerificationCodePurpose;
 import com.github.app.dify.auth.service.EmailVerificationService;
-import com.github.app.dify.auth.util.VerificationEmailTemplate;
-import com.github.app.dify.auth.util.VerificationEmailTemplate.EmailContent;
+import com.github.app.dify.auth.service.email.VerificationEmailTemplateRenderer;
+import com.github.app.dify.auth.service.email.VerificationEmailTemplateRenderer.EmailContent;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.mail.MailProperties;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -20,6 +21,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -65,28 +67,21 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
 
     private final StringRedisTemplate redisTemplate;
     private final JavaMailSender mailSender;
+    private final VerificationEmailTemplateRenderer emailTemplateRenderer;
+    private final VerificationCodeProperties properties;
+    private final MailProperties mailProperties;
 
-    @Value("${spring.mail.host:}")
-    private String mailHost;
-
-    @Value("${auth.verification-code.from:noreply@difyapp.local}")
-    private String from;
-
-    @Value("${auth.verification-code.ttl-minutes:5}")
-    private long ttlMinutes;
-
-    @Value("${auth.verification-code.cooldown-seconds:60}")
-    private long cooldownSeconds;
-
-    @Value("${auth.verification-code.hourly-limit:10}")
-    private long hourlyLimit;
-
-    @Value("${auth.verification-code.max-attempts:5}")
-    private long maxAttempts;
-
-    public EmailVerificationServiceImpl(StringRedisTemplate redisTemplate, JavaMailSender mailSender) {
+    public EmailVerificationServiceImpl(
+            StringRedisTemplate redisTemplate,
+            JavaMailSender mailSender,
+            VerificationEmailTemplateRenderer emailTemplateRenderer,
+            VerificationCodeProperties properties,
+            MailProperties mailProperties) {
         this.redisTemplate = redisTemplate;
         this.mailSender = mailSender;
+        this.emailTemplateRenderer = emailTemplateRenderer;
+        this.properties = properties;
+        this.mailProperties = mailProperties;
     }
 
     @Override
@@ -103,7 +98,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
 
         try {
             Boolean acquired = redisTemplate.opsForValue()
-                    .setIfAbsent(cooldownKey, "1", Duration.ofSeconds(cooldownSeconds));
+                    .setIfAbsent(cooldownKey, "1", Duration.ofSeconds(properties.getCooldownSeconds()));
             if (!Boolean.TRUE.equals(acquired)) {
                 throw new BusinessException("验证码发送过于频繁，请稍后再试", ErrorCode.TOO_MANY_REQUESTS);
             }
@@ -112,13 +107,13 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
             if (sentCount != null && sentCount == 1L) {
                 redisTemplate.expire(hourlyKey, Duration.ofHours(1));
             }
-            if (sentCount != null && sentCount > hourlyLimit) {
+            if (sentCount != null && sentCount > properties.getHourlyLimit()) {
                 redisTemplate.delete(cooldownKey);
                 throw new BusinessException("验证码发送次数已达上限，请一小时后再试", ErrorCode.TOO_MANY_REQUESTS);
             }
 
             redisTemplate.delete(attemptsKey);
-            redisTemplate.opsForValue().set(codeKey, code, Duration.ofMinutes(ttlMinutes));
+            redisTemplate.opsForValue().set(codeKey, code, Duration.ofMinutes(properties.getTtlMinutes()));
             sendMail(normalizedEmail, purpose, code);
             logger.info("邮箱验证码发送成功 - purpose: {}, email: {}", purpose, maskEmail(normalizedEmail));
         } catch (BusinessException e) {
@@ -149,8 +144,8 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
                     VERIFY_SCRIPT,
                     List.of(codeKey, attemptsKey),
                     code,
-                    String.valueOf(maxAttempts),
-                    String.valueOf(Duration.ofMinutes(ttlMinutes).toSeconds())
+                    String.valueOf(properties.getMaxAttempts()),
+                    String.valueOf(Duration.ofMinutes(properties.getTtlMinutes()).toSeconds())
             );
             if (result == null || result == 0L) {
                 throw new BusinessException("邮箱验证码已过期，请重新获取", ErrorCode.CAPTCHA_EXPIRED);
@@ -170,22 +165,22 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     }
 
     private void sendMail(String email, VerificationCodePurpose purpose, String code) {
-        EmailContent content = VerificationEmailTemplate.render(purpose, code, ttlMinutes);
+        EmailContent content = emailTemplateRenderer.render(purpose, code);
         MimeMessage message = mailSender.createMimeMessage();
         try {
-            MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
-            helper.setFrom(from);
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
+            helper.setFrom(properties.getFrom(), properties.getSenderName());
             helper.setTo(email);
             helper.setSubject(content.subject());
             helper.setText(content.plainText(), content.htmlText());
             mailSender.send(message);
-        } catch (MessagingException e) {
+        } catch (MessagingException | UnsupportedEncodingException e) {
             throw new MailPreparationException("无法创建邮箱验证码邮件", e);
         }
     }
 
     private void ensureMailConfigured() {
-        if (mailHost == null || mailHost.isBlank()) {
+        if (mailProperties.getHost() == null || mailProperties.getHost().isBlank()) {
             throw new BusinessException("邮件服务尚未配置，请联系管理员", ErrorCode.SERVICE_UNAVAILABLE);
         }
     }

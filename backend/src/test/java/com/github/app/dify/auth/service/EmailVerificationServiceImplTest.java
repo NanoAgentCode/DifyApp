@@ -1,24 +1,34 @@
 package com.github.app.dify.auth.service;
 
+import com.github.app.dify.auth.config.VerificationCodeProperties;
 import com.github.app.dify.auth.req.VerificationCodePurpose;
+import com.github.app.dify.auth.service.email.VerificationEmailTemplateRenderer;
 import com.github.app.dify.auth.service.impl.EmailVerificationServiceImpl;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
+import jakarta.mail.Part;
 import jakarta.mail.Session;
+import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeMultipart;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.autoconfigure.mail.MailProperties;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.test.util.ReflectionTestUtils;
+import org.thymeleaf.spring6.SpringTemplateEngine;
+import org.thymeleaf.templatemode.TemplateMode;
+import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
 import java.time.Duration;
+import java.util.Properties;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -42,16 +52,19 @@ class EmailVerificationServiceImplTest {
     private JavaMailSender mailSender;
 
     private EmailVerificationServiceImpl service;
+    private VerificationCodeProperties verificationProperties;
 
     @BeforeEach
     void setUp() {
-        service = new EmailVerificationServiceImpl(redisTemplate, mailSender);
-        ReflectionTestUtils.setField(service, "mailHost", "smtp.example.com");
-        ReflectionTestUtils.setField(service, "from", "noreply@example.com");
-        ReflectionTestUtils.setField(service, "ttlMinutes", 5L);
-        ReflectionTestUtils.setField(service, "cooldownSeconds", 60L);
-        ReflectionTestUtils.setField(service, "hourlyLimit", 10L);
-        ReflectionTestUtils.setField(service, "maxAttempts", 5L);
+        verificationProperties = new VerificationCodeProperties();
+        verificationProperties.setFrom("noreply@example.com");
+        verificationProperties.setSenderName("DifyApp Team");
+        MailProperties mailProperties = new MailProperties();
+        mailProperties.setHost("smtp.example.com");
+        VerificationEmailTemplateRenderer renderer = new VerificationEmailTemplateRenderer(
+                createTemplateEngine(), verificationProperties);
+        service = new EmailVerificationServiceImpl(
+                redisTemplate, mailSender, renderer, verificationProperties, mailProperties);
     }
 
     @Test
@@ -59,7 +72,7 @@ class EmailVerificationServiceImplTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
         when(valueOperations.increment(anyString())).thenReturn(1L);
-        MimeMessage message = new MimeMessage((Session) null);
+        MimeMessage message = new MimeMessage(Session.getInstance(new Properties()));
         when(mailSender.createMimeMessage()).thenReturn(message);
 
         service.sendCode("User@Example.com", VerificationCodePurpose.REGISTER);
@@ -70,9 +83,15 @@ class EmailVerificationServiceImplTest {
 
         ArgumentCaptor<MimeMessage> mailCaptor = ArgumentCaptor.forClass(MimeMessage.class);
         verify(mailSender).send(mailCaptor.capture());
+        mailCaptor.getValue().saveChanges();
         assertEquals("DifyApp 注册账号验证码", mailCaptor.getValue().getSubject());
         assertEquals("user@example.com", mailCaptor.getValue().getAllRecipients()[0].toString());
-        assertTrue(mailCaptor.getValue().getContentType().contains("multipart/alternative"));
+        InternetAddress fromAddress = (InternetAddress) mailCaptor.getValue().getFrom()[0];
+        assertEquals("noreply@example.com", fromAddress.getAddress());
+        assertEquals("DifyApp Team", fromAddress.getPersonal());
+        assertTrue(containsMimeType(mailCaptor.getValue(), "multipart/alternative"));
+        assertTrue(containsMimeType(mailCaptor.getValue(), "text/plain"));
+        assertTrue(containsMimeType(mailCaptor.getValue(), "text/html"));
     }
 
     @Test
@@ -111,5 +130,32 @@ class EmailVerificationServiceImplTest {
                         "user@example.com", VerificationCodePurpose.RESET_PASSWORD, "123456"));
 
         assertEquals(ErrorCode.CAPTCHA_EXPIRED, error.getCode());
+    }
+
+    private static SpringTemplateEngine createTemplateEngine() {
+        ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
+        resolver.setPrefix("templates/");
+        resolver.setSuffix(".html");
+        resolver.setTemplateMode(TemplateMode.HTML);
+        resolver.setCharacterEncoding("UTF-8");
+        SpringTemplateEngine engine = new SpringTemplateEngine();
+        engine.setTemplateResolver(resolver);
+        return engine;
+    }
+
+    private static boolean containsMimeType(Part part, String mimeType) throws Exception {
+        if (part.isMimeType(mimeType)) {
+            return true;
+        }
+        if (!part.isMimeType("multipart/*")) {
+            return false;
+        }
+        MimeMultipart multipart = (MimeMultipart) part.getContent();
+        for (int i = 0; i < multipart.getCount(); i++) {
+            if (containsMimeType(multipart.getBodyPart(i), mimeType)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
