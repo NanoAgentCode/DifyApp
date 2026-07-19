@@ -4,6 +4,8 @@ import com.github.app.dify.auth.req.VerificationCodePurpose;
 import com.github.app.dify.auth.service.impl.EmailVerificationServiceImpl;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,7 +15,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.RedisScript;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -54,10 +55,12 @@ class EmailVerificationServiceImplTest {
     }
 
     @Test
-    void sendCodeStoresSixDigitsAndSendsMail() {
+    void sendCodeStoresSixDigitsAndSendsMail() throws Exception {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
         when(valueOperations.increment(anyString())).thenReturn(1L);
+        MimeMessage message = new MimeMessage((Session) null);
+        when(mailSender.createMimeMessage()).thenReturn(message);
 
         service.sendCode("User@Example.com", VerificationCodePurpose.REGISTER);
 
@@ -65,10 +68,11 @@ class EmailVerificationServiceImplTest {
         verify(valueOperations).set(anyString(), codeCaptor.capture(), any(Duration.class));
         assertTrue(codeCaptor.getValue().matches("\\d{6}"));
 
-        ArgumentCaptor<SimpleMailMessage> mailCaptor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        ArgumentCaptor<MimeMessage> mailCaptor = ArgumentCaptor.forClass(MimeMessage.class);
         verify(mailSender).send(mailCaptor.capture());
-        assertEquals("user@example.com", mailCaptor.getValue().getTo()[0]);
-        assertTrue(mailCaptor.getValue().getText().contains(codeCaptor.getValue()));
+        assertEquals("DifyApp 注册账号验证码", mailCaptor.getValue().getSubject());
+        assertEquals("user@example.com", mailCaptor.getValue().getAllRecipients()[0].toString());
+        assertTrue(mailCaptor.getValue().getContentType().contains("multipart/alternative"));
     }
 
     @Test
@@ -80,7 +84,7 @@ class EmailVerificationServiceImplTest {
                 () -> service.sendCode("user@example.com", VerificationCodePurpose.REGISTER));
 
         assertEquals(ErrorCode.TOO_MANY_REQUESTS, error.getCode());
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(mailSender, never()).send(any(MimeMessage.class));
     }
 
     @Test

@@ -2,8 +2,12 @@ package com.github.app.dify.auth.service.impl;
 
 import com.github.app.dify.auth.req.VerificationCodePurpose;
 import com.github.app.dify.auth.service.EmailVerificationService;
+import com.github.app.dify.auth.util.VerificationEmailTemplate;
+import com.github.app.dify.auth.util.VerificationEmailTemplate.EmailContent;
 import com.github.app.dify.common.exception.BusinessException;
 import com.github.app.dify.common.exception.ErrorCode;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,8 +15,9 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.MailPreparationException;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -165,14 +170,18 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     }
 
     private void sendMail(String email, VerificationCodePurpose purpose, String code) {
-        String scene = purpose == VerificationCodePurpose.REGISTER ? "注册账号" : "重置密码";
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(from);
-        message.setTo(email);
-        message.setSubject("DifyApp " + scene + "验证码");
-        message.setText("您正在" + scene + "，验证码为：" + code + "。\n\n验证码将在 "
-                + ttlMinutes + " 分钟后失效，请勿向任何人泄露。若非本人操作，请忽略此邮件。");
-        mailSender.send(message);
+        EmailContent content = VerificationEmailTemplate.render(purpose, code, ttlMinutes);
+        MimeMessage message = mailSender.createMimeMessage();
+        try {
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
+            helper.setFrom(from);
+            helper.setTo(email);
+            helper.setSubject(content.subject());
+            helper.setText(content.plainText(), content.htmlText());
+            mailSender.send(message);
+        } catch (MessagingException e) {
+            throw new MailPreparationException("无法创建邮箱验证码邮件", e);
+        }
     }
 
     private void ensureMailConfigured() {
